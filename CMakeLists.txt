@@ -25,8 +25,9 @@ project(libcamera-still)
 
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(CAMERA REQUIRED camera)
+pkg_check_modules(LIBDRM REQUIRED libdrm)
 
-include_directories(. "${CAMERA_INCLUDE_DIRS}" /usr/include/libdrm)
+include_directories(. "${CAMERA_INCLUDE_DIRS}" "${LIBDRM_INCLUDE_DIRS}")
 
 find_package( Boost REQUIRED COMPONENTS program_options )
 
