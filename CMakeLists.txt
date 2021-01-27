@@ -13,7 +13,13 @@ set (CMAKE CXX_FLAGS "-Wall -Wextra -pedantic -Wno-unused-parameter -faligned-ne
 add_definitions(-Wfatal-errors)
 add_definitions(-Wno-psabi)
 add_definitions(-DBOOST_LOG_DYN_LINK)
-add_definitions(-mfpu=neon-fp-armv8 -ftree-vectorize)
+
+IF (NOT ENABLE_COMPILE_FLAGS_FOR_TARGET)
+  set(ENABLE_COMPILE_FLAGS_FOR_TARGET "armv8")
+endif()
+if ("${ENABLE_COMPILE_FLAGS_FOR_TARGET}" STREQUAL "armv8")
+  add_definitions(-mfpu=neon-fp-armv8 -ftree-vectorize)
+endif()
 
 project(common)
 add_library(common output.cpp file_output.cpp net_output.cpp circular_output.cpp egl_preview.cpp drm_preview.cpp jpeg.cpp)
