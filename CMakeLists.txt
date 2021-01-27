@@ -59,17 +59,17 @@ target_link_libraries(libcamera-still common "${LIBCAMERA_LIBRARY}" "${IPA_RPI_L
 project(libcamera-vid)
 
 add_executable(libcamera-vid libcamera_vid.cpp)
-target_link_libraries(libcamera-vid encoders common "${LIBCAMERA_LIBRARY}" "${IPA_RPI_LIBRARY}" ${Boost_LIBRARIES} pthread jpeg "${X11_LIBRARIES}" "${EPOXY_LIBRARY}" "${DRM_LIBRARY}")
+target_link_libraries(libcamera-vid encoders common "${LIBCAMERA_LIBRARY}" "${IPA_RPI_LIBRARY}" exif ${Boost_LIBRARIES} pthread jpeg "${X11_LIBRARIES}" "${EPOXY_LIBRARY}" "${DRM_LIBRARY}")
 
 project(libcamera-hello)
 
 add_executable(libcamera-hello libcamera_hello.cpp)
-target_link_libraries(libcamera-hello common "${LIBCAMERA_LIBRARY}" "${IPA_RPI_LIBRARY}" ${Boost_LIBRARIES} pthread "${X11_LIBRARIES}" "${EPOXY_LIBRARY}" "${DRM_LIBRARY}")
+target_link_libraries(libcamera-hello common "${LIBCAMERA_LIBRARY}" "${IPA_RPI_LIBRARY}" exif ${Boost_LIBRARIES} jpeg pthread "${X11_LIBRARIES}" "${EPOXY_LIBRARY}" "${DRM_LIBRARY}")
 
 project(libcamera-raw)
 
 add_executable(libcamera-raw libcamera_raw.cpp)
-target_link_libraries(libcamera-raw encoders common "${LIBCAMERA_LIBRARY}" "${IPA_RPI_LIBRARY}" jpeg ${Boost_LIBRARIES} pthread "${X11_LIBRARIES}" "${EPOXY_LIBRARY}" "${DRM_LIBRARY}")
+target_link_libraries(libcamera-raw encoders common "${LIBCAMERA_LIBRARY}" "${IPA_RPI_LIBRARY}" exif jpeg ${Boost_LIBRARIES} pthread "${X11_LIBRARIES}" "${EPOXY_LIBRARY}" "${DRM_LIBRARY}")
 
 project(libcamera-jpeg)
 
