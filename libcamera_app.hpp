@@ -328,7 +328,7 @@ public:
 		if (!controls_.contains(controls::FrameDurations))
 		{
 			if (still_stream_)
-				controls_.set(controls::FrameDurations, { 100LL, 1000000000LL });
+				controls_.set(controls::FrameDurations, { INT64_C(100), INT64_C(1000000000) });
 			else if (options.framerate > 0)
 			{
 				int64_t frame_time = 1000000 / options.framerate; // in us
