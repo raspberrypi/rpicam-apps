@@ -325,7 +325,7 @@ static void YUV420_to_JPEG_fast(const uint8_t *input,
 	cinfo.restart_interval = restart;
 
     jpeg_set_defaults(&cinfo);
-	cinfo.raw_data_in = true;
+	cinfo.raw_data_in = TRUE;
     jpeg_set_quality(&cinfo, quality, TRUE);
 	jpeg_buffer = NULL;
 	jpeg_len = 0;
