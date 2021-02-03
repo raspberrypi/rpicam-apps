@@ -60,7 +60,7 @@ void MjpegEncoder::encodeJPEG(struct jpeg_compress_struct &cinfo, EncodeItem &it
 	cinfo.restart_interval = 0;
 
     jpeg_set_defaults(&cinfo);
-	cinfo.raw_data_in = true;
+	cinfo.raw_data_in = TRUE;
     jpeg_set_quality(&cinfo, options_.quality, TRUE);
 	encoded_buffer = nullptr;
 	buffer_len = 0;
