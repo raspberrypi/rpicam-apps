@@ -23,6 +23,12 @@
 
 #include "still_options.hpp"
 
+#if JPEG_LIB_VERSION_MAJOR > 9 || (JPEG_LIB_VERSION_MAJOR == 9 && JPEG_LIB_VERSION_MINOR >= 4)
+typedef size_t jpeg_mem_len_t;
+#else
+typedef unsigned long jpeg_mem_len_t;
+#endif
+
 using namespace libcamera;
 
 typedef int (*ExifReadFunction)(char const *, unsigned char *);
@@ -249,7 +255,7 @@ static void YUYV_to_JPEG(const uint8_t *input,
 						 const int input_width, const int input_height, const int stride,
 						 const int output_width, const int output_height,
 						 const int quality, const unsigned int restart,
-						 uint8_t *&jpeg_buffer, long unsigned int &jpeg_len)
+						 uint8_t *&jpeg_buffer, jpeg_mem_len_t &jpeg_len)
 {
     struct jpeg_compress_struct cinfo;
     struct jpeg_error_mgr jerr;
@@ -304,7 +310,7 @@ static void YUYV_to_JPEG(const uint8_t *input,
 static void YUV420_to_JPEG_fast(const uint8_t *input,
 								const int width, const int height, const int stride,
 								const int quality, const unsigned int restart,
-								uint8_t *&jpeg_buffer, long unsigned int &jpeg_len)
+								uint8_t *&jpeg_buffer, jpeg_mem_len_t &jpeg_len)
 {
     struct jpeg_compress_struct cinfo;
     struct jpeg_error_mgr jerr;
@@ -377,7 +383,7 @@ static void YUV420_to_JPEG(const uint8_t *input,
 						   const int input_width, const int input_height, const int stride,
 						   const int output_width, const int output_height,
 						   const int quality, const unsigned int restart,
-						   uint8_t *&jpeg_buffer, long unsigned int &jpeg_len)
+						   uint8_t *&jpeg_buffer, jpeg_mem_len_t &jpeg_len)
 {
 	if (input_width == output_width && input_height == output_height)
 	{
@@ -446,7 +452,7 @@ static void YUV_to_JPEG(PixelFormat const &pixel_format, const uint8_t *input,
 						const int input_width, const int input_height, const int stride,
 						const int output_width, const int output_height,
 						const int quality, const unsigned int restart,
-						uint8_t *&jpeg_buffer, long unsigned int &jpeg_len)
+						uint8_t *&jpeg_buffer, jpeg_mem_len_t &jpeg_len)
 {
 	if (pixel_format == libcamera::formats::YUYV)
 		YUYV_to_JPEG(input, input_width, input_height, stride,
@@ -467,7 +473,7 @@ static void create_exif_data(PixelFormat const &pixel_format,
 							 ControlList const &metadata,
 							 std::string const &cam_name, StillOptions const &options,
 							 uint8_t *&exif_buffer, unsigned int &exif_len,
-							 uint8_t *&thumb_buffer, long unsigned int &thumb_len)
+							 uint8_t *&thumb_buffer, jpeg_mem_len_t &thumb_len)
 {
 	exif_buffer = nullptr;
 	ExifData *exif = nullptr;
@@ -616,7 +622,7 @@ void jpeg_save(std::vector<void *> const &mem, int w, int h, int stride,
 
 		// Make all the EXIF data, which includes the thumbnail.
 
-		long unsigned int thumb_len;
+		jpeg_mem_len_t thumb_len;
 		unsigned int exif_len;
 		create_exif_data(pixel_format, mem, w, h, stride, metadata, cam_name, options,
 						 exif_buffer, exif_len, thumb_buffer, thumb_len);
@@ -624,7 +630,7 @@ void jpeg_save(std::vector<void *> const &mem, int w, int h, int stride,
 		// Make the full size JPEG (could probably be more efficient if we had
 		// YUV422 or YUV420 planar format).
 
-		long unsigned int jpeg_len;
+		jpeg_mem_len_t jpeg_len;
 		YUV_to_JPEG(pixel_format, (uint8_t *)(mem[0]), w, h, stride, w, h,
 					 options.quality, options.restart, jpeg_buffer, jpeg_len);
 		if (options.verbose)
