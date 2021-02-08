@@ -45,8 +45,7 @@ The Qt libraries are purely for the qcam demo application supplied with libcamer
 Unfortunately the default version of meson is a little old, so please execute:
 
 ```bash
-wget http://ftp.br.debian.org/debian/pool/main/m/meson/meson_0.56.2-1_all.deb
-sudo dpkg -i meson_0.56.2-1_all.deb
+sudo pip3 install --upgrade meson
  ```
 
 Now we can download and build libcamera:
@@ -110,6 +109,12 @@ make -j4
 ```
 
 To check everything is working correctly, type `./libcamera-hello` - you should see a preview window displayed for about 5 seconds.
+
+*Note for Pi 3 devices*
+
+As we saw previously, 1GB devices may need `make -j2` instead of `make -j4`.
+
+Also, Pi 3s do not by default use the correct GL driver, so please ensure you have `dtoverlay=vc4-fkms-v3d` in the `[all]` (not in the `[pi4]`) section of your `/boot/config.txt` file.
 
 Understanding the Applications
 ------------------------------
