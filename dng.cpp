@@ -154,15 +154,21 @@ void dng_save(std::vector<void *> const &mem, int w, int h, int stride,
 
 	// We need to fish out some metadata values for the DNG.
 
-	float black = 4096;
+	float black = 4096 * (1 << bayer_format.bits) / 65536.0;
+	float black_levels[] = { black, black, black, black };
 	if (metadata.contains(controls::SensorBlackLevels))
 	{
-		Span<const int32_t> black_levels = metadata.get(controls::SensorBlackLevels);
-		black = black_levels[0];
+		Span<const int32_t> levels = metadata.get(controls::SensorBlackLevels);
+		// levels is in the order R, Gr, Gb, B. Re-order it for the actual bayer order.
+		for (int i = 0; i < 4; i++)
+		{
+			int j = bayer_format.order[i];
+			j = j == 0 ? 0 : (j == 2 ? 3 : 1 + !!bayer_format.order[i^1]);
+			black_levels[j] = levels[i] * (1 << bayer_format.bits) / 65536.0;
+		}
 	}
 	else
 		std::cout << "WARNING: no black level found, using default" << std::endl;
-	black = black * (1 << bayer_format.bits) / 65536.0;
 
 	float exp_time = 10000;
 	if (metadata.contains(controls::ExposureTime))
@@ -207,8 +213,9 @@ void dng_save(std::vector<void *> const &mem, int w, int h, int stride,
 	Matrix CAM_XYZ = (RGB2XYZ * CCM * WB_GAINS).Inv();
 
 	if (options.verbose) {
-		std::cout << "Black level " << black << ", exposure time " << exp_time * 1e6 <<
-			"us, ISO " << iso << std::endl;
+		std::cout << "Black levels " << black_levels[0] << " " << black_levels[1] << " "
+				  << black_levels[2] << " " << black_levels[3] << ", exposure time "
+				  << exp_time * 1e6 << "us, ISO " << iso << std::endl;
 		std::cout << "Neutral " << NEUTRAL[0] << " " << NEUTRAL[1] << " " << NEUTRAL[2] << std::endl;
 		std::cout << "Cam_XYZ: " << std::endl;
 		std::cout << CAM_XYZ.m[0] << " " << CAM_XYZ.m[1] << " " << CAM_XYZ.m[2] << std::endl;
@@ -283,7 +290,9 @@ void dng_save(std::vector<void *> const &mem, int w, int h, int stride,
         TIFFSetField(tif, TIFFTAG_CFAREPEATPATTERNDIM, cfa_repeat_pattern_dim);
         TIFFSetField(tif, TIFFTAG_CFAPATTERN, bayer_format.order);
         TIFFSetField(tif, TIFFTAG_WHITELEVEL, 1, &white);
-        TIFFSetField(tif, TIFFTAG_BLACKLEVEL, 1, &black);
+        const uint16_t black_level_repeat_dim[] = { 2, 2 };
+        TIFFSetField(tif, TIFFTAG_BLACKLEVELREPEATDIM, &black_level_repeat_dim);
+        TIFFSetField(tif, TIFFTAG_BLACKLEVEL, 4, &black_levels);
 
         for (int y = 0; y < h; y++)
         {
