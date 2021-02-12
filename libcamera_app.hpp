@@ -231,7 +231,7 @@ public:
 			configuration_->at(1).bufferCount = configuration_->at(0).bufferCount;
 		}
 		configuration_->transform = options.transform;
-	
+
 		configureDenoise(false);
 		setupCapture();
 
@@ -390,7 +390,7 @@ public:
 
 		if (camera_)
 			camera_->requestCompleted.disconnect(this, &LibcameraApp::requestComplete);
-	
+
 		msg_queue_.Clear();
 
 		if (preview_)
@@ -542,7 +542,7 @@ public:
 				colour_gains[0] = colour_gains[1] = 0;
 		}
 	}
-	
+
 private:
 	template <typename T>
 	class MessageQueue
@@ -626,7 +626,7 @@ private:
 		}
 		if (options.verbose)
 			std::cout << "Buffers allocated and mapped" << std::endl;
-	
+
 		// The requests will be made when StartCamera() is called.
 	}
 	void makeRequests()
