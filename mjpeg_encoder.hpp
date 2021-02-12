@@ -55,7 +55,7 @@ private:
 	std::condition_variable encode_cond_var_;
 	std::thread encode_thread_[NUM_ENC_THREADS];
 	void encodeJPEG(struct jpeg_compress_struct &cinfo, EncodeItem &item,
-					uint8_t *&encoded_buffer, long unsigned int &buffer_len);
+					uint8_t *&encoded_buffer, size_t &buffer_len);
 
 	struct OutputItem
 	{

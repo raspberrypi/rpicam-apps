@@ -148,7 +148,7 @@ static int get_key_or_signal(StillOptions const &options, pollfd p[1])
 		if (p[0].revents & POLLIN)
 		{
 			char *user_string = nullptr;
-			unsigned int len;
+			size_t len;
 			getline(&user_string, &len, stdin);
 			key = user_string[0];
 		}

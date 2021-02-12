@@ -216,7 +216,8 @@ void EglPreview::makeWindow(char const *name)
 	if (!eglGetConfigAttrib(egl_display_, config, EGL_NATIVE_VISUAL_ID, &vid))
 		throw std::runtime_error("eglGetConfigAttrib() failed\n");
 
-	XVisualInfo visTemplate = { .visualid = (long unsigned int)vid };
+	XVisualInfo visTemplate = {};
+	visTemplate.visualid = (VisualID)vid;
 	int num_visuals;
 	XVisualInfo *visinfo = XGetVisualInfo(display_, VisualIDMask,
                                          &visTemplate, &num_visuals);

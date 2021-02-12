@@ -12,6 +12,12 @@
 
 #include "mjpeg_encoder.hpp"
 
+#if JPEG_LIB_VERSION_MAJOR > 9 || (JPEG_LIB_VERSION_MAJOR == 9 && JPEG_LIB_VERSION_MINOR >= 4)
+typedef size_t jpeg_mem_len_t;
+#else
+typedef unsigned long jpeg_mem_len_t;
+#endif
+
 MjpegEncoder::MjpegEncoder(VideoOptions const &options)
 	: Encoder(options), abort_(false), index_(0)
 {
@@ -44,7 +50,7 @@ int MjpegEncoder::EncodeBuffer(int fd, size_t size,
 }
 
 void MjpegEncoder::encodeJPEG(struct jpeg_compress_struct &cinfo, EncodeItem &item,
-							  uint8_t *&encoded_buffer, long unsigned int &buffer_len)
+							  uint8_t *&encoded_buffer, size_t &buffer_len)
 {
 	// Copied from YUV420_to_JPEG_fast in jpeg.cpp.
     cinfo.image_width = item.width;
@@ -54,11 +60,13 @@ void MjpegEncoder::encodeJPEG(struct jpeg_compress_struct &cinfo, EncodeItem &it
 	cinfo.restart_interval = 0;
 
     jpeg_set_defaults(&cinfo);
-	cinfo.raw_data_in = true;
+	cinfo.raw_data_in = TRUE;
     jpeg_set_quality(&cinfo, options_.quality, TRUE);
 	encoded_buffer = nullptr;
 	buffer_len = 0;
-    jpeg_mem_dest(&cinfo, &encoded_buffer, &buffer_len);
+    jpeg_mem_len_t jpeg_mem_len;
+    jpeg_mem_dest(&cinfo, &encoded_buffer, &jpeg_mem_len);
+    buffer_len = jpeg_mem_len;
     jpeg_start_compress(&cinfo, TRUE);
 
 	int stride2 = item.stride / 2;
@@ -145,7 +153,7 @@ void MjpegEncoder::encodeThread(int num)
 
 		// Encode the buffer.
 		uint8_t *encoded_buffer = nullptr;
-		long unsigned int buffer_len = 0;
+		size_t buffer_len = 0;
 		auto start_time = std::chrono::high_resolution_clock::now();
 		encodeJPEG(cinfo, encode_item, encoded_buffer, buffer_len);
 		encode_time += (std::chrono::high_resolution_clock::now() - start_time);
