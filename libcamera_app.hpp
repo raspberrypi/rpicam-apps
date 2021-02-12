@@ -186,6 +186,7 @@ public:
 		configuration_->at(0).size.height = 960;
 		configuration_->transform = options.transform;
 
+		configureDenoise(true);
 		setupCapture();
 
 		viewfinder_stream_ = configuration_->at(0).stream();
@@ -231,6 +232,7 @@ public:
 		}
 		configuration_->transform = options.transform;
 	
+		configureDenoise(false);
 		setupCapture();
 
 		still_stream_ = configuration_->at(0).stream();
@@ -267,6 +269,7 @@ public:
 		}
 		configuration_->transform = options.transform;
 
+		configureDenoise(true);
 		setupCapture();
 
 		video_stream_ = configuration_->at(0).stream();
@@ -718,6 +721,29 @@ private:
 			preview_frames_displayed_++;
 			preview_->Show(fd, size, w, h, stride);
 		}
+	}
+	void configureDenoise(bool video_mode)
+	{
+		using namespace libcamera::controls::draft;
+
+		static const std::map<std::string, NoiseReductionModeEnum> denoise_table = {
+			{ "off", NoiseReductionModeOff },
+			{ "cdn_off", NoiseReductionModeMinimal },
+			{ "cdn_fast", NoiseReductionModeFast },
+			{ "cdn_hq", NoiseReductionModeHighQuality }
+		};
+		NoiseReductionModeEnum denoise;
+		
+		if (options.denoise == "auto") {
+			denoise = video_mode ? NoiseReductionModeFast
+					     : NoiseReductionModeHighQuality;
+		} else {
+			auto const mode = denoise_table.find(options.denoise);
+			if (mode == denoise_table.end())
+				throw std::runtime_error("Invalid denoise mode " + options.denoise);
+			denoise = mode->second;
+		}
+		controls_.set(NoiseReductionMode, denoise);
 	}
 
 	std::unique_ptr<CameraManager> camera_manager_;

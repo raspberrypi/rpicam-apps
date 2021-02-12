@@ -74,6 +74,8 @@ struct Options
 			 "Adjust the sharpness of the output image, where 1.0 = normal sharpening")
 			("framerate", value<float>(&framerate)->default_value(30.0),
 			 "Set the fixed framerate for preview and video modes")
+			("denoise", value<std::string>(&denoise)->default_value("auto"),
+			 "Sets the Denoise operating mode: auto, off, cdn_off, cdn_fast, cdn_hq")
 			;
 	}
 
@@ -110,6 +112,7 @@ struct Options
 	float saturation;
 	float sharpness;
 	float framerate;
+	std::string denoise;
 
 	virtual bool Parse(int argc, char *argv[])
 	{
@@ -230,6 +233,7 @@ struct Options
 		std::cout << "    saturation: " << saturation << std::endl;
 		std::cout << "    sharpness: " << sharpness << std::endl;
 		std::cout << "    framerate: " << framerate << std::endl;
+		std::cout << "    denoise: " << denoise << std::endl;
 	}
 
 protected:
