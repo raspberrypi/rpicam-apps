@@ -126,9 +126,17 @@ public:
 			}
 			catch(std::exception const &e)
 			{
-				preview_ = std::make_unique<DrmPreview>(options);
-				if (options.verbose)
-					std::cout << "Made DRM preview window" << std::endl;
+				try
+				{
+					preview_ = std::make_unique<DrmPreview>(options);
+					if (options.verbose)
+						std::cout << "Made DRM preview window" << std::endl;
+				}
+				catch (std::exception const &e)
+				{
+					std::cout << "Preview window unavailable" << std::endl;
+					preview_ = std::make_unique<NullPreview>(options);
+				}
 			}
 		}
 		preview_->SetDoneCallback(std::bind(&LibcameraApp::previewDoneCallback, this, std::placeholders::_1));
