@@ -171,6 +171,13 @@ Mostly these apps behave like their raspi- counterparts, however not everything 
 
 * There is no support for setting the flicker period yet.
 
+* The following denoise modes are supported with the `--denoise` option:
+  * `auto` - This is the default. Enabled spatial denoise. Use fast colour denoise for video/viewfinder, and high quality colour denoise for stills capture.
+  * `off` - Disables spatial and colour denoise.
+  * `cdn_off` - Disables colour denoise.
+  * `cdn_fast` - Uses fast color denoise.
+  * `cdn_hq` - Uses high quality colour denoise. Not appropriate for video/viewfinder due to reduced throughput.
+
 #### libcamera-still
 
 * raw output (`--raw`) is to a separate DNG file, not to the end of the jpeg.
@@ -249,7 +256,7 @@ Known Issues
 * Libcamera does not currently handle colour spaces, meaning that all videos are recorded in "full range BT601" YUV (as is the usual practice for JPEGs). This may be difficult to resolve until the necessary work has been done within libcamera.
 * There appear to be some driver related issues lengthening the vblanking at startup under certain conditions, which can result in some initial AGC "wobble".
 * When exposure time is limited by framerate, the AGC can sometimes try to make up the difference using digital gain. A patch set for this is already in the works.
-* Low light images will tend to show more colour noise than images from the Broadcom stack. Work to correct this is in progress.
+* ~~Low light images will tend to show more colour noise than images from the Broadcom stack. Work to correct this is in progress.~~
 * No support yet for very long exposures.
 * We don't yet have control of on-sensor DPC correction through the V4L2 drivers.
 * Some of the camera tunings, especially sharpening for the v1 and v2 sensors, need to be re-visited.
