@@ -178,6 +178,17 @@ Mostly these apps behave like their raspi- counterparts, however not everything 
   * `cdn_fast` - Uses fast color denoise.
   * `cdn_hq` - Uses high quality colour denoise. Not appropriate for video/viewfinder due to reduced throughput.
 
+* Per-frame data can be displayed on the titlebar with the `--info-text` command line argument with token substitution. Valid tokens are:
+  * `%framenum` - frame number
+  * `%fps` - framerate
+  * `%exp` - Shutter speed
+  * `%ag` - Analogue gain
+  * `%dg` - Digital gain
+  * `%rg` - Red colour gain
+  * `%bg` - Blue colour gain
+  * `%focus` - Focus figure of merit (FoM) value
+  * `aelock` - 0 to indicate AE is converging, 1 to indicate AE is locked
+
 #### libcamera-still
 
 * raw output (`--raw`) is to a separate DNG file, not to the end of the jpeg.

@@ -24,6 +24,11 @@ struct Options
 			 "Print this help message")
 			("verbose,v", value<bool>(&verbose)->default_value(false)->implicit_value(true),
 			 "Output extra debug and diagnostics")
+			("info-text", value<std::string>(&info_text)->default_value("#%frame (%fps fps) exp %exp ag %ag dg %dg"),
+			 "Sets the information string on the titlebar. Available values:"
+			 "%frame (frame number), %fps (framerate) %exp (shutter speed), %ag (analogue gain)"
+			 "%dg (digital gain), %rg (red colour gain), %bg (blue colour gain),"
+			 "%focus (focus FoM value), %aelock (AE locked status)")
 			("width", value<unsigned int>(&width)->default_value(0),
 			 "Set the output image width (0 = use default value)")
 			("height", value<unsigned int>(&height)->default_value(0),
@@ -113,6 +118,7 @@ struct Options
 	float sharpness;
 	float framerate;
 	std::string denoise;
+	std::string info_text;
 
 	virtual bool Parse(int argc, char *argv[])
 	{
@@ -196,6 +202,7 @@ struct Options
 	{
 		std::cout << "Options:" << std::endl;
 		std::cout << "    verbose: " << verbose << std::endl;
+		std::cout << "    info_text:" << info_text << std::endl;
 		std::cout << "    timeout: " << timeout << std::endl;
 		std::cout << "    width: " << width << std::endl;
 		std::cout << "    height: " << height << std::endl;

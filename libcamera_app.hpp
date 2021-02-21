@@ -21,6 +21,7 @@
 #include "null_preview.hpp"
 #include "egl_preview.hpp"
 #include "drm_preview.hpp"
+#include "frame_info.hpp"
 
 // Crikey, X11/Xlib.h actually contains "#define Status int". Since when was that OK?
 #undef Status
@@ -521,42 +522,6 @@ public:
 		std::lock_guard<std::mutex> lock(control_mutex_);
 		controls_ = std::move(controls);
 	}
-	static void GetFrameInfo(ControlList const &metadata,
-							 float *exposure_time, float *analogue_gain,
-							 float *digital_gain, float colour_gains[2] = nullptr)
-	{
-		if (exposure_time)
-		{
-			if (metadata.contains(controls::ExposureTime))
-				*exposure_time = metadata.get<int32_t>(controls::ExposureTime);
-			else
-				*exposure_time = 0;
-		}
-		if (analogue_gain)
-		{
-			if (metadata.contains(controls::AnalogueGain))
-				*analogue_gain = metadata.get(controls::AnalogueGain);
-			else
-				*analogue_gain = 0;
-		}
-		if (digital_gain)
-		{
-			if (metadata.contains(controls::DigitalGain))
-				*digital_gain = metadata.get(controls::DigitalGain);
-			else
-				*digital_gain = 0;
-		}
-		if (colour_gains)
-		{
-			if (metadata.contains(controls::DigitalGain))
-			{
-				libcamera::Span<const float> gains = metadata.get(controls::ColourGains);
-				colour_gains[0] = gains[0], colour_gains[1] = gains[1];
-			}
-			else
-				colour_gains[0] = colour_gains[1] = 0;
-		}
-	}
 
 private:
 	template <typename T>
@@ -731,6 +696,12 @@ private:
 			int w, h, stride;
 			StreamDimensions(item.stream, &w, &h, &stride);
 			FrameBuffer *buffer = item.completed_request.buffers[item.stream];
+
+			// Fill the frame info with the ControlList items and ancillary bits.
+			FrameInfo frame_info(item.completed_request.metadata);
+			frame_info.fps = item.completed_request.framerate;
+			frame_info.sequence = item.completed_request.sequence;
+
 			int fd = buffer->planes()[0].fd.fd();
 			size_t size = buffer->planes()[0].length;
 			{
@@ -745,6 +716,11 @@ private:
 			}
 			preview_frames_displayed_++;
 			preview_->Show(fd, size, w, h, stride);
+			if (!options.info_text.empty())
+			{
+				std::string s = frame_info.ToString(options.info_text);
+				preview_->SetInfoText(s);
+			}
 		}
 	}
 	void configureDenoise(bool video_mode)
@@ -758,7 +734,7 @@ private:
 			{ "cdn_hq", NoiseReductionModeHighQuality }
 		};
 		NoiseReductionModeEnum denoise;
-		
+
 		if (options.denoise == "auto") {
 			denoise = video_mode ? NoiseReductionModeFast
 					     : NoiseReductionModeHighQuality;
