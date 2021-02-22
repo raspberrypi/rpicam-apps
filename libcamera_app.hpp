@@ -57,9 +57,9 @@ public:
 	using BufferMap = Request::BufferMap;
 	using Size = libcamera::Size;
 	using Rectangle = libcamera::Rectangle;
-	struct RequestCompletePayload
+	struct CompletedRequest
 	{
-		RequestCompletePayload(BufferMap const &b, ControlList const &m)
+		CompletedRequest(BufferMap const &b, ControlList const &m)
 			: buffers(b), metadata(m) {}
 		BufferMap buffers;
 		ControlList metadata;
@@ -70,7 +70,7 @@ public:
 		RequestComplete,
 		Quit
 	};
-	typedef std::variant<RequestCompletePayload, QuitPayload> MsgPayload;
+	typedef std::variant<CompletedRequest, QuitPayload> MsgPayload;
 	struct Msg
 	{
 		Msg(MsgType const &t, MsgPayload const &p) : type(t), payload(p) {}
@@ -673,7 +673,7 @@ private:
 		if (request->status() == Request::RequestCancelled)
 			return;
 
-		RequestCompletePayload payload(request->buffers(), request->metadata());
+		CompletedRequest payload(request->buffers(), request->metadata());
 		{
 			request->reuse();
 			std::lock_guard<std::mutex> lock(free_requests_mutex_);
