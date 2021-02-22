@@ -13,8 +13,6 @@
 using namespace std::placeholders;
 
 typedef LibcameraApp<Options> LibcameraHello;
-using CompletedRequest = LibcameraHello::CompletedRequest;
-using BufferMap = LibcameraHello::BufferMap;
 
 // The main event loop for the application.
 
@@ -44,8 +42,8 @@ static void event_loop(LibcameraHello &app)
 			now - start_time > std::chrono::milliseconds(options.timeout))
 			return;
 
-		BufferMap &buffers = std::get<CompletedRequest>(msg.payload).buffers;
-		app.ShowPreview(buffers, app.ViewfinderStream());
+		CompletedRequest &completed_request = std::get<CompletedRequest>(msg.payload);
+		app.ShowPreview(completed_request, app.ViewfinderStream());
 	}
 }
 

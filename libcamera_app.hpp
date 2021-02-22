@@ -36,7 +36,19 @@
 namespace controls = libcamera::controls;
 namespace properties = libcamera::properties;
 
-typedef std::function<void(libcamera::Request::BufferMap &)> PreviewDoneCallback;
+struct CompletedRequest
+{
+	using BufferMap = libcamera::Request::BufferMap;
+	using ControlList = libcamera::ControlList;
+	CompletedRequest() {}
+	CompletedRequest(BufferMap const &b, ControlList const &m)
+		: buffers(b), metadata(m) {}
+	BufferMap buffers;
+	ControlList metadata;
+	float framerate;
+};
+
+typedef std::function<void(CompletedRequest &)> PreviewDoneCallback;
 
 template <class OPTIONS>
 class LibcameraApp
@@ -57,14 +69,6 @@ public:
 	using BufferMap = Request::BufferMap;
 	using Size = libcamera::Size;
 	using Rectangle = libcamera::Rectangle;
-	struct CompletedRequest
-	{
-		CompletedRequest(BufferMap const &b, ControlList const &m)
-			: buffers(b), metadata(m) {}
-		BufferMap buffers;
-		ControlList metadata;
-		float framerate;
-	};
 	struct QuitPayload {};
 	enum class MsgType
 	{
@@ -447,7 +451,7 @@ public:
 		StreamDimensions(video_stream_, w, h, stride);
 		return video_stream_;
 	}
-	void QueueRequest(BufferMap const &buffers)
+	void QueueRequest(CompletedRequest const &completed_request)
 	{
 		Request *request = nullptr;
 		{
@@ -464,7 +468,7 @@ public:
 			return;
 		}
 
-		for (auto const &p : buffers)
+		for (auto const &p : completed_request.buffers)
 		{
 			if (request->addBuffer(p.first, p.second) < 0)
 				throw std::runtime_error("failed to add buffer to request in QueueRequest");
@@ -494,9 +498,9 @@ public:
 	{
 		preview_done_callback_ = preview_done_callback;
 	}
-	void ShowPreview(BufferMap &buffers, Stream *stream)
+	void ShowPreview(CompletedRequest &completed_request, Stream *stream)
 	{
-		PreviewItem item(std::move(buffers), stream);
+		PreviewItem item(std::move(completed_request), stream);
 		{
 			std::lock_guard<std::mutex> lock(preview_item_mutex_);
 			if (!preview_item_.stream)
@@ -508,7 +512,7 @@ public:
 		{
 			preview_frames_dropped_++;
 			if (preview_done_callback_)
-				preview_done_callback_(item.buffers);
+				preview_done_callback_(item.completed_request);
 		}
 	}
 	void SetControls(ControlList &controls)
@@ -586,15 +590,15 @@ private:
 	struct PreviewItem
 	{
 		PreviewItem() : stream(nullptr) {}
-		PreviewItem(BufferMap &&b, Stream *s) : buffers(b), stream(s) {}
+		PreviewItem(CompletedRequest &&b, Stream *s) : completed_request(b), stream(s) {}
 		PreviewItem &operator=(PreviewItem &&other)
 		{
-			buffers = std::move(other.buffers);
+			completed_request = std::move(other.completed_request);
 			stream = other.stream;
 			other.stream = nullptr;
 			return *this;
 		}
-		BufferMap buffers;
+		CompletedRequest completed_request;
 		Stream *stream;
 	};
 
@@ -694,17 +698,17 @@ private:
 	}
 	void previewDoneCallback(int fd)
 	{
-		BufferMap buffers;
+		CompletedRequest completed_request;
 		{
 			std::lock_guard<std::mutex> lock(preview_mutex_);
-			auto it = preview_buffer_sets_.find(fd);
-			if (it == preview_buffer_sets_.end())
+			auto it = preview_completed_requests_.find(fd);
+			if (it == preview_completed_requests_.end())
 				throw std::runtime_error("previewDoneCallback: missing fd " + std::to_string(fd));
-			buffers = std::move(it->second);
-			preview_buffer_sets_.erase(it);
+			completed_request = std::move(it->second);
+			preview_completed_requests_.erase(it);
 		}
 		if (preview_done_callback_)
-			preview_done_callback_(buffers);
+			preview_done_callback_(completed_request);
 	}
 	void previewThread()
 	{
@@ -724,12 +728,12 @@ private:
 
 			int w, h, stride;
 			StreamDimensions(item.stream, &w, &h, &stride);
-			FrameBuffer *buffer = item.buffers[item.stream];
+			FrameBuffer *buffer = item.completed_request.buffers[item.stream];
 			int fd = buffer->planes()[0].fd.fd();
 			size_t size = buffer->planes()[0].length;
 			{
 				std::lock_guard<std::mutex> lock(preview_mutex_);
-				preview_buffer_sets_[fd] = item.buffers;
+				preview_completed_requests_[fd] = std::move(item.completed_request);
 			}
 			if (preview_->Quit())
 			{
@@ -784,7 +788,7 @@ private:
 	// Related to the preview window.
 	std::unique_ptr<Preview> preview_;
 	PreviewDoneCallback preview_done_callback_;
-	std::map<int, BufferMap> preview_buffer_sets_;
+	std::map<int, CompletedRequest> preview_completed_requests_;
 	std::mutex preview_mutex_;
 	std::mutex preview_item_mutex_;
 	PreviewItem preview_item_;

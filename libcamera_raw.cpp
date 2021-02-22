@@ -20,8 +20,6 @@ protected:
 	void createEncoder() { encoder_ = std::unique_ptr<Encoder>(new NullEncoder(options)); }
 };
 
-using CompletedRequest = LibcameraRaw::CompletedRequest;
-
 // The main even loop for the application.
 
 static void event_loop(LibcameraRaw &app)
@@ -61,7 +59,7 @@ static void event_loop(LibcameraRaw &app)
 			return;
 		}
 
-		app.EncodeBuffer(std::get<CompletedRequest>(msg.payload).buffers, app.RawStream());
+		app.EncodeBuffer(std::get<CompletedRequest>(msg.payload), app.RawStream());
 	}
 }
 
