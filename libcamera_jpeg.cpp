@@ -13,7 +13,7 @@
 using namespace std::placeholders;
 
 typedef LibcameraApp<StillOptions> LibcameraJpeg;
-using RequestCompletePayload = LibcameraJpeg::RequestCompletePayload;
+using CompletedRequest = LibcameraJpeg::CompletedRequest;
 using BufferMap = LibcameraJpeg::BufferMap;
 using libcamera::Stream;
 
@@ -58,7 +58,7 @@ static void event_loop(LibcameraJpeg &app)
 			}
 			else
 			{
-				BufferMap &buffers = std::get<RequestCompletePayload>(msg.payload).buffers;
+				BufferMap &buffers = std::get<CompletedRequest>(msg.payload).buffers;
 				app.ShowPreview(buffers, app.ViewfinderStream());
 			}
 		}
@@ -71,7 +71,7 @@ static void event_loop(LibcameraJpeg &app)
 			int w, h, stride;
 			Stream *stream = app.StillStream();
 			app.StreamDimensions(stream, &w, &h, &stride);
-			RequestCompletePayload &payload = std::get<RequestCompletePayload>(msg.payload);
+			CompletedRequest &payload = std::get<CompletedRequest>(msg.payload);
 			std::vector<void *> mem = app.Mmap(payload.buffers[stream]);
 			jpeg_save(mem, w, h, stride, stream->configuration().pixelFormat,
 					  payload.metadata, app.options.output, app.CameraId(), app.options);

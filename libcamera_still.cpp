@@ -18,7 +18,7 @@
 using namespace std::placeholders;
 
 typedef LibcameraApp<StillOptions> LibcameraStill;
-using RequestCompletePayload = LibcameraStill::RequestCompletePayload;
+using CompletedRequest = LibcameraStill::CompletedRequest;
 using BufferMap = LibcameraStill::BufferMap;
 using libcamera::Stream;
 
@@ -95,7 +95,7 @@ static void update_latest_link(std::string const &filename, StillOptions &option
 	}
 }
 
-static void save_image(LibcameraStill &app, RequestCompletePayload &payload,
+static void save_image(LibcameraStill &app, CompletedRequest &payload,
 					   Stream *stream, std::string const &filename)
 {
 	int w, h, stride;
@@ -118,7 +118,7 @@ static void save_image(LibcameraStill &app, RequestCompletePayload &payload,
 		std::cout << "Saved image " << w << " x " << h << " to file " << filename << std::endl;
 }
 
-static void save_images(LibcameraStill &app, RequestCompletePayload &payload)
+static void save_images(LibcameraStill &app, CompletedRequest &payload)
 {
 	std::string filename = generate_filename(app.options);
 	save_image(app, payload, app.StillStream(), filename);
@@ -234,7 +234,7 @@ static void event_loop(LibcameraStill &app)
 			}
 			else
 			{
-				BufferMap &buffers = std::get<RequestCompletePayload>(msg.payload).buffers;
+				BufferMap &buffers = std::get<CompletedRequest>(msg.payload).buffers;
 				app.ShowPreview(buffers, app.ViewfinderStream());
 			}
 		}
@@ -244,7 +244,7 @@ static void event_loop(LibcameraStill &app)
 		{
 			app.StopCamera();
 			std::cout << "Still capture image received" << std::endl;
-			save_images(app, std::get<RequestCompletePayload>(msg.payload));
+			save_images(app, std::get<CompletedRequest>(msg.payload));
 			if (options.timelapse)
 			{
 				app.Teardown();
