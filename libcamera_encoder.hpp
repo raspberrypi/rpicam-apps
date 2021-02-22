@@ -9,13 +9,12 @@
 #include "video_options.hpp"
 #include "encoder.hpp"
 
-typedef std::function<void(libcamera::Request::BufferMap &, libcamera::Stream *)> EncodeBufferDoneCallback;
+typedef std::function<void(CompletedRequest &, libcamera::Stream *)> EncodeBufferDoneCallback;
 typedef std::function<void(void *,size_t, int64_t, bool)> EncodeOutputReadyCallback;
 
 class LibcameraEncoder: public LibcameraApp<VideoOptions>
 {
 public:
-	using BufferMap = libcamera::Request::BufferMap;
 	using Stream = libcamera::Stream;
 	using FrameBuffer = libcamera::FrameBuffer;
 
@@ -35,18 +34,18 @@ public:
 	{
 		encode_output_ready_callback_ = callback;
 	}
-	void EncodeBuffer(BufferMap &buffers, Stream *stream)
+	void EncodeBuffer(CompletedRequest &completed_request, Stream *stream)
 	{
 		assert(encoder_);
 		int w, h, stride;
 		StreamDimensions(stream, &w, &h, &stride);
-		FrameBuffer *buffer = buffers[stream];
+		FrameBuffer *buffer = completed_request.buffers[stream];
 		void *mem = Mmap(buffer)[0];
 		if (!buffer || !mem)
 			throw std::runtime_error("no buffer to encode");
 		int64_t timestamp_ns = buffer->metadata().timestamp;
 		std::lock_guard<std::mutex> lock(encode_buffer_queue_mutex_);
-		encode_buffer_queue_.push(buffers);
+		encode_buffer_queue_.push(std::move(completed_request));
 		int index = encoder_->EncodeBuffer(buffer->planes()[0].fd.fd(), buffer->planes()[0].length,
 										   mem, w, h, stride, timestamp_ns / 1000);
 		// Could use index as a reference to this buffer, but we don't seem to need it.
@@ -67,19 +66,19 @@ private:
 	void encodeBufferDone(int index)
 	{
 		(void)index; // don't appear to need it if we assume the codec returns them in order
-		BufferMap buffers;
+		CompletedRequest completed_request;
 		{
 			std::lock_guard<std::mutex> lock(encode_buffer_queue_mutex_);
 			if (encode_buffer_queue_.empty())
 				throw std::runtime_error("no buffer available to return");
-			buffers = std::move(encode_buffer_queue_.front());
+			completed_request = std::move(encode_buffer_queue_.front());
 			encode_buffer_queue_.pop();
 		}
 		if (encode_buffer_done_callback_)
-			encode_buffer_done_callback_(buffers, VideoStream());
+			encode_buffer_done_callback_(completed_request, VideoStream());
 	}
 
-	std::queue<BufferMap> encode_buffer_queue_;
+	std::queue<CompletedRequest> encode_buffer_queue_;
 	std::mutex encode_buffer_queue_mutex_;
 	EncodeBufferDoneCallback encode_buffer_done_callback_;
 	EncodeOutputReadyCallback encode_output_ready_callback_;

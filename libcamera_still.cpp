@@ -18,8 +18,6 @@
 using namespace std::placeholders;
 
 typedef LibcameraApp<StillOptions> LibcameraStill;
-using CompletedRequest = LibcameraStill::CompletedRequest;
-using BufferMap = LibcameraStill::BufferMap;
 using libcamera::Stream;
 
 // In jpeg.cpp:
@@ -234,8 +232,8 @@ static void event_loop(LibcameraStill &app)
 			}
 			else
 			{
-				BufferMap &buffers = std::get<CompletedRequest>(msg.payload).buffers;
-				app.ShowPreview(buffers, app.ViewfinderStream());
+				CompletedRequest &completed_request = std::get<CompletedRequest>(msg.payload);
+				app.ShowPreview(completed_request, app.ViewfinderStream());
 			}
 		}
 		// In still capture mode, save a jpeg. Go back to viewfinder if in timelapse mode,

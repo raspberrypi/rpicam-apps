@@ -16,8 +16,6 @@
 
 using namespace std::placeholders;
 
-using CompletedRequest = LibcameraEncoder::CompletedRequest;
-
 // Some keypress/signal handling.
 
 static int signal_received;
@@ -93,7 +91,7 @@ static void event_loop(LibcameraEncoder &app)
 			return;
 		}
 
-		app.EncodeBuffer(std::get<CompletedRequest>(msg.payload).buffers, app.VideoStream());
+		app.EncodeBuffer(std::get<CompletedRequest>(msg.payload), app.VideoStream());
 	}
 }
 
