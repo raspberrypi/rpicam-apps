@@ -63,6 +63,7 @@ public:
 			: buffers(b), metadata(m) {}
 		BufferMap buffers;
 		ControlList metadata;
+		float framerate;
 	};
 	struct QuitPayload {};
 	enum class MsgType
@@ -375,6 +376,7 @@ public:
 			throw std::runtime_error("failed to start camera");
 		controls_.clear();
 		camera_started_ = true;
+		last_timestamp_ = 0;
 
 		camera_->requestCompleted.connect(this, &LibcameraApp::requestComplete);
 
@@ -679,6 +681,15 @@ private:
 			std::lock_guard<std::mutex> lock(free_requests_mutex_);
 			free_requests_.push(request);
 		}
+
+		// We calculate the instantaneous framerate in case anyone wants it.
+		uint64_t timestamp = payload.buffers.begin()->second->metadata().timestamp;
+		if (last_timestamp_ == 0 || last_timestamp_ == timestamp)
+			payload.framerate = 0;
+		else
+			payload.framerate = 1e9 / (timestamp - last_timestamp_);
+		last_timestamp_ = timestamp;
+
 		msg_queue_.Post(Msg(MsgType::RequestComplete, std::move(payload)));
 	}
 	void previewDoneCallback(int fd)
@@ -785,4 +796,6 @@ private:
 	// For setting camera controls.
 	std::mutex control_mutex_;
 	ControlList controls_;
+	// Other:
+	uint64_t last_timestamp_;
 };
