@@ -8,6 +8,7 @@
 #pragma once
 
 #include <map>
+#include <string>
 
 #include <X11/Xlib.h>
 
@@ -21,6 +22,7 @@ class EglPreview : public Preview
 public:
 	EglPreview(Options const &options);
 	~EglPreview();
+	virtual void SetInfoText(const std::string &text) override;
 	// Display the buffer. You get given the fd back in the BufferDoneCallback
 	// once its available for re-use.
 	virtual void Show(int fd, size_t size, int width, int height, int stride) override;

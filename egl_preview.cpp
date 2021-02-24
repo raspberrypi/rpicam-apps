@@ -326,6 +326,12 @@ void EglPreview::makeBuffer(int fd, size_t size, int width, int height, int stri
 	eglDestroyImageKHR(egl_display_, image);
 }
 
+void EglPreview::SetInfoText(const std::string &text)
+{
+	if (!text.empty())
+		XStoreName(display_, window_, text.c_str());
+}
+
 void EglPreview::Show(int fd, size_t size, int width, int height, int stride)
 {
 	Buffer &buffer = buffers_[fd];
