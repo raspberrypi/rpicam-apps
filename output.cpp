@@ -5,6 +5,7 @@
  * output.cpp - video stream output base class
  */
 
+#include <cinttypes>
 #include <stdexcept>
 
 #include "output.hpp"
@@ -60,7 +61,7 @@ void Output::OutputReady(void *mem, size_t size, int64_t timestamp_us, bool keyf
 
 	// Save timestamps to a file, if that was requested.
 	if (fp_timestamps_)
-		fprintf(fp_timestamps_, "%lld.%03lld\n", last_timestamp_ / 1000, last_timestamp_ % 1000);
+		fprintf(fp_timestamps_, PRId64 ".%03" PRId64 "\n", last_timestamp_ / 1000, last_timestamp_ % 1000);
 }
 
 void Output::outputBuffer(void *mem, size_t size, int64_t timestamp_us, uint32_t flags)
