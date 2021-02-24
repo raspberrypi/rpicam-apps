@@ -147,7 +147,7 @@ static int get_key_or_signal(StillOptions const &options, pollfd p[1])
 		{
 			char *user_string = nullptr;
 			size_t len;
-			getline(&user_string, &len, stdin);
+			[[maybe_unused]] size_t r = getline(&user_string, &len, stdin);
 			key = user_string[0];
 		}
 	}

@@ -69,7 +69,7 @@ void CircularOutput::outputBuffer(void *mem, size_t size, int64_t timestamp_us, 
 		cb_.Read([&dst](void *src, int n) { memcpy(dst, src, n); dst += n; }, sizeof(header));
 		cb_.Skip((header.length + ALIGN - 1) & ~(ALIGN - 1));
 	}
-	Header header = { static_cast<unsigned int>(size), flags & FLAG_KEYFRAME, timestamp_us };
+	Header header = { static_cast<unsigned int>(size), !!(flags & FLAG_KEYFRAME), timestamp_us };
 	cb_.Write(&header, sizeof(header));
 	cb_.Write(mem, size);
 	cb_.Pad(pad);

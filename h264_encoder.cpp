@@ -278,7 +278,7 @@ void H264Encoder::pollThread()
 									buf.m.planes[0].bytesused,
 									buf.m.planes[0].length,
 									buf.index,
-									buf.flags & V4L2_BUF_FLAG_KEYFRAME,
+									!!(buf.flags & V4L2_BUF_FLAG_KEYFRAME),
 									timestamp_us };
 				std::lock_guard<std::mutex> lock(output_mutex_);
 				output_queue_.push(item);
