@@ -203,12 +203,31 @@ def test_jpeg(dir):
 
     print("libcamera-jpeg tests passed")
 
+def check_timestamps(file, preamble):
+    try:
+        with open(file) as f:
+            line1 = f.readline()
+            line2 = f.readline()
+            line3 = f.readline()
+    except:
+        raise TestFailure(preamble + " - could not read data from file")
+    if not line1.startswith("# timecode format"):
+        raise TestFailure(preamble + " - bad file header")
+    try:
+        t2 = float(line2)
+        t3 = float(line3)
+    except:
+        raise TestFailure(preamble + " - timestamp file contains non-numeric values")
+    if t2 >= t3:
+        raise TestFailure(preamble + " - timestamps not increasing")
+
 def test_vid(dir):
     executable = os.path.join(dir, 'libcamera-vid')
     output_h264 = os.path.join(dir, 'test.h264')
     output_mjpeg = os.path.join(dir, 'test.mjpeg')
     output_circular = os.path.join(dir, 'circular.h264')
     output_pause = os.path.join(dir, 'pause.h264')
+    output_timestamps = os.path.join(dir, 'timestamps.txt')
     logfile = os.path.join(dir, 'log.txt')
     print("Testing", executable)
     check_exists(executable, 'test_vid')
@@ -256,6 +275,15 @@ def test_vid(dir):
     check_time(time_taken, 2, 5, "test_vid: pause test")
     if os.path.isfile(output_pause):
         raise TestFailure("test_vid: pause test - output file was not expected")
+
+    # "timestamp test". Check that the timestamp file is written and looks sensible.
+    print("    timestamp test")
+    retcode, time_taken = run_executable([executable, '-t', '2000', '-o', output_h264,
+                                          '--save-pts', output_timestamps], logfile)
+    check_retcode(retcode, "test_vid: timestamp test")
+    check_time(time_taken, 2, 5, "test_vid: timestamp test")
+    check_size(output_h264, 1024, "test_vid: timestamp test")
+    check_timestamps(output_timestamps, "test_vid: timestamp test")
 
     print("libcamera-vid tests passed")
 
