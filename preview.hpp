@@ -8,6 +8,7 @@
 #pragma once
 
 #include <functional>
+#include <string>
 
 #include "options.hpp"
 
@@ -23,6 +24,9 @@ public:
 	void SetDoneCallback(DoneCallback callback)
 	{
 		done_callback_ = callback;
+	}
+	virtual void SetInfoText(const std::string &text)
+	{
 	}
 	// Display the buffer. You get given the fd back in the BufferDoneCallback
 	// once its available for re-use.
