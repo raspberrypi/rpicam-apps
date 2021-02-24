@@ -41,8 +41,9 @@ struct CompletedRequest
 	using BufferMap = libcamera::Request::BufferMap;
 	using ControlList = libcamera::ControlList;
 	CompletedRequest() {}
-	CompletedRequest(BufferMap const &b, ControlList const &m)
-		: buffers(b), metadata(m) {}
+	CompletedRequest(unsigned int seq, BufferMap const &b, ControlList const &m)
+		: sequence(seq), buffers(b), metadata(m) {}
+	unsigned int sequence;
 	BufferMap buffers;
 	ControlList metadata;
 	float framerate;
@@ -679,7 +680,8 @@ private:
 		if (request->status() == Request::RequestCancelled)
 			return;
 
-		CompletedRequest payload(request->buffers(), request->metadata());
+		CompletedRequest payload(request->buffers().begin()->second->metadata().sequence,
+								 request->buffers(), request->metadata());
 		{
 			request->reuse();
 			std::lock_guard<std::mutex> lock(free_requests_mutex_);
