@@ -170,6 +170,9 @@ DrmPreview::DrmPreview(Options const &options) : last_fd_(-1), Preview(options)
 
 	try
 	{
+		if (!drmIsMaster(drmfd_))
+			throw std::runtime_error("DRM preview unavailable - not master");
+
 		conId_ = 0;
 		findCrtc();
 		out_fourcc_ = DRM_FORMAT_YUV420;
