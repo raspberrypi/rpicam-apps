@@ -15,10 +15,14 @@ add_definitions(-Wno-psabi)
 add_definitions(-DBOOST_LOG_DYN_LINK)
 
 IF (NOT ENABLE_COMPILE_FLAGS_FOR_TARGET)
-  set(ENABLE_COMPILE_FLAGS_FOR_TARGET "armv8")
+  execute_process(COMMAND dpkg-architecture -qDEB_HOST_ARCH
+    OUTPUT_VARIABLE ENABLE_COMPILE_FLAGS_FOR_TARGET OUTPUT_STRIP_TRAILING_WHITESPACE)
 endif()
-if ("${ENABLE_COMPILE_FLAGS_FOR_TARGET}" STREQUAL "armv8")
+message(STATUS "Optimising for platform: ${ENABLE_COMPILE_FLAGS_FOR_TARGET}")
+if ("${ENABLE_COMPILE_FLAGS_FOR_TARGET}" STREQUAL "armhf")
   add_definitions(-mfpu=neon-fp-armv8 -ftree-vectorize)
+elseif ("${ENABLE_COMPILE_FLAGS_FOR_TARGET}" STREQUAL "arm64")
+  add_definitions(-ftree-vectorize)
 endif()
 
 project(common)
