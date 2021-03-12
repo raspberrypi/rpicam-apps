@@ -70,6 +70,7 @@ int main(int argc, char *argv[])
 		LibcameraRaw app;
 		if (app.options.Parse(argc, argv))
 		{
+			app.options.denoise = "cdn_off";
 			app.options.nopreview = true;
 			if (app.options.verbose)
 				app.options.Print();
