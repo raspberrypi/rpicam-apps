@@ -276,10 +276,13 @@ public:
 			configuration_->at(0).size.width = options.width;
 		if (options.height)
 			configuration_->at(0).size.height = options.height;
-		if ((flags & FLAG_VIDEO_RAW) && !options.rawfull)
+		if (flags & FLAG_VIDEO_RAW)
 		{
-			configuration_->at(1).size.width = configuration_->at(0).size.width;
-			configuration_->at(1).size.height = configuration_->at(0).size.height;
+			if (!options.rawfull)
+			{
+				configuration_->at(1).size.width = configuration_->at(0).size.width;
+				configuration_->at(1).size.height = configuration_->at(0).size.height;
+			}
 			configuration_->at(1).bufferCount = configuration_->at(0).bufferCount;
 		}
 		configuration_->transform = options.transform;
