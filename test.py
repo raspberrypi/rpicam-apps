@@ -257,7 +257,8 @@ def test_vid(dir):
                                          logfile)
     check_retcode(retcode, "test_vid: segment test")
     check_time(time_taken, 2, 5, "test_vid: segment test")
-    check_size(os.path.join(dir, 'test035.jpg'), 1024, "test_vid: segment test")
+    # A bug in commit b20dc097621a trunctated each jpg to 4096 bytes, so check against 4100:
+    check_size(os.path.join(dir, 'test035.jpg'), 4100, "test_vid: segment test")
 
     # "circular test". Test circular buffer (really we should wait for it to wrap...)
     print("    circular test")

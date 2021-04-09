@@ -66,7 +66,6 @@ void MjpegEncoder::encodeJPEG(struct jpeg_compress_struct &cinfo, EncodeItem &it
 	buffer_len = 0;
     jpeg_mem_len_t jpeg_mem_len;
     jpeg_mem_dest(&cinfo, &encoded_buffer, &jpeg_mem_len);
-    buffer_len = jpeg_mem_len;
     jpeg_start_compress(&cinfo, TRUE);
 
 	int stride2 = item.stride / 2;
@@ -113,6 +112,7 @@ void MjpegEncoder::encodeJPEG(struct jpeg_compress_struct &cinfo, EncodeItem &it
 	}
 
     jpeg_finish_compress(&cinfo);
+    buffer_len = jpeg_mem_len;
 }
 
 void MjpegEncoder::encodeThread(int num)
