@@ -48,9 +48,8 @@ public:
 			std::lock_guard<std::mutex> lock(encode_buffer_queue_mutex_);
 			encode_buffer_queue_.push(std::move(completed_request));
 		}
-		int index = encoder_->EncodeBuffer(buffer->planes()[0].fd.fd(), buffer->planes()[0].length,
-										   mem, w, h, stride, timestamp_ns / 1000);
-		// Could use index as a reference to this buffer, but we don't seem to need it.
+		encoder_->EncodeBuffer(buffer->planes()[0].fd.fd(), buffer->planes()[0].length,
+							   mem, w, h, stride, timestamp_ns / 1000);
 	}
 	void StopEncoder()
 	{
@@ -65,9 +64,13 @@ protected:
 	std::unique_ptr<Encoder> encoder_;
 
 private:
-	void encodeBufferDone(int index)
+	void encodeBufferDone(void *mem)
 	{
-		(void)index; // don't appear to need it if we assume the codec returns them in order
+		// If non-NULL, mem would indicate which buffer has been completed, but
+		// currently we're just assuming everything is done in order. (We could
+		// handle this by replacing the queue with a vector of <mem, completed_request>
+		// pairs.)
+		assert(mem == nullptr);
 		CompletedRequest completed_request;
 		{
 			std::lock_guard<std::mutex> lock(encode_buffer_queue_mutex_);

@@ -20,9 +20,9 @@ class NullEncoder : public Encoder
 public:
 	NullEncoder(VideoOptions const &options);
 	~NullEncoder();
-	int EncodeBuffer(int fd, size_t size,
-					 void *mem, int width, int height, int stride,
-					 int64_t timestamp_us) override;
+	void EncodeBuffer(int fd, size_t size,
+					  void *mem, int width, int height, int stride,
+					  int64_t timestamp_us) override;
 
 private:
 	void outputThread();
@@ -39,6 +39,4 @@ private:
 	std::mutex output_mutex_;
 	std::condition_variable output_cond_var_;
 	std::thread output_thread_;
-	unsigned int input_count_;
-	unsigned int output_count_;
 };

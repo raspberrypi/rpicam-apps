@@ -38,15 +38,14 @@ MjpegEncoder::~MjpegEncoder()
 		std::cout << "MjpegEncoder closed" << std::endl;
 }
 
-int MjpegEncoder::EncodeBuffer(int fd, size_t size,
-							  void *mem, int width, int height, int stride,
-							  int64_t timestamp_us)
+void MjpegEncoder::EncodeBuffer(int fd, size_t size,
+								void *mem, int width, int height, int stride,
+								int64_t timestamp_us)
 {
-	EncodeItem item = { mem, width, height, stride, index_, timestamp_us };
+	EncodeItem item = { mem, width, height, stride, timestamp_us };
 	std::lock_guard<std::mutex> lock(encode_mutex_);
-	encode_queue_[index_ % NUM_ENC_THREADS].push(item);
+	encode_queue_[index_++ % NUM_ENC_THREADS].push(item);
 	encode_cond_var_.notify_all();
-	return index_++;
 }
 
 void MjpegEncoder::encodeJPEG(struct jpeg_compress_struct &cinfo, EncodeItem &item,
@@ -165,7 +164,7 @@ void MjpegEncoder::encodeThread(int num)
 		// application can take its time with the data without blocking the
 		// encode process.
 		OutputItem output_item = { encoded_buffer, buffer_len,
-								   encode_item.index, encode_item.timestamp_us };
+								   encode_item.timestamp_us };
 		std::lock_guard<std::mutex> lock(output_mutex_);
 		output_queue_[num].push(output_item);
 		output_cond_var_.notify_one();
@@ -195,7 +194,7 @@ void MjpegEncoder::outputThread()
 					output_cond_var_.wait_for(lock, 200ms);
 			}
 		}
-		input_done_callback_(item.index);
+		input_done_callback_(nullptr);
 
 		output_ready_callback_(item.mem, item.bytes_used, item.timestamp_us, true);
 		free(item.mem);
