@@ -44,8 +44,10 @@ public:
 		if (!buffer || !mem)
 			throw std::runtime_error("no buffer to encode");
 		int64_t timestamp_ns = buffer->metadata().timestamp;
-		std::lock_guard<std::mutex> lock(encode_buffer_queue_mutex_);
-		encode_buffer_queue_.push(std::move(completed_request));
+		{
+			std::lock_guard<std::mutex> lock(encode_buffer_queue_mutex_);
+			encode_buffer_queue_.push(std::move(completed_request));
+		}
 		int index = encoder_->EncodeBuffer(buffer->planes()[0].fd.fd(), buffer->planes()[0].length,
 										   mem, w, h, stride, timestamp_ns / 1000);
 		// Could use index as a reference to this buffer, but we don't seem to need it.
