@@ -196,9 +196,9 @@ H264Encoder::~H264Encoder()
 	// Other stuff will mostly get hoovered up with the process quits.
 }
 
-int H264Encoder::EncodeBuffer(int fd, size_t size,
-							  void *mem, int width, int height, int stride,
-							  int64_t timestamp_us)
+void H264Encoder::EncodeBuffer(int fd, size_t size,
+							   void *mem, int width, int height, int stride,
+							   int64_t timestamp_us)
 {
 	int index;
 	{
@@ -225,7 +225,6 @@ int H264Encoder::EncodeBuffer(int fd, size_t size,
 	buf.m.planes[0].length = size;
 	if (xioctl(fd_, VIDIOC_QBUF, &buf) < 0)
 		throw std::runtime_error("failed to queue input to codec");
-	return index;
 }
 
 void H264Encoder::pollThread()
@@ -255,9 +254,11 @@ void H264Encoder::pollThread()
 			{
 				// Return this to the caller, first noting that this buffer, identified
 				// by its index, is available for queueing up another frame.
-				std::lock_guard<std::mutex> lock(input_buffers_available_mutex_);
-				input_buffers_available_.push(buf.index);
-				input_done_callback_(buf.index);
+				{
+					std::lock_guard<std::mutex> lock(input_buffers_available_mutex_);
+					input_buffers_available_.push(buf.index);
+				}
+				input_done_callback_(nullptr);
 			}
 
 			buf = {};

@@ -11,7 +11,7 @@
 
 #include "video_options.hpp"
 
-typedef std::function<void(int)> InputDoneCallback;
+typedef std::function<void(void *)> InputDoneCallback;
 typedef std::function<void(void *,size_t, int64_t, bool)> OutputReadyCallback;
 
 class Encoder
@@ -36,9 +36,9 @@ public:
 	}
 	// Encode the given buffer. The buffer is specified both by an fd and size
 	// describing a DMABUF, and by a mmapped userland pointer.
-	virtual int EncodeBuffer(int fd, size_t size,
-							 void *mem, int width, int height, int stride,
-							 int64_t timestamp_us) = 0;
+	virtual void EncodeBuffer(int fd, size_t size,
+							  void *mem, int width, int height, int stride,
+							  int64_t timestamp_us) = 0;
 protected:
 	InputDoneCallback input_done_callback_;
 	OutputReadyCallback output_ready_callback_;

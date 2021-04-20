@@ -22,9 +22,9 @@ public:
 	MjpegEncoder(VideoOptions const &options);
 	~MjpegEncoder();
 	// Encode the given buffer.
-	int EncodeBuffer(int fd, size_t size,
-					 void *mem, int width, int height, int stride,
-					 int64_t timestamp_us) override;
+	void EncodeBuffer(int fd, size_t size,
+					  void *mem, int width, int height, int stride,
+					  int64_t timestamp_us) override;
 
 private:
 	// How many threads to use. We toss frames at each thread in turn.
@@ -47,7 +47,6 @@ private:
 		int width;
 		int height;
 		int stride;
-		int index;
 		int64_t timestamp_us;
 	};
 	std::queue<EncodeItem> encode_queue_[NUM_ENC_THREADS];
@@ -61,7 +60,6 @@ private:
 	{
 		void *mem;
 		size_t bytes_used;
-		int index;
 		int64_t timestamp_us;
 	};
 	std::queue<OutputItem> output_queue_[NUM_ENC_THREADS];
