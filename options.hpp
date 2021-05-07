@@ -81,6 +81,10 @@ struct Options
 			 "Set the fixed framerate for preview and video modes")
 			("denoise", value<std::string>(&denoise)->default_value("auto"),
 			 "Sets the Denoise operating mode: auto, off, cdn_off, cdn_fast, cdn_hq")
+			("viewfinder-width", value<unsigned int>(&viewfinder_width)->default_value(0),
+			 "Width of viewfinder frames from the camera (distinct from the preview window size")
+			("viewfinder-height", value<unsigned int>(&viewfinder_height)->default_value(0),
+			 "Height of viewfinder frames from the camera (distinct from the preview window size)")
 			;
 	}
 
@@ -119,6 +123,8 @@ struct Options
 	float framerate;
 	std::string denoise;
 	std::string info_text;
+	unsigned int viewfinder_width;
+	unsigned int viewfinder_height;
 
 	virtual bool Parse(int argc, char *argv[])
 	{
@@ -241,6 +247,8 @@ struct Options
 		std::cout << "    sharpness: " << sharpness << std::endl;
 		std::cout << "    framerate: " << framerate << std::endl;
 		std::cout << "    denoise: " << denoise << std::endl;
+		std::cout << "    viewfinder-width: " << viewfinder_width << std::endl;
+		std::cout << "    viewfinder-height: " << viewfinder_height << std::endl;
 	}
 
 protected:
