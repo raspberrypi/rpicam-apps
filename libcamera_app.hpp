@@ -195,13 +195,30 @@ public:
 		if (!configuration_)
 			throw std::runtime_error("failed to generate viewfinder configuration");
 
+		Size size(1280, 960);
+		if (options.viewfinder_width && options.viewfinder_height)
+			size = Size(options.viewfinder_width, options.viewfinder_height);
+		else if (camera_->properties().contains(properties::PixelArrayActiveAreas))
+		{
+			// The idea here is that most sensors will have a 2x2 binned mode that
+			// we can pick up. If it doesn't, well, you can always specify the size
+			// you want exactly with the viewfinder_width/height options.
+			size = camera_->properties().get(properties::PixelArrayActiveAreas)[0].size() / 2;
+			// If width and height were given, we might be switching to capture
+			// afterwards - so try to match the field of view.
+			if (options.width && options.height)
+				size = size.boundedToAspectRatio(Size(options.width, options.height));
+			size.alignDownTo(2, 2); // YUV420 will want to be even
+			if (options.verbose)
+				std::cout << "Viewfinder size chosen is " << size.toString() << std::endl;
+		}
+
 		// Now we get to override any of the default settings from the options.
 		configuration_->at(0).pixelFormat = libcamera::formats::YUV420;
-		configuration_->at(0).size.width = 1280;
-		configuration_->at(0).size.height = 960;
+		configuration_->at(0).size = size;
 		configuration_->transform = options.transform;
 
-		configureDenoise(true);
+		configureDenoise(options.denoise == "auto" ? "cdn_off" : options.denoise);
 		setupCapture();
 
 		viewfinder_stream_ = configuration_->at(0).stream();
@@ -247,7 +264,7 @@ public:
 		}
 		configuration_->transform = options.transform;
 
-		configureDenoise(false);
+		configureDenoise(options.denoise == "auto" ? "cdn_hq" : options.denoise);
 		setupCapture();
 
 		still_stream_ = configuration_->at(0).stream();
@@ -287,7 +304,7 @@ public:
 		}
 		configuration_->transform = options.transform;
 
-		configureDenoise(true);
+		configureDenoise(options.denoise == "auto" ? "cdn_fast" : options.denoise);
 		setupCapture();
 
 		video_stream_ = configuration_->at(0).stream();
@@ -726,7 +743,7 @@ private:
 			}
 		}
 	}
-	void configureDenoise(bool video_mode)
+	void configureDenoise(const std::string &denoise_mode)
 	{
 		using namespace libcamera::controls::draft;
 
@@ -738,15 +755,11 @@ private:
 		};
 		NoiseReductionModeEnum denoise;
 
-		if (options.denoise == "auto") {
-			denoise = video_mode ? NoiseReductionModeFast
-					     : NoiseReductionModeHighQuality;
-		} else {
-			auto const mode = denoise_table.find(options.denoise);
-			if (mode == denoise_table.end())
-				throw std::runtime_error("Invalid denoise mode " + options.denoise);
-			denoise = mode->second;
-		}
+		auto const mode = denoise_table.find(denoise_mode);
+		if (mode == denoise_table.end())
+			throw std::runtime_error("Invalid denoise mode " + denoise_mode);
+		denoise = mode->second;
+
 		controls_.set(NoiseReductionMode, denoise);
 	}
 
