@@ -18,6 +18,8 @@ The source code is made available under the simplified [BSD 2-Clause license](ht
 Building
 --------
 
+libcamera-apps are supported for Pi 3 and Pi 4 based platforms.
+
 We give complete instructions for installing libcamera-apps and all its dependencies from a clean installation of Raspberry Pi OS. Before proceeding, please update your Raspberry Pi software as usual:
 
 ```bash
@@ -266,8 +268,9 @@ Known Issues
 * There is some screen tearing when using X/GLES for the preview window.
 * Libcamera does not currently handle colour spaces, meaning that all videos are recorded in "full range BT601" YUV (as is the usual practice for JPEGs). This may be difficult to resolve until the necessary work has been done within libcamera.
 * There appear to be some driver related issues lengthening the vblanking at startup under certain conditions, which can result in some initial AGC "wobble".
-* When exposure time is limited by framerate, the AGC can sometimes try to make up the difference using digital gain. A patch set for this is already in the works.
+* ~~When exposure time is limited by framerate, the AGC can sometimes try to make up the difference using digital gain. A patch set for this is already in the works.~~
 * ~~Low light images will tend to show more colour noise than images from the Broadcom stack. Work to correct this is in progress.~~
 * No support yet for very long exposures.
 * We don't yet have control of on-sensor DPC correction through the V4L2 drivers.
 * Some of the camera tunings, especially sharpening for the v1 and v2 sensors, need to be re-visited.
+* There is not currently a good way of forcing the HQ cam to select fast framerate modes. This needs support from the libcamera framework.
