@@ -27,7 +27,7 @@ public:
 					  int64_t timestamp_us) override;
 
 private:
-	// How many threads to use. We toss frames at each thread in turn.
+	// How many threads to use. Whichever thread is idle will pick up the next frame.
 	static const int NUM_ENC_THREADS = 4;
 
 	// These threads do the actual encoding.
@@ -39,7 +39,7 @@ private:
 	void outputThread();
 
 	bool abort_;
-	int index_;
+	uint64_t index_;
 
 	struct EncodeItem
 	{
@@ -48,8 +48,9 @@ private:
 		int height;
 		int stride;
 		int64_t timestamp_us;
+		uint64_t index;
 	};
-	std::queue<EncodeItem> encode_queue_[NUM_ENC_THREADS];
+	std::queue<EncodeItem> encode_queue_;
 	std::mutex encode_mutex_;
 	std::condition_variable encode_cond_var_;
 	std::thread encode_thread_[NUM_ENC_THREADS];
@@ -61,6 +62,7 @@ private:
 		void *mem;
 		size_t bytes_used;
 		int64_t timestamp_us;
+		uint64_t index;
 	};
 	std::queue<OutputItem> output_queue_[NUM_ENC_THREADS];
 	std::mutex output_mutex_;
