@@ -42,9 +42,9 @@ void MjpegEncoder::EncodeBuffer(int fd, size_t size,
 								void *mem, int width, int height, int stride,
 								int64_t timestamp_us)
 {
-	EncodeItem item = { mem, width, height, stride, timestamp_us };
 	std::lock_guard<std::mutex> lock(encode_mutex_);
-	encode_queue_[index_++ % NUM_ENC_THREADS].push(item);
+	EncodeItem item = { mem, width, height, stride, timestamp_us, index_++ };
+	encode_queue_.push(item);
 	encode_cond_var_.notify_all();
 }
 
@@ -139,10 +139,10 @@ void MjpegEncoder::encodeThread(int num)
 					jpeg_destroy_compress(&cinfo);
 					return;
 				}
-				if (!encode_queue_[num].empty())
+				if (!encode_queue_.empty())
 				{
-					encode_item = encode_queue_[num].front();
-					encode_queue_[num].pop();
+					encode_item = encode_queue_.front();
+					encode_queue_.pop();
 					break;
 				}
 				else
@@ -164,7 +164,7 @@ void MjpegEncoder::encodeThread(int num)
 		// application can take its time with the data without blocking the
 		// encode process.
 		OutputItem output_item = { encoded_buffer, buffer_len,
-								   encode_item.timestamp_us };
+								   encode_item.timestamp_us, encode_item.index };
 		std::lock_guard<std::mutex> lock(output_mutex_);
 		output_queue_[num].push(output_item);
 		output_cond_var_.notify_one();
@@ -174,7 +174,7 @@ void MjpegEncoder::encodeThread(int num)
 void MjpegEncoder::outputThread()
 {
 	OutputItem item;
-	int num = 0;
+	int index = 0;
 	while (true)
 	{
 		{
@@ -184,20 +184,25 @@ void MjpegEncoder::outputThread()
 				using namespace std::chrono_literals;
 				if (abort_)
 					return;
-				if (!output_queue_[num].empty())
+				// We look for the thread that's completed the frame we want next.
+				// If we don't find it, we wait.
+				for (auto &q : output_queue_)
 				{
-					item = output_queue_[num].front();
-					output_queue_[num].pop();
-					break;
+					if (!q.empty() && q.front().index == index)
+					{
+						item = q.front();
+						q.pop();
+						goto got_item;
+					}
 				}
-				else
-					output_cond_var_.wait_for(lock, 200ms);
+				output_cond_var_.wait_for(lock, 200ms);
 			}
 		}
+	got_item:
 		input_done_callback_(nullptr);
 
 		output_ready_callback_(item.mem, item.bytes_used, item.timestamp_us, true);
 		free(item.mem);
-		num = (num + 1) % NUM_ENC_THREADS;
+		index++;
 	}
 }
