@@ -289,6 +289,7 @@ public:
 
 		// Now we get to override any of the default settings from the options.
 		configuration_->at(0).pixelFormat = libcamera::formats::YUV420;
+		configuration_->at(0).bufferCount = 6; // 6 buffers is better than 4
 		if (options.width)
 			configuration_->at(0).size.width = options.width;
 		if (options.height)
