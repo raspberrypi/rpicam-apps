@@ -418,11 +418,15 @@ public:
 	}
 	void StopCamera()
 	{
-		if (camera_started_)
 		{
-			if (camera_->stop())
-				throw std::runtime_error("failed to stop camera");
-			camera_started_ = false;
+			// We don't want QueueRequest to run asynchronously while we stop the camera.
+			std::lock_guard<std::mutex> lock(camera_stop_mutex_);
+			if (camera_started_)
+			{
+				if (camera_->stop())
+					throw std::runtime_error("failed to stop camera");
+				camera_started_ = false;
+			}
 		}
 
 		if (camera_)
@@ -476,6 +480,12 @@ public:
 	}
 	void QueueRequest(CompletedRequest const &completed_request)
 	{
+		// This function may run asynchronously so needs protection from the
+		// camera stopping at the same time.
+		std::lock_guard<std::mutex> stop_lock(camera_stop_mutex_);
+		if (!camera_started_)
+			return;
+
 		Request *request = nullptr;
 		{
 			std::lock_guard<std::mutex> lock(free_requests_mutex_);
@@ -503,11 +513,7 @@ public:
 		}
 
 		if (camera_->queueRequest(request) < 0)
-		{
-			// Don't make this fatal, some apps may stop the camera while the preview
-			// might still call us. (Arguably we should fix this better...)
-			std::cout << "(failed to queue request)" << std::endl;
-		}
+			throw std::runtime_error("failed to queue request");
 	}
 	void PostMessage(MsgType &t, MsgPayload &p) { msg_queue_.Post(Msg(t, p)); }
 	std::vector<void *> Mmap(FrameBuffer *buffer) const
@@ -779,6 +785,7 @@ private:
 	std::queue<Request *> free_requests_;
 	std::vector<std::unique_ptr<Request>> requests_;
 	bool camera_started_ = false;
+	std::mutex camera_stop_mutex_;
 	MessageQueue<Msg> msg_queue_;
 	// Related to the preview window.
 	std::unique_ptr<Preview> preview_;
