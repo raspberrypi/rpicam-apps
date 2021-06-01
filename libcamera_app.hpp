@@ -364,14 +364,14 @@ public:
 		// Framerate is a bit weird. If it was set programmatically, we go with that, but
 		// otherwise it applies only to preview/video modes. For stills capture we set it
 		// as long as possible so that we get whatever the exposure profile wants.
-		if (!controls_.contains(controls::FrameDurations))
+		if (!controls_.contains(controls::FrameDurationLimits))
 		{
 			if (still_stream_)
-				controls_.set(controls::FrameDurations, { INT64_C(100), INT64_C(1000000000) });
+				controls_.set(controls::FrameDurationLimits, { INT64_C(100), INT64_C(1000000000) });
 			else if (options.framerate > 0)
 			{
 				int64_t frame_time = 1000000 / options.framerate; // in us
-				controls_.set(controls::FrameDurations, { frame_time, frame_time });
+				controls_.set(controls::FrameDurationLimits, { frame_time, frame_time });
 			}
 		}
 
