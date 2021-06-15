@@ -25,7 +25,7 @@ struct FrameInfo
 		if (ctrls.contains(libcamera::controls::DigitalGain))
 			digital_gain = ctrls.get(libcamera::controls::DigitalGain);
 
-		if (ctrls.contains(libcamera::controls::DigitalGain))
+		if (ctrls.contains(libcamera::controls::ColourGains))
 		{
 			libcamera::Span<const float> gains = ctrls.get(libcamera::controls::ColourGains);
 			colour_gains[0] = gains[0], colour_gains[1] = gains[1];
