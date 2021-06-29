@@ -102,9 +102,6 @@ H264Encoder::H264Encoder(VideoOptions const &options) : Encoder(options), abort_
 	// libcamera currently has no means to request the right colour space, hence:
 	fmt.fmt.pix_mp.colorspace = V4L2_COLORSPACE_JPEG;
 	fmt.fmt.pix_mp.num_planes = 1;
-	fmt.fmt.pix_mp.plane_fmt[0].bytesperline = ((options.width + 31) & ~31);
-	fmt.fmt.pix_mp.plane_fmt[0].sizeimage =
-		fmt.fmt.pix_mp.plane_fmt[0].bytesperline * fmt.fmt.pix_mp.height * 3 / 2;
 	if (xioctl(fd_, VIDIOC_S_FMT, &fmt) < 0)
 		throw std::runtime_error("failed to set output format");
 
