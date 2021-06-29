@@ -41,7 +41,7 @@ add_library(encoders encoder.cpp null_encoder.cpp h264_encoder.cpp mjpeg_encoder
 project(libcamera-still)
 
 find_package(PkgConfig REQUIRED)
-pkg_check_modules(CAMERA REQUIRED camera)
+pkg_check_modules(CAMERA REQUIRED libcamera)
 pkg_check_modules(LIBDRM REQUIRED libdrm)
 
 include_directories(. "${CAMERA_INCLUDE_DIRS}" "${LIBDRM_INCLUDE_DIRS}")
@@ -53,7 +53,10 @@ find_library(JPEG_LIBRARY jpeg REQUIRED)
 find_library(TIFF_LIBRARY tiff REQUIRED)
 find_library(PNG_LIBRARY png REQUIRED)
 find_library(LIBCAMERA_LIBRARY libcamera.so REQUIRED)
-message(STATUS "${LIBCAMERA_LIBRARY}")
+find_library(LIBCAMERA_BASE_LIBRARY libcamera-base.so REQUIRED)
+set(LIBCAMERA_LIBRARIES "${LIBCAMERA_LIBRARY}" "${LIBCAMERA_BASE_LIBRARY}")
+message(STATUS "${LIBCAMERA_LIBRARIES}")
+
 find_package(X11 REQUIRED)
 message(STATUS "${X11_INCLUDE_DIR}")
 find_library(EPOXY_LIBRARY libepoxy.so REQUIRED)
@@ -62,27 +65,27 @@ find_library(DRM_LIBRARY libdrm.so REQUIRED)
 message(STATUS "${DRM_LIBRARY}")
 
 add_executable(libcamera-still libcamera_still.cpp yuv.cpp dng.cpp png.cpp bmp.cpp)
-target_link_libraries(libcamera-still common "${LIBCAMERA_LIBRARY}" exif ${Boost_LIBRARIES} jpeg tiff png pthread "${X11_LIBRARIES}" "${EPOXY_LIBRARY}" "${DRM_LIBRARY}")
+target_link_libraries(libcamera-still common "${LIBCAMERA_LIBRARIES}" exif ${Boost_LIBRARIES} jpeg tiff png pthread "${X11_LIBRARIES}" "${EPOXY_LIBRARY}" "${DRM_LIBRARY}")
 
 project(libcamera-vid)
 
 add_executable(libcamera-vid libcamera_vid.cpp)
-target_link_libraries(libcamera-vid encoders common "${LIBCAMERA_LIBRARY}" exif ${Boost_LIBRARIES} pthread jpeg "${X11_LIBRARIES}" "${EPOXY_LIBRARY}" "${DRM_LIBRARY}")
+target_link_libraries(libcamera-vid encoders common "${LIBCAMERA_LIBRARIES}" exif ${Boost_LIBRARIES} pthread jpeg "${X11_LIBRARIES}" "${EPOXY_LIBRARY}" "${DRM_LIBRARY}")
 
 project(libcamera-hello)
 
 add_executable(libcamera-hello libcamera_hello.cpp)
-target_link_libraries(libcamera-hello common "${LIBCAMERA_LIBRARY}" exif ${Boost_LIBRARIES} jpeg pthread "${X11_LIBRARIES}" "${EPOXY_LIBRARY}" "${DRM_LIBRARY}")
+target_link_libraries(libcamera-hello common "${LIBCAMERA_LIBRARIES}" exif ${Boost_LIBRARIES} jpeg pthread "${X11_LIBRARIES}" "${EPOXY_LIBRARY}" "${DRM_LIBRARY}")
 
 project(libcamera-raw)
 
 add_executable(libcamera-raw libcamera_raw.cpp)
-target_link_libraries(libcamera-raw encoders common "${LIBCAMERA_LIBRARY}" exif jpeg ${Boost_LIBRARIES} pthread "${X11_LIBRARIES}" "${EPOXY_LIBRARY}" "${DRM_LIBRARY}")
+target_link_libraries(libcamera-raw encoders common "${LIBCAMERA_LIBRARIES}" exif jpeg ${Boost_LIBRARIES} pthread "${X11_LIBRARIES}" "${EPOXY_LIBRARY}" "${DRM_LIBRARY}")
 
 project(libcamera-jpeg)
 
 add_executable(libcamera-jpeg libcamera_jpeg.cpp)
-target_link_libraries(libcamera-jpeg common "${LIBCAMERA_LIBRARY}" exif jpeg ${Boost_LIBRARIES} pthread "${X11_LIBRARIES}" "${EPOXY_LIBRARY}" "${DRM_LIBRARY}")
+target_link_libraries(libcamera-jpeg common "${LIBCAMERA_LIBRARIES}" exif jpeg ${Boost_LIBRARIES} pthread "${X11_LIBRARIES}" "${EPOXY_LIBRARY}" "${DRM_LIBRARY}")
 
 install(TARGETS common encoders LIBRARY DESTINATION lib ARCHIVE DESTINATION lib)
 install(TARGETS libcamera-still libcamera-vid libcamera-hello libcamera-raw libcamera-jpeg RUNTIME DESTINATION bin)
