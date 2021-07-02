@@ -15,21 +15,17 @@ add_definitions(-Wno-psabi)
 add_definitions(-DBOOST_LOG_DYN_LINK)
 
 IF (NOT ENABLE_COMPILE_FLAGS_FOR_TARGET)
+  # On a Pi this will give us armhf or arm64.
   execute_process(COMMAND dpkg-architecture -qDEB_HOST_ARCH
     OUTPUT_VARIABLE ENABLE_COMPILE_FLAGS_FOR_TARGET OUTPUT_STRIP_TRAILING_WHITESPACE)
-  if ("${ENABLE_COMPILE_FLAGS_FOR_TARGET}" STREQUAL "armhf")
-    execute_process(COMMAND grep neon /proc/cpuinfo
-      OUTPUT_VARIABLE NEON_PRESENT OUTPUT_STRIP_TRAILING_WHITESPACE)
-    if (NOT NEON_PRESENT)
-      set(ENABLE_COMPILE_FLAGS_FOR_TARGET "none")
-    endif()
-  endif()
 endif()
-message(STATUS "Optimising for platform: ${ENABLE_COMPILE_FLAGS_FOR_TARGET}")
-if ("${ENABLE_COMPILE_FLAGS_FOR_TARGET}" STREQUAL "armhf")
-  add_definitions(-mfpu=neon-fp-armv8 -ftree-vectorize)
-elseif ("${ENABLE_COMPILE_FLAGS_FOR_TARGET}" STREQUAL "arm64")
+message(STATUS "Platform: ${ENABLE_COMPILE_FLAGS_FOR_TARGET}")
+if ("${ENABLE_COMPILE_FLAGS_FOR_TARGET}" STREQUAL "arm64")
+  # 64-bit binaries can be fully optimised.
   add_definitions(-ftree-vectorize)
+elseif ("${ENABLE_COMPILE_FLAGS_FOR_TARGET}" STREQUAL "armv8-neon")
+  # Only build with 32-bit Pi 3/4 specific optimisations if requested on the command line.
+  add_definitions(-mfpu=neon-fp-armv8 -ftree-vectorize)
 endif()
 
 project(common)
