@@ -145,7 +145,7 @@ def test_still(dir):
         [executable, '-t', '10000', '--timelapse', '3500', '-o', os.path.join(dir, 'test%03d.jpg')],
         logfile)
     check_retcode(retcode, "test_still: timelapse test")
-    check_time(time_taken, 9, 15, "test_still: timelapse test")
+    check_time(time_taken, 9, 20, "test_still: timelapse test")
     check_size(os.path.join(dir, 'test000.jpg'), 1024, "test_still: timelapse test")
     check_size(os.path.join(dir, 'test001.jpg'), 1024, "test_still: timelapse test")
     if os.path.isfile(os.path.join(dir, 'test002.jpg')):
@@ -301,7 +301,7 @@ def test_raw(dir):
     retcode, time_taken = run_executable([executable, '-t', '2000', '-o', output_raw],
                                          logfile)
     check_retcode(retcode, "test_vid: raw test")
-    check_time(time_taken, 2, 5, "test_vid: raw test")
+    check_time(time_taken, 2, 8, "test_vid: raw test")
     check_size(output_raw, 1024, "test_vid: raw test")
 
     print("libcamera-raw tests passed")
