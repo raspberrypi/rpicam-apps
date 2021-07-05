@@ -24,10 +24,11 @@ static void default_signal_handler(int signal_number)
 	signal_received = signal_number;
 	std::cout << "Received signal " << signal_number << std::endl;
 }
-static int get_key_or_signal(VideoOptions const &options, pollfd p[1])
+
+static int get_key_or_signal(VideoOptions const *options, pollfd p[1])
 {
 	int key = 0;
-	if (options.keypress)
+	if (options->keypress)
 	{
 		poll(p, 1, 0);
 		if (p[0].revents & POLLIN)
@@ -38,7 +39,7 @@ static int get_key_or_signal(VideoOptions const &options, pollfd p[1])
 			key = user_string[0];
 		}
 	}
-	if (options.signal)
+	if (options->signal)
 	{
 		if (signal_received == SIGUSR1)
 			key = '\n';
@@ -52,7 +53,7 @@ static int get_key_or_signal(VideoOptions const &options, pollfd p[1])
 
 static void event_loop(LibcameraEncoder &app)
 {
-	VideoOptions const &options = app.options;
+	VideoOptions const *options = static_cast<VideoOptions *>(app.options);
 	std::unique_ptr<Output> output = std::unique_ptr<Output>(Output::Create(options));
 	app.SetEncodeBufferDoneCallback(std::bind(&LibcameraEncoder::ShowPreview, &app, _1, _2));
 	app.SetEncodeOutputReadyCallback(std::bind(&Output::OutputReady, output.get(), _1, _2, _3, _4));
@@ -80,10 +81,10 @@ static void event_loop(LibcameraEncoder &app)
 		if (key == '\n')
 			output->Signal();
 
-		if (options.verbose)
+		if (options->verbose)
 			std::cout << "Viewfinder frame " << count << std::endl;
 		auto now = std::chrono::high_resolution_clock::now();
-		if ((options.timeout && now - start_time > std::chrono::milliseconds(options.timeout)) ||
+		if ((options->timeout && now - start_time > std::chrono::milliseconds(options->timeout)) ||
 			key == 'x' || key == 'X')
 		{
 			app.StopCamera(); // stop complains if encoder very slow to close
@@ -99,11 +100,13 @@ int main(int argc, char *argv[])
 {
 	try
 	{
-		LibcameraEncoder app;
-		if (app.options.Parse(argc, argv))
+		VideoOptions options;
+		if (options.Parse(argc, argv))
 		{
-			if (app.options.verbose)
-				app.options.Print();
+			if (options.verbose)
+				options.Print();
+
+			LibcameraEncoder app(&options);
 			event_loop(app);
 		}
 	}

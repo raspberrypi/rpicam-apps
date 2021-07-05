@@ -105,7 +105,7 @@ static void gl_setup(int width, int height, int window_width, int window_height)
 	glEnableVertexAttribArray(0);
 }
 
-EglPreview::EglPreview(Options const &options) : last_fd_(-1), first_time_(true), Preview(options)
+EglPreview::EglPreview(Options const *options) : last_fd_(-1), first_time_(true), Preview(options)
 {
    display_ = XOpenDisplay(NULL);
    if (!display_)
@@ -120,10 +120,10 @@ EglPreview::EglPreview(Options const &options) : last_fd_(-1), first_time_(true)
    if (!eglInitialize(egl_display_, &egl_major, &egl_minor))
 	   throw std::runtime_error("eglInitialize() failed");
 
-   x_ = options_.preview_x;
-   y_ = options_.preview_y;
-   width_ = options_.preview_width;
-   height_ = options_.preview_height;
+   x_ = options_->preview_x;
+   y_ = options_->preview_y;
+   width_ = options_->preview_width;
+   height_ = options_->preview_height;
    makeWindow("libcamera-app");
 
    // gl_setup() has to happen later, once we're sure we're in the display thread.
@@ -191,7 +191,7 @@ void EglPreview::makeWindow(char const *name)
 		height_ = 768;
 	}
 
-	if (options_.fullscreen ||
+	if (options_->fullscreen ||
 		x_ + width_ > screen_width || y_ + height_ > screen_height)
 	{
 		x_ = y_ = 0;
@@ -234,7 +234,7 @@ void EglPreview::makeWindow(char const *name)
 							0, visinfo->depth, InputOutput,
 							visinfo->visual, mask, &attr);
 
-	if (options_.fullscreen)
+	if (options_->fullscreen)
 		no_border(display_, window_);
 
 	/* set hints and properties */

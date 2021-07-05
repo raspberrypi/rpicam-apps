@@ -471,7 +471,7 @@ static void YUV_to_JPEG(PixelFormat const &pixel_format, const uint8_t *input,
 static void create_exif_data(PixelFormat const &pixel_format,
 							 std::vector<void *> const &mem, int w, int h, int stride,
 							 ControlList const &metadata,
-							 std::string const &cam_name, StillOptions const &options,
+							 std::string const &cam_name, StillOptions const *options,
 							 uint8_t *&exif_buffer, unsigned int &exif_len,
 							 uint8_t *&thumb_buffer, jpeg_mem_len_t &thumb_len)
 {
@@ -507,7 +507,7 @@ static void create_exif_data(PixelFormat const &pixel_format,
 		{
 			entry = exif_create_tag(exif, EXIF_IFD_EXIF, EXIF_TAG_EXPOSURE_TIME);
 			int32_t exposure_time = metadata.get(libcamera::controls::ExposureTime);
-			if (options.verbose)
+			if (options->verbose)
 				std::cout << "Exposure time: " << exposure_time << std::endl;
 			ExifRational exposure = { (ExifLong)exposure_time, 1000000 };
 			exif_set_rational(entry->data, exif_byte_order, exposure);
@@ -519,15 +519,15 @@ static void create_exif_data(PixelFormat const &pixel_format,
 			if (metadata.contains(libcamera::controls::DigitalGain))
 				dg = metadata.get(libcamera::controls::DigitalGain);
 			gain = ag * dg;
-			if (options.verbose)
+			if (options->verbose)
 				std::cout << "Ag " << ag << " Dg " << dg << " Total " << gain << std::endl;
 			exif_set_short(entry->data, exif_byte_order, 100*gain);
 		}
 
 		// Command-line supplied tags.
-		for (auto &exif_item : options.exif)
+		for (auto &exif_item : options->exif)
 		{
-			if (options.verbose)
+			if (options->verbose)
 				std::cout << "Processing EXIF item: " << exif_item << std::endl;
 			exif_read_tag(exif, exif_item.c_str());
 		}
@@ -535,13 +535,13 @@ static void create_exif_data(PixelFormat const &pixel_format,
 		// Add some tags for the thumbnail. We put in dummy values for the thumbnail
 		// offset/length to occupy the right amount of space, and fill them in later.
 
-		if (options.verbose)
-			std::cout << "Thumbnail dimensions are " << options.thumb_width << " x " <<
-				options.thumb_height << std::endl;
+		if (options->verbose)
+			std::cout << "Thumbnail dimensions are " << options->thumb_width << " x " <<
+				options->thumb_height << std::endl;
 		entry = exif_create_tag(exif, EXIF_IFD_1, EXIF_TAG_IMAGE_WIDTH);
-		exif_set_short(entry->data, exif_byte_order, options.thumb_width);
+		exif_set_short(entry->data, exif_byte_order, options->thumb_width);
 		entry = exif_create_tag(exif, EXIF_IFD_1, EXIF_TAG_IMAGE_LENGTH);
-		exif_set_short(entry->data, exif_byte_order, options.thumb_height);
+		exif_set_short(entry->data, exif_byte_order, options->thumb_height);
 		entry = exif_create_tag(exif, EXIF_IFD_1, EXIF_TAG_COMPRESSION);
 		exif_set_short(entry->data, exif_byte_order, 6);
 		ExifEntry *thumb_offset_entry = 
@@ -561,18 +561,18 @@ static void create_exif_data(PixelFormat const &pixel_format,
 		// Next create the JPEG for the thumbnail, we need to do this now so that we can
 		// go back and fill in the correct values for the thumbnail offsets/length.
 
-		int q = options.thumb_quality;
+		int q = options->thumb_quality;
 		for (; q > 0; q -= 5)
 		{
 			YUV_to_JPEG(pixel_format, (uint8_t *)(mem[0]), w, h, stride,
-						options.thumb_width, options.thumb_height,
+						options->thumb_width, options->thumb_height,
 						q, 0, thumb_buffer, thumb_len);
 			if (thumb_len < 60000) // entire EXIF data must be < 65536, so this should be safe
 				break;
 			free(thumb_buffer);
 			thumb_buffer = nullptr;
 		}
-		if (options.verbose)
+		if (options->verbose)
 			std::cout << "Thumbnail size " << thumb_len << std::endl;
 		if (q <= 0)
 			throw std::runtime_error("failed to make acceptable thumbnail");
@@ -606,7 +606,7 @@ void jpeg_save(std::vector<void *> const &mem, int w, int h, int stride,
 			   ControlList const &metadata,
 			   std::string const &filename,
 			   std::string const &cam_name,
-			   StillOptions const &options)
+			   StillOptions const *options)
 {
 	FILE *fp = nullptr;
 	uint8_t *thumb_buffer = nullptr;
@@ -632,17 +632,17 @@ void jpeg_save(std::vector<void *> const &mem, int w, int h, int stride,
 
 		jpeg_mem_len_t jpeg_len;
 		YUV_to_JPEG(pixel_format, (uint8_t *)(mem[0]), w, h, stride, w, h,
-					 options.quality, options.restart, jpeg_buffer, jpeg_len);
-		if (options.verbose)
+					 options->quality, options->restart, jpeg_buffer, jpeg_len);
+		if (options->verbose)
 			std::cout << "JPEG size is " << jpeg_len << std::endl;
 
 		// Write everything out.
 
 		fp = fopen(filename.c_str(), "w");
 		if (!fp)
-			throw std::runtime_error("failed to open file " + options.output);
+			throw std::runtime_error("failed to open file " + options->output);
 
-		if (options.verbose)
+		if (options->verbose)
 			std::cout << "EXIF data len " << exif_len << std::endl;
 
 		if (fwrite(exif_header, sizeof(exif_header), 1, fp) != 1 ||

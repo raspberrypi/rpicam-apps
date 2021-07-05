@@ -12,34 +12,32 @@
 
 using namespace std::placeholders;
 
-typedef LibcameraApp<Options> LibcameraHello;
-
 // The main event loop for the application.
 
-static void event_loop(LibcameraHello &app)
+static void event_loop(LibcameraApp &app)
 {
-	Options const &options = app.options;
+	Options const *options = app.options;
 
 	app.OpenCamera();
 	app.ConfigureViewfinder();
 	app.StartCamera();
 	// When the preview window is done with a set of buffers, queue them back to libcamera.
-	app.SetPreviewDoneCallback(std::bind(&LibcameraHello::QueueRequest, &app, _1));
+	app.SetPreviewDoneCallback(std::bind(&LibcameraApp::QueueRequest, &app, _1));
 	auto start_time = std::chrono::high_resolution_clock::now();
 
 	for (unsigned int count = 0; ; count++)
 	{
-		LibcameraHello::Msg msg = app.Wait();
-		if (msg.type == LibcameraHello::MsgType::Quit)
+		LibcameraApp::Msg msg = app.Wait();
+		if (msg.type == LibcameraApp::MsgType::Quit)
 			return;
-		else if (msg.type != LibcameraHello::MsgType::RequestComplete)
+		else if (msg.type != LibcameraApp::MsgType::RequestComplete)
 			throw std::runtime_error("unrecognised message!");
 
-		if (options.verbose)
+		if (options->verbose)
 			std::cout << "Viewfinder frame " << count << std::endl;
 		auto now = std::chrono::high_resolution_clock::now();
-		if (options.timeout &&
-			now - start_time > std::chrono::milliseconds(options.timeout))
+		if (options->timeout &&
+			now - start_time > std::chrono::milliseconds(options->timeout))
 			return;
 
 		CompletedRequest &completed_request = std::get<CompletedRequest>(msg.payload);
@@ -51,11 +49,13 @@ int main(int argc, char *argv[])
 {
 	try
 	{
-		LibcameraHello app;
-		if (app.options.Parse(argc, argv))
+		Options options;
+		if (options.Parse(argc, argv))
 		{
-			if (app.options.verbose)
-				app.options.Print();
+			if (options.verbose)
+				options.Print();
+
+			LibcameraApp app(&options);
 			event_loop(app);
 		}
 	}

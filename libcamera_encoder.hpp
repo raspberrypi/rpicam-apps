@@ -12,11 +12,14 @@
 typedef std::function<void(CompletedRequest &, libcamera::Stream *)> EncodeBufferDoneCallback;
 typedef std::function<void(void *,size_t, int64_t, bool)> EncodeOutputReadyCallback;
 
-class LibcameraEncoder: public LibcameraApp<VideoOptions>
+class LibcameraEncoder: public LibcameraApp
 {
 public:
 	using Stream = libcamera::Stream;
 	using FrameBuffer = libcamera::FrameBuffer;
+
+	LibcameraEncoder(VideoOptions *options) :
+		LibcameraApp(options) {}
 
 	void StartEncoder()
 	{
@@ -59,7 +62,7 @@ public:
 protected:
 	virtual void createEncoder()
 	{
-		encoder_ = std::unique_ptr<Encoder>(Encoder::Create(options));
+		encoder_ = std::unique_ptr<Encoder>(Encoder::Create(static_cast<VideoOptions *>(options)));
 	}
 	std::unique_ptr<Encoder> encoder_;
 

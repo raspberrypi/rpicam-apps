@@ -11,8 +11,6 @@
 #include "still_options.hpp"
 
 using namespace std::placeholders;
-
-typedef LibcameraApp<StillOptions> LibcameraJpeg;
 using libcamera::Stream;
 
 // In jpeg.cpp:
@@ -21,25 +19,25 @@ void jpeg_save(std::vector<void *> const &mem, int w, int h, int stride,
 			   libcamera::ControlList const &metadata,
 			   std::string const &filename,
 			   std::string const &cam_name,
-			   StillOptions const &options);
+			   StillOptions const *options);
 
 // The main even loop for the application.
 
-static void event_loop(LibcameraJpeg &app)
+static void event_loop(LibcameraApp &app)
 {
-	StillOptions const &options = app.options;
+	StillOptions const *options = static_cast<StillOptions *>(app.options);
 	app.OpenCamera();
 	app.ConfigureViewfinder();
 	app.StartCamera();
-	app.SetPreviewDoneCallback(std::bind(&LibcameraJpeg::QueueRequest, &app, _1));
+	app.SetPreviewDoneCallback(std::bind(&LibcameraApp::QueueRequest, &app, _1));
 	auto start_time = std::chrono::high_resolution_clock::now();
 
 	for (unsigned int count = 0; ; count++)
 	{
-		LibcameraJpeg::Msg msg = app.Wait();
-		if (msg.type == LibcameraJpeg::MsgType::Quit)
+		LibcameraApp::Msg msg = app.Wait();
+		if (msg.type == LibcameraApp::MsgType::Quit)
 			return;
-		else if (msg.type != LibcameraJpeg::MsgType::RequestComplete)
+		else if (msg.type != LibcameraApp::MsgType::RequestComplete)
 			throw std::runtime_error("unrecognised message!");
 
 		// In viewfinder mode, simply run until the timeout. When that happens, switch to
@@ -47,7 +45,7 @@ static void event_loop(LibcameraJpeg &app)
 		if (app.ViewfinderStream())
 		{
 			auto now = std::chrono::high_resolution_clock::now();
-			if (options.timeout && now - start_time > std::chrono::milliseconds(options.timeout))
+			if (options->timeout && now - start_time > std::chrono::milliseconds(options->timeout))
 			{
 					app.StopCamera();
 					app.Teardown();
@@ -72,7 +70,7 @@ static void event_loop(LibcameraJpeg &app)
 			CompletedRequest &payload = std::get<CompletedRequest>(msg.payload);
 			std::vector<void *> mem = app.Mmap(payload.buffers[stream]);
 			jpeg_save(mem, w, h, stride, stream->configuration().pixelFormat,
-					  payload.metadata, app.options.output, app.CameraId(), app.options);
+					  payload.metadata, options->output, app.CameraId(), options);
 			return;
 		}
 	}
@@ -82,14 +80,15 @@ int main(int argc, char *argv[])
 {
 	try
 	{
-		LibcameraJpeg app;
-		if (app.options.Parse(argc, argv))
+		StillOptions options;
+		if (options.Parse(argc, argv))
 		{
-			if (app.options.verbose)
-				app.options.Print();
-			if (app.options.output.empty())
+			if (options.verbose)
+				options.Print();
+			if (options.output.empty())
 				throw std::runtime_error("output file name required");
 
+			LibcameraApp app(&options);
 			event_loop(app);
 		}
 	}

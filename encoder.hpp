@@ -17,9 +17,9 @@ typedef std::function<void(void *,size_t, int64_t, bool)> OutputReadyCallback;
 class Encoder
 {
 public:
-	static Encoder *Create(VideoOptions const &options);
+	static Encoder *Create(VideoOptions const *options);
 
-	Encoder(VideoOptions const &options) : options_(options) {}
+	Encoder(VideoOptions const *options) : options_(options) {}
 	virtual ~Encoder() {}
 	// This is where the application sets the callback it gets whenever the encoder
 	// has finished with an input buffer, so the application can re-use it.
@@ -42,5 +42,5 @@ public:
 protected:
 	InputDoneCallback input_done_callback_;
 	OutputReadyCallback output_ready_callback_;
-	VideoOptions options_;
+	VideoOptions const *options_;
 };

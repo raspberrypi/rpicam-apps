@@ -18,7 +18,7 @@
 class NullEncoder : public Encoder
 {
 public:
-	NullEncoder(VideoOptions const &options);
+	NullEncoder(VideoOptions const *options);
 	~NullEncoder();
 	void EncodeBuffer(int fd, size_t size,
 					  void *mem, int width, int height, int stride,

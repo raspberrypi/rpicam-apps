@@ -15,16 +15,20 @@ using namespace std::placeholders;
 
 class LibcameraRaw: public LibcameraEncoder
 {
+public:
+	LibcameraRaw(VideoOptions *options)
+		: LibcameraEncoder(options) {}
+
 protected:
 	// Force the use of "null" encoder.
-	void createEncoder() { encoder_ = std::unique_ptr<Encoder>(new NullEncoder(options)); }
+	void createEncoder() { encoder_ = std::unique_ptr<Encoder>(new NullEncoder(static_cast<VideoOptions *>(options))); }
 };
 
 // The main even loop for the application.
 
 static void event_loop(LibcameraRaw &app)
 {
-	VideoOptions const &options = app.options;
+	VideoOptions const *options = static_cast<VideoOptions *>(app.options);
 	std::unique_ptr<Output> output = std::unique_ptr<Output>(Output::Create(options));
 	app.SetEncodeBufferDoneCallback(std::bind(&LibcameraRaw::QueueRequest, &app, _1));
 	app.SetEncodeOutputReadyCallback(std::bind(&Output::OutputReady, output.get(), _1, _2, _3, _4));
@@ -48,11 +52,11 @@ static void event_loop(LibcameraRaw &app)
 					  << cfg.stride << " format " << cfg.pixelFormat.toString() << std::endl;
 		}
 
-		if (options.verbose)
+		if (options->verbose)
 			std::cout << "Viewfinder frame " << count << std::endl;
 		auto now = std::chrono::high_resolution_clock::now();
-		if (options.timeout &&
-			now - start_time > std::chrono::milliseconds(options.timeout))
+		if (options->timeout &&
+			now - start_time > std::chrono::milliseconds(options->timeout))
 		{
 			app.StopCamera();
 			app.StopEncoder();
@@ -67,13 +71,15 @@ int main(int argc, char *argv[])
 {
 	try
 	{
-		LibcameraRaw app;
-		if (app.options.Parse(argc, argv))
+		VideoOptions options;
+		if (options.Parse(argc, argv))
 		{
-			app.options.denoise = "cdn_off";
-			app.options.nopreview = true;
-			if (app.options.verbose)
-				app.options.Print();
+			options.denoise = "cdn_off";
+			options.nopreview = true;
+			if (options.verbose)
+				options.Print();
+
+			LibcameraRaw app(&options);
 			event_loop(app);
 		}
 	}

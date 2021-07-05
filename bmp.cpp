@@ -43,7 +43,7 @@ static_assert(sizeof(FileHeader) == 16, "FileHeader size wrong");
 void bmp_save(std::vector<void *> const &mem, int w, int h, int stride,
 			  libcamera::PixelFormat const &pixel_format,
 			  std::string const &filename,
-			  StillOptions const &options)
+			  StillOptions const *options)
 {
 	if (pixel_format != libcamera::formats::RGB888)
 		throw std::runtime_error("pixel format for bmp should be RGB");
@@ -78,7 +78,7 @@ void bmp_save(std::vector<void *> const &mem, int w, int h, int stride,
 				throw std::runtime_error("failed to write BMP file, row " + std::to_string(i));
 		}
 
-		if (options.verbose)
+		if (options->verbose)
 			std::cout << "Wrote " << file_header.filesize << " bytes to BMP file" << std::endl;
 
 		fclose(fp);

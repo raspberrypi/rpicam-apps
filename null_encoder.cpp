@@ -11,10 +11,10 @@
 
 #include "null_encoder.hpp"
 
-NullEncoder::NullEncoder(VideoOptions const &options) :
+NullEncoder::NullEncoder(VideoOptions const *options) :
 	abort_(false), Encoder(options)
 {
-	if (options.verbose)
+	if (options->verbose)
 		std::cout << "Opened NullEncoder" << std::endl;
 	output_thread_ = std::thread(&NullEncoder::outputThread, this);
 }

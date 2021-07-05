@@ -12,9 +12,9 @@
 
 static void yuv420_save(std::vector<void *> const &mem, int w, int h, int stride,
 					  std::string const &filename,
-					  StillOptions const &options)
+					  StillOptions const *options)
 {
-	if (options.encoding == "yuv420")
+	if (options->encoding == "yuv420")
 	{
 		if ((w&1) || (h&1))
 			throw std::runtime_error("both width and height must be even");
@@ -52,14 +52,14 @@ static void yuv420_save(std::vector<void *> const &mem, int w, int h, int stride
 		}
 	}
 	else
-		throw std::runtime_error("output format " + options.encoding + " not supported");
+		throw std::runtime_error("output format " + options->encoding + " not supported");
 }
 
 static void yuyv_save(std::vector<void *> const &mem, int w, int h, int stride,
 					  std::string const &filename,
-					  StillOptions const &options)
+					  StillOptions const *options)
 {
-	if (options.encoding == "yuv420")
+	if (options->encoding == "yuv420")
 	{
 		if ((w&1) || (h&1))
 			throw std::runtime_error("both width and height must be even");
@@ -104,14 +104,14 @@ static void yuyv_save(std::vector<void *> const &mem, int w, int h, int stride,
 		}
 	}
 	else
-		throw std::runtime_error("output format " + options.encoding + " not supported");
+		throw std::runtime_error("output format " + options->encoding + " not supported");
 }
 
 static void rgb_save(std::vector<void *> const &mem, int w, int h, int stride,
 					 std::string const &filename,
-					 StillOptions const &options)
+					 StillOptions const *options)
 {
-	if (options.encoding != "rgb")
+	if (options->encoding != "rgb")
 		throw std::runtime_error("encoding should be set to rgb");
 	FILE *fp = fopen(filename.c_str(), "w");
 	if (!fp)
@@ -136,7 +136,7 @@ static void rgb_save(std::vector<void *> const &mem, int w, int h, int stride,
 void yuv_save(std::vector<void *> const &mem, int w, int h, int stride,
 			  libcamera::PixelFormat const &pixel_format,
 			  std::string const &filename,
-			  StillOptions const &options)
+			  StillOptions const *options)
 {
 	if (pixel_format == libcamera::formats::YUYV)
 		yuyv_save(mem, w, h, stride, filename, options);

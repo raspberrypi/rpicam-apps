@@ -13,19 +13,19 @@
 #include "net_output.hpp"
 #include "circular_output.hpp"
 
-Output::Output(VideoOptions const &options) :
+Output::Output(VideoOptions const *options) :
 	state_(WAITING_KEYFRAME), options_(options), fp_timestamps_(nullptr),
 	time_offset_(0), last_timestamp_(0)
 {
-	if (!options.save_pts.empty())
+	if (!options->save_pts.empty())
 	{
-		fp_timestamps_ = fopen(options.save_pts.c_str(), "w");
+		fp_timestamps_ = fopen(options->save_pts.c_str(), "w");
 		if (!fp_timestamps_)
-			throw std::runtime_error("Failed to open timestamp file " + options.save_pts);
+			throw std::runtime_error("Failed to open timestamp file " + options->save_pts);
 		fprintf(fp_timestamps_, "# timecode format v2\n");
 	}
 
-	enable_ = !options.pause;
+	enable_ = !options->pause;
 }
 
 Output::~Output()
@@ -69,14 +69,14 @@ void Output::outputBuffer(void *mem, size_t size, int64_t timestamp_us, uint32_t
 	// Supply this so that a vanilla Output gives you an object that outputs no buffers.
 }
 
-Output *Output::Create(VideoOptions const &options)
+Output *Output::Create(VideoOptions const *options)
 {
-	if (strncmp(options.output.c_str(), "udp://", 6) == 0 ||
-		strncmp(options.output.c_str(), "tcp://", 6) == 0)
+	if (strncmp(options->output.c_str(), "udp://", 6) == 0 ||
+		strncmp(options->output.c_str(), "tcp://", 6) == 0)
 		return new NetOutput(options);
-	else if (options.circular)
+	else if (options->circular)
 		return new CircularOutput(options);
-	else if (!options.output.empty())
+	else if (!options->output.empty())
 		return new FileOutput(options);
 	else
 		return new Output(options);

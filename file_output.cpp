@@ -7,7 +7,7 @@
 
 #include "file_output.hpp"
 
-FileOutput::FileOutput(VideoOptions const &options)
+FileOutput::FileOutput(VideoOptions const *options)
 	: fp_(nullptr), count_(0), file_start_time_ms_(0), Output(options)
 {
 }
@@ -23,44 +23,44 @@ void FileOutput::outputBuffer(void *mem, size_t size, int64_t timestamp_us, uint
 	// (though we have to wait for the next I frame), or if we're in "split" mode
 	// and recording is being restarted (this is necessarily an I-frame already).
 	if (fp_ == nullptr ||
-		(options_.segment && (flags & FLAG_KEYFRAME) &&
-		 timestamp_us / 1000 - file_start_time_ms_ > options_.segment) ||
-		(options_.split && (flags & FLAG_RESTART)))
+		(options_->segment && (flags & FLAG_KEYFRAME) &&
+		 timestamp_us / 1000 - file_start_time_ms_ > options_->segment) ||
+		(options_->split && (flags & FLAG_RESTART)))
 	{
 		closeFile();
 		openFile(timestamp_us);
 	}
 
-	if (options_.verbose)
+	if (options_->verbose)
 		std::cout << "FileOutput: output buffer " << mem << " size " << size << "\n";
 	if (fp_ && size)
 	{
 		if (fwrite(mem, size, 1, fp_) != 1)
 			throw std::runtime_error("failed to write output bytes");
-		if (options_.flush)
+		if (options_->flush)
 			fflush(fp_);
 	}
 }
 
 void FileOutput::openFile(int64_t timestamp_us)
 {
-	if (options_.output == "-")
+	if (options_->output == "-")
 		fp_ = stdout;
-	else if (!options_.output.empty())
+	else if (!options_->output.empty())
 	{
 		// Generate the next output file name.
 		char filename[256];
-		int n = snprintf(filename, sizeof(filename), options_.output.c_str(), count_);
+		int n = snprintf(filename, sizeof(filename), options_->output.c_str(), count_);
 		count_++;
-		if (options_.wrap)
-			count_ = count_ % options_.wrap;
+		if (options_->wrap)
+			count_ = count_ % options_->wrap;
 		if (n < 0 || n >= sizeof(filename))
 			throw std::runtime_error("failed to generate filename");
 		
 		fp_ = fopen(filename, "w");
 		if (!fp_)
 			throw std::runtime_error("failed to open output file " + std::string(filename));
-		if (options_.verbose)
+		if (options_->verbose)
 			std::cout << "FileOutput: opened output file " << filename << std::endl;
 
 		file_start_time_ms_ = timestamp_us / 1000;
