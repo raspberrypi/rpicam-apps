@@ -18,13 +18,13 @@ typedef size_t jpeg_mem_len_t;
 typedef unsigned long jpeg_mem_len_t;
 #endif
 
-MjpegEncoder::MjpegEncoder(VideoOptions const &options)
+MjpegEncoder::MjpegEncoder(VideoOptions const *options)
 	: Encoder(options), abort_(false), index_(0)
 {
 	output_thread_ = std::thread(&MjpegEncoder::outputThread, this);
 	for (int i = 0; i < NUM_ENC_THREADS; i++)
 		encode_thread_[i] = std::thread(std::bind(&MjpegEncoder::encodeThread, this, i));
-	if (options_.verbose)
+	if (options_->verbose)
 		std::cout << "Opened MjpegEncoder" << std::endl;
 }
 
@@ -34,7 +34,7 @@ MjpegEncoder::~MjpegEncoder()
 	for (int i = 0; i < NUM_ENC_THREADS; i++)
 		encode_thread_[i].join();
 	output_thread_.join();
-	if (options_.verbose)
+	if (options_->verbose)
 		std::cout << "MjpegEncoder closed" << std::endl;
 }
 
@@ -60,7 +60,7 @@ void MjpegEncoder::encodeJPEG(struct jpeg_compress_struct &cinfo, EncodeItem &it
 
     jpeg_set_defaults(&cinfo);
 	cinfo.raw_data_in = TRUE;
-    jpeg_set_quality(&cinfo, options_.quality, TRUE);
+    jpeg_set_quality(&cinfo, options_->quality, TRUE);
 	encoded_buffer = nullptr;
 	buffer_len = 0;
     jpeg_mem_len_t jpeg_mem_len;
@@ -133,7 +133,7 @@ void MjpegEncoder::encodeThread(int num)
 				using namespace std::chrono_literals;
 				if (abort_)
 				{
-					if (frames && options_.verbose)
+					if (frames && options_->verbose)
 						std::cout << "Encode " << frames << " frames, average time " <<
 							encode_time.count() * 1000 / frames << "ms" << std::endl;
 					jpeg_destroy_compress(&cinfo);

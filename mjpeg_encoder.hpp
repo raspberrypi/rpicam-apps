@@ -19,7 +19,7 @@ struct jpeg_compress_struct;
 class MjpegEncoder : public Encoder
 {
 public:
-	MjpegEncoder(VideoOptions const &options);
+	MjpegEncoder(VideoOptions const *options);
 	~MjpegEncoder();
 	// Encode the given buffer.
 	void EncodeBuffer(int fd, size_t size,

@@ -27,7 +27,7 @@ void DrmPreview::findCrtc()
 		throw std::runtime_error("drm: no crts");
 
 	if (!conId_) {
-		if (options_.verbose)
+		if (options_->verbose)
 			std::cout << "No connector ID specified.  Choosing default from list:" << std::endl;
 
 		for (i = 0; i < res->count_connectors; i++) {
@@ -52,7 +52,7 @@ void DrmPreview::findCrtc()
 				screen_height_ = crtc->height;
 			}
 
-			if (options_.verbose)
+			if (options_->verbose)
 				std::cout << "Connector " << con->connector_id <<
 					" (crtc " << (crtc ? crtc->crtc_id : 0) << "): type " <<
 					con->connector_type << ", " << (crtc ? crtc->width : 0) << "x" <<
@@ -96,7 +96,7 @@ void DrmPreview::findCrtc()
 		throw std::runtime_error("connector supports no mode");
 	}
 
-	if (options_.fullscreen || width_ == 0 || height_ == 0)
+	if (options_->fullscreen || width_ == 0 || height_ == 0)
 	{
 		drmModeCrtc *crtc = drmModeGetCrtc(drmfd_, crtcId_);
 		x_ = crtc->x;
@@ -155,16 +155,16 @@ void DrmPreview::findPlane()
 	drmModeFreePlaneResources(planes);
 }
 
-DrmPreview::DrmPreview(Options const &options) : last_fd_(-1), Preview(options)
+DrmPreview::DrmPreview(Options const *options) : last_fd_(-1), Preview(options)
 {
 	drmfd_ = drmOpen("vc4", NULL);
 	if (drmfd_ < 0)
 		throw std::runtime_error("drmOpen failed: " + std::string(ERRSTR));
 
-	x_ = options_.preview_x;
-	y_ = options_.preview_y;
-	width_ = options.preview_width;
-	height_ = options.preview_height;
+	x_ = options_->preview_x;
+	y_ = options_->preview_y;
+	width_ = options_->preview_width;
+	height_ = options_->preview_height;
 	screen_width_ = 0;
 	screen_height_ = 0;
 
@@ -185,7 +185,7 @@ DrmPreview::DrmPreview(Options const &options) : last_fd_(-1), Preview(options)
 	}
 
 	// Default behaviour here is to go fullscreen.
-	if (options_.fullscreen || width_ == 0 || height_ == 0 ||
+	if (options_->fullscreen || width_ == 0 || height_ == 0 ||
 		x_ + width_ > screen_width_ || y_ + height_ > screen_height_)
 	{
 		x_ = y_ = 0;

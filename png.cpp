@@ -18,7 +18,7 @@
 void png_save(std::vector<void *> const &mem, int w, int h, int stride,
 			  libcamera::PixelFormat const &pixel_format,
 			  std::string const &filename,
-			  StillOptions const &options)
+			  StillOptions const *options)
 {
 	if (pixel_format != libcamera::formats::BGR888)
 		throw std::runtime_error("pixel format for png should be BGR");
@@ -65,7 +65,7 @@ void png_save(std::vector<void *> const &mem, int w, int h, int stride,
 		png_set_rows(png_ptr, info_ptr, row_ptrs);
 		png_write_png(png_ptr, info_ptr, PNG_TRANSFORM_IDENTITY, NULL);
 
-		if (options.verbose)
+		if (options->verbose)
 		{
 			long int size = ftell(fp);
 			std::cout << "Wrote PNG file of " << size << " bytes" << std::endl;

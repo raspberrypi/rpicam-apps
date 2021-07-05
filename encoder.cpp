@@ -12,13 +12,13 @@
 #include "null_encoder.hpp"
 #include "mjpeg_encoder.hpp"
 
-Encoder *Encoder::Create(VideoOptions const &options)
+Encoder *Encoder::Create(VideoOptions const *options)
 {
-	if (strcasecmp(options.codec.c_str(), "yuv420") == 0)
+	if (strcasecmp(options->codec.c_str(), "yuv420") == 0)
 		return new NullEncoder(options);
-	else if (strcasecmp(options.codec.c_str(), "h264") == 0)
+	else if (strcasecmp(options->codec.c_str(), "h264") == 0)
 		return new H264Encoder(options);
-	else if (strcasecmp(options.codec.c_str(), "mjpeg") == 0)
+	else if (strcasecmp(options->codec.c_str(), "mjpeg") == 0)
 		return new MjpegEncoder(options);
-	throw std::runtime_error("Unrecognised codec " + options.codec);
+	throw std::runtime_error("Unrecognised codec " + options->codec);
 }

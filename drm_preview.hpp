@@ -12,7 +12,7 @@
 class DrmPreview : public Preview
 {
 public:
-	DrmPreview(Options const &options);
+	DrmPreview(Options const *options);
 	~DrmPreview();
 	// Display the buffer. You get given the fd back in the BufferDoneCallback
 	// once its available for re-use.

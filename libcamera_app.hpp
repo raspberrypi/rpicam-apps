@@ -22,6 +22,7 @@
 #include "egl_preview.hpp"
 #include "drm_preview.hpp"
 #include "frame_info.hpp"
+#include "options.hpp"
 
 // Crikey, X11/Xlib.h actually contains "#define Status int". Since when was that OK?
 #undef Status
@@ -52,7 +53,6 @@ struct CompletedRequest
 
 typedef std::function<void(CompletedRequest &)> PreviewDoneCallback;
 
-template <class OPTIONS>
 class LibcameraApp
 {
 public:
@@ -86,7 +86,7 @@ public:
 	};
 
 	// Program options are left as public; we use Boost to parse them.
-	OPTIONS options;
+	Options *options;
 
 	// Some flags that can be used to give hints to the camera configuration.
 	static constexpr unsigned int FLAG_STILL_NONE   =  0;
@@ -100,7 +100,7 @@ public:
 	static constexpr unsigned int FLAG_VIDEO_NONE   =  0;
 	static constexpr unsigned int FLAG_VIDEO_RAW    =  1;  // request raw image stream
 
-	LibcameraApp() : preview_thread_(&LibcameraApp::previewThread, this) {}
+	LibcameraApp(Options *_options) : options(_options), preview_thread_(&LibcameraApp::previewThread, this) {}
 	virtual ~LibcameraApp()
 	{
 		{
@@ -109,7 +109,7 @@ public:
 			preview_cond_var_.notify_one();
 		}
 		preview_thread_.join();
-		if (options.verbose && !options.help)
+		if (options->verbose && !options->help)
 			std::cout << "Closing Libcamera application" << "(frames displayed "
 					  << preview_frames_displayed_ << ", dropped " << preview_frames_dropped_
 					  << ")" << std::endl;
@@ -121,14 +121,14 @@ public:
 	void OpenCamera()
 	{
 		// Make a preview window.
-		if (options.nopreview)
+		if (options->nopreview)
 			preview_ = std::make_unique<NullPreview>(options);
 		else
 		{
 			try
 			{
 				preview_ = std::make_unique<EglPreview>(options);
-				if (options.verbose)
+				if (options->verbose)
 					std::cout << "Made X/EGL preview window" << std::endl;
 			}
 			catch(std::exception const &e)
@@ -136,7 +136,7 @@ public:
 				try
 				{
 					preview_ = std::make_unique<DrmPreview>(options);
-					if (options.verbose)
+					if (options->verbose)
 						std::cout << "Made DRM preview window" << std::endl;
 				}
 				catch (std::exception const &e)
@@ -148,7 +148,7 @@ public:
 		}
 		preview_->SetDoneCallback(std::bind(&LibcameraApp::previewDoneCallback, this, std::placeholders::_1));
 
-		if (options.verbose)
+		if (options->verbose)
 			std::cout << "Opening camera..." << std::endl;
 
 		camera_manager_ = std::make_unique<CameraManager>();
@@ -168,7 +168,7 @@ public:
 			throw std::runtime_error("failed to acquire camera " + cam_id);
 		camera_acquired_ = true;
 
-		if (options.verbose)
+		if (options->verbose)
 			std::cout << "Acquired camera " << cam_id << std::endl;
 	}
 	void CloseCamera()
@@ -183,12 +183,12 @@ public:
 
 		camera_manager_.reset();
 
-		if (options.verbose && !options.help)
+		if (options->verbose && !options->help)
 			std::cout << "Camera closed" << std::endl;
 	}
 	void ConfigureViewfinder()
 	{
-		if (options.verbose)
+		if (options->verbose)
 			std::cout << "Configuring viewfinder..." << std::endl;
 
 		configuration_ = camera_->generateConfiguration({ StreamRole::Viewfinder });
@@ -196,39 +196,39 @@ public:
 			throw std::runtime_error("failed to generate viewfinder configuration");
 
 		Size size(1280, 960);
-		if (options.viewfinder_width && options.viewfinder_height)
-			size = Size(options.viewfinder_width, options.viewfinder_height);
+		if (options->viewfinder_width && options->viewfinder_height)
+			size = Size(options->viewfinder_width, options->viewfinder_height);
 		else if (camera_->properties().contains(properties::PixelArrayActiveAreas))
 		{
 			// The idea here is that most sensors will have a 2x2 binned mode that
 			// we can pick up. If it doesn't, well, you can always specify the size
-			// you want exactly with the viewfinder_width/height options.
+			// you want exactly with the viewfinder_width/height options->
 			size = camera_->properties().get(properties::PixelArrayActiveAreas)[0].size() / 2;
 			// If width and height were given, we might be switching to capture
 			// afterwards - so try to match the field of view.
-			if (options.width && options.height)
-				size = size.boundedToAspectRatio(Size(options.width, options.height));
+			if (options->width && options->height)
+				size = size.boundedToAspectRatio(Size(options->width, options->height));
 			size.alignDownTo(2, 2); // YUV420 will want to be even
-			if (options.verbose)
+			if (options->verbose)
 				std::cout << "Viewfinder size chosen is " << size.toString() << std::endl;
 		}
 
-		// Now we get to override any of the default settings from the options.
+		// Now we get to override any of the default settings from the options->
 		configuration_->at(0).pixelFormat = libcamera::formats::YUV420;
 		configuration_->at(0).size = size;
-		configuration_->transform = options.transform;
+		configuration_->transform = options->transform;
 
-		configureDenoise(options.denoise == "auto" ? "cdn_off" : options.denoise);
+		configureDenoise(options->denoise == "auto" ? "cdn_off" : options->denoise);
 		setupCapture();
 
 		viewfinder_stream_ = configuration_->at(0).stream();
 
-		if (options.verbose)
+		if (options->verbose)
 			std::cout << "Viewfinder setup complete" << std::endl;
 	}
 	void ConfigureStill(unsigned int flags = FLAG_STILL_NONE)
 	{
-		if (options.verbose)
+		if (options->verbose)
 			std::cout << "Configuring still capture..." << std::endl;
 
 		// Will add a raw capture stream once that works properly.
@@ -241,7 +241,7 @@ public:
 		if (!configuration_)
 			throw std::runtime_error("failed to generate still capture configuration");
 
-		// Now we get to override any of the default settings from the options.
+		// Now we get to override any of the default settings from the options->
 		if (flags & FLAG_STILL_BGR)
 			configuration_->at(0).pixelFormat = libcamera::formats::BGR888;
 		else if (flags & FLAG_STILL_RGB)
@@ -252,30 +252,30 @@ public:
 			configuration_->at(0).bufferCount = 2;
 		else if ((flags & FLAG_STILL_BUFFER_MASK) == FLAG_STILL_TRIPLE_BUFFER)
 			configuration_->at(0).bufferCount = 3;
-		if (options.width)
-			configuration_->at(0).size.width = options.width;
-		if (options.height)
-			configuration_->at(0).size.height = options.height;
-		if ((flags & FLAG_STILL_RAW) && !options.rawfull)
+		if (options->width)
+			configuration_->at(0).size.width = options->width;
+		if (options->height)
+			configuration_->at(0).size.height = options->height;
+		if ((flags & FLAG_STILL_RAW) && !options->rawfull)
 		{
 			configuration_->at(1).size.width = configuration_->at(0).size.width;
 			configuration_->at(1).size.height = configuration_->at(0).size.height;
 			configuration_->at(1).bufferCount = configuration_->at(0).bufferCount;
 		}
-		configuration_->transform = options.transform;
+		configuration_->transform = options->transform;
 
-		configureDenoise(options.denoise == "auto" ? "cdn_hq" : options.denoise);
+		configureDenoise(options->denoise == "auto" ? "cdn_hq" : options->denoise);
 		setupCapture();
 
 		still_stream_ = configuration_->at(0).stream();
 		raw_stream_ = configuration_->at(1).stream();
 
-		if (options.verbose)
+		if (options->verbose)
 			std::cout << "Still capture setup complete" << std::endl;
 	}
 	void ConfigureVideo(unsigned int flags = FLAG_VIDEO_NONE)
 	{
-		if (options.verbose)
+		if (options->verbose)
 			std::cout << "Configuring video..." << std::endl;
 
 		StreamRoles stream_roles;
@@ -287,36 +287,36 @@ public:
 		if (!configuration_)
 			throw std::runtime_error("failed to generate video configuration");
 
-		// Now we get to override any of the default settings from the options.
+		// Now we get to override any of the default settings from the options->
 		configuration_->at(0).pixelFormat = libcamera::formats::YUV420;
 		configuration_->at(0).bufferCount = 6; // 6 buffers is better than 4
-		if (options.width)
-			configuration_->at(0).size.width = options.width;
-		if (options.height)
-			configuration_->at(0).size.height = options.height;
+		if (options->width)
+			configuration_->at(0).size.width = options->width;
+		if (options->height)
+			configuration_->at(0).size.height = options->height;
 		if (flags & FLAG_VIDEO_RAW)
 		{
-			if (!options.rawfull)
+			if (!options->rawfull)
 			{
 				configuration_->at(1).size.width = configuration_->at(0).size.width;
 				configuration_->at(1).size.height = configuration_->at(0).size.height;
 			}
 			configuration_->at(1).bufferCount = configuration_->at(0).bufferCount;
 		}
-		configuration_->transform = options.transform;
+		configuration_->transform = options->transform;
 
-		configureDenoise(options.denoise == "auto" ? "cdn_fast" : options.denoise);
+		configureDenoise(options->denoise == "auto" ? "cdn_fast" : options->denoise);
 		setupCapture();
 
 		video_stream_ = configuration_->at(0).stream();
 		raw_stream_ = configuration_->at(1).stream();
 
-		if (options.verbose)
+		if (options->verbose)
 			std::cout << "Video setup complete" << std::endl;
 	}
 	void Teardown()
 	{
-		if (options.verbose && !options.help)
+		if (options->verbose && !options->help)
 			std::cout << "Tearing down requests, buffers and configuration" << std::endl;
 
 		for (auto &iter : mapped_buffers_)
@@ -347,16 +347,16 @@ public:
 		// Build a list of initial controls that we must set in the camera before starting it.
 		// We don't overwrite anything the application may have set before calling us.
 		if (!controls_.contains(controls::ScalerCrop) &&
-			options.roi_width != 0 && options.roi_height != 0)
+			options->roi_width != 0 && options->roi_height != 0)
 		{
 			Rectangle sensor_area = camera_->properties().get(properties::ScalerCropMaximum);
-			int x = options.roi_x * sensor_area.width;
-			int y = options.roi_y * sensor_area.height;
-			int w = options.roi_width * sensor_area.width;
-			int h = options.roi_height * sensor_area.height;
+			int x = options->roi_x * sensor_area.width;
+			int y = options->roi_y * sensor_area.height;
+			int w = options->roi_width * sensor_area.width;
+			int h = options->roi_height * sensor_area.height;
 			Rectangle crop(x, y, w, h);
 			crop.translateBy(sensor_area.topLeft());
-			if (options.verbose)
+			if (options->verbose)
 				std::cout << "Using crop " << crop.toString() << std::endl;
 			controls_.set(controls::ScalerCrop, crop);
 		}
@@ -368,36 +368,36 @@ public:
 		{
 			if (still_stream_)
 				controls_.set(controls::FrameDurationLimits, { INT64_C(100), INT64_C(1000000000) });
-			else if (options.framerate > 0)
+			else if (options->framerate > 0)
 			{
-				int64_t frame_time = 1000000 / options.framerate; // in us
+				int64_t frame_time = 1000000 / options->framerate; // in us
 				controls_.set(controls::FrameDurationLimits, { frame_time, frame_time });
 			}
 		}
 
-		if (!controls_.contains(controls::ExposureTime) && options.shutter)
-			controls_.set(controls::ExposureTime, options.shutter);
-		if (!controls_.contains(controls::AnalogueGain) && options.gain)
-			controls_.set(controls::AnalogueGain, options.gain);
+		if (!controls_.contains(controls::ExposureTime) && options->shutter)
+			controls_.set(controls::ExposureTime, options->shutter);
+		if (!controls_.contains(controls::AnalogueGain) && options->gain)
+			controls_.set(controls::AnalogueGain, options->gain);
 		if (!controls_.contains(controls::AeMeteringMode))
-			controls_.set(controls::AeMeteringMode, options.metering_index);
+			controls_.set(controls::AeMeteringMode, options->metering_index);
 		if (!controls_.contains(controls::AeExposureMode))
-			controls_.set(controls::AeExposureMode, options.exposure_index);
+			controls_.set(controls::AeExposureMode, options->exposure_index);
 		if (!controls_.contains(controls::ExposureValue))
-			controls_.set(controls::ExposureValue, options.ev);
+			controls_.set(controls::ExposureValue, options->ev);
 		if (!controls_.contains(controls::AwbMode))
-			controls_.set(controls::AwbMode, options.awb_index);
+			controls_.set(controls::AwbMode, options->awb_index);
 		if (!controls_.contains(controls::ColourGains) &&
-			options.awb_gain_r && options.awb_gain_b)
-			controls_.set(controls::ColourGains, { options.awb_gain_r, options.awb_gain_b });
+			options->awb_gain_r && options->awb_gain_b)
+			controls_.set(controls::ColourGains, { options->awb_gain_r, options->awb_gain_b });
 		if (!controls_.contains(controls::Brightness))
-			controls_.set(controls::Brightness, options.brightness);
+			controls_.set(controls::Brightness, options->brightness);
 		if (!controls_.contains(controls::Contrast))
-			controls_.set(controls::Contrast, options.contrast);
+			controls_.set(controls::Contrast, options->contrast);
 		if (!controls_.contains(controls::Saturation))
-			controls_.set(controls::Saturation, options.saturation);
+			controls_.set(controls::Saturation, options->saturation);
 		if (!controls_.contains(controls::Sharpness))
-			controls_.set(controls::Sharpness, options.sharpness);
+			controls_.set(controls::Sharpness, options->sharpness);
 
 		if (camera_->start(&controls_))
 			throw std::runtime_error("failed to start camera");
@@ -413,7 +413,7 @@ public:
 				throw std::runtime_error("Failed to queue request");
 		}
 
-		if (options.verbose)
+		if (options->verbose)
 			std::cout << "Camera started!" << std::endl;
 	}
 	void StopCamera()
@@ -440,7 +440,7 @@ public:
 
 		controls_.clear(); // no need for mutex here
 
-		if (options.verbose && !options.help)
+		if (options->verbose && !options->help)
 			std::cout << "Camera stopped!" << std::endl;
 	}
 	Msg Wait() { return msg_queue_.Wait(); }
@@ -601,7 +601,7 @@ private:
 
 		if (camera_->configure(configuration_.get()) < 0)
 			throw std::runtime_error("failed to configure streams");
-		if (options.verbose)
+		if (options->verbose)
 			std::cout << "Camera streams configured" << std::endl;
 
 		// Next allocate all the buffers we need, mmap them and store them on a free list.
@@ -625,7 +625,7 @@ private:
 				frame_buffers_[stream].push(buffer.get());
 			}
 		}
-		if (options.verbose)
+		if (options->verbose)
 			std::cout << "Buffers allocated and mapped" << std::endl;
 
 		// The requests will be made when StartCamera() is called.
@@ -642,7 +642,7 @@ private:
 				{
 					if (free_buffers[stream].empty())
 					{
-						if (options.verbose)
+						if (options->verbose)
 							std::cout << "Requests created" << std::endl;
 						return;
 					}
@@ -731,15 +731,15 @@ private:
 			}
 			if (preview_->Quit())
 			{
-				if (options.verbose)
+				if (options->verbose)
 					std::cout << "Preview window has quit" << std::endl;
 				msg_queue_.Post(Msg(MsgType::Quit, QuitPayload()));
 			}
 			preview_frames_displayed_++;
 			preview_->Show(fd, size, w, h, stride);
-			if (!options.info_text.empty())
+			if (!options->info_text.empty())
 			{
-				std::string s = frame_info.ToString(options.info_text);
+				std::string s = frame_info.ToString(options->info_text);
 				preview_->SetInfoText(s);
 			}
 		}

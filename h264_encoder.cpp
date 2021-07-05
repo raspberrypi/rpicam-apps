@@ -27,7 +27,7 @@ static int xioctl(int fd, int ctl, void *arg)
 	return ret;
 }
 
-H264Encoder::H264Encoder(VideoOptions const &options) : Encoder(options), abort_(false)
+H264Encoder::H264Encoder(VideoOptions const *options) : Encoder(options), abort_(false)
 {
 	// First open the encoder device. Maybe we should double-check its "caps".
 
@@ -35,55 +35,55 @@ H264Encoder::H264Encoder(VideoOptions const &options) : Encoder(options), abort_
 	fd_ = open(device_name, O_RDWR, 0);
 	if (fd_ < 0)
 		throw std::runtime_error("failed to open V4L2 H264 encoder");
-	if (options.verbose)
+	if (options->verbose)
 		std::cout << "Opened H264Encoder on " << device_name << " as fd " << fd_ << std::endl;
 
-	// Apply any options.
+	// Apply any options->
 
 	v4l2_control ctrl = {};
-	if (options.bitrate)
+	if (options->bitrate)
 	{
 		ctrl.id = V4L2_CID_MPEG_VIDEO_BITRATE;
-		ctrl.value = options.bitrate;
+		ctrl.value = options->bitrate;
 		if (xioctl(fd_, VIDIOC_S_CTRL, &ctrl) < 0)
 			throw std::runtime_error("failed to set bitrate");
 	}
-	if (!options.profile.empty())
+	if (!options->profile.empty())
 	{
 		static const std::map<std::string, int> profile_map =
 			{ { "baseline", V4L2_MPEG_VIDEO_H264_PROFILE_BASELINE },
 			  { "main", V4L2_MPEG_VIDEO_H264_PROFILE_MAIN },
 			  { "high", V4L2_MPEG_VIDEO_H264_PROFILE_HIGH } };
-		auto it = profile_map.find(options.profile);
+		auto it = profile_map.find(options->profile);
 		if (it == profile_map.end())
-			throw std::runtime_error("no such profile " + options.profile);
+			throw std::runtime_error("no such profile " + options->profile);
 		ctrl.id = V4L2_CID_MPEG_VIDEO_H264_PROFILE;
 		ctrl.value = it->second;
 		if (xioctl(fd_, VIDIOC_S_CTRL, &ctrl) < 0)
 			throw std::runtime_error("failed to set profile");
 	}
-	if (!options.level.empty())
+	if (!options->level.empty())
 	{
 		static const std::map<std::string, int> level_map =
 			{ { "4", V4L2_MPEG_VIDEO_H264_LEVEL_4_0 },
 			  { "4.1", V4L2_MPEG_VIDEO_H264_LEVEL_4_1 },
 			  { "4.2", V4L2_MPEG_VIDEO_H264_LEVEL_4_2 } };
-		auto it = level_map.find(options.level);
+		auto it = level_map.find(options->level);
 		if (it == level_map.end())
-			throw std::runtime_error("no such level " + options.level);
+			throw std::runtime_error("no such level " + options->level);
 		ctrl.id = V4L2_CID_MPEG_VIDEO_H264_LEVEL;
 		ctrl.value = it->second;
 		if (xioctl(fd_, VIDIOC_S_CTRL, &ctrl) < 0)
 			throw std::runtime_error("failed to set level");
 	}
-	if (options.intra)
+	if (options->intra)
 	{
 		ctrl.id = V4L2_CID_MPEG_VIDEO_H264_I_PERIOD;
-		ctrl.value = options.intra;
+		ctrl.value = options->intra;
 		if (xioctl(fd_, VIDIOC_S_CTRL, &ctrl) < 0)
 			throw std::runtime_error("failed to set intra period");
 	}
-	if (options.inline_headers)
+	if (options->inline_headers)
 	{
 		ctrl.id = V4L2_CID_MPEG_VIDEO_REPEAT_SEQ_HEADER;
 		ctrl.value = 1;
@@ -95,8 +95,8 @@ H264Encoder::H264Encoder(VideoOptions const &options) : Encoder(options), abort_
 
 	v4l2_format fmt = {};
 	fmt.type = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE;
-	fmt.fmt.pix_mp.width = options.width;
-	fmt.fmt.pix_mp.height = options.height;
+	fmt.fmt.pix_mp.width = options->width;
+	fmt.fmt.pix_mp.height = options->height;
 	fmt.fmt.pix_mp.pixelformat = V4L2_PIX_FMT_YUV420;
 	fmt.fmt.pix_mp.field = V4L2_FIELD_ANY;
 	// libcamera currently has no means to request the right colour space, hence:
@@ -107,8 +107,8 @@ H264Encoder::H264Encoder(VideoOptions const &options) : Encoder(options), abort_
 
 	fmt = {};
 	fmt.type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
-	fmt.fmt.pix_mp.width = options.width;
-	fmt.fmt.pix_mp.height = options.height;
+	fmt.fmt.pix_mp.width = options->width;
+	fmt.fmt.pix_mp.height = options->height;
 	fmt.fmt.pix_mp.pixelformat = V4L2_PIX_FMT_H264;
 	fmt.fmt.pix_mp.field = V4L2_FIELD_ANY;
 	fmt.fmt.pix_mp.colorspace = V4L2_COLORSPACE_DEFAULT;
@@ -129,7 +129,7 @@ H264Encoder::H264Encoder(VideoOptions const &options) : Encoder(options), abort_
 	reqbufs.memory = V4L2_MEMORY_DMABUF;
 	if (xioctl(fd_, VIDIOC_REQBUFS, &reqbufs) < 0)
 		throw std::runtime_error("request for output buffers failed");
-	if (options.verbose)
+	if (options->verbose)
 		std::cout << "Got " << reqbufs.count << " output buffers" << std::endl;
 
 	// We have to maintain a list of the buffers we can use when our caller gives
@@ -143,7 +143,7 @@ H264Encoder::H264Encoder(VideoOptions const &options) : Encoder(options), abort_
 	reqbufs.memory = V4L2_MEMORY_MMAP;
 	if (xioctl(fd_, VIDIOC_REQBUFS, &reqbufs) < 0)
 		throw std::runtime_error("request for capture buffers failed");
-	if (options.verbose)
+	if (options->verbose)
 		std::cout << "Got " << reqbufs.count << " capture buffers" << std::endl;
 		
 	for (int i = 0; i < reqbufs.count; i++)
@@ -176,7 +176,7 @@ H264Encoder::H264Encoder(VideoOptions const &options) : Encoder(options), abort_
 	type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
 	if (xioctl(fd_, VIDIOC_STREAMON, &type) < 0)
 		throw std::runtime_error("failed to start capture streaming");
-	if (options.verbose)
+	if (options->verbose)
 		std::cout << "Codec streaming started" << std::endl;
 
 	output_thread_ = std::thread(&H264Encoder::outputThread, this);
@@ -188,7 +188,7 @@ H264Encoder::~H264Encoder()
 	abort_ = true;
 	output_thread_.join();
 	poll_thread_.join();
-	if (options_.verbose)
+	if (options_->verbose)
 		std::cout << "H264Encoder closed" << std::endl;
 	// Other stuff will mostly get hoovered up with the process quits.
 }

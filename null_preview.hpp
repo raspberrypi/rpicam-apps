@@ -14,8 +14,8 @@
 class NullPreview : public Preview
 {
 public:
-	NullPreview(Options const &options) : Preview(options) {
-		if (options.verbose)
+	NullPreview(Options const *options) : Preview(options) {
+		if (options->verbose)
 			std::cout << "Running without preview window" << std::endl;
 	}
 	~NullPreview() {}

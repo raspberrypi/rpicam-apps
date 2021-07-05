@@ -17,7 +17,7 @@ class Preview
 public:
 	typedef std::function<void(int fd)> DoneCallback;
 
-	Preview(Options const &options) : options_(options) {}
+	Preview(Options const *options) : options_(options) {}
 	virtual ~Preview() {}
 	// This is where the application sets the callback it gets whenever the viewfinder
 	// is no longer displaying the buffer and it can be safely recycled.
@@ -38,5 +38,5 @@ public:
 	virtual bool Quit() { return false; }
 protected:
 	DoneCallback done_callback_;
-	Options options_;
+	Options const *options_;
 };

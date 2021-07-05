@@ -20,11 +20,11 @@ struct Header
 };
 static_assert(sizeof(Header) % ALIGN == 0, "Header should have aligned size");
 
-CircularOutput::CircularOutput(VideoOptions const &options)
+CircularOutput::CircularOutput(VideoOptions const *options)
 	: cb_(CIRCULAR_BUFFER_SIZE), Output(options)
 {
 	// Open this now, so that we can get any complaints out of the way
-	fp_ = fopen(options_.output.c_str(), "w");
+	fp_ = fopen(options_->output.c_str(), "w");
 	if (!fp_)
 		throw std::runtime_error("could not open output file");
 }

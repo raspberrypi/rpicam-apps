@@ -134,7 +134,7 @@ void dng_save(std::vector<void *> const &mem, int w, int h, int stride,
 			  ControlList const &metadata,
 			  std::string const &filename,
 			  std::string const &cam_name,
-			  StillOptions const &options)
+			  StillOptions const *options)
 {
 	// Check the Bayer format and unpack it to u16.
 
@@ -212,7 +212,7 @@ void dng_save(std::vector<void *> const &mem, int w, int h, int stride,
 				   0.0193339, 0.1191920, 0.9503041);
 	Matrix CAM_XYZ = (RGB2XYZ * CCM * WB_GAINS).Inv();
 
-	if (options.verbose) {
+	if (options->verbose) {
 		std::cout << "Black levels " << black_levels[0] << " " << black_levels[1] << " "
 				  << black_levels[2] << " " << black_levels[3] << ", exposure time "
 				  << exp_time * 1e6 << "us, ISO " << iso << std::endl;

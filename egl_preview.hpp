@@ -20,7 +20,7 @@
 class EglPreview : public Preview
 {
 public:
-	EglPreview(Options const &options);
+	EglPreview(Options const *options);
 	~EglPreview();
 	virtual void SetInfoText(const std::string &text) override;
 	// Display the buffer. You get given the fd back in the BufferDoneCallback

@@ -16,8 +16,6 @@
 #include "still_options.hpp"
 
 using namespace std::placeholders;
-
-typedef LibcameraApp<StillOptions> LibcameraStill;
 using libcamera::Stream;
 
 // In jpeg.cpp:
@@ -26,13 +24,13 @@ void jpeg_save(std::vector<void *> const &mem, int w, int h, int stride,
 			   libcamera::ControlList const &metadata,
 			   std::string const &filename,
 			   std::string const &cam_name,
-			   StillOptions const &options);
+			   StillOptions const *options);
 
 // In yuv.cpp:
 void yuv_save(std::vector<void *> const &mem, int w, int h, int stride,
 			  libcamera::PixelFormat const &pixel_format,
 			  std::string const &filename,
-			  StillOptions const &options);
+			  StillOptions const *options);
 
 // In dng.cpp:
 void dng_save(std::vector<void *> const &mem, int w, int h, int stride,
@@ -40,93 +38,95 @@ void dng_save(std::vector<void *> const &mem, int w, int h, int stride,
 			   libcamera::ControlList const &metadata,
 			   std::string const &filename,
 			   std::string const &cam_name,
-			   StillOptions const &options);
+			   StillOptions const *options);
 
 // In png.cpp:
 void png_save(std::vector<void *> const &mem, int w, int h, int stride,
 			  libcamera::PixelFormat const &pixel_format,
 			  std::string const &filename,
-			  StillOptions const &options);
+			  StillOptions const *options);
 
 // In bmp.cpp:
 void bmp_save(std::vector<void *> const &mem, int w, int h, int stride,
 			  libcamera::PixelFormat const &pixel_format,
 			  std::string const &filename,
-			  StillOptions const &options);
+			  StillOptions const *options);
 
-static std::string generate_filename(StillOptions &options)
+static std::string generate_filename(StillOptions const *options)
 {
 	char filename[128];
-	if (options.datetime)
+	if (options->datetime)
 	{
 		std::time_t raw_time;
 		std::time(&raw_time);
 		char time_string[32];
 		std::tm *time_info = std::localtime(&raw_time);
 		std::strftime(time_string, sizeof(time_string), "%m%d%H%M%S", time_info);
-		snprintf(filename, sizeof(filename), "%s.%s", time_string, options.encoding.c_str());
+		snprintf(filename, sizeof(filename), "%s.%s", time_string, options->encoding.c_str());
 	}
-	else if (options.timestamp)
+	else if (options->timestamp)
 		snprintf(filename, sizeof(filename), "%u.%s",
-				 (unsigned)time(NULL), options.encoding.c_str());
+				 (unsigned)time(NULL), options->encoding.c_str());
 	else
-		snprintf(filename, sizeof(filename), options.output.c_str(), options.framestart);
+		snprintf(filename, sizeof(filename), options->output.c_str(), options->framestart);
 	filename[sizeof(filename)-1] = 0;
 	return std::string(filename);
 }
 
-static void update_latest_link(std::string const &filename, StillOptions &options)
+static void update_latest_link(std::string const &filename, StillOptions const *options)
 {
 	// Create a fixed-name link to the most recent output file, if requested.
-	if (!options.latest.empty())
+	if (!options->latest.empty())
 	{
 		struct stat buf;
-		if (stat(options.latest.c_str(), &buf) == 0 && unlink(options.latest.c_str()))
-			std::cout << "WARNING: could not delete latest link " << options.latest << std::endl;
+		if (stat(options->latest.c_str(), &buf) == 0 && unlink(options->latest.c_str()))
+			std::cout << "WARNING: could not delete latest link " << options->latest << std::endl;
 		else
 		{
-			if (symlink(filename.c_str(), options.latest.c_str()))
-				std::cout << "WARNING: failed to create latest link " << options.latest << std::endl;
-			else if (options.verbose)
-				std::cout << "Link " << options.latest << " created" << std::endl;
+			if (symlink(filename.c_str(), options->latest.c_str()))
+				std::cout << "WARNING: failed to create latest link " << options->latest << std::endl;
+			else if (options->verbose)
+				std::cout << "Link " << options->latest << " created" << std::endl;
 		}
 	}
 }
 
-static void save_image(LibcameraStill &app, CompletedRequest &payload,
+static void save_image(LibcameraApp &app, CompletedRequest &payload,
 					   Stream *stream, std::string const &filename)
 {
+	StillOptions const *options = static_cast<StillOptions *>(app.options);
 	int w, h, stride;
 	app.StreamDimensions(stream, &w, &h, &stride);
 	libcamera::PixelFormat const &pixel_format = stream->configuration().pixelFormat;
 	std::vector<void *> mem = app.Mmap(payload.buffers[stream]);
 	if (stream == app.RawStream())
 		dng_save(mem, w, h, stride, pixel_format,
-				 payload.metadata, filename, app.CameraId(), app.options);
-	else if (app.options.encoding == "jpg")
+				 payload.metadata, filename, app.CameraId(), options);
+	else if (options->encoding == "jpg")
 		jpeg_save(mem, w, h, stride, pixel_format,
-				  payload.metadata, filename, app.CameraId(), app.options);
-	else if (app.options.encoding == "png")
-		png_save(mem, w, h, stride, pixel_format, filename, app.options);
-	else if (app.options.encoding == "bmp")
-		bmp_save(mem, w, h, stride, pixel_format, filename, app.options);
+				  payload.metadata, filename, app.CameraId(), options);
+	else if (options->encoding == "png")
+		png_save(mem, w, h, stride, pixel_format, filename, options);
+	else if (options->encoding == "bmp")
+		bmp_save(mem, w, h, stride, pixel_format, filename, options);
 	else
-		yuv_save(mem, w, h, stride, pixel_format, filename, app.options);
-	if (app.options.verbose)
+		yuv_save(mem, w, h, stride, pixel_format, filename, options);
+	if (options->verbose)
 		std::cout << "Saved image " << w << " x " << h << " to file " << filename << std::endl;
 }
 
-static void save_images(LibcameraStill &app, CompletedRequest &payload)
+static void save_images(LibcameraApp &app, CompletedRequest &payload)
 {
-	std::string filename = generate_filename(app.options);
+	StillOptions *options = static_cast<StillOptions *>(app.options);
+	std::string filename = generate_filename(options);
 	save_image(app, payload, app.StillStream(), filename);
-	update_latest_link(filename, app.options);
-	if (app.options.raw)
+	update_latest_link(filename, options);
+	if (options->raw)
 	{
 		filename = filename.substr(0, filename.rfind('.')) + ".dng";
 		save_image(app, payload, app.RawStream(), filename);
 	}
-	app.options.framestart++;
+	options->framestart++;
 }
 
 // Some keypress/signal handling.
@@ -137,10 +137,10 @@ static void default_signal_handler(int signal_number)
 	signal_received = signal_number;
 	std::cout << "Received signal " << signal_number << std::endl;
 }
-static int get_key_or_signal(StillOptions const &options, pollfd p[1])
+static int get_key_or_signal(StillOptions const *options, pollfd p[1])
 {
 	int key = 0;
-	if (options.keypress)
+	if (options->keypress)
 	{
 		poll(p, 1, 0);
 		if (p[0].revents & POLLIN)
@@ -151,7 +151,7 @@ static int get_key_or_signal(StillOptions const &options, pollfd p[1])
 			key = user_string[0];
 		}
 	}
-	if (options.signal)
+	if (options->signal)
 	{
 		if (signal_received == SIGUSR1)
 			key = '\n';
@@ -163,23 +163,23 @@ static int get_key_or_signal(StillOptions const &options, pollfd p[1])
 
 // The main even loop for the application.
 
-static void event_loop(LibcameraStill &app)
+static void event_loop(LibcameraApp &app)
 {
-	StillOptions const &options = app.options;
-	bool output = !options.output.empty() || options.datetime || options.timestamp; // output requested?
-	bool keypress = options.keypress || options.signal; // "signal" mode is much like "keypress" mode
-	unsigned int still_flags = LibcameraStill::FLAG_STILL_NONE;
-	if (options.encoding == "rgb" || options.encoding == "png")
-		still_flags |= LibcameraStill::FLAG_STILL_BGR;
-	else if (options.encoding == "bmp")
-		still_flags |= LibcameraStill::FLAG_STILL_RGB;
-	if (options.raw)
-		still_flags |= LibcameraStill::FLAG_STILL_RAW;
+	StillOptions const *options = static_cast<StillOptions *>(app.options);
+	bool output = !options->output.empty() || options->datetime || options->timestamp; // output requested?
+	bool keypress = options->keypress || options->signal; // "signal" mode is much like "keypress" mode
+	unsigned int still_flags = LibcameraApp::FLAG_STILL_NONE;
+	if (options->encoding == "rgb" || options->encoding == "png")
+		still_flags |= LibcameraApp::FLAG_STILL_BGR;
+	else if (options->encoding == "bmp")
+		still_flags |= LibcameraApp::FLAG_STILL_RGB;
+	if (options->raw)
+		still_flags |= LibcameraApp::FLAG_STILL_RAW;
 
 	app.OpenCamera();
 	app.ConfigureViewfinder();
 	app.StartCamera();
-	app.SetPreviewDoneCallback(std::bind(&LibcameraStill::QueueRequest, &app, _1));
+	app.SetPreviewDoneCallback(std::bind(&LibcameraApp::QueueRequest, &app, _1));
 	auto start_time = std::chrono::high_resolution_clock::now();
 	auto timelapse_time = start_time;
 
@@ -190,10 +190,10 @@ static void event_loop(LibcameraStill &app)
 
 	for (unsigned int count = 0; ; count++)
 	{
-		LibcameraStill::Msg msg = app.Wait();
-		if (msg.type == LibcameraStill::MsgType::Quit)
+		LibcameraApp::Msg msg = app.Wait();
+		if (msg.type == LibcameraApp::MsgType::Quit)
 			return;
-		else if (msg.type != LibcameraStill::MsgType::RequestComplete)
+		else if (msg.type != LibcameraApp::MsgType::RequestComplete)
 			throw std::runtime_error("unrecognised message!");
 
 		auto now = std::chrono::high_resolution_clock::now();
@@ -205,20 +205,20 @@ static void event_loop(LibcameraStill &app)
 		// capture mode if an output was requested.
 		if (app.ViewfinderStream())
 		{
-			if (options.verbose)
+			if (options->verbose)
 				std::cout << "Viewfinder frame " << count << std::endl;
 
-			bool timed_out = options.timeout &&
-				now - start_time > std::chrono::milliseconds(options.timeout);
+			bool timed_out = options->timeout &&
+				now - start_time > std::chrono::milliseconds(options->timeout);
 			bool keypressed = key == '\n';
-			bool timelapse_timed_out = options.timelapse &&
-				now - timelapse_time > std::chrono::milliseconds(options.timelapse);
+			bool timelapse_timed_out = options->timelapse &&
+				now - timelapse_time > std::chrono::milliseconds(options->timelapse);
 
 			if (timed_out || keypressed || timelapse_timed_out)
 			{
 				// Trigger a still capture unless:
 				if (!output ||                      // we have no output file
-					(timed_out && options.timelapse) || // timed out in timelapse mode
+					(timed_out && options->timelapse) || // timed out in timelapse mode
 					(!keypressed && keypress))      // no key was pressed (in keypress mode)
 					return;
 				else
@@ -243,7 +243,7 @@ static void event_loop(LibcameraStill &app)
 			app.StopCamera();
 			std::cout << "Still capture image received" << std::endl;
 			save_images(app, std::get<CompletedRequest>(msg.payload));
-			if (options.timelapse)
+			if (options->timelapse)
 			{
 				app.Teardown();
 				app.ConfigureViewfinder();
@@ -259,11 +259,13 @@ int main(int argc, char *argv[])
 {
 	try
 	{
-		LibcameraApp<StillOptions> app;
-		if (app.options.Parse(argc, argv))
+		StillOptions options;
+		if (options.Parse(argc, argv))
 		{
-			if (app.options.verbose)
-				app.options.Print();
+			if (options.verbose)
+				options.Print();
+
+			LibcameraApp app(&options);
 			event_loop(app);
 		}
 	}
