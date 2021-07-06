@@ -13,11 +13,10 @@
 
 using namespace std::placeholders;
 
-class LibcameraRaw: public LibcameraEncoder
+class LibcameraRaw : public LibcameraEncoder
 {
 public:
-	LibcameraRaw()
-		: LibcameraEncoder() {}
+	LibcameraRaw() : LibcameraEncoder() {}
 
 protected:
 	// Force the use of "null" encoder.
@@ -48,15 +47,14 @@ static void event_loop(LibcameraRaw &app)
 		if (count == 0)
 		{
 			libcamera::StreamConfiguration const &cfg = app.RawStream()->configuration();
-			std::cout << "Raw stream: " << cfg.size.width << "x" << cfg.size.height << " stride "
-					  << cfg.stride << " format " << cfg.pixelFormat.toString() << std::endl;
+			std::cout << "Raw stream: " << cfg.size.width << "x" << cfg.size.height << " stride " << cfg.stride
+					  << " format " << cfg.pixelFormat.toString() << std::endl;
 		}
 
 		if (options->verbose)
 			std::cout << "Viewfinder frame " << count << std::endl;
 		auto now = std::chrono::high_resolution_clock::now();
-		if (options->timeout &&
-			now - start_time > std::chrono::milliseconds(options->timeout))
+		if (options->timeout && now - start_time > std::chrono::milliseconds(options->timeout))
 		{
 			app.StopCamera();
 			app.StopEncoder();
@@ -87,6 +85,6 @@ int main(int argc, char *argv[])
 	{
 		std::cerr << "ERROR: *** " << e.what() << " ***" << std::endl;
 		return -1;
-    }
+	}
 	return 0;
 }

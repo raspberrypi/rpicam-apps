@@ -12,8 +12,8 @@
 
 #include <X11/Xlib.h>
 
-#include <epoxy/gl.h>
 #include <epoxy/egl.h>
+#include <epoxy/gl.h>
 
 #include "preview.hpp"
 
@@ -31,6 +31,7 @@ public:
 	virtual void Reset() override;
 	// Check if the window manager has closed the preview.
 	virtual bool Quit() override;
+
 private:
 	struct Buffer
 	{

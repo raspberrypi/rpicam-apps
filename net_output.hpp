@@ -7,7 +7,7 @@
 
 #pragma once
 
-#include <netinet/in.h> 
+#include <netinet/in.h>
 
 #include "output.hpp"
 
@@ -16,8 +16,10 @@ class NetOutput : public Output
 public:
 	NetOutput(VideoOptions const *options);
 	~NetOutput();
+
 protected:
 	void outputBuffer(void *mem, size_t size, int64_t timestamp_us, uint32_t flags) override;
+
 private:
 	int fd_;
 	sockaddr_in saddr_;

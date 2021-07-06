@@ -20,6 +20,7 @@ public:
 	// Reset the preview window, clearing the current buffers and being ready to
 	// show new ones.
 	virtual void Reset() override;
+
 private:
 	struct Buffer
 	{
@@ -32,8 +33,7 @@ private:
 		uint32_t bo_handle;
 		unsigned int fb_handle;
 	};
-	void makeBuffer(int fd, size_t size, unsigned int width, unsigned int height,
-					unsigned int stride, Buffer &buffer);
+	void makeBuffer(int fd, size_t size, unsigned int width, unsigned int height, unsigned int stride, Buffer &buffer);
 	void findCrtc();
 	void findPlane();
 	int drmfd_;

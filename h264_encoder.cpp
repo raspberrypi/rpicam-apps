@@ -114,7 +114,7 @@ H264Encoder::H264Encoder(VideoOptions const *options) : Encoder(options), abort_
 	fmt.fmt.pix_mp.colorspace = V4L2_COLORSPACE_DEFAULT;
 	fmt.fmt.pix_mp.num_planes = 1;
 	fmt.fmt.pix_mp.plane_fmt[0].bytesperline = 0;
-	fmt.fmt.pix_mp.plane_fmt[0].sizeimage = 512<<10;
+	fmt.fmt.pix_mp.plane_fmt[0].sizeimage = 512 << 10;
 	if (xioctl(fd_, VIDIOC_S_FMT, &fmt) < 0)
 		throw std::runtime_error("failed to set capture format");
 
@@ -145,7 +145,7 @@ H264Encoder::H264Encoder(VideoOptions const *options) : Encoder(options), abort_
 		throw std::runtime_error("request for capture buffers failed");
 	if (options->verbose)
 		std::cout << "Got " << reqbufs.count << " capture buffers" << std::endl;
-		
+
 	for (int i = 0; i < reqbufs.count; i++)
 	{
 		v4l2_plane planes[VIDEO_MAX_PLANES];
@@ -157,8 +157,8 @@ H264Encoder::H264Encoder(VideoOptions const *options) : Encoder(options), abort_
 		buffer.m.planes = planes;
 		if (xioctl(fd_, VIDIOC_QUERYBUF, &buffer) < 0)
 			throw std::runtime_error("failed to capture query buffer " + std::to_string(i));
-		buffers_[i].mem = mmap(0, buffer.m.planes[0].length, PROT_READ|PROT_WRITE, MAP_SHARED,
-							   fd_, buffer.m.planes[0].m.mem_offset);
+		buffers_[i].mem = mmap(0, buffer.m.planes[0].length, PROT_READ | PROT_WRITE, MAP_SHARED, fd_,
+							   buffer.m.planes[0].m.mem_offset);
 		if (buffers_[i].mem == MAP_FAILED)
 			throw std::runtime_error("failed to mmap capture buffer " + std::to_string(i));
 		buffers_[i].size = buffer.m.planes[0].length;
@@ -193,9 +193,7 @@ H264Encoder::~H264Encoder()
 	// Other stuff will mostly get hoovered up with the process quits.
 }
 
-void H264Encoder::EncodeBuffer(int fd, size_t size,
-							   void *mem, int width, int height, int stride,
-							   int64_t timestamp_us)
+void H264Encoder::EncodeBuffer(int fd, size_t size, void *mem, int width, int height, int stride, int64_t timestamp_us)
 {
 	int index;
 	{
@@ -270,8 +268,7 @@ void H264Encoder::pollThread()
 				// We push this encoded buffer to another thread so that our
 				// application can take its time with the data without blocking the
 				// encode process.
-				int64_t timestamp_us = (buf.timestamp.tv_sec * (int64_t)1000000)
-					+ buf.timestamp.tv_usec;
+				int64_t timestamp_us = (buf.timestamp.tv_sec * (int64_t)1000000) + buf.timestamp.tv_usec;
 				OutputItem item = { buffers_[buf.index].mem,
 									buf.m.planes[0].bytesused,
 									buf.m.planes[0].length,
@@ -283,7 +280,6 @@ void H264Encoder::pollThread()
 				output_cond_var_.notify_one();
 			}
 		}
-
 	}
 }
 

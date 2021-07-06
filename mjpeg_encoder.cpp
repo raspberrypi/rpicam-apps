@@ -38,9 +38,7 @@ MjpegEncoder::~MjpegEncoder()
 		std::cout << "MjpegEncoder closed" << std::endl;
 }
 
-void MjpegEncoder::EncodeBuffer(int fd, size_t size,
-								void *mem, int width, int height, int stride,
-								int64_t timestamp_us)
+void MjpegEncoder::EncodeBuffer(int fd, size_t size, void *mem, int width, int height, int stride, int64_t timestamp_us)
 {
 	std::lock_guard<std::mutex> lock(encode_mutex_);
 	EncodeItem item = { mem, width, height, stride, timestamp_us, index_++ };
@@ -48,24 +46,24 @@ void MjpegEncoder::EncodeBuffer(int fd, size_t size,
 	encode_cond_var_.notify_all();
 }
 
-void MjpegEncoder::encodeJPEG(struct jpeg_compress_struct &cinfo, EncodeItem &item,
-							  uint8_t *&encoded_buffer, size_t &buffer_len)
+void MjpegEncoder::encodeJPEG(struct jpeg_compress_struct &cinfo, EncodeItem &item, uint8_t *&encoded_buffer,
+							  size_t &buffer_len)
 {
 	// Copied from YUV420_to_JPEG_fast in jpeg.cpp.
-    cinfo.image_width = item.width;
-    cinfo.image_height = item.height;
-    cinfo.input_components = 3;
-    cinfo.in_color_space = JCS_YCbCr;
+	cinfo.image_width = item.width;
+	cinfo.image_height = item.height;
+	cinfo.input_components = 3;
+	cinfo.in_color_space = JCS_YCbCr;
 	cinfo.restart_interval = 0;
 
-    jpeg_set_defaults(&cinfo);
+	jpeg_set_defaults(&cinfo);
 	cinfo.raw_data_in = TRUE;
-    jpeg_set_quality(&cinfo, options_->quality, TRUE);
+	jpeg_set_quality(&cinfo, options_->quality, TRUE);
 	encoded_buffer = nullptr;
 	buffer_len = 0;
-    jpeg_mem_len_t jpeg_mem_len;
-    jpeg_mem_dest(&cinfo, &encoded_buffer, &jpeg_mem_len);
-    jpeg_start_compress(&cinfo, TRUE);
+	jpeg_mem_len_t jpeg_mem_len;
+	jpeg_mem_dest(&cinfo, &encoded_buffer, &jpeg_mem_len);
+	jpeg_start_compress(&cinfo, TRUE);
 
 	int stride2 = item.stride / 2;
 	uint8_t *Y = (uint8_t *)item.mem;
@@ -110,16 +108,16 @@ void MjpegEncoder::encodeJPEG(struct jpeg_compress_struct &cinfo, EncodeItem &it
 		jpeg_write_raw_data(&cinfo, rows, 16);
 	}
 
-    jpeg_finish_compress(&cinfo);
-    buffer_len = jpeg_mem_len;
+	jpeg_finish_compress(&cinfo);
+	buffer_len = jpeg_mem_len;
 }
 
 void MjpegEncoder::encodeThread(int num)
 {
-    struct jpeg_compress_struct cinfo;
-    struct jpeg_error_mgr jerr;
-    cinfo.err = jpeg_std_error(&jerr);
-    jpeg_create_compress(&cinfo);
+	struct jpeg_compress_struct cinfo;
+	struct jpeg_error_mgr jerr;
+	cinfo.err = jpeg_std_error(&jerr);
+	jpeg_create_compress(&cinfo);
 	std::chrono::duration<double> encode_time(0);
 	uint32_t frames = 0;
 
@@ -134,8 +132,8 @@ void MjpegEncoder::encodeThread(int num)
 				if (abort_)
 				{
 					if (frames && options_->verbose)
-						std::cout << "Encode " << frames << " frames, average time " <<
-							encode_time.count() * 1000 / frames << "ms" << std::endl;
+						std::cout << "Encode " << frames << " frames, average time "
+								  << encode_time.count() * 1000 / frames << "ms" << std::endl;
 					jpeg_destroy_compress(&cinfo);
 					return;
 				}
@@ -163,8 +161,7 @@ void MjpegEncoder::encodeThread(int num)
 		// We push this encoded buffer to another thread so that our
 		// application can take its time with the data without blocking the
 		// encode process.
-		OutputItem output_item = { encoded_buffer, buffer_len,
-								   encode_item.timestamp_us, encode_item.index };
+		OutputItem output_item = { encoded_buffer, buffer_len, encode_item.timestamp_us, encode_item.index };
 		std::lock_guard<std::mutex> lock(output_mutex_);
 		output_queue_[num].push(output_item);
 		output_cond_var_.notify_one();

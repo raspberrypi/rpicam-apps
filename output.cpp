@@ -8,14 +8,13 @@
 #include <cinttypes>
 #include <stdexcept>
 
-#include "output.hpp"
+#include "circular_output.hpp"
 #include "file_output.hpp"
 #include "net_output.hpp"
-#include "circular_output.hpp"
+#include "output.hpp"
 
-Output::Output(VideoOptions const *options) :
-	state_(WAITING_KEYFRAME), options_(options), fp_timestamps_(nullptr),
-	time_offset_(0), last_timestamp_(0)
+Output::Output(VideoOptions const *options)
+	: state_(WAITING_KEYFRAME), options_(options), fp_timestamps_(nullptr), time_offset_(0), last_timestamp_(0)
 {
 	if (!options->save_pts.empty())
 	{
@@ -71,8 +70,7 @@ void Output::outputBuffer(void *mem, size_t size, int64_t timestamp_us, uint32_t
 
 Output *Output::Create(VideoOptions const *options)
 {
-	if (strncmp(options->output.c_str(), "udp://", 6) == 0 ||
-		strncmp(options->output.c_str(), "tcp://", 6) == 0)
+	if (strncmp(options->output.c_str(), "udp://", 6) == 0 || strncmp(options->output.c_str(), "tcp://", 6) == 0)
 		return new NetOutput(options);
 	else if (options->circular)
 		return new CircularOutput(options);

@@ -9,8 +9,8 @@
 
 #include "encoder.hpp"
 #include "h264_encoder.hpp"
-#include "null_encoder.hpp"
 #include "mjpeg_encoder.hpp"
+#include "null_encoder.hpp"
 
 Encoder *Encoder::Create(VideoOptions const *options)
 {

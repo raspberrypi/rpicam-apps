@@ -43,6 +43,7 @@ public:
 		memcpy(&buf_[wptr_], ptr, n);
 		wptr_ += n;
 	}
+
 private:
 	const unsigned int size_;
 	std::vector<uint8_t> buf_;
@@ -56,8 +57,10 @@ class CircularOutput : public Output
 public:
 	CircularOutput(VideoOptions const *options);
 	~CircularOutput();
+
 protected:
 	void outputBuffer(void *mem, size_t size, int64_t timestamp_us, uint32_t flags) override;
+
 private:
 	CircularBuffer cb_;
 	FILE *fp_;

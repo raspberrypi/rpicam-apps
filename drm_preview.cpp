@@ -6,11 +6,10 @@
  */
 
 #include <drm.h>
+#include <drm_fourcc.h>
 #include <drm_mode.h>
 #include <xf86drm.h>
 #include <xf86drmMode.h>
-
-#include <drm_fourcc.h>
 
 #include "drm_preview.hpp"
 
@@ -20,44 +19,48 @@ void DrmPreview::findCrtc()
 {
 	int i;
 	drmModeRes *res = drmModeGetResources(drmfd_);
-	if (!res) 
+	if (!res)
 		throw std::runtime_error("drmModeGetResources failed: " + std::string(ERRSTR));
 
 	if (res->count_crtcs <= 0)
 		throw std::runtime_error("drm: no crts");
 
-	if (!conId_) {
+	if (!conId_)
+	{
 		if (options_->verbose)
 			std::cout << "No connector ID specified.  Choosing default from list:" << std::endl;
 
-		for (i = 0; i < res->count_connectors; i++) {
+		for (i = 0; i < res->count_connectors; i++)
+		{
 			drmModeConnector *con = drmModeGetConnector(drmfd_, res->connectors[i]);
 			drmModeEncoder *enc = NULL;
 			drmModeCrtc *crtc = NULL;
 
-			if (con->encoder_id) {
+			if (con->encoder_id)
+			{
 				enc = drmModeGetEncoder(drmfd_, con->encoder_id);
-				if (enc->crtc_id) {
+				if (enc->crtc_id)
+				{
 					crtc = drmModeGetCrtc(drmfd_, enc->crtc_id);
 				}
 			}
 
-			if (!conId_ && crtc) {
+			if (!conId_ && crtc)
+			{
 				conId_ = con->connector_id;
 				crtcId_ = crtc->crtc_id;
 			}
 
-			if (crtc) {
+			if (crtc)
+			{
 				screen_width_ = crtc->width;
 				screen_height_ = crtc->height;
 			}
 
 			if (options_->verbose)
-				std::cout << "Connector " << con->connector_id <<
-					" (crtc " << (crtc ? crtc->crtc_id : 0) << "): type " <<
-					con->connector_type << ", " << (crtc ? crtc->width : 0) << "x" <<
-					(crtc ? crtc->height : 0) <<
-					(conId_ == (int)con->connector_id ? " (chosen)" : "") << std::endl;
+				std::cout << "Connector " << con->connector_id << " (crtc " << (crtc ? crtc->crtc_id : 0) << "): type "
+						  << con->connector_type << ", " << (crtc ? crtc->width : 0) << "x" << (crtc ? crtc->height : 0)
+						  << (conId_ == (int)con->connector_id ? " (chosen)" : "") << std::endl;
 		}
 
 		if (!conId_)
@@ -66,31 +69,37 @@ void DrmPreview::findCrtc()
 
 	crtcIdx_ = -1;
 
-	for (i = 0; i < res->count_crtcs; ++i) {
-		if (crtcId_ == res->crtcs[i]) {
+	for (i = 0; i < res->count_crtcs; ++i)
+	{
+		if (crtcId_ == res->crtcs[i])
+		{
 			crtcIdx_ = i;
 			break;
 		}
 	}
 
-	if (crtcIdx_ == -1) {
+	if (crtcIdx_ == -1)
+	{
 		drmModeFreeResources(res);
 		throw std::runtime_error("drm: CRTC " + std::to_string(crtcId_) + " not found");
 	}
 
-	if (res->count_connectors <= 0) {
+	if (res->count_connectors <= 0)
+	{
 		drmModeFreeResources(res);
 		throw std::runtime_error("drm: no connectors");
 	}
 
 	drmModeConnector *c;
 	c = drmModeGetConnector(drmfd_, conId_);
-	if (!c) {
+	if (!c)
+	{
 		drmModeFreeResources(res);
 		throw std::runtime_error("drmModeGetConnector failed: " + std::string(ERRSTR));
 	}
 
-	if (!c->count_modes) {
+	if (!c->count_modes)
+	{
 		drmModeFreeConnector(c);
 		drmModeFreeResources(res);
 		throw std::runtime_error("connector supports no mode");
@@ -120,23 +129,28 @@ void DrmPreview::findPlane()
 
 	try
 	{
-		for (i = 0; i < planes->count_planes; ++i) {
+		for (i = 0; i < planes->count_planes; ++i)
+		{
 			plane = drmModeGetPlane(drmfd_, planes->planes[i]);
 			if (!planes)
 				throw std::runtime_error("drmModeGetPlane failed: " + std::string(ERRSTR));
 
-			if (!(plane->possible_crtcs & (1 << crtcIdx_))) {
+			if (!(plane->possible_crtcs & (1 << crtcIdx_)))
+			{
 				drmModeFreePlane(plane);
 				continue;
 			}
 
-			for (j = 0; j < plane->count_formats; ++j) {
-				if (plane->formats[j] == out_fourcc_) {
+			for (j = 0; j < plane->count_formats; ++j)
+			{
+				if (plane->formats[j] == out_fourcc_)
+				{
 					break;
 				}
 			}
 
-			if (j == plane->count_formats) {
+			if (j == plane->count_formats)
+			{
 				drmModeFreePlane(plane);
 				continue;
 			}
@@ -185,8 +199,8 @@ DrmPreview::DrmPreview(Options const *options) : last_fd_(-1), Preview(options)
 	}
 
 	// Default behaviour here is to go fullscreen.
-	if (options_->fullscreen || width_ == 0 || height_ == 0 ||
-		x_ + width_ > screen_width_ || y_ + height_ > screen_height_)
+	if (options_->fullscreen || width_ == 0 || height_ == 0 || x_ + width_ > screen_width_ ||
+		y_ + height_ > screen_height_)
 	{
 		x_ = y_ = 0;
 		width_ = screen_width_;
@@ -199,8 +213,8 @@ DrmPreview::~DrmPreview()
 	close(drmfd_);
 }
 
-void DrmPreview::makeBuffer(int fd, size_t size, unsigned int width, unsigned int height,
-							unsigned int stride, Buffer &buffer)
+void DrmPreview::makeBuffer(int fd, size_t size, unsigned int width, unsigned int height, unsigned int stride,
+							Buffer &buffer)
 {
 	buffer.fd = fd;
 	buffer.size = size;
@@ -214,12 +228,10 @@ void DrmPreview::makeBuffer(int fd, size_t size, unsigned int width, unsigned in
 	uint32_t offsets[4] = { 0, stride * height, stride * height + (stride / 2) * (height / 2) };
 	uint32_t pitches[4] = { stride, stride / 2, stride / 2 };
 	uint32_t bo_handles[4] = { buffer.bo_handle, buffer.bo_handle, buffer.bo_handle };
-	
-	if (drmModeAddFB2(drmfd_, width, height, out_fourcc_,
-					  bo_handles, pitches, offsets, &buffer.fb_handle, 0))
+
+	if (drmModeAddFB2(drmfd_, width, height, out_fourcc_, bo_handles, pitches, offsets, &buffer.fb_handle, 0))
 		throw std::runtime_error("drmModeAddFB2 failed: " + std::string(ERRSTR));
 }
-
 
 void DrmPreview::Show(int fd, size_t size, int width, int height, int stride)
 {
@@ -230,20 +242,16 @@ void DrmPreview::Show(int fd, size_t size, int width, int height, int stride)
 	unsigned int x_off = 0, y_off = 0;
 	unsigned int w = width_, h = height_;
 	if (width * height_ > width_ * height)
-		h = width_ * height / width, y_off = (height_ - h ) / 2;
+		h = width_ * height / width, y_off = (height_ - h) / 2;
 	else
 		w = height_ * width / height, x_off = (width_ - w) / 2;
 
-	if (drmModeSetPlane(drmfd_, planeId_, crtcId_,
-                        buffer.fb_handle, 0,
-                        x_off + x_, y_off + y_, w, h,
-                        0, 0,
-                        buffer.width << 16,
-                        buffer.height << 16))
+	if (drmModeSetPlane(drmfd_, planeId_, crtcId_, buffer.fb_handle, 0, x_off + x_, y_off + y_, w, h, 0, 0,
+						buffer.width << 16, buffer.height << 16))
 		throw std::runtime_error("drmModeSetPlane failed: " + std::string(ERRSTR));
-   if (last_fd_ >= 0)
-	   done_callback_(last_fd_);
-   last_fd_ = fd;
+	if (last_fd_ >= 0)
+		done_callback_(last_fd_);
+	last_fd_ = fd;
 }
 
 void DrmPreview::Reset()

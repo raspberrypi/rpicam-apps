@@ -21,50 +21,32 @@ using libcamera::Stream;
 class LibcameraStillApp : public LibcameraApp
 {
 public:
-	LibcameraStillApp()
-		: LibcameraApp(std::make_unique<StillOptions>())
-	{
-	}
+	LibcameraStillApp() : LibcameraApp(std::make_unique<StillOptions>()) {}
 
-	StillOptions *GetOptions() const
-	{
-		return static_cast<StillOptions *>(options_.get());
-	}
+	StillOptions *GetOptions() const { return static_cast<StillOptions *>(options_.get()); }
 };
 
 // In jpeg.cpp:
-void jpeg_save(std::vector<void *> const &mem, int w, int h, int stride,
-			   libcamera::PixelFormat const &pixel_format,
-			   libcamera::ControlList const &metadata,
-			   std::string const &filename,
-			   std::string const &cam_name,
+void jpeg_save(std::vector<void *> const &mem, int w, int h, int stride, libcamera::PixelFormat const &pixel_format,
+			   libcamera::ControlList const &metadata, std::string const &filename, std::string const &cam_name,
 			   StillOptions const *options);
 
 // In yuv.cpp:
-void yuv_save(std::vector<void *> const &mem, int w, int h, int stride,
-			  libcamera::PixelFormat const &pixel_format,
-			  std::string const &filename,
-			  StillOptions const *options);
+void yuv_save(std::vector<void *> const &mem, int w, int h, int stride, libcamera::PixelFormat const &pixel_format,
+			  std::string const &filename, StillOptions const *options);
 
 // In dng.cpp:
-void dng_save(std::vector<void *> const &mem, int w, int h, int stride,
-			   libcamera::PixelFormat const &pixel_format,
-			   libcamera::ControlList const &metadata,
-			   std::string const &filename,
-			   std::string const &cam_name,
-			   StillOptions const *options);
+void dng_save(std::vector<void *> const &mem, int w, int h, int stride, libcamera::PixelFormat const &pixel_format,
+			  libcamera::ControlList const &metadata, std::string const &filename, std::string const &cam_name,
+			  StillOptions const *options);
 
 // In png.cpp:
-void png_save(std::vector<void *> const &mem, int w, int h, int stride,
-			  libcamera::PixelFormat const &pixel_format,
-			  std::string const &filename,
-			  StillOptions const *options);
+void png_save(std::vector<void *> const &mem, int w, int h, int stride, libcamera::PixelFormat const &pixel_format,
+			  std::string const &filename, StillOptions const *options);
 
 // In bmp.cpp:
-void bmp_save(std::vector<void *> const &mem, int w, int h, int stride,
-			  libcamera::PixelFormat const &pixel_format,
-			  std::string const &filename,
-			  StillOptions const *options);
+void bmp_save(std::vector<void *> const &mem, int w, int h, int stride, libcamera::PixelFormat const &pixel_format,
+			  std::string const &filename, StillOptions const *options);
 
 static std::string generate_filename(StillOptions const *options)
 {
@@ -79,11 +61,10 @@ static std::string generate_filename(StillOptions const *options)
 		snprintf(filename, sizeof(filename), "%s.%s", time_string, options->encoding.c_str());
 	}
 	else if (options->timestamp)
-		snprintf(filename, sizeof(filename), "%u.%s",
-				 (unsigned)time(NULL), options->encoding.c_str());
+		snprintf(filename, sizeof(filename), "%u.%s", (unsigned)time(NULL), options->encoding.c_str());
 	else
 		snprintf(filename, sizeof(filename), options->output.c_str(), options->framestart);
-	filename[sizeof(filename)-1] = 0;
+	filename[sizeof(filename) - 1] = 0;
 	return std::string(filename);
 }
 
@@ -105,8 +86,7 @@ static void update_latest_link(std::string const &filename, StillOptions const *
 	}
 }
 
-static void save_image(LibcameraStillApp &app, CompletedRequest &payload,
-					   Stream *stream, std::string const &filename)
+static void save_image(LibcameraStillApp &app, CompletedRequest &payload, Stream *stream, std::string const &filename)
 {
 	StillOptions const *options = app.GetOptions();
 	int w, h, stride;
@@ -114,11 +94,9 @@ static void save_image(LibcameraStillApp &app, CompletedRequest &payload,
 	libcamera::PixelFormat const &pixel_format = stream->configuration().pixelFormat;
 	std::vector<void *> mem = app.Mmap(payload.buffers[stream]);
 	if (stream == app.RawStream())
-		dng_save(mem, w, h, stride, pixel_format,
-				 payload.metadata, filename, app.CameraId(), options);
+		dng_save(mem, w, h, stride, pixel_format, payload.metadata, filename, app.CameraId(), options);
 	else if (options->encoding == "jpg")
-		jpeg_save(mem, w, h, stride, pixel_format,
-				  payload.metadata, filename, app.CameraId(), options);
+		jpeg_save(mem, w, h, stride, pixel_format, payload.metadata, filename, app.CameraId(), options);
 	else if (options->encoding == "png")
 		png_save(mem, w, h, stride, pixel_format, filename, options);
 	else if (options->encoding == "bmp")
@@ -212,7 +190,7 @@ static void event_loop(LibcameraStillApp &app)
 
 		auto now = std::chrono::high_resolution_clock::now();
 		int key = get_key_or_signal(options, p);
-		if (key == 'x'|| key == 'X')
+		if (key == 'x' || key == 'X')
 			return;
 
 		// In viewfinder mode, simply run until the timeout. When that happens, switch to
@@ -222,18 +200,17 @@ static void event_loop(LibcameraStillApp &app)
 			if (options->verbose)
 				std::cout << "Viewfinder frame " << count << std::endl;
 
-			bool timed_out = options->timeout &&
-				now - start_time > std::chrono::milliseconds(options->timeout);
+			bool timed_out = options->timeout && now - start_time > std::chrono::milliseconds(options->timeout);
 			bool keypressed = key == '\n';
 			bool timelapse_timed_out = options->timelapse &&
-				now - timelapse_time > std::chrono::milliseconds(options->timelapse);
+									   now - timelapse_time > std::chrono::milliseconds(options->timelapse);
 
 			if (timed_out || keypressed || timelapse_timed_out)
 			{
 				// Trigger a still capture unless:
-				if (!output ||                      // we have no output file
+				if (!output || // we have no output file
 					(timed_out && options->timelapse) || // timed out in timelapse mode
-					(!keypressed && keypress))      // no key was pressed (in keypress mode)
+					(!keypressed && keypress)) // no key was pressed (in keypress mode)
 					return;
 				else
 				{
@@ -287,6 +264,6 @@ int main(int argc, char *argv[])
 	{
 		std::cerr << "ERROR: *** " << e.what() << " ***" << std::endl;
 		return -1;
-    }
+	}
 	return 0;
 }

@@ -84,8 +84,8 @@ static void event_loop(LibcameraEncoder &app)
 		if (options->verbose)
 			std::cout << "Viewfinder frame " << count << std::endl;
 		auto now = std::chrono::high_resolution_clock::now();
-		if ((options->timeout && now - start_time > std::chrono::milliseconds(options->timeout)) ||
-			key == 'x' || key == 'X')
+		if ((options->timeout && now - start_time > std::chrono::milliseconds(options->timeout)) || key == 'x' ||
+			key == 'X')
 		{
 			app.StopCamera(); // stop complains if encoder very slow to close
 			app.StopEncoder();
@@ -114,6 +114,6 @@ int main(int argc, char *argv[])
 	{
 		std::cerr << "ERROR: *** " << e.what() << " ***" << std::endl;
 		return -1;
-    }
+	}
 	return 0;
 }
