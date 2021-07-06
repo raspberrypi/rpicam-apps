@@ -344,6 +344,17 @@ void LibcameraApp::StartCamera()
 
 void LibcameraApp::StopCamera()
 {
+	{
+		// We don't want QueueRequest to run asynchronously while we stop the camera.
+		std::lock_guard<std::mutex> lock(camera_stop_mutex_);
+		if (camera_started_)
+		{
+			if (camera_->stop())
+				throw std::runtime_error("failed to stop camera");
+			camera_started_ = false;
+		}
+	}
+
 	if (camera_started_)
 	{
 		if (camera_->stop())
@@ -377,6 +388,12 @@ LibcameraApp::Msg LibcameraApp::Wait()
 
 void LibcameraApp::QueueRequest(CompletedRequest const &completed_request)
 {
+	// This function may run asynchronously so needs protection from the
+	// camera stopping at the same time.
+	std::lock_guard<std::mutex> stop_lock(camera_stop_mutex_);
+	if (!camera_started_)
+		return;
+
 	Request *request = nullptr;
 	{
 		std::lock_guard<std::mutex> lock(free_requests_mutex_);
@@ -404,11 +421,7 @@ void LibcameraApp::QueueRequest(CompletedRequest const &completed_request)
 	}
 
 	if (camera_->queueRequest(request) < 0)
-	{
-		// Don't make this fatal, some apps may stop the camera while the preview
-		// might still call us. (Arguably we should fix this better...)
-		std::cout << "(failed to queue request)" << std::endl;
-	}
+		throw std::runtime_error("failed to queue request");
 }
 
 void LibcameraApp::PostMessage(MsgType &t, MsgPayload &p)
