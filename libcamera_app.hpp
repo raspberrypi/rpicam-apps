@@ -202,6 +202,7 @@ private:
 	std::queue<Request *> free_requests_;
 	std::vector<std::unique_ptr<Request>> requests_;
 	bool camera_started_ = false;
+	std::mutex camera_stop_mutex_;
 	MessageQueue<Msg> msg_queue_;
 	// Related to the preview window.
 	std::unique_ptr<Preview> preview_;
