@@ -53,7 +53,7 @@ static int get_key_or_signal(VideoOptions const *options, pollfd p[1])
 
 static void event_loop(LibcameraEncoder &app)
 {
-	VideoOptions const *options = static_cast<VideoOptions *>(app.options.get());
+	VideoOptions const *options = app.GetOptions();
 	std::unique_ptr<Output> output = std::unique_ptr<Output>(Output::Create(options));
 	app.SetEncodeBufferDoneCallback(std::bind(&LibcameraEncoder::ShowPreview, &app, _1, _2));
 	app.SetEncodeOutputReadyCallback(std::bind(&Output::OutputReady, output.get(), _1, _2, _3, _4));
@@ -100,11 +100,12 @@ int main(int argc, char *argv[])
 {
 	try
 	{
-		LibcameraEncoder app(std::make_unique<VideoOptions>());
-		if (app.options->Parse(argc, argv))
+		LibcameraEncoder app;
+		VideoOptions *options = app.GetOptions();
+		if (options->Parse(argc, argv))
 		{
-			if (app.options->verbose)
-				app.options->Print();
+			if (options->verbose)
+				options->Print();
 
 			event_loop(app);
 		}

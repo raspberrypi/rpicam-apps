@@ -18,6 +18,20 @@
 using namespace std::placeholders;
 using libcamera::Stream;
 
+class LibcameraStillApp : public LibcameraApp
+{
+public:
+	LibcameraStillApp()
+		: LibcameraApp(std::make_unique<StillOptions>())
+	{
+	}
+
+	StillOptions *GetOptions() const
+	{
+		return static_cast<StillOptions *>(options_.get());
+	}
+};
+
 // In jpeg.cpp:
 void jpeg_save(std::vector<void *> const &mem, int w, int h, int stride,
 			   libcamera::PixelFormat const &pixel_format,
@@ -91,10 +105,10 @@ static void update_latest_link(std::string const &filename, StillOptions const *
 	}
 }
 
-static void save_image(LibcameraApp &app, CompletedRequest &payload,
+static void save_image(LibcameraStillApp &app, CompletedRequest &payload,
 					   Stream *stream, std::string const &filename)
 {
-	StillOptions const *options = static_cast<StillOptions *>(app.options.get());
+	StillOptions const *options = app.GetOptions();
 	int w, h, stride;
 	app.StreamDimensions(stream, &w, &h, &stride);
 	libcamera::PixelFormat const &pixel_format = stream->configuration().pixelFormat;
@@ -115,9 +129,9 @@ static void save_image(LibcameraApp &app, CompletedRequest &payload,
 		std::cout << "Saved image " << w << " x " << h << " to file " << filename << std::endl;
 }
 
-static void save_images(LibcameraApp &app, CompletedRequest &payload)
+static void save_images(LibcameraStillApp &app, CompletedRequest &payload)
 {
-	StillOptions *options = static_cast<StillOptions *>(app.options.get());
+	StillOptions *options = app.GetOptions();
 	std::string filename = generate_filename(options);
 	save_image(app, payload, app.StillStream(), filename);
 	update_latest_link(filename, options);
@@ -163,9 +177,9 @@ static int get_key_or_signal(StillOptions const *options, pollfd p[1])
 
 // The main even loop for the application.
 
-static void event_loop(LibcameraApp &app)
+static void event_loop(LibcameraStillApp &app)
 {
-	StillOptions const *options = static_cast<StillOptions *>(app.options.get());
+	StillOptions const *options = app.GetOptions();
 	bool output = !options->output.empty() || options->datetime || options->timestamp; // output requested?
 	bool keypress = options->keypress || options->signal; // "signal" mode is much like "keypress" mode
 	unsigned int still_flags = LibcameraApp::FLAG_STILL_NONE;
@@ -259,11 +273,12 @@ int main(int argc, char *argv[])
 {
 	try
 	{
-		LibcameraApp app(std::make_unique<StillOptions>());
-		if (app.options->Parse(argc, argv))
+		LibcameraStillApp app;
+		StillOptions *options = app.GetOptions();
+		if (options->Parse(argc, argv))
 		{
-			if (app.options->verbose)
-				app.options->Print();
+			if (options->verbose)
+				options->Print();
 
 			event_loop(app);
 		}

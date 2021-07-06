@@ -13,6 +13,20 @@
 using namespace std::placeholders;
 using libcamera::Stream;
 
+class LibcameraJpegApp : public LibcameraApp
+{
+public:
+	LibcameraJpegApp()
+		: LibcameraApp(std::make_unique<StillOptions>())
+	{
+	}
+
+	StillOptions *GetOptions() const
+	{
+		return static_cast<StillOptions *>(options_.get());
+	}
+};
+
 // In jpeg.cpp:
 void jpeg_save(std::vector<void *> const &mem, int w, int h, int stride,
 			   libcamera::PixelFormat const &pixel_format,
@@ -23,9 +37,9 @@ void jpeg_save(std::vector<void *> const &mem, int w, int h, int stride,
 
 // The main even loop for the application.
 
-static void event_loop(LibcameraApp &app)
+static void event_loop(LibcameraJpegApp &app)
 {
-	StillOptions const *options = static_cast<StillOptions *>(app.options.get());
+	StillOptions const *options = app.GetOptions();
 	app.OpenCamera();
 	app.ConfigureViewfinder();
 	app.StartCamera();
@@ -80,12 +94,13 @@ int main(int argc, char *argv[])
 {
 	try
 	{
-		LibcameraApp app(std::make_unique<StillOptions>());
-		if (app.options->Parse(argc, argv))
+		LibcameraJpegApp app;
+		StillOptions *options = app.GetOptions();
+		if (options->Parse(argc, argv))
 		{
-			if (app.options->verbose)
-				app.options->Print();
-			if (app.options->output.empty())
+			if (options->verbose)
+				options->Print();
+			if (options->output.empty())
 				throw std::runtime_error("output file name required");
 
 			event_loop(app);
