@@ -18,8 +18,8 @@ public:
 	using Stream = libcamera::Stream;
 	using FrameBuffer = libcamera::FrameBuffer;
 
-	LibcameraEncoder(VideoOptions *options) :
-		LibcameraApp(options) {}
+	LibcameraEncoder(std::unique_ptr<Options> options) :
+		LibcameraApp(std::move(options)) {}
 
 	void StartEncoder()
 	{
@@ -62,7 +62,7 @@ public:
 protected:
 	virtual void createEncoder()
 	{
-		encoder_ = std::unique_ptr<Encoder>(Encoder::Create(static_cast<VideoOptions *>(options)));
+		encoder_ = std::unique_ptr<Encoder>(Encoder::Create(static_cast<VideoOptions *>(options.get())));
 	}
 	std::unique_ptr<Encoder> encoder_;
 

@@ -16,19 +16,19 @@ using namespace std::placeholders;
 class LibcameraRaw: public LibcameraEncoder
 {
 public:
-	LibcameraRaw(VideoOptions *options)
-		: LibcameraEncoder(options) {}
+	LibcameraRaw(std::unique_ptr<Options> options)
+		: LibcameraEncoder(std::move(options)) {}
 
 protected:
 	// Force the use of "null" encoder.
-	void createEncoder() { encoder_ = std::unique_ptr<Encoder>(new NullEncoder(static_cast<VideoOptions *>(options))); }
+	void createEncoder() { encoder_ = std::unique_ptr<Encoder>(new NullEncoder(static_cast<VideoOptions *>(options.get()))); }
 };
 
 // The main even loop for the application.
 
 static void event_loop(LibcameraRaw &app)
 {
-	VideoOptions const *options = static_cast<VideoOptions *>(app.options);
+	VideoOptions const *options = static_cast<VideoOptions *>(app.options.get());
 	std::unique_ptr<Output> output = std::unique_ptr<Output>(Output::Create(options));
 	app.SetEncodeBufferDoneCallback(std::bind(&LibcameraRaw::QueueRequest, &app, _1));
 	app.SetEncodeOutputReadyCallback(std::bind(&Output::OutputReady, output.get(), _1, _2, _3, _4));
@@ -71,15 +71,14 @@ int main(int argc, char *argv[])
 {
 	try
 	{
-		VideoOptions options;
-		if (options.Parse(argc, argv))
+		LibcameraRaw app(std::make_unique<VideoOptions>());
+		if (app.options->Parse(argc, argv))
 		{
-			options.denoise = "cdn_off";
-			options.nopreview = true;
-			if (options.verbose)
-				options.Print();
+			app.options->denoise = "cdn_off";
+			app.options->nopreview = true;
+			if (app.options->verbose)
+				app.options->Print();
 
-			LibcameraRaw app(&options);
 			event_loop(app);
 		}
 	}

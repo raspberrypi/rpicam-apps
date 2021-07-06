@@ -94,7 +94,7 @@ static void update_latest_link(std::string const &filename, StillOptions const *
 static void save_image(LibcameraApp &app, CompletedRequest &payload,
 					   Stream *stream, std::string const &filename)
 {
-	StillOptions const *options = static_cast<StillOptions *>(app.options);
+	StillOptions const *options = static_cast<StillOptions *>(app.options.get());
 	int w, h, stride;
 	app.StreamDimensions(stream, &w, &h, &stride);
 	libcamera::PixelFormat const &pixel_format = stream->configuration().pixelFormat;
@@ -117,7 +117,7 @@ static void save_image(LibcameraApp &app, CompletedRequest &payload,
 
 static void save_images(LibcameraApp &app, CompletedRequest &payload)
 {
-	StillOptions *options = static_cast<StillOptions *>(app.options);
+	StillOptions *options = static_cast<StillOptions *>(app.options.get());
 	std::string filename = generate_filename(options);
 	save_image(app, payload, app.StillStream(), filename);
 	update_latest_link(filename, options);
@@ -165,7 +165,7 @@ static int get_key_or_signal(StillOptions const *options, pollfd p[1])
 
 static void event_loop(LibcameraApp &app)
 {
-	StillOptions const *options = static_cast<StillOptions *>(app.options);
+	StillOptions const *options = static_cast<StillOptions *>(app.options.get());
 	bool output = !options->output.empty() || options->datetime || options->timestamp; // output requested?
 	bool keypress = options->keypress || options->signal; // "signal" mode is much like "keypress" mode
 	unsigned int still_flags = LibcameraApp::FLAG_STILL_NONE;
@@ -259,13 +259,12 @@ int main(int argc, char *argv[])
 {
 	try
 	{
-		StillOptions options;
-		if (options.Parse(argc, argv))
+		LibcameraApp app(std::make_unique<StillOptions>());
+		if (app.options->Parse(argc, argv))
 		{
-			if (options.verbose)
-				options.Print();
+			if (app.options->verbose)
+				app.options->Print();
 
-			LibcameraApp app(&options);
 			event_loop(app);
 		}
 	}
