@@ -12,6 +12,7 @@
 #include <iostream>
 #include <string>
 #include <queue>
+#include <memory>
 #include <mutex>
 #include <condition_variable>
 #include <variant>
@@ -86,7 +87,7 @@ public:
 	};
 
 	// Program options are left as public; we use Boost to parse them.
-	Options *options;
+	std::unique_ptr<Options> options;
 
 	// Some flags that can be used to give hints to the camera configuration.
 	static constexpr unsigned int FLAG_STILL_NONE   =  0;
@@ -100,7 +101,7 @@ public:
 	static constexpr unsigned int FLAG_VIDEO_NONE   =  0;
 	static constexpr unsigned int FLAG_VIDEO_RAW    =  1;  // request raw image stream
 
-	LibcameraApp(Options *_options);
+	LibcameraApp(std::unique_ptr<Options> const opts);
 	virtual ~LibcameraApp();
 
 	std::string const &CameraId() const;

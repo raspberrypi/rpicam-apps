@@ -25,7 +25,7 @@ void jpeg_save(std::vector<void *> const &mem, int w, int h, int stride,
 
 static void event_loop(LibcameraApp &app)
 {
-	StillOptions const *options = static_cast<StillOptions *>(app.options);
+	StillOptions const *options = static_cast<StillOptions *>(app.options.get());
 	app.OpenCamera();
 	app.ConfigureViewfinder();
 	app.StartCamera();
@@ -80,15 +80,14 @@ int main(int argc, char *argv[])
 {
 	try
 	{
-		StillOptions options;
-		if (options.Parse(argc, argv))
+		LibcameraApp app(std::make_unique<StillOptions>());
+		if (app.options->Parse(argc, argv))
 		{
-			if (options.verbose)
-				options.Print();
-			if (options.output.empty())
+			if (app.options->verbose)
+				app.options->Print();
+			if (app.options->output.empty())
 				throw std::runtime_error("output file name required");
 
-			LibcameraApp app(&options);
 			event_loop(app);
 		}
 	}

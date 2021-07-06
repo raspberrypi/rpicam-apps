@@ -7,8 +7,8 @@
 
 #include "libcamera_app.hpp"
 
-LibcameraApp::LibcameraApp(Options *_options)
-    : options(_options), preview_thread_(&LibcameraApp::previewThread, this)
+LibcameraApp::LibcameraApp(std::unique_ptr<Options> opts)
+    : options(std::move(opts)), preview_thread_(&LibcameraApp::previewThread, this)
 {
 }
 
@@ -38,12 +38,12 @@ void LibcameraApp::OpenCamera()
 {
     // Make a preview window.
     if (options->nopreview)
-        preview_ = std::make_unique<NullPreview>(options);
+        preview_ = std::make_unique<NullPreview>(options.get());
     else
     {
         try
         {
-            preview_ = std::make_unique<EglPreview>(options);
+            preview_ = std::make_unique<EglPreview>(options.get());
             if (options->verbose)
                 std::cout << "Made X/EGL preview window" << std::endl;
         }
@@ -51,14 +51,14 @@ void LibcameraApp::OpenCamera()
         {
             try
             {
-                preview_ = std::make_unique<DrmPreview>(options);
+                preview_ = std::make_unique<DrmPreview>(options.get());
                 if (options->verbose)
                     std::cout << "Made DRM preview window" << std::endl;
             }
             catch (std::exception const &e)
             {
                 std::cout << "Preview window unavailable" << std::endl;
-                preview_ = std::make_unique<NullPreview>(options);
+                preview_ = std::make_unique<NullPreview>(options.get());
             }
         }
     }
