@@ -86,9 +86,6 @@ public:
 		MsgPayload payload;
 	};
 
-	// Program options are left as public; we use Boost to parse them.
-	std::unique_ptr<Options> options;
-
 	// Some flags that can be used to give hints to the camera configuration.
 	static constexpr unsigned int FLAG_STILL_NONE   =  0;
 	static constexpr unsigned int FLAG_STILL_BGR    =  1;  // supply BGR images, not YUV
@@ -101,8 +98,10 @@ public:
 	static constexpr unsigned int FLAG_VIDEO_NONE   =  0;
 	static constexpr unsigned int FLAG_VIDEO_RAW    =  1;  // request raw image stream
 
-	LibcameraApp(std::unique_ptr<Options> const opts);
+	LibcameraApp(std::unique_ptr<Options> const opts = nullptr);
 	virtual ~LibcameraApp();
+
+	Options *GetOptions() const { return options_.get(); }
 
 	std::string const &CameraId() const;
 	void OpenCamera();
@@ -132,6 +131,9 @@ public:
 
 	void SetControls(ControlList &controls);
 	void StreamDimensions(Stream const *stream, int *w, int *h, int *stride) const;
+
+protected:
+	std::unique_ptr<Options> options_;
 
 private:
 	template <typename T>

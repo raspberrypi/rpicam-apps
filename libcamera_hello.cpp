@@ -16,7 +16,7 @@ using namespace std::placeholders;
 
 static void event_loop(LibcameraApp &app)
 {
-	Options const *options = app.options.get();
+	Options const *options = app.GetOptions();
 
 	app.OpenCamera();
 	app.ConfigureViewfinder();
@@ -49,11 +49,12 @@ int main(int argc, char *argv[])
 {
 	try
 	{
-		LibcameraApp app(std::make_unique<Options>());
-		if (app.options->Parse(argc, argv))
+		LibcameraApp app;
+		Options *options = app.GetOptions();
+		if (options->Parse(argc, argv))
 		{
-			if (app.options->verbose)
-				app.options->Print();
+			if (options->verbose)
+				options->Print();
 
 			event_loop(app);
 		}
