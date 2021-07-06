@@ -21,13 +21,8 @@ public:
 	virtual ~Preview() {}
 	// This is where the application sets the callback it gets whenever the viewfinder
 	// is no longer displaying the buffer and it can be safely recycled.
-	void SetDoneCallback(DoneCallback callback)
-	{
-		done_callback_ = callback;
-	}
-	virtual void SetInfoText(const std::string &text)
-	{
-	}
+	void SetDoneCallback(DoneCallback callback) { done_callback_ = callback; }
+	virtual void SetInfoText(const std::string &text) {}
 	// Display the buffer. You get given the fd back in the BufferDoneCallback
 	// once its available for re-use.
 	virtual void Show(int fd, size_t size, int width, int height, int stride) = 0;
@@ -36,6 +31,7 @@ public:
 	virtual void Reset() = 0;
 	// Check if preview window has been shut down.
 	virtual bool Quit() { return false; }
+
 protected:
 	DoneCallback done_callback_;
 	Options const *options_;

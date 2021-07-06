@@ -7,7 +7,7 @@
 
 #include "circular_output.hpp"
 
-static constexpr int CIRCULAR_BUFFER_SIZE = 1<<22; // 4MB, we could consider this more carefully...
+static constexpr int CIRCULAR_BUFFER_SIZE = 1 << 22; // 4MB, we could consider this more carefully...
 
 // We're going to align the frames within the buffer to friendly byte boundaries
 static constexpr int ALIGN = 16; // power of 2, please
@@ -20,8 +20,7 @@ struct Header
 };
 static_assert(sizeof(Header) % ALIGN == 0, "Header should have aligned size");
 
-CircularOutput::CircularOutput(VideoOptions const *options)
-	: cb_(CIRCULAR_BUFFER_SIZE), Output(options)
+CircularOutput::CircularOutput(VideoOptions const *options) : cb_(CIRCULAR_BUFFER_SIZE), Output(options)
 {
 	// Open this now, so that we can get any complaints out of the way
 	fp_ = fopen(options_->output.c_str(), "w");
@@ -40,7 +39,12 @@ CircularOutput::~CircularOutput()
 	while (!cb_.Empty())
 	{
 		uint8_t *dst = (uint8_t *)&header;
-		cb_.Read([&dst](void *src, int n) { memcpy(dst, src, n); dst += n; }, sizeof(header));
+		cb_.Read(
+			[&dst](void *src, int n) {
+				memcpy(dst, src, n);
+				dst += n;
+			},
+			sizeof(header));
 		seen_keyframe |= header.keyframe;
 		if (seen_keyframe)
 		{
@@ -66,7 +70,12 @@ void CircularOutput::outputBuffer(void *mem, size_t size, int64_t timestamp_us, 
 			throw std::runtime_error("circular buffer too small");
 		Header header;
 		uint8_t *dst = (uint8_t *)&header;
-		cb_.Read([&dst](void *src, int n) { memcpy(dst, src, n); dst += n; }, sizeof(header));
+		cb_.Read(
+			[&dst](void *src, int n) {
+				memcpy(dst, src, n);
+				dst += n;
+			},
+			sizeof(header));
 		cb_.Skip((header.length + ALIGN - 1) & ~(ALIGN - 1));
 	}
 	Header header = { static_cast<unsigned int>(size), !!(flags & FLAG_KEYFRAME), timestamp_us };

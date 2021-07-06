@@ -13,8 +13,7 @@
 struct FrameInfo
 {
 	FrameInfo(libcamera::ControlList &ctrls)
-		: exposure_time(0.0), digital_gain(0.0), colour_gains({{0.0f, 0.0f}}),
-		  focus(0.0), aelock(false)
+		: exposure_time(0.0), digital_gain(0.0), colour_gains({ { 0.0f, 0.0f } }), focus(0.0), aelock(false)
 	{
 		if (ctrls.contains(libcamera::controls::ExposureTime))
 			exposure_time = ctrls.get<int32_t>(libcamera::controls::ExposureTime);
@@ -42,7 +41,7 @@ struct FrameInfo
 	{
 		std::string parsed(info_string);
 
-		for (auto const t: tokens)
+		for (auto const t : tokens)
 		{
 			std::size_t pos = parsed.find(t);
 			if (pos != std::string::npos)
@@ -87,6 +86,6 @@ struct FrameInfo
 
 private:
 	// Info text tokens.
-	inline static const std::string tokens[] =
-		{"%frame", "%fps", "%exp", "%ag", "%dg", "%rg", "%bg", "%focus", "%aelock"};
+	inline static const std::string tokens[] = { "%frame", "%fps", "%exp",	 "%ag",	   "%dg",
+												 "%rg",	   "%bg",  "%focus", "%aelock" };
 };

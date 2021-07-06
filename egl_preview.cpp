@@ -14,13 +14,14 @@
 static GLint compile_shader(GLenum target, const char *source)
 {
 	GLuint s = glCreateShader(target);
-	glShaderSource(s, 1, (const GLchar **) &source, NULL);
+	glShaderSource(s, 1, (const GLchar **)&source, NULL);
 	glCompileShader(s);
 
 	GLint ok;
 	glGetShaderiv(s, GL_COMPILE_STATUS, &ok);
 
-	if (!ok) {
+	if (!ok)
+	{
 		GLchar *info;
 		GLint size;
 
@@ -28,8 +29,8 @@ static GLint compile_shader(GLenum target, const char *source)
 		info = (GLchar *)malloc(size);
 
 		glGetShaderInfoLog(s, size, NULL, info);
-		throw std::runtime_error("failed to compile shader: " + std::string(info) +
-								 "\nsource:\n" + std::string(source));
+		throw std::runtime_error("failed to compile shader: " + std::string(info) + "\nsource:\n" +
+								 std::string(source));
 	}
 
 	return s;
@@ -44,20 +45,21 @@ static GLint link_program(GLint vs, GLint fs)
 
 	GLint ok;
 	glGetProgramiv(prog, GL_LINK_STATUS, &ok);
-	if (!ok) {
+	if (!ok)
+	{
 		/* Some drivers return a size of 1 for an empty log.  This is the size
 		 * of a log that contains only a terminating NUL character.
 		 */
 		GLint size;
 		GLchar *info = NULL;
 		glGetProgramiv(prog, GL_INFO_LOG_LENGTH, &size);
-		if (size > 1) {
+		if (size > 1)
+		{
 			info = (GLchar *)malloc(size);
 			glGetProgramInfoLog(prog, size, NULL, info);
 		}
 
-		throw std::runtime_error("failed to link: " +
-								 std::string(info ? info : "<empty log>"));
+		throw std::runtime_error("failed to link: " + std::string(info ? info : "<empty log>"));
 	}
 
 	return prog;
@@ -72,61 +74,56 @@ static void gl_setup(int width, int height, int window_width, int window_height)
 	h_factor /= max_dimension;
 	char vs[256];
 	snprintf(vs, sizeof(vs),
-			"attribute vec4 pos;\n"
-			"varying vec2 texcoord;\n"
-			"\n"
-			"void main() {\n"
-			"  gl_Position = pos;\n"
-			"  texcoord.x = pos.x / %f + 0.5;\n"
-			"  texcoord.y = 0.5 - pos.y / %f;\n"
-			"}\n", 2.0 * w_factor, 2.0 * h_factor);
+			 "attribute vec4 pos;\n"
+			 "varying vec2 texcoord;\n"
+			 "\n"
+			 "void main() {\n"
+			 "  gl_Position = pos;\n"
+			 "  texcoord.x = pos.x / %f + 0.5;\n"
+			 "  texcoord.y = 0.5 - pos.y / %f;\n"
+			 "}\n",
+			 2.0 * w_factor, 2.0 * h_factor);
 	vs[sizeof(vs) - 1] = 0;
 	GLint vs_s = compile_shader(GL_VERTEX_SHADER, vs);
-	const char *fs =
-		"#extension GL_OES_EGL_image_external : enable\n"
-		"precision mediump float;\n"
-		"uniform samplerExternalOES s;\n"
-		"varying vec2 texcoord;\n"
-		"void main() {\n"
-		"  gl_FragColor = texture2D(s, texcoord);\n"
-		"}\n";
+	const char *fs = "#extension GL_OES_EGL_image_external : enable\n"
+					 "precision mediump float;\n"
+					 "uniform samplerExternalOES s;\n"
+					 "varying vec2 texcoord;\n"
+					 "void main() {\n"
+					 "  gl_FragColor = texture2D(s, texcoord);\n"
+					 "}\n";
 	GLint fs_s = compile_shader(GL_FRAGMENT_SHADER, fs);
 	GLint prog = link_program(vs_s, fs_s);
 
 	glUseProgram(prog);
 
-	static const float verts[] = {
-		-w_factor, -h_factor,
-		w_factor, -h_factor,
-		w_factor, h_factor,
-		-w_factor, h_factor
-	};
+	static const float verts[] = { -w_factor, -h_factor, w_factor, -h_factor, w_factor, h_factor, -w_factor, h_factor };
 	glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, verts);
 	glEnableVertexAttribArray(0);
 }
 
 EglPreview::EglPreview(Options const *options) : last_fd_(-1), first_time_(true), Preview(options)
 {
-   display_ = XOpenDisplay(NULL);
-   if (!display_)
-	   throw std::runtime_error("Couldn't open X display");
+	display_ = XOpenDisplay(NULL);
+	if (!display_)
+		throw std::runtime_error("Couldn't open X display");
 
-   egl_display_ = eglGetDisplay(display_);
-   if (!egl_display_)
-	   throw std::runtime_error("eglGetDisplay() failed");
+	egl_display_ = eglGetDisplay(display_);
+	if (!egl_display_)
+		throw std::runtime_error("eglGetDisplay() failed");
 
-   EGLint egl_major, egl_minor;
+	EGLint egl_major, egl_minor;
 
-   if (!eglInitialize(egl_display_, &egl_major, &egl_minor))
-	   throw std::runtime_error("eglInitialize() failed");
+	if (!eglInitialize(egl_display_, &egl_major, &egl_minor))
+		throw std::runtime_error("eglInitialize() failed");
 
-   x_ = options_->preview_x;
-   y_ = options_->preview_y;
-   width_ = options_->preview_width;
-   height_ = options_->preview_height;
-   makeWindow("libcamera-app");
+	x_ = options_->preview_x;
+	y_ = options_->preview_y;
+	width_ = options_->preview_width;
+	height_ = options_->preview_height;
+	makeWindow("libcamera-app");
 
-   // gl_setup() has to happen later, once we're sure we're in the display thread.
+	// gl_setup() has to happen later, once we're sure we're in the display thread.
 }
 
 EglPreview::~EglPreview()
@@ -140,11 +137,11 @@ static void no_border(Display *display, Window window)
 
 	typedef struct
 	{
-		unsigned long       flags;
-		unsigned long       functions;
-		unsigned long       decorations;
-		long                inputMode;
-		unsigned long       status;
+		unsigned long flags;
+		unsigned long functions;
+		unsigned long decorations;
+		long inputMode;
+		unsigned long status;
 	} PropMotifWmHints;
 
 	PropMotifWmHints motif_hints;
@@ -156,8 +153,9 @@ static void no_border(Display *display, Window window)
 	motif_hints.decorations = flags;
 
 	/* get the atom for the property */
-	prop = XInternAtom(display, "_MOTIF_WM_HINTS", True );
-	if (!prop) {
+	prop = XInternAtom(display, "_MOTIF_WM_HINTS", True);
+	if (!prop)
+	{
 		/* something went wrong! */
 		return;
 	}
@@ -165,13 +163,13 @@ static void no_border(Display *display, Window window)
 	/* not sure this is correct, seems to work, XA_WM_HINTS didn't work */
 	proptype = prop;
 
-	XChangeProperty(display, window,                /* display, window */
-                    prop, proptype,                 /* property, type */
-                    32,                             /* format: 32-bit datums */
-                    PropModeReplace,                /* mode */
-                    (unsigned char *) &motif_hints, /* data */
-                    PROP_MOTIF_WM_HINTS_ELEMENTS    /* nelements */
-					);
+	XChangeProperty(display, window, /* display, window */
+					prop, proptype, /* property, type */
+					32, /* format: 32-bit datums */
+					PropModeReplace, /* mode */
+					(unsigned char *)&motif_hints, /* data */
+					PROP_MOTIF_WM_HINTS_ELEMENTS /* nelements */
+	);
 }
 
 void EglPreview::makeWindow(char const *name)
@@ -191,8 +189,7 @@ void EglPreview::makeWindow(char const *name)
 		height_ = 768;
 	}
 
-	if (options_->fullscreen ||
-		x_ + width_ > screen_width || y_ + height_ > screen_height)
+	if (options_->fullscreen || x_ + width_ > screen_width || y_ + height_ > screen_height)
 	{
 		x_ = y_ = 0;
 		width_ = DisplayWidth(display_, screen_num);
@@ -219,8 +216,7 @@ void EglPreview::makeWindow(char const *name)
 	XVisualInfo visTemplate = {};
 	visTemplate.visualid = (VisualID)vid;
 	int num_visuals;
-	XVisualInfo *visinfo = XGetVisualInfo(display_, VisualIDMask,
-                                         &visTemplate, &num_visuals);
+	XVisualInfo *visinfo = XGetVisualInfo(display_, VisualIDMask, &visTemplate, &num_visuals);
 
 	/* window attributes */
 	attr.background_pixel = 0;
@@ -230,9 +226,8 @@ void EglPreview::makeWindow(char const *name)
 	/* XXX this is a bad way to get a borderless window! */
 	mask = CWBackPixel | CWBorderPixel | CWColormap | CWEventMask;
 
-	window_ = XCreateWindow(display_, root, x_, y_, width_, height_,
-							0, visinfo->depth, InputOutput,
-							visinfo->visual, mask, &attr);
+	window_ = XCreateWindow(display_, root, x_, y_, width_, height_, 0, visinfo->depth, InputOutput, visinfo->visual,
+							mask, &attr);
 
 	if (options_->fullscreen)
 		no_border(display_, window_);
@@ -242,12 +237,11 @@ void EglPreview::makeWindow(char const *name)
 		XSizeHints sizehints;
 		sizehints.x = x_;
 		sizehints.y = y_;
-		sizehints.width  = width_;
+		sizehints.width = width_;
 		sizehints.height = height_;
 		sizehints.flags = USSize | USPosition;
 		XSetNormalHints(display_, window_, &sizehints);
-		XSetStandardProperties(display_, window_, name, name,
-							   None, (char **)NULL, 0, &sizehints);
+		XSetStandardProperties(display_, window_, name, name, None, (char **)NULL, 0, &sizehints);
 	}
 
 	eglBindAPI(EGL_OPENGL_ES_API);
@@ -256,7 +250,7 @@ void EglPreview::makeWindow(char const *name)
 		EGL_CONTEXT_CLIENT_VERSION, 2,
 		EGL_NONE
 	};
-	egl_context_ = eglCreateContext(egl_display_, config, EGL_NO_CONTEXT, ctx_attribs );
+	egl_context_ = eglCreateContext(egl_display_, config, EGL_NO_CONTEXT, ctx_attribs);
 	if (!egl_context_)
 		throw std::runtime_error("eglCreateContext failed");
 
@@ -268,16 +262,14 @@ void EglPreview::makeWindow(char const *name)
 	wm_delete_window_ = XInternAtom(display_, "WM_DELETE_WINDOW", False);
 	XSetWMProtocols(display_, window_, &wm_delete_window_, 1);
 
-	egl_surface_ = eglCreateWindowSurface(egl_display_, config,
-										  window_, NULL);
+	egl_surface_ = eglCreateWindowSurface(egl_display_, config, window_, NULL);
 	if (!egl_surface_)
 		throw std::runtime_error("eglCreateWindowSurface failed");
 
 	// Can't do eglMakeCurrent yet because this might not be the display thread.
 }
 
-void EglPreview::makeBuffer(int fd, size_t size, int width, int height, int stride,
-							   Buffer &buffer)
+void EglPreview::makeBuffer(int fd, size_t size, int width, int height, int stride, Buffer &buffer)
 {
 	if (first_time_)
 	{
@@ -310,10 +302,7 @@ void EglPreview::makeBuffer(int fd, size_t size, int width, int height, int stri
 		EGL_NONE
 	};
 
-	EGLImage image = eglCreateImageKHR(egl_display_,
-									   EGL_NO_CONTEXT,
-									   EGL_LINUX_DMA_BUF_EXT,
-									   NULL, attribs);
+	EGLImage image = eglCreateImageKHR(egl_display_, EGL_NO_CONTEXT, EGL_LINUX_DMA_BUF_EXT, NULL, attribs);
 	if (!image)
 		throw std::runtime_error("failed to import fd " + std::to_string(fd));
 

@@ -5,8 +5,8 @@
  * bmp.cpp - Encode image as bmp and write to file.
  */
 
-#include <string>
 #include <cstdio>
+#include <string>
 
 #include <libcamera/formats.h>
 
@@ -30,7 +30,7 @@ static_assert(sizeof(ImageHeader) == 40, "ImageHeader size wrong");
 
 struct FileHeader
 {
-	uint16_t dummy;  // 2 dummy bytes so that our uint32_ts line up
+	uint16_t dummy; // 2 dummy bytes so that our uint32_ts line up
 	uint8_t type1 = 'B';
 	uint8_t type2 = 'M';
 	uint32_t filesize;
@@ -40,17 +40,15 @@ struct FileHeader
 };
 static_assert(sizeof(FileHeader) == 16, "FileHeader size wrong");
 
-void bmp_save(std::vector<void *> const &mem, int w, int h, int stride,
-			  libcamera::PixelFormat const &pixel_format,
-			  std::string const &filename,
-			  StillOptions const *options)
+void bmp_save(std::vector<void *> const &mem, int w, int h, int stride, libcamera::PixelFormat const &pixel_format,
+			  std::string const &filename, StillOptions const *options)
 {
 	if (pixel_format != libcamera::formats::RGB888)
 		throw std::runtime_error("pixel format for bmp should be RGB");
 
-    FILE *fp = fopen(filename.c_str(), "wb");
+	FILE *fp = fopen(filename.c_str(), "wb");
 
-    if (fp == NULL)
+	if (fp == NULL)
 		throw std::runtime_error("failed to open file " + filename);
 
 	try
@@ -60,7 +58,7 @@ void bmp_save(std::vector<void *> const &mem, int w, int h, int stride,
 		unsigned int pad = pitch - line;
 		uint8_t padding[3] = {};
 		uint8_t *ptr = (uint8_t *)mem[0];
-		
+
 		FileHeader file_header;
 		ImageHeader image_header;
 		file_header.filesize = file_header.offset + h * pitch;

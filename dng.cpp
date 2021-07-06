@@ -57,7 +57,7 @@ static void unpack_10bit(uint8_t *src, int w, int h, int stride, uint16_t *dest)
 			*dest++ = (ptr[3] << 2) | ((ptr[4] >> 6) & 3);
 		}
 		for (; x < w; x++)
-			*dest++ = (ptr[x&3] << 2) | ((ptr[4] >> ((x&3) << 1)) & 3);
+			*dest++ = (ptr[x & 3] << 2) | ((ptr[4] >> ((x & 3) << 1)) & 3);
 	}
 }
 
@@ -75,22 +75,21 @@ static void unpack_12bit(uint8_t *src, int w, int h, int stride, uint16_t *dest)
 			*dest++ = (ptr[1] << 4) | ((ptr[2] >> 4) & 15);
 		}
 		if (x < w)
-			*dest++ = (ptr[x&1] << 4) | ((ptr[2] >> ((x&1) << 2)) & 15);
+			*dest++ = (ptr[x & 1] << 4) | ((ptr[2] >> ((x & 1) << 2)) & 15);
 	}
 }
 
 struct Matrix
 {
-	Matrix(float m0, float m1, float m2,
-	       float m3, float m4, float m5,
-	       float m6, float m7, float m8)
+Matrix(float m0, float m1, float m2,
+	   float m3, float m4, float m5,
+	   float m6, float m7, float m8)
 	{
 		m[0] = m0, m[1] = m1, m[2] = m2;
 		m[3] = m3, m[4] = m4, m[5] = m5;
 		m[6] = m6, m[7] = m7, m[8] = m8;
 	}
-	Matrix(float diag0, float diag1, float diag2) :
-		Matrix(diag0, 0, 0, 0, diag1, 0, 0, 0, diag2) {}
+	Matrix(float diag0, float diag1, float diag2) : Matrix(diag0, 0, 0, 0, diag1, 0, 0, 0, diag2) {}
 	Matrix() {}
 	float m[9];
 	Matrix T() const
@@ -99,16 +98,16 @@ struct Matrix
 	}
 	Matrix C() const
 	{
-		return Matrix(m[4]*m[8]-m[5]*m[7], -(m[3]*m[8]-m[5]*m[6]), m[3]*m[7]-m[4]*m[6],
-					  -(m[1]*m[8]-m[2]*m[7]), m[0]*m[8]-m[2]*m[6], -(m[0]*m[7]-m[1]*m[6]),
-					  m[1]*m[5]-m[2]*m[4], -(m[0]*m[5]-m[2]*m[3]), m[0]*m[4]-m[1]*m[3]);
+		return Matrix(m[4] * m[8] - m[5] * m[7], -(m[3] * m[8] - m[5] * m[6]), m[3] * m[7] - m[4] * m[6],
+					  -(m[1] * m[8] - m[2] * m[7]), m[0] * m[8] - m[2] * m[6], -(m[0] * m[7] - m[1] * m[6]),
+					  m[1] * m[5] - m[2] * m[4], -(m[0] * m[5] - m[2] * m[3]), m[0] * m[4] - m[1] * m[3]);
 	}
 	Matrix Adj() const { return C().T(); }
 	float Det() const
 	{
-		return (m[0]*(m[4]*m[8]-m[5]*m[7]) -
-				m[1]*(m[3]*m[8]-m[5]*m[6]) +
-				m[2]*(m[3]*m[7]-m[4]*m[6]));
+		return (m[0] * (m[4] * m[8] - m[5] * m[7]) -
+				m[1] * (m[3] * m[8] - m[5] * m[6]) +
+				m[2] * (m[3] * m[7] - m[4] * m[6]));
 	}
 	Matrix Inv() const { return Adj() * (1.0 / Det()); }
 	Matrix operator*(Matrix const &other) const
@@ -116,8 +115,8 @@ struct Matrix
 		Matrix result;
 		for (int i = 0; i < 3; i++)
 			for (int j = 0; j < 3; j++)
-				result.m[i*3+j] =
-					m[i*3]*other.m[j] + m[i*3+1]*other.m[3+j] + m[i*3+2]*other.m[6+j];
+				result.m[i * 3 + j] =
+					m[i * 3] * other.m[j] + m[i * 3 + 1] * other.m[3 + j] + m[i * 3 + 2] * other.m[6 + j];
 		return result;
 	}
 	Matrix operator*(float const &f) const
@@ -129,11 +128,8 @@ struct Matrix
 	}
 };
 
-void dng_save(std::vector<void *> const &mem, int w, int h, int stride,
-			  PixelFormat const &pixel_format,
-			  ControlList const &metadata,
-			  std::string const &filename,
-			  std::string const &cam_name,
+void dng_save(std::vector<void *> const &mem, int w, int h, int stride, PixelFormat const &pixel_format,
+			  ControlList const &metadata, std::string const &filename, std::string const &cam_name,
 			  StillOptions const *options)
 {
 	// Check the Bayer format and unpack it to u16.
@@ -163,7 +159,7 @@ void dng_save(std::vector<void *> const &mem, int w, int h, int stride,
 		for (int i = 0; i < 4; i++)
 		{
 			int j = bayer_format.order[i];
-			j = j == 0 ? 0 : (j == 2 ? 3 : 1 + !!bayer_format.order[i^1]);
+			j = j == 0 ? 0 : (j == 2 ? 3 : 1 + !!bayer_format.order[i ^ 1]);
 			black_levels[j] = levels[i] * (1 << bayer_format.bits) / 65536.0;
 		}
 	}
@@ -197,11 +193,10 @@ void dng_save(std::vector<void *> const &mem, int w, int h, int stride,
 	Matrix CCM(1.90255, -0.77478, -0.12777,
 			   -0.31338, 1.88197, -0.56858,
 			   -0.06001, -0.61785, 1.67786);
-	if (metadata.contains(controls::ColourCorrectionMatrix)) {
+	if (metadata.contains(controls::ColourCorrectionMatrix))
+	{
 		Span<const float> const &coeffs = metadata.get(controls::ColourCorrectionMatrix);
-		CCM = Matrix(coeffs[0], coeffs[1], coeffs[2],
-					 coeffs[3], coeffs[4], coeffs[5],
-					 coeffs[6], coeffs[7], coeffs[8]);
+		CCM = Matrix(coeffs[0], coeffs[1], coeffs[2], coeffs[3], coeffs[4], coeffs[5], coeffs[6], coeffs[7], coeffs[8]);
 	}
 	else
 		std::cout << "WARNING: no CCM metadata found" << std::endl;
@@ -212,10 +207,10 @@ void dng_save(std::vector<void *> const &mem, int w, int h, int stride,
 				   0.0193339, 0.1191920, 0.9503041);
 	Matrix CAM_XYZ = (RGB2XYZ * CCM * WB_GAINS).Inv();
 
-	if (options->verbose) {
-		std::cout << "Black levels " << black_levels[0] << " " << black_levels[1] << " "
-				  << black_levels[2] << " " << black_levels[3] << ", exposure time "
-				  << exp_time * 1e6 << "us, ISO " << iso << std::endl;
+	if (options->verbose)
+	{
+		std::cout << "Black levels " << black_levels[0] << " " << black_levels[1] << " " << black_levels[2] << " "
+				  << black_levels[3] << ", exposure time " << exp_time * 1e6 << "us, ISO " << iso << std::endl;
 		std::cout << "Neutral " << NEUTRAL[0] << " " << NEUTRAL[1] << " " << NEUTRAL[2] << std::endl;
 		std::cout << "Cam_XYZ: " << std::endl;
 		std::cout << CAM_XYZ.m[0] << " " << CAM_XYZ.m[1] << " " << CAM_XYZ.m[2] << std::endl;
@@ -225,10 +220,10 @@ void dng_save(std::vector<void *> const &mem, int w, int h, int stride,
 
 	// Finally write the DNG.
 
-    TIFF *tif = nullptr;
+	TIFF *tif = nullptr;
 
-    try
-    {
+	try
+	{
 		const short cfa_repeat_pattern_dim[] = { 2, 2 };
 		uint32_t white = (1 << bayer_format.bits) - 1;
 		toff_t offset_subifd = 0, offset_exififd = 0;
@@ -236,98 +231,96 @@ void dng_save(std::vector<void *> const &mem, int w, int h, int stride,
 		tif = TIFFOpen(filename.c_str(), "w");
 		if (!tif)
 			throw std::runtime_error("could not open file " + filename);
-	
-        // This is just the thumbnail, but put it first to help software that only
-        // reads the first IFD.
-        TIFFSetField(tif, TIFFTAG_SUBFILETYPE, 1);
-        TIFFSetField(tif, TIFFTAG_IMAGEWIDTH, w >> 4);
-        TIFFSetField(tif, TIFFTAG_IMAGELENGTH, h >> 4);
-        TIFFSetField(tif, TIFFTAG_BITSPERSAMPLE, 8);
-        TIFFSetField(tif, TIFFTAG_COMPRESSION, COMPRESSION_NONE);
-        TIFFSetField(tif, TIFFTAG_PHOTOMETRIC, PHOTOMETRIC_RGB);
-        TIFFSetField(tif, TIFFTAG_MAKE, "Raspberry Pi");
-        TIFFSetField(tif, TIFFTAG_MODEL, cam_name.c_str());
-        TIFFSetField(tif, TIFFTAG_DNGVERSION, "\001\001\000\000");
-        TIFFSetField(tif, TIFFTAG_DNGBACKWARDVERSION, "\001\000\000\000");
-        TIFFSetField(tif, TIFFTAG_UNIQUECAMERAMODEL, cam_name.c_str());
-        TIFFSetField(tif, TIFFTAG_ORIENTATION, ORIENTATION_TOPLEFT);
-        TIFFSetField(tif, TIFFTAG_SAMPLESPERPIXEL, 3);
-        TIFFSetField(tif, TIFFTAG_PLANARCONFIG, PLANARCONFIG_CONTIG);
-        TIFFSetField(tif, TIFFTAG_SOFTWARE, "libcamera-still");
-        TIFFSetField(tif, TIFFTAG_COLORMATRIX1, 9, CAM_XYZ.m);
-        TIFFSetField(tif, TIFFTAG_ASSHOTNEUTRAL, 3, NEUTRAL);
-        TIFFSetField(tif, TIFFTAG_CALIBRATIONILLUMINANT1, 21);
-        TIFFSetField(tif, TIFFTAG_SUBIFD, 1, &offset_subifd);
-        TIFFSetField(tif, TIFFTAG_EXIFIFD, offset_exififd);
 
-        // Make a small greyscale thumbnail, just to give some clue what's in here.
+		// This is just the thumbnail, but put it first to help software that only
+		// reads the first IFD.
+		TIFFSetField(tif, TIFFTAG_SUBFILETYPE, 1);
+		TIFFSetField(tif, TIFFTAG_IMAGEWIDTH, w >> 4);
+		TIFFSetField(tif, TIFFTAG_IMAGELENGTH, h >> 4);
+		TIFFSetField(tif, TIFFTAG_BITSPERSAMPLE, 8);
+		TIFFSetField(tif, TIFFTAG_COMPRESSION, COMPRESSION_NONE);
+		TIFFSetField(tif, TIFFTAG_PHOTOMETRIC, PHOTOMETRIC_RGB);
+		TIFFSetField(tif, TIFFTAG_MAKE, "Raspberry Pi");
+		TIFFSetField(tif, TIFFTAG_MODEL, cam_name.c_str());
+		TIFFSetField(tif, TIFFTAG_DNGVERSION, "\001\001\000\000");
+		TIFFSetField(tif, TIFFTAG_DNGBACKWARDVERSION, "\001\000\000\000");
+		TIFFSetField(tif, TIFFTAG_UNIQUECAMERAMODEL, cam_name.c_str());
+		TIFFSetField(tif, TIFFTAG_ORIENTATION, ORIENTATION_TOPLEFT);
+		TIFFSetField(tif, TIFFTAG_SAMPLESPERPIXEL, 3);
+		TIFFSetField(tif, TIFFTAG_PLANARCONFIG, PLANARCONFIG_CONTIG);
+		TIFFSetField(tif, TIFFTAG_SOFTWARE, "libcamera-still");
+		TIFFSetField(tif, TIFFTAG_COLORMATRIX1, 9, CAM_XYZ.m);
+		TIFFSetField(tif, TIFFTAG_ASSHOTNEUTRAL, 3, NEUTRAL);
+		TIFFSetField(tif, TIFFTAG_CALIBRATIONILLUMINANT1, 21);
+		TIFFSetField(tif, TIFFTAG_SUBIFD, 1, &offset_subifd);
+		TIFFSetField(tif, TIFFTAG_EXIFIFD, offset_exififd);
+
+		// Make a small greyscale thumbnail, just to give some clue what's in here.
 		std::vector<uint8_t> thumb_buf((w >> 4) * 3);
 
-        for (int y = 0; y < h >> 4; y++)
-        {
-            for (int x = 0; x < w >> 4; x++)
-            {
-                int off = (y * w + x) << 4;
+		for (int y = 0; y < h >> 4; y++)
+		{
+			for (int x = 0; x < w >> 4; x++)
+			{
+				int off = (y * w + x) << 4;
 				int grey = buf[off] + buf[off + 1] + buf[off + w] + buf[off + w + 1];
 				grey = white * sqrt(grey / (double)white); // fake "gamma"
-                thumb_buf[3 * x] = thumb_buf[3 * x + 1] = thumb_buf[3 * x + 2] =
-					grey >> (bayer_format.bits - 6);
-            }
-            if (TIFFWriteScanline(tif, &thumb_buf[0], y, 0) != 1)
+				thumb_buf[3 * x] = thumb_buf[3 * x + 1] = thumb_buf[3 * x + 2] = grey >> (bayer_format.bits - 6);
+			}
+			if (TIFFWriteScanline(tif, &thumb_buf[0], y, 0) != 1)
 				throw std::runtime_error("error writing DNG thumbnail data");
-        }
+		}
 
-        TIFFWriteDirectory (tif);
+		TIFFWriteDirectory(tif);
 
-        // The main image (actually tends to show up as "sub-image 1").
-        TIFFSetField(tif, TIFFTAG_SUBFILETYPE, 0);
-        TIFFSetField(tif, TIFFTAG_IMAGEWIDTH, w);
-        TIFFSetField(tif, TIFFTAG_IMAGELENGTH, h);
-        TIFFSetField(tif, TIFFTAG_BITSPERSAMPLE, 16);
-        TIFFSetField(tif, TIFFTAG_PHOTOMETRIC, PHOTOMETRIC_CFA);
-        TIFFSetField(tif, TIFFTAG_SAMPLESPERPIXEL, 1);
-        TIFFSetField(tif, TIFFTAG_PLANARCONFIG, PLANARCONFIG_CONTIG);
-        TIFFSetField(tif, TIFFTAG_CFAREPEATPATTERNDIM, cfa_repeat_pattern_dim);
-        TIFFSetField(tif, TIFFTAG_CFAPATTERN, bayer_format.order);
-        TIFFSetField(tif, TIFFTAG_WHITELEVEL, 1, &white);
-        const uint16_t black_level_repeat_dim[] = { 2, 2 };
-        TIFFSetField(tif, TIFFTAG_BLACKLEVELREPEATDIM, &black_level_repeat_dim);
-        TIFFSetField(tif, TIFFTAG_BLACKLEVEL, 4, &black_levels);
+		// The main image (actually tends to show up as "sub-image 1").
+		TIFFSetField(tif, TIFFTAG_SUBFILETYPE, 0);
+		TIFFSetField(tif, TIFFTAG_IMAGEWIDTH, w);
+		TIFFSetField(tif, TIFFTAG_IMAGELENGTH, h);
+		TIFFSetField(tif, TIFFTAG_BITSPERSAMPLE, 16);
+		TIFFSetField(tif, TIFFTAG_PHOTOMETRIC, PHOTOMETRIC_CFA);
+		TIFFSetField(tif, TIFFTAG_SAMPLESPERPIXEL, 1);
+		TIFFSetField(tif, TIFFTAG_PLANARCONFIG, PLANARCONFIG_CONTIG);
+		TIFFSetField(tif, TIFFTAG_CFAREPEATPATTERNDIM, cfa_repeat_pattern_dim);
+		TIFFSetField(tif, TIFFTAG_CFAPATTERN, bayer_format.order);
+		TIFFSetField(tif, TIFFTAG_WHITELEVEL, 1, &white);
+		const uint16_t black_level_repeat_dim[] = { 2, 2 };
+		TIFFSetField(tif, TIFFTAG_BLACKLEVELREPEATDIM, &black_level_repeat_dim);
+		TIFFSetField(tif, TIFFTAG_BLACKLEVEL, 4, &black_levels);
 
-        for (int y = 0; y < h; y++)
-        {
-            if (TIFFWriteScanline(tif, &buf[w * y], y, 0) != 1)
-                throw std::runtime_error("error writing DNG image data");
-        }
+		for (int y = 0; y < h; y++)
+		{
+			if (TIFFWriteScanline(tif, &buf[w * y], y, 0) != 1)
+				throw std::runtime_error("error writing DNG image data");
+		}
 
-        // We have to checkpoint before the directory offset is valid.
-        TIFFCheckpointDirectory(tif);
-        offset_subifd = TIFFCurrentDirOffset(tif);
-        TIFFWriteDirectory(tif);
+		// We have to checkpoint before the directory offset is valid.
+		TIFFCheckpointDirectory(tif);
+		offset_subifd = TIFFCurrentDirOffset(tif);
+		TIFFWriteDirectory(tif);
 
-        // Create a separate IFD just for the EXIF tags. Why we couldn't simply have
-        // DNG tags for these, which would have made life so much easier, I have no idea.
-        TIFFCreateEXIFDirectory(tif);
-        TIFFSetField(tif, EXIFTAG_ISOSPEEDRATINGS, 1, &iso);
-        TIFFSetField(tif, EXIFTAG_EXPOSURETIME, exp_time);
-        
-        TIFFCheckpointDirectory(tif);
-        offset_exififd = TIFFCurrentDirOffset(tif);
-        TIFFWriteDirectory(tif);
+		// Create a separate IFD just for the EXIF tags. Why we couldn't simply have
+		// DNG tags for these, which would have made life so much easier, I have no idea.
+		TIFFCreateEXIFDirectory(tif);
+		TIFFSetField(tif, EXIFTAG_ISOSPEEDRATINGS, 1, &iso);
+		TIFFSetField(tif, EXIFTAG_EXPOSURETIME, exp_time);
 
-        // Now got back to the initial IFD and correct the offsets to its sub-thingies
-        TIFFSetDirectory(tif, 0);
-        TIFFSetField(tif, TIFFTAG_SUBIFD, 1, &offset_subifd);
-        TIFFSetField(tif, TIFFTAG_EXIFIFD, offset_exififd);
-        TIFFWriteDirectory(tif);
+		TIFFCheckpointDirectory(tif);
+		offset_exififd = TIFFCurrentDirOffset(tif);
+		TIFFWriteDirectory(tif);
 
-        TIFFClose(tif);
+		// Now got back to the initial IFD and correct the offsets to its sub-thingies
+		TIFFSetDirectory(tif, 0);
+		TIFFSetField(tif, TIFFTAG_SUBIFD, 1, &offset_subifd);
+		TIFFSetField(tif, TIFFTAG_EXIFIFD, offset_exififd);
+		TIFFWriteDirectory(tif);
+
+		TIFFClose(tif);
 	}
 	catch (std::exception const &e)
 	{
-        if (tif)
-            TIFFClose(tif);
-        throw;
-			
+		if (tif)
+			TIFFClose(tif);
+		throw;
 	}
 }

@@ -7,8 +7,8 @@
 
 #include <chrono>
 
-#include "options.hpp"
 #include "libcamera_app.hpp"
+#include "options.hpp"
 
 using namespace std::placeholders;
 
@@ -36,8 +36,7 @@ static void event_loop(LibcameraApp &app)
 		if (options->verbose)
 			std::cout << "Viewfinder frame " << count << std::endl;
 		auto now = std::chrono::high_resolution_clock::now();
-		if (options->timeout &&
-			now - start_time > std::chrono::milliseconds(options->timeout))
+		if (options->timeout && now - start_time > std::chrono::milliseconds(options->timeout))
 			return;
 
 		CompletedRequest &completed_request = std::get<CompletedRequest>(msg.payload);
@@ -63,6 +62,6 @@ int main(int argc, char *argv[])
 	{
 		std::cerr << "ERROR: *** " << e.what() << " ***" << std::endl;
 		return -1;
-    }
+	}
 	return 0;
 }

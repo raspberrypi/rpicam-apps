@@ -7,10 +7,10 @@
 
 #pragma once
 
+#include <condition_variable>
 #include <mutex>
 #include <queue>
 #include <thread>
-#include <condition_variable>
 
 #include "encoder.hpp"
 #include "video_options.hpp"
@@ -20,9 +20,7 @@ class NullEncoder : public Encoder
 public:
 	NullEncoder(VideoOptions const *options);
 	~NullEncoder();
-	void EncodeBuffer(int fd, size_t size,
-					  void *mem, int width, int height, int stride,
-					  int64_t timestamp_us) override;
+	void EncodeBuffer(int fd, size_t size, void *mem, int width, int height, int stride, int64_t timestamp_us) override;
 
 private:
 	void outputThread();

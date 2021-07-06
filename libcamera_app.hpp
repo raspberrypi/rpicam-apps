@@ -9,31 +9,30 @@
 
 #include <sys/mman.h>
 
+#include <condition_variable>
 #include <iostream>
-#include <string>
-#include <queue>
 #include <memory>
 #include <mutex>
-#include <condition_variable>
-#include <variant>
+#include <queue>
+#include <string>
 #include <thread>
-#include <condition_variable>
+#include <variant>
 
-#include "null_preview.hpp"
-#include "egl_preview.hpp"
 #include "drm_preview.hpp"
+#include "egl_preview.hpp"
 #include "frame_info.hpp"
+#include "null_preview.hpp"
 #include "options.hpp"
 
 // Crikey, X11/Xlib.h actually contains "#define Status int". Since when was that OK?
 #undef Status
 
-#include <libcamera/camera_manager.h>
 #include <libcamera/camera.h>
-#include <libcamera/formats.h>
-#include <libcamera/framebuffer_allocator.h>
+#include <libcamera/camera_manager.h>
 #include <libcamera/control_ids.h>
 #include <libcamera/controls.h>
+#include <libcamera/formats.h>
+#include <libcamera/framebuffer_allocator.h>
 #include <libcamera/property_ids.h>
 
 namespace controls = libcamera::controls;
@@ -45,7 +44,9 @@ struct CompletedRequest
 	using ControlList = libcamera::ControlList;
 	CompletedRequest() {}
 	CompletedRequest(unsigned int seq, BufferMap const &b, ControlList const &m)
-		: sequence(seq), buffers(b), metadata(m) {}
+		: sequence(seq), buffers(b), metadata(m)
+	{
+	}
 	unsigned int sequence;
 	BufferMap buffers;
 	ControlList metadata;
@@ -72,7 +73,9 @@ public:
 	using BufferMap = Request::BufferMap;
 	using Size = libcamera::Size;
 	using Rectangle = libcamera::Rectangle;
-	struct QuitPayload {};
+	struct QuitPayload
+	{
+	};
 	enum class MsgType
 	{
 		RequestComplete,
@@ -87,16 +90,16 @@ public:
 	};
 
 	// Some flags that can be used to give hints to the camera configuration.
-	static constexpr unsigned int FLAG_STILL_NONE   =  0;
-	static constexpr unsigned int FLAG_STILL_BGR    =  1;  // supply BGR images, not YUV
-	static constexpr unsigned int FLAG_STILL_RGB    =  2;  // supply RGB images, not YUV
-	static constexpr unsigned int FLAG_STILL_RAW    =  4;  // request raw image stream
-	static constexpr unsigned int FLAG_STILL_DOUBLE_BUFFER = 8;  // double-buffer stream
+	static constexpr unsigned int FLAG_STILL_NONE = 0;
+	static constexpr unsigned int FLAG_STILL_BGR = 1; // supply BGR images, not YUV
+	static constexpr unsigned int FLAG_STILL_RGB = 2; // supply RGB images, not YUV
+	static constexpr unsigned int FLAG_STILL_RAW = 4; // request raw image stream
+	static constexpr unsigned int FLAG_STILL_DOUBLE_BUFFER = 8; // double-buffer stream
 	static constexpr unsigned int FLAG_STILL_TRIPLE_BUFFER = 16; // triple-buffer stream
-	static constexpr unsigned int FLAG_STILL_BUFFER_MASK   = 24; // mask for buffer flags
+	static constexpr unsigned int FLAG_STILL_BUFFER_MASK = 24; // mask for buffer flags
 
-	static constexpr unsigned int FLAG_VIDEO_NONE   =  0;
-	static constexpr unsigned int FLAG_VIDEO_RAW    =  1;  // request raw image stream
+	static constexpr unsigned int FLAG_VIDEO_NONE = 0;
+	static constexpr unsigned int FLAG_VIDEO_RAW = 1; // request raw image stream
 
 	LibcameraApp(std::unique_ptr<Options> const opts = nullptr);
 	virtual ~LibcameraApp();
@@ -106,7 +109,7 @@ public:
 	std::string const &CameraId() const;
 	void OpenCamera();
 	void CloseCamera();
-	
+
 	void ConfigureViewfinder();
 	void ConfigureStill(unsigned int flags = FLAG_STILL_NONE);
 	void ConfigureVideo(unsigned int flags = FLAG_VIDEO_NONE);
@@ -150,7 +153,7 @@ private:
 		T Wait()
 		{
 			std::unique_lock<std::mutex> lock(mutex_);
-			cond_.wait(lock, [this] { return !queue_.empty(); } );
+			cond_.wait(lock, [this] { return !queue_.empty(); });
 			T msg = std::move(queue_.front());
 			queue_.pop();
 			return msg;
@@ -160,6 +163,7 @@ private:
 			std::unique_lock<std::mutex> lock(mutex_);
 			queue_ = {};
 		}
+
 	private:
 		std::queue<T> queue_;
 		std::mutex mutex_;

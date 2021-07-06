@@ -28,11 +28,8 @@ public:
 };
 
 // In jpeg.cpp:
-void jpeg_save(std::vector<void *> const &mem, int w, int h, int stride,
-			   libcamera::PixelFormat const &pixel_format,
-			   libcamera::ControlList const &metadata,
-			   std::string const &filename,
-			   std::string const &cam_name,
+void jpeg_save(std::vector<void *> const &mem, int w, int h, int stride, libcamera::PixelFormat const &pixel_format,
+			   libcamera::ControlList const &metadata, std::string const &filename, std::string const &cam_name,
 			   StillOptions const *options);
 
 // The main even loop for the application.
@@ -61,10 +58,10 @@ static void event_loop(LibcameraJpegApp &app)
 			auto now = std::chrono::high_resolution_clock::now();
 			if (options->timeout && now - start_time > std::chrono::milliseconds(options->timeout))
 			{
-					app.StopCamera();
-					app.Teardown();
-					app.ConfigureStill();
-					app.StartCamera();
+				app.StopCamera();
+				app.Teardown();
+				app.ConfigureStill();
+				app.StartCamera();
 			}
 			else
 			{
@@ -83,8 +80,8 @@ static void event_loop(LibcameraJpegApp &app)
 			app.StreamDimensions(stream, &w, &h, &stride);
 			CompletedRequest &payload = std::get<CompletedRequest>(msg.payload);
 			std::vector<void *> mem = app.Mmap(payload.buffers[stream]);
-			jpeg_save(mem, w, h, stride, stream->configuration().pixelFormat,
-					  payload.metadata, options->output, app.CameraId(), options);
+			jpeg_save(mem, w, h, stride, stream->configuration().pixelFormat, payload.metadata, options->output,
+					  app.CameraId(), options);
 			return;
 		}
 	}
@@ -110,6 +107,6 @@ int main(int argc, char *argv[])
 	{
 		std::cerr << "ERROR: *** " << e.what() << " ***" << std::endl;
 		return -1;
-    }
+	}
 	return 0;
 }

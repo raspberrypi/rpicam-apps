@@ -11,8 +11,7 @@
 
 #include "null_encoder.hpp"
 
-NullEncoder::NullEncoder(VideoOptions const *options) :
-	abort_(false), Encoder(options)
+NullEncoder::NullEncoder(VideoOptions const *options) : abort_(false), Encoder(options)
 {
 	if (options->verbose)
 		std::cout << "Opened NullEncoder" << std::endl;
@@ -28,9 +27,7 @@ NullEncoder::~NullEncoder()
 }
 
 // Push the buffer onto the output queue to be "encoded" and returned.
-void NullEncoder::EncodeBuffer(int fd, size_t size,
-							   void *mem, int width, int height, int stride,
-							   int64_t timestamp_us)
+void NullEncoder::EncodeBuffer(int fd, size_t size, void *mem, int width, int height, int stride, int64_t timestamp_us)
 {
 	std::lock_guard<std::mutex> lock(output_mutex_);
 	OutputItem item = { mem, size, timestamp_us };

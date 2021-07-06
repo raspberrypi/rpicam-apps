@@ -139,8 +139,7 @@ struct Options
 			return false;
 		}
 
-		if (sscanf(preview.c_str(), "%u,%u,%u,%u",
-				   &preview_x, &preview_y, &preview_width, &preview_height) != 4)
+		if (sscanf(preview.c_str(), "%u,%u,%u,%u", &preview_x, &preview_y, &preview_width, &preview_height) != 4)
 			preview_x = preview_y = preview_width = preview_height = 0; // use default window
 
 		transform = Transform::Identity;
@@ -156,8 +155,7 @@ struct Options
 		if (!!(transform & Transform::Transpose))
 			throw std::runtime_error("transforms requiring transpose not supported");
 
-		if (sscanf(roi.c_str(), "%f,%f,%f,%f",
-				   &roi_x, &roi_y, &roi_width, &roi_height) != 4)
+		if (sscanf(roi.c_str(), "%f,%f,%f,%f", &roi_x, &roi_y, &roi_width, &roi_height) != 4)
 			roi_x = roi_y = roi_width = roi_height = 0; // don't set digital zoom
 
 		std::map<std::string, int> metering_table =
@@ -221,14 +219,13 @@ struct Options
 		else if (preview_width == 0 || preview_height == 0)
 			std::cout << "    preview: default" << std::endl;
 		else
-			std::cout << "    preview: " << preview_x << "," << preview_y << ","
-					  << preview_width << "," << preview_height << std::endl;
+			std::cout << "    preview: " << preview_x << "," << preview_y << "," << preview_width << ","
+					  << preview_height << std::endl;
 		std::cout << "    transform: " << transformToString(transform) << std::endl;
 		if (roi_width == 0 || roi_height == 0)
 			std::cout << "    roi: all" << std::endl;
 		else
-			std::cout << "    roi: " << roi_x << "," << roi_y << ","
-					  << roi_width << "," << roi_height << std::endl;
+			std::cout << "    roi: " << roi_x << "," << roi_y << "," << roi_width << "," << roi_height << std::endl;
 		if (shutter)
 			std::cout << "    shutter: " << shutter << std::endl;
 		if (gain)

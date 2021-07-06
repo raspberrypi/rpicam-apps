@@ -10,13 +10,12 @@
 
 #include "still_options.hpp"
 
-static void yuv420_save(std::vector<void *> const &mem, int w, int h, int stride,
-					  std::string const &filename,
-					  StillOptions const *options)
+static void yuv420_save(std::vector<void *> const &mem, int w, int h, int stride, std::string const &filename,
+						StillOptions const *options)
 {
 	if (options->encoding == "yuv420")
 	{
-		if ((w&1) || (h&1))
+		if ((w & 1) || (h & 1))
 			throw std::runtime_error("both width and height must be even");
 		if (mem.size() != 1)
 			throw std::runtime_error("incorrect number of planes in YUV420 data");
@@ -55,13 +54,12 @@ static void yuv420_save(std::vector<void *> const &mem, int w, int h, int stride
 		throw std::runtime_error("output format " + options->encoding + " not supported");
 }
 
-static void yuyv_save(std::vector<void *> const &mem, int w, int h, int stride,
-					  std::string const &filename,
+static void yuyv_save(std::vector<void *> const &mem, int w, int h, int stride, std::string const &filename,
 					  StillOptions const *options)
 {
 	if (options->encoding == "yuv420")
 	{
-		if ((w&1) || (h&1))
+		if ((w & 1) || (h & 1))
 			throw std::runtime_error("both width and height must be even");
 		FILE *fp = fopen(filename.c_str(), "w");
 		if (!fp)
@@ -80,19 +78,19 @@ static void yuyv_save(std::vector<void *> const &mem, int w, int h, int stride,
 					throw std::runtime_error("failed to write file " + filename);
 			}
 			ptr = (uint8_t *)mem[0];
-			for (int j = 0; j < h; j+=2, ptr += 2*stride)
+			for (int j = 0; j < h; j += 2, ptr += 2 * stride)
 			{
-				for (int i = 0; i < w/2; i++)
+				for (int i = 0; i < w / 2; i++)
 					row[i] = ptr[(i << 2) + 1];
-				if (fwrite(&row[0], w/2, 1, fp) != 1)
+				if (fwrite(&row[0], w / 2, 1, fp) != 1)
 					throw std::runtime_error("failed to write file " + filename);
 			}
 			ptr = (uint8_t *)mem[0];
-			for (int j = 0; j < h; j+=2, ptr += 2*stride)
+			for (int j = 0; j < h; j += 2, ptr += 2 * stride)
 			{
-				for (int i = 0; i < w/2; i++)
+				for (int i = 0; i < w / 2; i++)
 					row[i] = ptr[(i << 2) + 3];
-				if (fwrite(&row[0], w/2, 1, fp) != 1)
+				if (fwrite(&row[0], w / 2, 1, fp) != 1)
 					throw std::runtime_error("failed to write file " + filename);
 			}
 			fclose(fp);
@@ -107,8 +105,7 @@ static void yuyv_save(std::vector<void *> const &mem, int w, int h, int stride,
 		throw std::runtime_error("output format " + options->encoding + " not supported");
 }
 
-static void rgb_save(std::vector<void *> const &mem, int w, int h, int stride,
-					 std::string const &filename,
+static void rgb_save(std::vector<void *> const &mem, int w, int h, int stride, std::string const &filename,
 					 StillOptions const *options)
 {
 	if (options->encoding != "rgb")
@@ -121,7 +118,7 @@ static void rgb_save(std::vector<void *> const &mem, int w, int h, int stride,
 		uint8_t *ptr = (uint8_t *)mem[0];
 		for (int j = 0; j < h; j++, ptr += stride)
 		{
-			if (fwrite(ptr, 3*w, 1, fp) != 1)
+			if (fwrite(ptr, 3 * w, 1, fp) != 1)
 				throw std::runtime_error("failed to write file " + filename);
 		}
 		fclose(fp);
@@ -133,10 +130,8 @@ static void rgb_save(std::vector<void *> const &mem, int w, int h, int stride,
 	}
 }
 
-void yuv_save(std::vector<void *> const &mem, int w, int h, int stride,
-			  libcamera::PixelFormat const &pixel_format,
-			  std::string const &filename,
-			  StillOptions const *options)
+void yuv_save(std::vector<void *> const &mem, int w, int h, int stride, libcamera::PixelFormat const &pixel_format,
+			  std::string const &filename, StillOptions const *options)
 {
 	if (pixel_format == libcamera::formats::YUYV)
 		yuyv_save(mem, w, h, stride, filename, options);

@@ -7,10 +7,10 @@
 
 #pragma once
 
+#include <condition_variable>
 #include <mutex>
 #include <queue>
 #include <thread>
-#include <condition_variable>
 
 #include "encoder.hpp"
 
@@ -20,16 +20,14 @@ public:
 	H264Encoder(VideoOptions const *options);
 	~H264Encoder();
 	// Encode the given DMABUF.
-	void EncodeBuffer(int fd, size_t size,
-					  void *mem, int width, int height, int stride,
-					  int64_t timestamp_us) override;
+	void EncodeBuffer(int fd, size_t size, void *mem, int width, int height, int stride, int64_t timestamp_us) override;
 
 private:
 	// We want at least as many output buffers as there are in the camera queue
 	// (we always want to be able to queue them when they arrive). Make loads
 	// of capture buffers, as this is our buffering mechanism in case of delays
 	// dealing with the output bitstream.
-	static constexpr int NUM_OUTPUT_BUFFERS  = 6;
+	static constexpr int NUM_OUTPUT_BUFFERS = 6;
 	static constexpr int NUM_CAPTURE_BUFFERS = 12;
 
 	// This thread just sits waiting for the encoder to finish stuff. It will either:

@@ -7,10 +7,10 @@
 
 #pragma once
 
+#include <condition_variable>
 #include <mutex>
 #include <queue>
 #include <thread>
-#include <condition_variable>
 
 #include "encoder.hpp"
 
@@ -22,9 +22,7 @@ public:
 	MjpegEncoder(VideoOptions const *options);
 	~MjpegEncoder();
 	// Encode the given buffer.
-	void EncodeBuffer(int fd, size_t size,
-					  void *mem, int width, int height, int stride,
-					  int64_t timestamp_us) override;
+	void EncodeBuffer(int fd, size_t size, void *mem, int width, int height, int stride, int64_t timestamp_us) override;
 
 private:
 	// How many threads to use. Whichever thread is idle will pick up the next frame.
@@ -54,8 +52,7 @@ private:
 	std::mutex encode_mutex_;
 	std::condition_variable encode_cond_var_;
 	std::thread encode_thread_[NUM_ENC_THREADS];
-	void encodeJPEG(struct jpeg_compress_struct &cinfo, EncodeItem &item,
-					uint8_t *&encoded_buffer, size_t &buffer_len);
+	void encodeJPEG(struct jpeg_compress_struct &cinfo, EncodeItem &item, uint8_t *&encoded_buffer, size_t &buffer_len);
 
 	struct OutputItem
 	{

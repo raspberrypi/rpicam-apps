@@ -75,7 +75,7 @@ struct VideoOptions : public Options
 	{
 		if (Options::Parse(argc, argv) == false)
 			return false;
-		
+
 		if (width == 0)
 			width = 640;
 		if (height == 0)

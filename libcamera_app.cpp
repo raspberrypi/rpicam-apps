@@ -24,9 +24,8 @@ LibcameraApp::~LibcameraApp()
 	preview_thread_.join();
 	if (options_->verbose && !options_->help)
 		std::cout << "Closing Libcamera application"
-				  << "(frames displayed "
-				  << preview_frames_displayed_ << ", dropped " << preview_frames_dropped_
-				  << ")" << std::endl;
+				  << "(frames displayed " << preview_frames_displayed_ << ", dropped " << preview_frames_dropped_ << ")"
+				  << std::endl;
 	StopCamera();
 	Teardown();
 	CloseCamera();
@@ -112,7 +111,7 @@ void LibcameraApp::ConfigureViewfinder()
 	if (options_->verbose)
 		std::cout << "Configuring viewfinder..." << std::endl;
 
-	configuration_ = camera_->generateConfiguration({StreamRole::Viewfinder});
+	configuration_ = camera_->generateConfiguration({ StreamRole::Viewfinder });
 	if (!configuration_)
 		throw std::runtime_error("failed to generate viewfinder configuration");
 
@@ -156,9 +155,9 @@ void LibcameraApp::ConfigureStill(unsigned int flags)
 	// Will add a raw capture stream once that works properly.
 	StreamRoles stream_roles;
 	if (flags & FLAG_STILL_RAW)
-		stream_roles = {StreamRole::StillCapture, StreamRole::Raw};
+		stream_roles = { StreamRole::StillCapture, StreamRole::Raw };
 	else
-		stream_roles = {StreamRole::StillCapture};
+		stream_roles = { StreamRole::StillCapture };
 	configuration_ = camera_->generateConfiguration(stream_roles);
 	if (!configuration_)
 		throw std::runtime_error("failed to generate still capture configuration");
@@ -203,9 +202,9 @@ void LibcameraApp::ConfigureVideo(unsigned int flags)
 
 	StreamRoles stream_roles;
 	if (flags & FLAG_VIDEO_RAW)
-		stream_roles = {StreamRole::VideoRecording, StreamRole::Raw};
+		stream_roles = { StreamRole::VideoRecording, StreamRole::Raw };
 	else
-		stream_roles = {StreamRole::VideoRecording};
+		stream_roles = { StreamRole::VideoRecording };
 	configuration_ = camera_->generateConfiguration(stream_roles);
 	if (!configuration_)
 		throw std::runtime_error("failed to generate video configuration");
@@ -271,8 +270,7 @@ void LibcameraApp::StartCamera()
 
 	// Build a list of initial controls that we must set in the camera before starting it.
 	// We don't overwrite anything the application may have set before calling us.
-	if (!controls_.contains(controls::ScalerCrop) &&
-		options_->roi_width != 0 && options_->roi_height != 0)
+	if (!controls_.contains(controls::ScalerCrop) && options_->roi_width != 0 && options_->roi_height != 0)
 	{
 		Rectangle sensor_area = camera_->properties().get(properties::ScalerCropMaximum);
 		int x = options_->roi_x * sensor_area.width;
@@ -292,11 +290,11 @@ void LibcameraApp::StartCamera()
 	if (!controls_.contains(controls::FrameDurationLimits))
 	{
 		if (still_stream_)
-			controls_.set(controls::FrameDurationLimits, {INT64_C(100), INT64_C(1000000000)});
+			controls_.set(controls::FrameDurationLimits, { INT64_C(100), INT64_C(1000000000) });
 		else if (options_->framerate > 0)
 		{
 			int64_t frame_time = 1000000 / options_->framerate; // in us
-			controls_.set(controls::FrameDurationLimits, {frame_time, frame_time});
+			controls_.set(controls::FrameDurationLimits, { frame_time, frame_time });
 		}
 	}
 
@@ -312,9 +310,8 @@ void LibcameraApp::StartCamera()
 		controls_.set(controls::ExposureValue, options_->ev);
 	if (!controls_.contains(controls::AwbMode))
 		controls_.set(controls::AwbMode, options_->awb_index);
-	if (!controls_.contains(controls::ColourGains) &&
-		options_->awb_gain_r && options_->awb_gain_b)
-		controls_.set(controls::ColourGains, {options_->awb_gain_r, options_->awb_gain_b});
+	if (!controls_.contains(controls::ColourGains) && options_->awb_gain_r && options_->awb_gain_b)
+		controls_.set(controls::ColourGains, { options_->awb_gain_r, options_->awb_gain_b });
 	if (!controls_.contains(controls::Brightness))
 		controls_.set(controls::Brightness, options_->brightness);
 	if (!controls_.contains(controls::Contrast))
@@ -580,8 +577,8 @@ void LibcameraApp::requestComplete(Request *request)
 	if (request->status() == Request::RequestCancelled)
 		return;
 
-	CompletedRequest payload(request->buffers().begin()->second->metadata().sequence,
-							 request->buffers(), request->metadata());
+	CompletedRequest payload(request->buffers().begin()->second->metadata().sequence, request->buffers(),
+							 request->metadata());
 	{
 		request->reuse();
 		std::lock_guard<std::mutex> lock(free_requests_mutex_);
@@ -666,10 +663,11 @@ void LibcameraApp::configureDenoise(const std::string &denoise_mode)
 	using namespace libcamera::controls::draft;
 
 	static const std::map<std::string, NoiseReductionModeEnum> denoise_table = {
-		{"off", NoiseReductionModeOff},
-		{"cdn_off", NoiseReductionModeMinimal},
-		{"cdn_fast", NoiseReductionModeFast},
-		{"cdn_hq", NoiseReductionModeHighQuality}};
+		{ "off", NoiseReductionModeOff },
+		{ "cdn_off", NoiseReductionModeMinimal },
+		{ "cdn_fast", NoiseReductionModeFast },
+		{ "cdn_hq", NoiseReductionModeHighQuality }
+	};
 	NoiseReductionModeEnum denoise;
 
 	auto const mode = denoise_table.find(denoise_mode);
