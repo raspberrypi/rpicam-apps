@@ -127,7 +127,7 @@ def test_still(dir):
     retcode, time_taken = run_executable(
         [executable, '-t', '1000', '-e', 'bmp', '-o', output_bmp], logfile)
     check_retcode(retcode, "test_still: bmp test")
-    check_time(time_taken, 3, 8, "test_still: bmp test")
+    check_time(time_taken, 2, 8, "test_still: bmp test")
     check_size(output_png, 1024, "test_still: bmp test")
 
     # "dng test". Write a dng along with the jpg.
