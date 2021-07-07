@@ -26,7 +26,6 @@
 #include <libcamera/framebuffer_allocator.h>
 #include <libcamera/property_ids.h>
 
-#include "frame_info.hpp"
 #include "options.hpp"
 #include "preview.hpp"
 

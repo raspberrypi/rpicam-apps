@@ -8,6 +8,7 @@
 #include <iomanip>
 #include <string>
 
+#include <libcamera/control_ids.h>
 #include <libcamera/controls.h>
 
 struct FrameInfo
