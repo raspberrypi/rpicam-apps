@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 
-# SPDX-License-Identifier: BSD-2-Clause
+# SPDX-License-Identifier: GPL-2.0-or-later
 #
 # checkstyle.py - A patch style checker script based on clang-format
 #
