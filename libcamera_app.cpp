@@ -5,6 +5,7 @@
  * libcamera_app.cpp - base class for libcamera apps.
  */
 
+#include "frame_info.hpp"
 #include "libcamera_app.hpp"
 
 LibcameraApp::LibcameraApp(std::unique_ptr<Options> opts)
