@@ -18,15 +18,6 @@
 #include <thread>
 #include <variant>
 
-#include "drm_preview.hpp"
-#include "egl_preview.hpp"
-#include "frame_info.hpp"
-#include "null_preview.hpp"
-#include "options.hpp"
-
-// Crikey, X11/Xlib.h actually contains "#define Status int". Since when was that OK?
-#undef Status
-
 #include <libcamera/camera.h>
 #include <libcamera/camera_manager.h>
 #include <libcamera/control_ids.h>
@@ -34,6 +25,10 @@
 #include <libcamera/formats.h>
 #include <libcamera/framebuffer_allocator.h>
 #include <libcamera/property_ids.h>
+
+#include "frame_info.hpp"
+#include "options.hpp"
+#include "preview.hpp"
 
 namespace controls = libcamera::controls;
 namespace properties = libcamera::properties;

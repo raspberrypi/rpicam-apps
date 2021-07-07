@@ -36,3 +36,7 @@ protected:
 	DoneCallback done_callback_;
 	Options const *options_;
 };
+
+Preview *make_egl_preview(Options const *options);
+Preview *make_drm_preview(Options const *options);
+Preview *make_null_preview(Options const *options);

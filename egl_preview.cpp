@@ -356,3 +356,8 @@ bool EglPreview::Quit()
 	}
 	return false;
 }
+
+Preview *make_egl_preview(Options const *options)
+{
+	return new EglPreview(options);
+}

@@ -261,3 +261,8 @@ void DrmPreview::Reset()
 	buffers_.clear();
 	last_fd_ = -1;
 }
+
+Preview *make_drm_preview(Options const *options)
+{
+	return new DrmPreview(options);
+}
