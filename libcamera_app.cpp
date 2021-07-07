@@ -40,12 +40,12 @@ void LibcameraApp::OpenCamera()
 {
 	// Make a preview window.
 	if (options_->nopreview)
-		preview_ = std::make_unique<NullPreview>(options_.get());
+		preview_ = std::unique_ptr<Preview>(make_null_preview(options_.get()));
 	else
 	{
 		try
 		{
-			preview_ = std::make_unique<EglPreview>(options_.get());
+			preview_ = std::unique_ptr<Preview>(make_egl_preview(options_.get()));
 			if (options_->verbose)
 				std::cout << "Made X/EGL preview window" << std::endl;
 		}
@@ -53,14 +53,14 @@ void LibcameraApp::OpenCamera()
 		{
 			try
 			{
-				preview_ = std::make_unique<DrmPreview>(options_.get());
+				preview_ = std::unique_ptr<Preview>(make_drm_preview(options_.get()));
 				if (options_->verbose)
 					std::cout << "Made DRM preview window" << std::endl;
 			}
 			catch (std::exception const &e)
 			{
 				std::cout << "Preview window unavailable" << std::endl;
-				preview_ = std::make_unique<NullPreview>(options_.get());
+				preview_ = std::unique_ptr<Preview>(make_null_preview(options_.get()));
 			}
 		}
 	}
