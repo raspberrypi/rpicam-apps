@@ -26,8 +26,7 @@
 #include <libcamera/framebuffer_allocator.h>
 #include <libcamera/property_ids.h>
 
-#include "options.hpp"
-
+class Options;
 class Preview;
 
 namespace controls = libcamera::controls;

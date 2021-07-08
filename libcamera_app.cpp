@@ -7,6 +7,7 @@
 
 #include "frame_info.hpp"
 #include "libcamera_app.hpp"
+#include "options.hpp"
 #include "preview.hpp"
 
 LibcameraApp::LibcameraApp(std::unique_ptr<Options> opts)
