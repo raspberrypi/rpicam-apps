@@ -8,7 +8,7 @@
 #include <libcamera/formats.h>
 #include <libcamera/pixel_format.h>
 
-#include "still_options.hpp"
+#include "core/still_options.hpp"
 
 static void yuv420_save(std::vector<void *> const &mem, int w, int h, int stride, std::string const &filename,
 						StillOptions const *options)

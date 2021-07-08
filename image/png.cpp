@@ -13,7 +13,7 @@
 
 #include <png.h>
 
-#include "still_options.hpp"
+#include "core/still_options.hpp"
 
 void png_save(std::vector<void *> const &mem, int w, int h, int stride, libcamera::PixelFormat const &pixel_format,
 			  std::string const &filename, StillOptions const *options)

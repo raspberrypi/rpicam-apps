@@ -4,11 +4,11 @@
  *
  * libcamera_app.cpp - base class for libcamera apps.
  */
+#include "preview/preview.hpp"
 
-#include "frame_info.hpp"
-#include "libcamera_app.hpp"
-#include "options.hpp"
-#include "preview.hpp"
+#include "core/frame_info.hpp"
+#include "core/libcamera_app.hpp"
+#include "core/options.hpp"
 
 LibcameraApp::LibcameraApp(std::unique_ptr<Options> opts)
 	: options_(std::move(opts)), preview_thread_(&LibcameraApp::previewThread, this)

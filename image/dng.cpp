@@ -13,7 +13,7 @@
 
 #include <tiffio.h>
 
-#include "still_options.hpp"
+#include "core/still_options.hpp"
 
 using namespace libcamera;
 

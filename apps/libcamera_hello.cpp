@@ -7,8 +7,8 @@
 
 #include <chrono>
 
-#include "libcamera_app.hpp"
-#include "options.hpp"
+#include "core/libcamera_app.hpp"
+#include "core/options.hpp"
 
 using namespace std::placeholders;
 

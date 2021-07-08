@@ -11,8 +11,8 @@
 #include <sys/signalfd.h>
 #include <sys/stat.h>
 
-#include "libcamera_encoder.hpp"
-#include "output.hpp"
+#include "core/libcamera_encoder.hpp"
+#include "output/output.hpp"
 
 using namespace std::placeholders;
 
