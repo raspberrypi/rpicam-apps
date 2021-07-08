@@ -21,7 +21,7 @@
 #include <jpeglib.h>
 #include <libexif/exif-data.h>
 
-#include "still_options.hpp"
+#include "core/still_options.hpp"
 
 #if JPEG_LIB_VERSION_MAJOR > 9 || (JPEG_LIB_VERSION_MAJOR == 9 && JPEG_LIB_VERSION_MINOR >= 4)
 typedef size_t jpeg_mem_len_t;

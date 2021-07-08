@@ -12,8 +12,8 @@
 #include <queue>
 #include <thread>
 
+#include "core/video_options.hpp"
 #include "encoder.hpp"
-#include "video_options.hpp"
 
 class NullEncoder : public Encoder
 {

@@ -11,7 +11,7 @@
 
 #include <atomic>
 
-#include "video_options.hpp"
+#include "core/video_options.hpp"
 
 class Output
 {

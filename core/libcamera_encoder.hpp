@@ -5,9 +5,9 @@
  * libcamera_encoder.cpp - libcamera video encoding class.
  */
 
-#include "encoder.hpp"
-#include "libcamera_app.hpp"
-#include "video_options.hpp"
+#include "core/libcamera_app.hpp"
+#include "core/video_options.hpp"
+#include "encoder/encoder.hpp"
 
 typedef std::function<void(CompletedRequest &, libcamera::Stream *)> EncodeBufferDoneCallback;
 typedef std::function<void(void *, size_t, int64_t, bool)> EncodeOutputReadyCallback;

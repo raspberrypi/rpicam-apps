@@ -7,8 +7,8 @@
 
 #include <chrono>
 
-#include "libcamera_app.hpp"
-#include "still_options.hpp"
+#include "core/libcamera_app.hpp"
+#include "core/still_options.hpp"
 
 using namespace std::placeholders;
 using libcamera::Stream;

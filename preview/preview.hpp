@@ -10,7 +10,7 @@
 #include <functional>
 #include <string>
 
-#include "options.hpp"
+#include "core/options.hpp"
 
 class Preview
 {

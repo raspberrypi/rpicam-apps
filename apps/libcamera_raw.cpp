@@ -7,9 +7,9 @@
 
 #include <chrono>
 
-#include "libcamera_encoder.hpp"
-#include "null_encoder.hpp"
-#include "output.hpp"
+#include "core/libcamera_encoder.hpp"
+#include "encoder/null_encoder.hpp"
+#include "output/output.hpp"
 
 using namespace std::placeholders;
 
