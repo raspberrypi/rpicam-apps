@@ -27,7 +27,8 @@
 #include <libcamera/property_ids.h>
 
 #include "options.hpp"
-#include "preview.hpp"
+
+class Preview;
 
 namespace controls = libcamera::controls;
 namespace properties = libcamera::properties;
