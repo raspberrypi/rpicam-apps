@@ -17,7 +17,7 @@
 
 struct Options
 {
-	Options() : options_("Valid options are")
+	Options() : options_("Valid options are", 120, 80)
 	{
 		using namespace boost::program_options;
 		options_.add_options()
