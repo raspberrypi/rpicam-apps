@@ -30,10 +30,10 @@ struct Options
 			 "In case of duplicate options, the ones provided on the command line will be used. "
 			 "Note that the config file must only contain the long form options.")
 			("info-text", value<std::string>(&info_text)->default_value("#%frame (%fps fps) exp %exp ag %ag dg %dg"),
-			 "Sets the information string on the titlebar. Available values:"
-			 "%frame (frame number), %fps (framerate) %exp (shutter speed), %ag (analogue gain)"
-			 "%dg (digital gain), %rg (red colour gain), %bg (blue colour gain),"
-			 "%focus (focus FoM value), %aelock (AE locked status)")
+			 "Sets the information string on the titlebar. Available values:\n"
+			 "%frame (frame number)\n%fps (framerate)\n%exp (shutter speed)\n%ag (analogue gain)"
+			 "\n%dg (digital gain)\n%rg (red colour gain)\n%bg (blue colour gain)"
+			 "\n%focus (focus FoM value)\n%aelock (AE locked status)")
 			("width", value<unsigned int>(&width)->default_value(0),
 			 "Set the output image width (0 = use default value)")
 			("height", value<unsigned int>(&height)->default_value(0),
