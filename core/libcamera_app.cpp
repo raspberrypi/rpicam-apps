@@ -48,17 +48,25 @@ void LibcameraApp::OpenCamera()
 	{
 		try
 		{
+#if LIBEGL_PRESENT
 			preview_ = std::unique_ptr<Preview>(make_egl_preview(options_.get()));
 			if (options_->verbose)
 				std::cout << "Made X/EGL preview window" << std::endl;
+#else
+			throw std::runtime_error("egl libraries unavailable.");
+#endif
 		}
 		catch (std::exception const &e)
 		{
 			try
 			{
+#if LIBDRM_PRESENT
 				preview_ = std::unique_ptr<Preview>(make_drm_preview(options_.get()));
 				if (options_->verbose)
 					std::cout << "Made DRM preview window" << std::endl;
+#else
+				throw std::runtime_error("drm libraries unavailable.");
+#endif
 			}
 			catch (std::exception const &e)
 			{
