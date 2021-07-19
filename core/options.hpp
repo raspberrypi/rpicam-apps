@@ -90,6 +90,8 @@ struct Options
 			 "Width of viewfinder frames from the camera (distinct from the preview window size")
 			("viewfinder-height", value<unsigned int>(&viewfinder_height)->default_value(0),
 			 "Height of viewfinder frames from the camera (distinct from the preview window size)")
+			("tuning-file", value<std::string>(&tuning_file)->default_value("-"),
+			 "Name of camera tuning file to use, omit this option for libcamera default behaviour")
 			;
 	}
 
@@ -131,6 +133,7 @@ struct Options
 	std::string info_text;
 	unsigned int viewfinder_width;
 	unsigned int viewfinder_height;
+	std::string tuning_file;
 
 	virtual bool Parse(int argc, char *argv[])
 	{
@@ -215,6 +218,11 @@ struct Options
 		saturation = std::clamp(saturation, 0.0f, 15.99f); // limits are arbitrary..
 		sharpness = std::clamp(sharpness, 0.0f, 15.99f); // limits are arbitrary..
 
+		// We have to pass the tuning file name through an environment variable.
+		// Note that we only overwrite the variable if the option was given.
+		if (tuning_file != "-")
+			setenv("LIBCAMERA_RPI_TUNING_FILE", tuning_file.c_str(), 1);
+
 		return true;
 	}
 	virtual void Print() const
@@ -263,6 +271,7 @@ struct Options
 		std::cout << "    denoise: " << denoise << std::endl;
 		std::cout << "    viewfinder-width: " << viewfinder_width << std::endl;
 		std::cout << "    viewfinder-height: " << viewfinder_height << std::endl;
+		std::cout << "    tuning-file: " << (tuning_file == "-" ? "(libcamera)" : tuning_file) << std::endl;
 	}
 
 protected:
