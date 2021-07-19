@@ -14,6 +14,7 @@ set (CMAKE_CXX_STANDARD 17)
 set (CMAKE CXX_FLAGS "-Wall -Wextra -pedantic -Wno-unused-parameter -faligned-new")
 add_definitions(-Wfatal-errors)
 add_definitions(-Wno-psabi)
+add_definitions(-D_FILE_OFFSET_BITS=64)
 
 IF (NOT ENABLE_COMPILE_FLAGS_FOR_TARGET)
     # On a Pi this will give us armhf or arm64.
