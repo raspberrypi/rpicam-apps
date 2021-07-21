@@ -122,7 +122,11 @@ void LibcameraApp::ConfigureViewfinder()
 	if (options_->verbose)
 		std::cout << "Configuring viewfinder..." << std::endl;
 
-	configuration_ = camera_->generateConfiguration({ StreamRole::Viewfinder });
+	bool have_lores_stream = options_->lores_width && options_->lores_height;
+	StreamRoles stream_roles = { StreamRole::Viewfinder };
+	if (have_lores_stream)
+		stream_roles.push_back(StreamRole::Viewfinder);
+	configuration_ = camera_->generateConfiguration(stream_roles);
 	if (!configuration_)
 		throw std::runtime_error("failed to generate viewfinder configuration");
 
@@ -147,12 +151,26 @@ void LibcameraApp::ConfigureViewfinder()
 	// Now we get to override any of the default settings from the options_->
 	configuration_->at(0).pixelFormat = libcamera::formats::YUV420;
 	configuration_->at(0).size = size;
+
+	if (have_lores_stream)
+	{
+		Size lores_size(options_->lores_width, options_->lores_height);
+		lores_size.alignDownTo(2, 2);
+		if (lores_size.width > size.width || lores_size.height > size.height)
+			throw std::runtime_error("Low res image larger than viewfinder");
+		configuration_->at(1).pixelFormat = libcamera::formats::YUV420;
+		configuration_->at(1).size = lores_size;
+		configuration_->at(1).bufferCount = configuration_->at(0).bufferCount;
+	}
+
 	configuration_->transform = options_->transform;
 
 	configureDenoise(options_->denoise == "auto" ? "cdn_off" : options_->denoise);
 	setupCapture();
 
 	streams_["viewfinder"] = configuration_->at(0).stream();
+	if (have_lores_stream)
+		streams_["lores"] = configuration_->at(1).stream();
 
 	if (options_->verbose)
 		std::cout << "Viewfinder setup complete" << std::endl;
@@ -211,11 +229,17 @@ void LibcameraApp::ConfigureVideo(unsigned int flags)
 	if (options_->verbose)
 		std::cout << "Configuring video..." << std::endl;
 
-	StreamRoles stream_roles;
-	if (flags & FLAG_VIDEO_RAW)
-		stream_roles = { StreamRole::VideoRecording, StreamRole::Raw };
-	else
-		stream_roles = { StreamRole::VideoRecording };
+	bool have_raw_stream = flags & FLAG_VIDEO_RAW;
+	bool have_lores_stream = options_->lores_width && options_->lores_height;
+	StreamRoles stream_roles = { StreamRole::VideoRecording };
+	int lores_index = 1;
+	if (have_raw_stream)
+	{
+		stream_roles.push_back(StreamRole::Raw);
+		lores_index = 2;
+	}
+	if (have_lores_stream)
+		stream_roles.push_back(StreamRole::Viewfinder);
 	configuration_ = camera_->generateConfiguration(stream_roles);
 	if (!configuration_)
 		throw std::runtime_error("failed to generate video configuration");
@@ -227,7 +251,7 @@ void LibcameraApp::ConfigureVideo(unsigned int flags)
 		configuration_->at(0).size.width = options_->width;
 	if (options_->height)
 		configuration_->at(0).size.height = options_->height;
-	if (flags & FLAG_VIDEO_RAW)
+	if (have_raw_stream)
 	{
 		if (!options_->rawfull)
 		{
@@ -236,13 +260,27 @@ void LibcameraApp::ConfigureVideo(unsigned int flags)
 		}
 		configuration_->at(1).bufferCount = configuration_->at(0).bufferCount;
 	}
+	if (have_lores_stream)
+	{
+		Size lores_size(options_->lores_width, options_->lores_height);
+		lores_size.alignDownTo(2, 2);
+		if (lores_size.width > configuration_->at(0).size.width ||
+			lores_size.height > configuration_->at(0).size.height)
+			throw std::runtime_error("Low res image larger than video");
+		configuration_->at(lores_index).pixelFormat = libcamera::formats::YUV420;
+		configuration_->at(lores_index).size = lores_size;
+		configuration_->at(lores_index).bufferCount = configuration_->at(0).bufferCount;
+	}
 	configuration_->transform = options_->transform;
 
 	configureDenoise(options_->denoise == "auto" ? "cdn_fast" : options_->denoise);
 	setupCapture();
 
 	streams_["video"] = configuration_->at(0).stream();
-	streams_["raw"] = configuration_->at(1).stream();
+	if (have_raw_stream)
+		streams_["raw"] = configuration_->at(1).stream();
+	if (have_lores_stream)
+		streams_["lores"] = configuration_->at(lores_index).stream();
 
 	if (options_->verbose)
 		std::cout << "Video setup complete" << std::endl;
@@ -461,6 +499,11 @@ libcamera::Stream *LibcameraApp::RawStream(int *w, int *h, int *stride) const
 libcamera::Stream *LibcameraApp::VideoStream(int *w, int *h, int *stride) const
 {
 	return GetStream("video", w, h, stride);
+}
+
+libcamera::Stream *LibcameraApp::LoresStream(int *w, int *h, int *stride) const
+{
+	return GetStream("lores", w, h, stride);
 }
 
 std::vector<void *> LibcameraApp::Mmap(FrameBuffer *buffer) const
