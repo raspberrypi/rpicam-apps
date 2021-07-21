@@ -96,6 +96,10 @@ struct Options
 			 "Height of viewfinder frames from the camera (distinct from the preview window size)")
 			("tuning-file", value<std::string>(&tuning_file)->default_value("-"),
 			 "Name of camera tuning file to use, omit this option for libcamera default behaviour")
+			("lores-width", value<unsigned int>(&lores_width)->default_value(0),
+			 "Width of low resolution frames (use 0 to omit low resolution stream")
+			("lores-height", value<unsigned int>(&lores_height)->default_value(0),
+			 "Height of low resolution frames (use 0 to omit low resolution stream")
 			;
 	}
 
@@ -140,6 +144,8 @@ struct Options
 	unsigned int viewfinder_height;
 	std::string tuning_file;
 	bool qt_preview;
+	unsigned int lores_width;
+	unsigned int lores_height;
 
 	virtual bool Parse(int argc, char *argv[])
 	{
@@ -280,6 +286,8 @@ struct Options
 		std::cout << "    viewfinder-width: " << viewfinder_width << std::endl;
 		std::cout << "    viewfinder-height: " << viewfinder_height << std::endl;
 		std::cout << "    tuning-file: " << (tuning_file == "-" ? "(libcamera)" : tuning_file) << std::endl;
+		std::cout << "    lores-width: " << lores_width << std::endl;
+		std::cout << "    lores-height: " << lores_height << std::endl;
 	}
 
 protected:
