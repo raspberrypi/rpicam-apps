@@ -159,7 +159,7 @@ void LibcameraApp::ConfigureViewfinder()
 	configureDenoise(options_->denoise == "auto" ? "cdn_off" : options_->denoise);
 	setupCapture();
 
-	viewfinder_stream_ = configuration_->at(0).stream();
+	streams_["viewfinder"] = configuration_->at(0).stream();
 
 	post_processor_.Configure();
 
@@ -211,8 +211,8 @@ void LibcameraApp::ConfigureStill(unsigned int flags)
 	configureDenoise(options_->denoise == "auto" ? "cdn_hq" : options_->denoise);
 	setupCapture();
 
-	still_stream_ = configuration_->at(0).stream();
-	raw_stream_ = configuration_->at(1).stream();
+	streams_["still"] = configuration_->at(0).stream();
+	streams_["raw"] = configuration_->at(1).stream();
 
 	post_processor_.Configure();
 
@@ -258,8 +258,8 @@ void LibcameraApp::ConfigureVideo(unsigned int flags)
 	configureDenoise(options_->denoise == "auto" ? "cdn_fast" : options_->denoise);
 	setupCapture();
 
-	video_stream_ = configuration_->at(0).stream();
-	raw_stream_ = configuration_->at(1).stream();
+	streams_["video"] = configuration_->at(0).stream();
+	streams_["raw"] = configuration_->at(1).stream();
 
 	post_processor_.Configure();
 
@@ -290,10 +290,7 @@ void LibcameraApp::Teardown()
 
 	frame_buffers_.clear();
 
-	viewfinder_stream_ = nullptr;
-	still_stream_ = nullptr;
-	raw_stream_ = nullptr;
-	video_stream_ = nullptr;
+	streams_.clear();
 }
 
 void LibcameraApp::StartCamera()
@@ -322,7 +319,7 @@ void LibcameraApp::StartCamera()
 	// as long as possible so that we get whatever the exposure profile wants.
 	if (!controls_.contains(controls::FrameDurationLimits))
 	{
-		if (still_stream_)
+		if (StillStream())
 			controls_.set(controls::FrameDurationLimits, { INT64_C(100), INT64_C(1000000000) });
 		else if (options_->framerate > 0)
 		{
@@ -464,53 +461,41 @@ void LibcameraApp::PostMessage(MsgType &t, MsgPayload &p)
 	msg_queue_.Post(Msg(t, p));
 }
 
+libcamera::Stream *LibcameraApp::GetStream(std::string const &name, int *w, int *h, int *stride) const
+{
+	auto it = streams_.find(name);
+	if (it == streams_.end())
+		return nullptr;
+	StreamDimensions(it->second, w, h, stride);
+	return it->second;
+}
+
 libcamera::Stream *LibcameraApp::ViewfinderStream(int *w, int *h, int *stride) const
 {
-	if (viewfinder_stream_)
-		StreamDimensions(viewfinder_stream_, w, h, stride);
-	return viewfinder_stream_;
+	return GetStream("viewfinder", w, h, stride);
 }
 
 libcamera::Stream *LibcameraApp::StillStream(int *w, int *h, int *stride) const
 {
-	if (still_stream_)
-		StreamDimensions(still_stream_, w, h, stride);
-	return still_stream_;
+	return GetStream("still", w, h, stride);
 }
 
 libcamera::Stream *LibcameraApp::RawStream(int *w, int *h, int *stride) const
 {
-	if (raw_stream_)
-		StreamDimensions(raw_stream_, w, h, stride);
-	return raw_stream_;
+	return GetStream("raw", w, h, stride);
 }
 
 libcamera::Stream *LibcameraApp::VideoStream(int *w, int *h, int *stride) const
 {
-	if (video_stream_)
-		StreamDimensions(video_stream_, w, h, stride);
-	return video_stream_;
+	return GetStream("video", w, h, stride);
 }
 
 libcamera::Stream *LibcameraApp::GetMainStream() const
 {
-	std::vector<libcamera::Stream *> streams;
-
-	if (viewfinder_stream_ != nullptr)
+	for (auto &p : streams_)
 	{
-		return viewfinder_stream_;
-	}
-	if (still_stream_ != nullptr)
-	{
-		return still_stream_;
-	}
-	if (raw_stream_ != nullptr)
-	{
-		return raw_stream_;
-	}
-	if (video_stream_ != nullptr)
-	{
-		return video_stream_;
+		if (p.first == "viewfinder" || p.first == "still" || p.first == "video")
+			return p.second;
 	}
 
 	return nullptr;
