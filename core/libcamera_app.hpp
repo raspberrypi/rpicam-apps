@@ -105,6 +105,7 @@ public:
 	void QueueRequest(CompletedRequest const &completed_request);
 	void PostMessage(MsgType &t, MsgPayload &p);
 
+	Stream *GetStream(std::string const &name, int *w = nullptr, int *h = nullptr, int *stride = nullptr) const;
 	Stream *ViewfinderStream(int *w = nullptr, int *h = nullptr, int *stride = nullptr) const;
 	Stream *StillStream(int *w = nullptr, int *h = nullptr, int *stride = nullptr) const;
 	Stream *RawStream(int *w = nullptr, int *h = nullptr, int *stride = nullptr) const;
@@ -180,10 +181,7 @@ private:
 	bool camera_acquired_ = false;
 	std::unique_ptr<CameraConfiguration> configuration_;
 	std::map<FrameBuffer *, std::vector<libcamera::Span<uint8_t>>> mapped_buffers_;
-	Stream *viewfinder_stream_ = nullptr;
-	Stream *still_stream_ = nullptr;
-	Stream *raw_stream_ = nullptr;
-	Stream *video_stream_ = nullptr;
+	std::map<std::string, Stream *> streams_;
 	FrameBufferAllocator *allocator_ = nullptr;
 	std::map<Stream *, std::queue<FrameBuffer *>> frame_buffers_;
 	std::mutex free_requests_mutex_;
