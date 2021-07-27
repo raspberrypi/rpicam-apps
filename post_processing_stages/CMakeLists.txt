@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.6)
 
-set(SRC negate_stage.cpp)
+set(SRC negate_stage.cpp hdr_stage.cpp pwl.cpp histogram.cpp)
 set(TARGET_LIBS "")
 
 if ("${ENABLE_OPENCV}" STREQUAL "")
