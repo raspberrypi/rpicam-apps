@@ -7,9 +7,9 @@
 
 #include <iostream>
 
+#include "core/libcamera_app.hpp"
 #include "core/post_processor.hpp"
 #include "post_processing_stage.hpp"
-// #include "libcamera_app.hpp"
 
 #include <boost/property_tree/json_parser.hpp>
 #include <boost/property_tree/ptree.hpp>
@@ -89,11 +89,18 @@ void PostProcessor::Process(CompletedRequest &request)
 	std::unique_lock<std::mutex> l(mutex_);
 	requests_.push(std::move(request));
 
-	std::promise<void> promise;
-	auto process_fn = [this](CompletedRequest &request, std::promise<void> promise) {
+	std::promise<bool> promise;
+	auto process_fn = [this](CompletedRequest &request, std::promise<bool> promise) {
+		bool drop_request = false;
 		for (auto &stage : stages_)
-			stage->Process(request);
-		promise.set_value();
+		{
+			if (stage->Process(request))
+			{
+				drop_request = true;
+				break;
+			}
+		}
+		promise.set_value(drop_request);
 		cv_.notify_one();
 	};
 
@@ -109,6 +116,7 @@ void PostProcessor::outputThread()
 	{
 		CompletedRequest request;
 
+		bool drop_request = false;
 		{
 			std::unique_lock<std::mutex> l(mutex_);
 
@@ -121,13 +129,16 @@ void PostProcessor::outputThread()
 			if (quit_ && futures_.empty())
 				break;
 
-			futures_.front().get();
+			drop_request = futures_.front().get();
 			futures_.pop();
 			request = std::move(requests_.front());
 			requests_.pop();
 		}
 
-		callback_(request);
+		if (drop_request)
+			app_->QueueRequest(request);
+		else
+			callback_(request);
 	}
 }
 

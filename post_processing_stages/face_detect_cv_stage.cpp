@@ -34,7 +34,7 @@ public:
 
 	void Configure();
 
-	void Process(CompletedRequest &completed_request);
+	bool Process(CompletedRequest &completed_request);
 
 	void Stop();
 
@@ -86,7 +86,7 @@ void FaceDetectCvStage::Configure()
 		throw std::runtime_error("SobelCvStage: only YUV420 format supported");
 }
 
-void FaceDetectCvStage::Process(CompletedRequest &completed_request)
+bool FaceDetectCvStage::Process(CompletedRequest &completed_request)
 {
 	int w, h, stride;
 	app_->StreamDimensions(stream_, &w, &h, &stride);
@@ -119,6 +119,8 @@ void FaceDetectCvStage::Process(CompletedRequest &completed_request)
 
 	if (draw_features_ >= 1)
 		drawFeatures(image, scale);
+
+	return false;
 }
 
 void FaceDetectCvStage::detectFeatures(CascadeClassifier &cascade)
