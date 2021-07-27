@@ -133,6 +133,8 @@ void LibcameraApp::ConfigureViewfinder()
 	configuration_->at(0).size = size;
 	configuration_->transform = options_->transform;
 
+	post_processor_.AdjustConfig("viewfinder", &configuration_->at(0));
+
 	configureDenoise(options_->denoise == "auto" ? "cdn_off" : options_->denoise);
 	setupCapture();
 
@@ -174,13 +176,16 @@ void LibcameraApp::ConfigureStill(unsigned int flags)
 		configuration_->at(0).size.width = options_->width;
 	if (options_->height)
 		configuration_->at(0).size.height = options_->height;
+	configuration_->transform = options_->transform;
+
+	post_processor_.AdjustConfig("still", &configuration_->at(0));
+
 	if ((flags & FLAG_STILL_RAW) && !options_->rawfull)
 	{
 		configuration_->at(1).size.width = configuration_->at(0).size.width;
 		configuration_->at(1).size.height = configuration_->at(0).size.height;
 		configuration_->at(1).bufferCount = configuration_->at(0).bufferCount;
 	}
-	configuration_->transform = options_->transform;
 
 	configureDenoise(options_->denoise == "auto" ? "cdn_hq" : options_->denoise);
 	setupCapture();
@@ -215,6 +220,10 @@ void LibcameraApp::ConfigureVideo(unsigned int flags)
 		configuration_->at(0).size.width = options_->width;
 	if (options_->height)
 		configuration_->at(0).size.height = options_->height;
+	configuration_->transform = options_->transform;
+
+	post_processor_.AdjustConfig("video", &configuration_->at(0));
+
 	if (flags & FLAG_VIDEO_RAW)
 	{
 		if (!options_->rawfull)
@@ -224,7 +233,6 @@ void LibcameraApp::ConfigureVideo(unsigned int flags)
 		}
 		configuration_->at(1).bufferCount = configuration_->at(0).bufferCount;
 	}
-	configuration_->transform = options_->transform;
 
 	configureDenoise(options_->denoise == "auto" ? "cdn_fast" : options_->denoise);
 	setupCapture();

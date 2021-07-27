@@ -5,11 +5,20 @@
  * post_processing_stage.hpp - Post processing stage base class definition.
  */
 
+#include <string>
+
 #include <boost/property_tree/json_parser.hpp>
 #include <boost/property_tree/ptree.hpp>
 
+namespace libcamera
+{
+class StreamConfiguration;
+}
+
 class CompletedRequest;
 class LibcameraApp;
+
+using StreamConfiguration = libcamera::StreamConfiguration;
 
 class PostProcessingStage
 {
@@ -21,6 +30,8 @@ public:
 	virtual char const *Name() const = 0;
 
 	virtual void Read(boost::property_tree::ptree const &params);
+
+	virtual void AdjustConfig(std::string const &use_case, StreamConfiguration *config);
 
 	virtual void Configure();
 
