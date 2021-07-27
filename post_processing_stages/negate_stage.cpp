@@ -23,7 +23,7 @@ public:
 
 	void Configure();
 
-	void Process(CompletedRequest &completed_request);
+	bool Process(CompletedRequest &completed_request);
 
 private:
 	Stream *stream_;
@@ -41,13 +41,14 @@ void NegateStage::Configure()
 	stream_ = app_->GetMainStream();
 }
 
-void NegateStage::Process(CompletedRequest &completed_request)
+bool NegateStage::Process(CompletedRequest &completed_request)
 {
 	int w, h, stride;
 	libcamera::Span<uint8_t> buffer = app_->Mmap(completed_request.buffers[stream_])[0];
 	uint8_t *ptr = buffer.data();
 	for (unsigned int i = 0; i < buffer.size(); i++)
 		*(ptr++) ^= 0xff;
+	return false;
 }
 
 static PostProcessingStage *Create(LibcameraApp *app)

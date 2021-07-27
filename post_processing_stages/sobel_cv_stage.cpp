@@ -29,7 +29,7 @@ public:
 
 	void Configure();
 
-	void Process(CompletedRequest &completed_request);
+	bool Process(CompletedRequest &completed_request);
 
 private:
 	Stream *stream_;
@@ -55,7 +55,7 @@ void SobelCvStage::Configure()
 		throw std::runtime_error("SobelCvStage: only YUV420 format supported");
 }
 
-void SobelCvStage::Process(CompletedRequest &completed_request)
+bool SobelCvStage::Process(CompletedRequest &completed_request)
 {
 	int w, h, stride;
 	app_->StreamDimensions(stream_, &w, &h, &stride);
@@ -89,6 +89,8 @@ void SobelCvStage::Process(CompletedRequest &completed_request)
 
 	//weight the x and y gradients and add their magnitudes
 	addWeighted(grad_x, 0.5, grad_y, 0.5, 0, src);
+
+	return false;
 }
 
 static PostProcessingStage *Create(LibcameraApp *app)

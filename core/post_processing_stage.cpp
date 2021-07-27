@@ -31,9 +31,7 @@ void PostProcessingStage::Start()
 {
 }
 
-void PostProcessingStage::Process(CompletedRequest &completed_request)
-{
-}
+// Process is pure virtual.
 
 void PostProcessingStage::Stop()
 {
