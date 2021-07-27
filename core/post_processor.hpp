@@ -59,7 +59,7 @@ private:
 	void outputThread();
 
 	std::queue<CompletedRequest> requests_;
-	std::queue<std::future<void>> futures_;
+	std::queue<std::future<bool>> futures_;
 	std::thread output_thread_;
 	bool quit_;
 	PostProcessorCallback callback_;

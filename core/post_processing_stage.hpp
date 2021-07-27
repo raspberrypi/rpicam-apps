@@ -37,7 +37,8 @@ public:
 
 	virtual void Start();
 
-	virtual void Process(CompletedRequest &completed_request) = 0;
+	// Return true if this request is to be dropped.
+	virtual bool Process(CompletedRequest &completed_request) = 0;
 
 	virtual void Stop();
 
