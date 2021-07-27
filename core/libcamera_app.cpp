@@ -466,25 +466,29 @@ void LibcameraApp::PostMessage(MsgType &t, MsgPayload &p)
 
 libcamera::Stream *LibcameraApp::ViewfinderStream(int *w, int *h, int *stride) const
 {
-	StreamDimensions(viewfinder_stream_, w, h, stride);
+	if (viewfinder_stream_)
+		StreamDimensions(viewfinder_stream_, w, h, stride);
 	return viewfinder_stream_;
 }
 
 libcamera::Stream *LibcameraApp::StillStream(int *w, int *h, int *stride) const
 {
-	StreamDimensions(still_stream_, w, h, stride);
+	if (still_stream_)
+		StreamDimensions(still_stream_, w, h, stride);
 	return still_stream_;
 }
 
 libcamera::Stream *LibcameraApp::RawStream(int *w, int *h, int *stride) const
 {
-	StreamDimensions(raw_stream_, w, h, stride);
+	if (raw_stream_)
+		StreamDimensions(raw_stream_, w, h, stride);
 	return raw_stream_;
 }
 
 libcamera::Stream *LibcameraApp::VideoStream(int *w, int *h, int *stride) const
 {
-	StreamDimensions(video_stream_, w, h, stride);
+	if (video_stream_)
+		StreamDimensions(video_stream_, w, h, stride);
 	return video_stream_;
 }
 
