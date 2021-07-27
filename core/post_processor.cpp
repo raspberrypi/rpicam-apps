@@ -51,6 +51,14 @@ void PostProcessor::SetCallback(PostProcessorCallback callback)
 	callback_ = callback;
 }
 
+void PostProcessor::AdjustConfig(std::string const &use_case, StreamConfiguration *config)
+{
+	for (auto &stage : stages_)
+	{
+		stage->AdjustConfig(use_case, config);
+	}
+}
+
 void PostProcessor::Configure()
 {
 	for (auto &stage : stages_)

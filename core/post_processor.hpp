@@ -15,11 +15,17 @@
 
 #include "core/completed_request.hpp"
 
+namespace libcamera
+{
+class StreamConfiguration;
+}
+
 class LibcameraApp;
 
 using namespace std::chrono_literals;
 class PostProcessingStage;
 using PostProcessorCallback = std::function<void(CompletedRequest &)>;
+using StreamConfiguration = libcamera::StreamConfiguration;
 typedef std::unique_ptr<PostProcessingStage> StagePtr;
 
 class PostProcessor
@@ -32,6 +38,8 @@ public:
 	void Read(std::string const &filename);
 
 	void SetCallback(PostProcessorCallback callback);
+
+	void AdjustConfig(std::string const &use_case, StreamConfiguration *config);
 
 	void Configure();
 

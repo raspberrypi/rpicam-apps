@@ -19,6 +19,10 @@ void PostProcessingStage::Read(boost::property_tree::ptree const &params)
 {
 }
 
+void PostProcessingStage::AdjustConfig(std::string const &, StreamConfiguration *)
+{
+}
+
 void PostProcessingStage::Configure()
 {
 }
