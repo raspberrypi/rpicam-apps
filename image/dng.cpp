@@ -128,9 +128,9 @@ Matrix(float m0, float m1, float m2,
 	}
 };
 
-void dng_save(std::vector<void *> const &mem, int w, int h, int stride, PixelFormat const &pixel_format,
-			  ControlList const &metadata, std::string const &filename, std::string const &cam_name,
-			  StillOptions const *options)
+void dng_save(std::vector<libcamera::Span<uint8_t>> const &mem, int w, int h, int stride,
+			  PixelFormat const &pixel_format, ControlList const &metadata, std::string const &filename,
+			  std::string const &cam_name, StillOptions const *options)
 {
 	// Check the Bayer format and unpack it to u16.
 
@@ -142,9 +142,9 @@ void dng_save(std::vector<void *> const &mem, int w, int h, int stride, PixelFor
 
 	std::vector<uint16_t> buf(w * h);
 	if (bayer_format.bits == 10)
-		unpack_10bit((uint8_t *)mem[0], w, h, stride, &buf[0]);
+		unpack_10bit((uint8_t *)mem[0].data(), w, h, stride, &buf[0]);
 	else if (bayer_format.bits == 12)
-		unpack_12bit((uint8_t *)mem[0], w, h, stride, &buf[0]);
+		unpack_12bit((uint8_t *)mem[0].data(), w, h, stride, &buf[0]);
 	else
 		throw std::runtime_error("unsupported bit depth " + std::to_string(bayer_format.bits));
 
