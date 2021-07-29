@@ -666,7 +666,7 @@ void LibcameraApp::previewThread()
 		int w, h, stride;
 		StreamDimensions(item.stream, &w, &h, &stride);
 		FrameBuffer *buffer = item.completed_request.buffers[item.stream];
-		void *mem = Mmap(buffer)[0];
+		libcamera::Span span = Mmap(buffer)[0];
 
 		// Fill the frame info with the ControlList items and ancillary bits.
 		FrameInfo frame_info(item.completed_request.metadata);
@@ -674,7 +674,6 @@ void LibcameraApp::previewThread()
 		frame_info.sequence = item.completed_request.sequence;
 
 		int fd = buffer->planes()[0].fd.fd();
-		size_t size = buffer->planes()[0].length;
 		{
 			std::lock_guard<std::mutex> lock(preview_mutex_);
 			preview_completed_requests_[fd] = std::move(item.completed_request);
@@ -686,7 +685,6 @@ void LibcameraApp::previewThread()
 			msg_queue_.Post(Msg(MsgType::Quit, QuitPayload()));
 		}
 		preview_frames_displayed_++;
-		libcamera::Span<uint8_t> span((uint8_t *)mem, size);
 		preview_->Show(fd, span, w, h, stride);
 		if (!options_->info_text.empty())
 		{
