@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: BSD-2-Clause */
 /*
- * Copyright (C) 2020, Raspberry Pi (Trading) Ltd.
+ * Copyright (C) 2020-2021, Raspberry Pi (Trading) Ltd.
  *
  * libcamera_app.hpp - base class for libcamera apps.
  */
@@ -18,6 +18,7 @@
 #include <thread>
 #include <variant>
 
+#include <libcamera/base/span.h>
 #include <libcamera/camera.h>
 #include <libcamera/camera_manager.h>
 #include <libcamera/control_ids.h>
@@ -26,26 +27,14 @@
 #include <libcamera/framebuffer_allocator.h>
 #include <libcamera/property_ids.h>
 
+#include "core/completed_request.hpp"
+#include "core/post_processor.hpp"
+
 class Options;
 class Preview;
 
 namespace controls = libcamera::controls;
 namespace properties = libcamera::properties;
-
-struct CompletedRequest
-{
-	using BufferMap = libcamera::Request::BufferMap;
-	using ControlList = libcamera::ControlList;
-	CompletedRequest() {}
-	CompletedRequest(unsigned int seq, BufferMap const &b, ControlList const &m)
-		: sequence(seq), buffers(b), metadata(m)
-	{
-	}
-	unsigned int sequence;
-	BufferMap buffers;
-	ControlList metadata;
-	float framerate;
-};
 
 typedef std::function<void(CompletedRequest &)> PreviewDoneCallback;
 
@@ -120,8 +109,9 @@ public:
 	Stream *StillStream(int *w = nullptr, int *h = nullptr, int *stride = nullptr) const;
 	Stream *RawStream(int *w = nullptr, int *h = nullptr, int *stride = nullptr) const;
 	Stream *VideoStream(int *w = nullptr, int *h = nullptr, int *stride = nullptr) const;
+	Stream *GetMainStream() const;
 
-	std::vector<void *> Mmap(FrameBuffer *buffer) const;
+	std::vector<libcamera::Span<uint8_t>> Mmap(FrameBuffer *buffer) const;
 
 	void SetPreviewDoneCallback(PreviewDoneCallback preview_done_callback);
 	void ShowPreview(CompletedRequest &completed_request, Stream *stream);
@@ -189,7 +179,7 @@ private:
 	std::shared_ptr<Camera> camera_;
 	bool camera_acquired_ = false;
 	std::unique_ptr<CameraConfiguration> configuration_;
-	std::map<FrameBuffer *, std::vector<void *>> mapped_buffers_;
+	std::map<FrameBuffer *, std::vector<libcamera::Span<uint8_t>>> mapped_buffers_;
 	Stream *viewfinder_stream_ = nullptr;
 	Stream *still_stream_ = nullptr;
 	Stream *raw_stream_ = nullptr;
@@ -219,4 +209,6 @@ private:
 	ControlList controls_;
 	// Other:
 	uint64_t last_timestamp_;
+	uint64_t sequence_ = 0;
+	PostProcessor post_processor_;
 };

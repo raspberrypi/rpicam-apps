@@ -36,7 +36,7 @@ public:
 		int w, h, stride;
 		StreamDimensions(stream, &w, &h, &stride);
 		FrameBuffer *buffer = completed_request.buffers[stream];
-		void *mem = Mmap(buffer)[0];
+		void *mem = Mmap(buffer)[0].data();
 		if (!buffer || !mem)
 			throw std::runtime_error("no buffer to encode");
 		int64_t timestamp_ns = buffer->metadata().timestamp;

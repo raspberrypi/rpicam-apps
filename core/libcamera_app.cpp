@@ -11,7 +11,7 @@
 #include "core/options.hpp"
 
 LibcameraApp::LibcameraApp(std::unique_ptr<Options> opts)
-	: options_(std::move(opts)), preview_thread_(&LibcameraApp::previewThread, this)
+	: options_(std::move(opts)), preview_thread_(&LibcameraApp::previewThread, this), post_processor_(this)
 {
 	if (!options_)
 		options_ = std::make_unique<Options>();
@@ -99,6 +99,11 @@ void LibcameraApp::OpenCamera()
 
 	if (options_->verbose)
 		std::cout << "Acquired camera " << cam_id << std::endl;
+
+	if (!options_->post_process_file.empty())
+		post_processor_.Read(options_->post_process_file);
+	post_processor_.SetCallback(
+		[this](CompletedRequest &r) { this->msg_queue_.Post(Msg(MsgType::RequestComplete, std::move(r))); });
 }
 
 void LibcameraApp::CloseCamera()
@@ -154,6 +159,8 @@ void LibcameraApp::ConfigureViewfinder()
 
 	viewfinder_stream_ = configuration_->at(0).stream();
 
+	post_processor_.Configure();
+
 	if (options_->verbose)
 		std::cout << "Viewfinder setup complete" << std::endl;
 }
@@ -202,6 +209,8 @@ void LibcameraApp::ConfigureStill(unsigned int flags)
 	still_stream_ = configuration_->at(0).stream();
 	raw_stream_ = configuration_->at(1).stream();
 
+	post_processor_.Configure();
+
 	if (options_->verbose)
 		std::cout << "Still capture setup complete" << std::endl;
 }
@@ -244,20 +253,25 @@ void LibcameraApp::ConfigureVideo(unsigned int flags)
 	video_stream_ = configuration_->at(0).stream();
 	raw_stream_ = configuration_->at(1).stream();
 
+	post_processor_.Configure();
+
 	if (options_->verbose)
 		std::cout << "Video setup complete" << std::endl;
 }
 
 void LibcameraApp::Teardown()
 {
+	post_processor_.Teardown();
+
 	if (options_->verbose && !options_->help)
 		std::cout << "Tearing down requests, buffers and configuration" << std::endl;
 
 	for (auto &iter : mapped_buffers_)
 	{
-		assert(iter.first->planes().size() == iter.second.size());
-		for (unsigned i = 0; i < iter.first->planes().size(); i++)
-			munmap(iter.second[i], iter.first->planes()[i].length);
+		// assert(iter.first->planes().size() == iter.second.size());
+		// for (unsigned i = 0; i < iter.first->planes().size(); i++)
+		for (auto &span : iter.second)
+			munmap(span.data(), span.size());
 	}
 	mapped_buffers_.clear();
 
@@ -332,6 +346,8 @@ void LibcameraApp::StartCamera()
 	if (!controls_.contains(controls::Sharpness))
 		controls_.set(controls::Sharpness, options_->sharpness);
 
+	post_processor_.Start();
+
 	if (camera_->start(&controls_))
 		throw std::runtime_error("failed to start camera");
 	controls_.clear();
@@ -359,6 +375,9 @@ void LibcameraApp::StopCamera()
 		{
 			if (camera_->stop())
 				throw std::runtime_error("failed to stop camera");
+
+			post_processor_.Stop();
+
 			camera_started_ = false;
 		}
 	}
@@ -461,11 +480,35 @@ libcamera::Stream *LibcameraApp::VideoStream(int *w, int *h, int *stride) const
 	return video_stream_;
 }
 
-std::vector<void *> LibcameraApp::Mmap(FrameBuffer *buffer) const
+libcamera::Stream *LibcameraApp::GetMainStream() const
+{
+	std::vector<libcamera::Stream *> streams;
+
+	if (viewfinder_stream_ != nullptr)
+	{
+		return viewfinder_stream_;
+	}
+	if (still_stream_ != nullptr)
+	{
+		return still_stream_;
+	}
+	if (raw_stream_ != nullptr)
+	{
+		return raw_stream_;
+	}
+	if (video_stream_ != nullptr)
+	{
+		return video_stream_;
+	}
+
+	return nullptr;
+}
+
+std::vector<libcamera::Span<uint8_t>> LibcameraApp::Mmap(FrameBuffer *buffer) const
 {
 	auto item = mapped_buffers_.find(buffer);
 	if (item == mapped_buffers_.end())
-		return std::vector<void *>();
+		return {};
 	return item->second;
 }
 
@@ -539,8 +582,9 @@ void LibcameraApp::setupCapture()
 			for (unsigned i = 0; i < buffer->planes().size(); i++)
 			{
 				const FrameBuffer::Plane &plane = buffer->planes()[i];
-				void *memory = mmap(NULL, plane.length, PROT_READ, MAP_SHARED, plane.fd.fd(), 0);
-				mapped_buffers_[buffer.get()].push_back(memory);
+				void *memory = mmap(NULL, plane.length, PROT_READ | PROT_WRITE, MAP_SHARED, plane.fd.fd(), 0);
+				std::size_t len = plane.length;
+				mapped_buffers_[buffer.get()].push_back(libcamera::Span<uint8_t>(static_cast<uint8_t *>(memory), len));
 			}
 			frame_buffers_[stream].push(buffer.get());
 		}
@@ -588,8 +632,7 @@ void LibcameraApp::requestComplete(Request *request)
 	if (request->status() == Request::RequestCancelled)
 		return;
 
-	CompletedRequest payload(request->buffers().begin()->second->metadata().sequence, request->buffers(),
-							 request->metadata());
+	CompletedRequest payload(sequence_++, request->buffers(), request->metadata());
 	{
 		request->reuse();
 		std::lock_guard<std::mutex> lock(free_requests_mutex_);
@@ -604,7 +647,7 @@ void LibcameraApp::requestComplete(Request *request)
 		payload.framerate = 1e9 / (timestamp - last_timestamp_);
 	last_timestamp_ = timestamp;
 
-	msg_queue_.Post(Msg(MsgType::RequestComplete, std::move(payload)));
+	post_processor_.Process(payload);
 }
 
 void LibcameraApp::previewDoneCallback(int fd)

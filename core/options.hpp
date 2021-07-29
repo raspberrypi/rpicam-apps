@@ -42,6 +42,8 @@ struct Options
 			 "Time (in ms) for which program runs")
 			("output,o", value<std::string>(&output),
 			 "Set the output file name")
+			("post-process-file", value<std::string>(&post_process_file),
+			 "Set the file name for configuring the post-processing")
 			("rawfull", value<bool>(&rawfull)->default_value(false)->implicit_value(true),
 			 "Force use of full resolution raw frames")
 			("nopreview,n", value<bool>(&nopreview)->default_value(false)->implicit_value(true),
@@ -100,6 +102,7 @@ struct Options
 	uint64_t timeout; // in ms
 	std::string config_file;
 	std::string output;
+	std::string post_process_file;
 	unsigned int width;
 	unsigned int height;
 	bool rawfull;
@@ -236,6 +239,7 @@ struct Options
 		std::cout << "    width: " << width << std::endl;
 		std::cout << "    height: " << height << std::endl;
 		std::cout << "    output: " << output << std::endl;
+		std::cout << "    post_process_file: " << post_process_file << std::endl;
 		std::cout << "    rawfull: " << rawfull << std::endl;
 		if (nopreview)
 			std::cout << "    preview: none" << std::endl;
