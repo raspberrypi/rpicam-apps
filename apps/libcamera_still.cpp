@@ -27,26 +27,26 @@ public:
 };
 
 // In jpeg.cpp:
-void jpeg_save(std::vector<void *> const &mem, int w, int h, int stride, libcamera::PixelFormat const &pixel_format,
-			   libcamera::ControlList const &metadata, std::string const &filename, std::string const &cam_name,
-			   StillOptions const *options);
+void jpeg_save(std::vector<libcamera::Span<uint8_t>> const &mem, int w, int h, int stride,
+			   libcamera::PixelFormat const &pixel_format, libcamera::ControlList const &metadata,
+			   std::string const &filename, std::string const &cam_name, StillOptions const *options);
 
 // In yuv.cpp:
-void yuv_save(std::vector<void *> const &mem, int w, int h, int stride, libcamera::PixelFormat const &pixel_format,
-			  std::string const &filename, StillOptions const *options);
+void yuv_save(std::vector<libcamera::Span<uint8_t>> const &mem, int w, int h, int stride,
+			  libcamera::PixelFormat const &pixel_format, std::string const &filename, StillOptions const *options);
 
 // In dng.cpp:
-void dng_save(std::vector<void *> const &mem, int w, int h, int stride, libcamera::PixelFormat const &pixel_format,
-			  libcamera::ControlList const &metadata, std::string const &filename, std::string const &cam_name,
-			  StillOptions const *options);
+void dng_save(std::vector<libcamera::Span<uint8_t>> const &mem, int w, int h, int stride,
+			  libcamera::PixelFormat const &pixel_format, libcamera::ControlList const &metadata,
+			  std::string const &filename, std::string const &cam_name, StillOptions const *options);
 
 // In png.cpp:
-void png_save(std::vector<void *> const &mem, int w, int h, int stride, libcamera::PixelFormat const &pixel_format,
-			  std::string const &filename, StillOptions const *options);
+void png_save(std::vector<libcamera::Span<uint8_t>> const &mem, int w, int h, int stride,
+			  libcamera::PixelFormat const &pixel_format, std::string const &filename, StillOptions const *options);
 
 // In bmp.cpp:
-void bmp_save(std::vector<void *> const &mem, int w, int h, int stride, libcamera::PixelFormat const &pixel_format,
-			  std::string const &filename, StillOptions const *options);
+void bmp_save(std::vector<libcamera::Span<uint8_t>> const &mem, int w, int h, int stride,
+			  libcamera::PixelFormat const &pixel_format, std::string const &filename, StillOptions const *options);
 
 static std::string generate_filename(StillOptions const *options)
 {
@@ -92,7 +92,7 @@ static void save_image(LibcameraStillApp &app, CompletedRequest &payload, Stream
 	int w, h, stride;
 	app.StreamDimensions(stream, &w, &h, &stride);
 	libcamera::PixelFormat const &pixel_format = stream->configuration().pixelFormat;
-	std::vector<void *> mem = app.Mmap(payload.buffers[stream]);
+	const std::vector<libcamera::Span<uint8_t>> mem = app.Mmap(payload.buffers[stream]);
 	if (stream == app.RawStream())
 		dng_save(mem, w, h, stride, pixel_format, payload.metadata, filename, app.CameraId(), options);
 	else if (options->encoding == "jpg")
