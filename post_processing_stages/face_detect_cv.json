@@ -1,0 +1,12 @@
+{
+    "face_detect_cv":
+    {
+        "cascade_name" : "/usr/local/share/OpenCV/haarcascades/haarcascade_frontalface_alt.xml",
+        "scaling_factor" : 1.1,
+        "min_neighbors" : 2,
+        "min_size" : 32,
+        "max_size" : 256,
+        "refresh_rate" : 1,
+        "draw_features" : 1
+    }
+}
