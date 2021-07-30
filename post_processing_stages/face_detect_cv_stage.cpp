@@ -42,9 +42,12 @@ public:
 
 private:
 	void detectFeatures(cv::CascadeClassifier &cascade);
-	void drawFeatures(cv::Mat &img, double scale);
+	void drawFeatures(cv::Mat &img);
 
 	Stream *stream_;
+	int width_, height_, stride_;
+	Stream *full_stream_;
+	int full_width_, full_height_, full_stride_;
 	std::unique_ptr<std::future<void>> future_ptr_;
 	std::mutex face_mutex_;
 	std::mutex future_ptr_mutex_;
@@ -83,29 +86,43 @@ void FaceDetectCvStage::Read(boost::property_tree::ptree const &params)
 
 void FaceDetectCvStage::Configure()
 {
-	stream_ = app_->GetMainStream();
-	if (!stream_ || stream_->configuration().pixelFormat != libcamera::formats::YUV420)
-		throw std::runtime_error("SobelCvStage: only YUV420 format supported");
+	stream_ = nullptr;
+	full_stream_ = nullptr;
+
+	if (app_->StillStream()) // for stills capture, do nothing
+		return;
+
+	// Otherwise we expect there to be a lo res stream that we will use.
+	stream_ = app_->LoresStream();
+	if (!stream_)
+		throw std::runtime_error("FaceDetectCvStage: no low resolution stream");
+	// (the lo res stream can only be YUV420)
+	app_->StreamDimensions(stream_, &width_, &height_, &stride_);
+
+	// We also expect there to be a "full resolution" stream which defines the output coordinate
+	// system, and we can optionally draw the faces there too.
+	full_stream_ = app_->GetMainStream();
+	if (!full_stream_)
+		throw std::runtime_error("FaceDetectCvStage: no full resolution stream available");
+	app_->StreamDimensions(full_stream_, &full_width_, &full_height_, &full_stride_);
+	if (draw_features_ && full_stream_->configuration().pixelFormat != libcamera::formats::YUV420)
+		throw std::runtime_error("FaceDetectCvStage: drawing only supported for YUV420 images");
 }
 
 bool FaceDetectCvStage::Process(CompletedRequest &completed_request)
 {
-	int w, h, stride;
-	app_->StreamDimensions(stream_, &w, &h, &stride);
-	libcamera::Span<uint8_t> buffer = app_->Mmap(completed_request.buffers[stream_])[0];
-	uint8_t *ptr = (uint8_t *)buffer.data();
-	double scale = 4;
-
-	Mat image = Mat(h, w, CV_8U, ptr, stride);
-
-	// Everything beyond this point is image processing...
+	if (!stream_)
+		return false;
 
 	{
 		std::unique_lock<std::mutex> lck(future_ptr_mutex_);
 		if (completed_request.sequence % refresh_rate_ == 0 &&
 			(!future_ptr_ || future_ptr_->wait_for(std::chrono::seconds(0)) == std::future_status::ready))
 		{
-			resize(image, image_, Size(), 1 / scale, 1 / scale, INTER_LINEAR);
+			libcamera::Span<uint8_t> buffer = app_->Mmap(completed_request.buffers[stream_])[0];
+			uint8_t *ptr = (uint8_t *)buffer.data();
+			Mat image(height_, width_, CV_8U, ptr, stride_);
+			image_ = image.clone();
 
 			future_ptr_ = std::make_unique<std::future<void>>();
 			*future_ptr_ = std::move(std::async(std::launch::async, [this] { detectFeatures(cascade_); }));
@@ -119,8 +136,13 @@ bool FaceDetectCvStage::Process(CompletedRequest &completed_request)
 				   [](Rect &r) { return libcamera::Rectangle(r.x, r.y, r.width, r.height); });
 	completed_request.post_process_metadata.Set("detected_faces", temprect);
 
-	if (draw_features_ >= 1)
-		drawFeatures(image, scale);
+	if (draw_features_)
+	{
+		libcamera::Span<uint8_t> buffer = app_->Mmap(completed_request.buffers[full_stream_])[0];
+		uint8_t *ptr = (uint8_t *)buffer.data();
+		Mat image(full_height_, full_width_, CV_8U, ptr, full_stride_);
+		drawFeatures(image);
+	}
 
 	return false;
 }
@@ -133,11 +155,21 @@ void FaceDetectCvStage::detectFeatures(CascadeClassifier &cascade)
 	cascade.detectMultiScale(image_, temp_faces, scaling_factor_, min_neighbors_, CASCADE_SCALE_IMAGE,
 							 Size(min_size_, min_size_), Size(max_size_, max_size_));
 
+	// Scale faces back to the size and location in the full res image.
+	double scale_x = full_width_ / (double)width_;
+	double scale_y = full_height_ / (double)height_;
+	for (auto &face : temp_faces)
+	{
+		face.x *= scale_x;
+		face.y *= scale_y;
+		face.width *= scale_x;
+		face.height *= scale_y;
+	}
 	std::unique_lock<std::mutex> lock(face_mutex_);
 	faces_ = std::move(temp_faces);
 }
 
-void FaceDetectCvStage::drawFeatures(Mat &img, double scale)
+void FaceDetectCvStage::drawFeatures(Mat &img)
 {
 	const static Scalar colors[] = {
 		Scalar(255, 0, 0),	 Scalar(255, 128, 0), Scalar(255, 255, 0), Scalar(0, 255, 0),
@@ -154,15 +186,14 @@ void FaceDetectCvStage::drawFeatures(Mat &img, double scale)
 
 		if (0.75 < aspect_ratio && aspect_ratio < 1.3)
 		{
-			center.x = cvRound((r.x + r.width * 0.5) * scale);
-			center.y = cvRound((r.y + r.height * 0.5) * scale);
-			radius = cvRound((r.width + r.height) * 0.25 * scale);
+			center.x = cvRound(r.x + r.width * 0.5);
+			center.y = cvRound(r.y + r.height * 0.5);
+			radius = cvRound((r.width + r.height) * 0.25);
 			circle(img, center, radius, color, 3, 8, 0);
 		}
 		else
-			rectangle(img, Point(cvRound(r.x * scale), cvRound(r.y * scale)),
-					  Point(cvRound((r.x + r.width - 1) * scale), cvRound((r.y + r.height - 1) * scale)), color, 3, 8,
-					  0);
+			rectangle(img, Point(cvRound(r.x), cvRound(r.y)),
+					  Point(cvRound(r.x + r.width - 1), cvRound(r.y + r.height - 1)), color, 3, 8, 0);
 	}
 }
 
