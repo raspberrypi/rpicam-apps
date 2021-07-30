@@ -41,13 +41,15 @@ void PostProcessingStage::Teardown()
 {
 }
 
-static std::map<std::string, StageCreateFunc> stages;
+static std::map<std::string, StageCreateFunc> *stages_ptr;
 std::map<std::string, StageCreateFunc> const &GetPostProcessingStages()
 {
-	return stages;
+	return *stages_ptr;
 }
 
 RegisterStage::RegisterStage(char const *name, StageCreateFunc create_func)
 {
+	static std::map<std::string, StageCreateFunc> stages;
+	stages_ptr = &stages;
 	stages[std::string(name)] = create_func;
 }
