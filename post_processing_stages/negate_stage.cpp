@@ -43,11 +43,13 @@ void NegateStage::Configure()
 
 bool NegateStage::Process(CompletedRequest &completed_request)
 {
-	int w, h, stride;
 	libcamera::Span<uint8_t> buffer = app_->Mmap(completed_request.buffers[stream_])[0];
-	uint8_t *ptr = buffer.data();
-	for (unsigned int i = 0; i < buffer.size(); i++)
-		*(ptr++) ^= 0xff;
+	uint32_t *ptr = (uint32_t *)buffer.data();
+
+	// Constraints on the stride mean we always have multiple-of-4 bytes.
+	for (unsigned int i = 0; i < buffer.size(); i += 4)
+		*(ptr++) ^= 0xffffffff;
+
 	return false;
 }
 
