@@ -9,6 +9,7 @@
 
 #include <boost/property_tree/json_parser.hpp>
 #include <boost/property_tree/ptree.hpp>
+#include <chrono>
 
 namespace libcamera
 {
@@ -45,6 +46,18 @@ public:
 	virtual void Teardown();
 
 protected:
+	// Helper to calculate the execution time of any callable object and return it in as a std::chrono::duration.
+	// For functions returning a value, the simplest thing would be to wrap the call in a lambda and capture
+	// the return value.
+	template <class R = std::micro, class T = std::chrono::steady_clock, class F, class... Args>
+	static auto ExecutionTime(F &&f, Args &&... args)
+	{
+		auto t1 = T::now();
+		std::invoke(std::forward<decltype(f)>(f), std::forward<Args>(args)...);
+		auto t2 = T::now();
+		return std::chrono::duration<double, R>(t2 - t1);
+	}
+
 	LibcameraApp *app_;
 };
 
