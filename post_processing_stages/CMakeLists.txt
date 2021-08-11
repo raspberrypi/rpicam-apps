@@ -25,6 +25,12 @@ else()
     message(WARNING "OpenCV not found, some stages will not be built!")
 endif()
 
+set(ENABLE_TFLITE)
+if (ENABLE_TFLITE)
+    set(SRC ${SRC} object_classify_tf_stage.cpp)
+    set(TARGET_LIBS ${TARGET_LIBS} tensorflow-lite atomic)
+endif()
+
 add_library(post_processing_stages ${SRC})
 target_link_libraries(post_processing_stages ${TARGET_LIBS})
 target_compile_definitions(post_processing_stages PUBLIC OPENCV_PRESENT=${OpenCV_FOUND})
