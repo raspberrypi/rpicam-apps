@@ -27,6 +27,8 @@ public:
 	// Reset the preview window, clearing the current buffers and being ready to
 	// show new ones.
 	void Reset() override {}
+	// Return the maximum image size allowed. Zeroes mean "no limit".
+	virtual void MaxImageSize(unsigned int &w, unsigned int &h) const override { w = h = 0; }
 
 private:
 };

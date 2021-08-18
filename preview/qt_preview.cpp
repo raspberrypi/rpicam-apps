@@ -144,6 +144,8 @@ public:
 	void Reset() override {}
 	// Check if preview window has been shut down.
 	bool Quit() override { return main_window_->quit; }
+	// There is no particular limit to image sizes, though large images will be very slow.
+	virtual void MaxImageSize(unsigned int &w, unsigned int &h) const override { w = h = 0; }
 
 private:
 	void threadFunc(Options const *options)

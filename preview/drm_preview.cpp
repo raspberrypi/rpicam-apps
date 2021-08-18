@@ -24,6 +24,12 @@ public:
 	// Reset the preview window, clearing the current buffers and being ready to
 	// show new ones.
 	virtual void Reset() override;
+	// Return the maximum image size allowed.
+	virtual void MaxImageSize(unsigned int &w, unsigned int &h) const override
+	{
+		w = max_image_width_;
+		h = max_image_height_;
+	}
 
 private:
 	struct Buffer
@@ -54,6 +60,8 @@ private:
 	unsigned int screen_height_;
 	std::map<int, Buffer> buffers_; // map the DMABUF's fd to the Buffer
 	int last_fd_;
+	unsigned int max_image_width_;
+	unsigned int max_image_height_;
 };
 
 #define ERRSTR strerror(errno)
@@ -67,6 +75,9 @@ void DrmPreview::findCrtc()
 
 	if (res->count_crtcs <= 0)
 		throw std::runtime_error("drm: no crts");
+
+	max_image_width_ = res->max_width;
+	max_image_height_ = res->max_height;
 
 	if (!conId_)
 	{

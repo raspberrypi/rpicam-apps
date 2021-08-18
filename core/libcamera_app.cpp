@@ -113,6 +113,16 @@ void LibcameraApp::ConfigureViewfinder()
 			std::cout << "Viewfinder size chosen is " << size.toString() << std::endl;
 	}
 
+	// Finally trim the image size to the largest that the preview can handle.
+	Size max_size;
+	preview_->MaxImageSize(max_size.width, max_size.height);
+	if (max_size.width && max_size.height)
+	{
+		size.boundTo(max_size.boundedToAspectRatio(size)).alignDownTo(2, 2);
+		if (options_->verbose)
+			std::cout << "Final viewfinder size is " << size.toString() << std::endl;
+	}
+
 	// Now we get to override any of the default settings from the options_->
 	configuration_->at(0).pixelFormat = libcamera::formats::YUV420;
 	configuration_->at(0).size = size;
