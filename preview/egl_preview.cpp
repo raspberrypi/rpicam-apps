@@ -32,6 +32,12 @@ public:
 	virtual void Reset() override;
 	// Check if the window manager has closed the preview.
 	virtual bool Quit() override;
+	// Return the maximum image size allowed.
+	virtual void MaxImageSize(unsigned int &w, unsigned int &h) const override
+	{
+		w = max_image_width_;
+		h = max_image_height_;
+	}
 
 private:
 	struct Buffer
@@ -60,6 +66,8 @@ private:
 	int y_;
 	int width_;
 	int height_;
+	unsigned int max_image_width_;
+	unsigned int max_image_height_;
 };
 
 static GLint compile_shader(GLenum target, const char *source)
@@ -317,7 +325,14 @@ void EglPreview::makeWindow(char const *name)
 	if (!egl_surface_)
 		throw std::runtime_error("eglCreateWindowSurface failed");
 
-	// Can't do eglMakeCurrent yet because this might not be the display thread.
+	// We have to do eglMakeCurrent in the thread where it will run, but we must do it
+	// here temporarily so as to get the maximum texture size.
+	eglMakeCurrent(egl_display_, EGL_NO_SURFACE, EGL_NO_SURFACE, egl_context_);
+	int max_texture_size = 0;
+	glGetIntegerv(GL_MAX_TEXTURE_SIZE, &max_texture_size);
+	max_image_width_ = max_image_height_ = max_texture_size;
+	// This "undoes" the previous eglMakeCurrent.
+	eglMakeCurrent(egl_display_, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
 }
 
 void EglPreview::makeBuffer(int fd, size_t size, int width, int height, int stride, Buffer &buffer)
