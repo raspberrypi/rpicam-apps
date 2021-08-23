@@ -4,6 +4,7 @@
  *
  * libcamera_app.cpp - base class for libcamera apps.
  */
+
 #include "preview/preview.hpp"
 
 #include "core/frame_info.hpp"
@@ -609,6 +610,7 @@ void LibcameraApp::previewThread()
 		int w, h, stride;
 		StreamDimensions(item.stream, &w, &h, &stride);
 		FrameBuffer *buffer = item.completed_request.buffers[item.stream];
+		void *mem = Mmap(buffer)[0];
 
 		// Fill the frame info with the ControlList items and ancillary bits.
 		FrameInfo frame_info(item.completed_request.metadata);
@@ -628,7 +630,8 @@ void LibcameraApp::previewThread()
 			msg_queue_.Post(Msg(MsgType::Quit, QuitPayload()));
 		}
 		preview_frames_displayed_++;
-		preview_->Show(fd, size, w, h, stride);
+		libcamera::Span<uint8_t> span((uint8_t *)mem, size);
+		preview_->Show(fd, span, w, h, stride);
 		if (!options_->info_text.empty())
 		{
 			std::string s = frame_info.ToString(options_->info_text);

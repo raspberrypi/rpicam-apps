@@ -20,7 +20,10 @@ public:
 	~NullPreview() {}
 	// Display the buffer. You get given the fd back in the BufferDoneCallback
 	// once its available for re-use.
-	virtual void Show(int fd, size_t size, int width, int height, int stride) override { done_callback_(fd); }
+	virtual void Show(int fd, libcamera::Span<uint8_t> span, int width, int height, int stride) override
+	{
+		done_callback_(fd);
+	}
 	// Reset the preview window, clearing the current buffers and being ready to
 	// show new ones.
 	void Reset() override {}

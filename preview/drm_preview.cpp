@@ -20,7 +20,7 @@ public:
 	~DrmPreview();
 	// Display the buffer. You get given the fd back in the BufferDoneCallback
 	// once its available for re-use.
-	virtual void Show(int fd, size_t size, int width, int height, int stride) override;
+	virtual void Show(int fd, libcamera::Span<uint8_t> span, int width, int height, int stride) override;
 	// Reset the preview window, clearing the current buffers and being ready to
 	// show new ones.
 	virtual void Reset() override;
@@ -276,11 +276,11 @@ void DrmPreview::makeBuffer(int fd, size_t size, unsigned int width, unsigned in
 		throw std::runtime_error("drmModeAddFB2 failed: " + std::string(ERRSTR));
 }
 
-void DrmPreview::Show(int fd, size_t size, int width, int height, int stride)
+void DrmPreview::Show(int fd, libcamera::Span<uint8_t> span, int width, int height, int stride)
 {
 	Buffer &buffer = buffers_[fd];
 	if (buffer.fd == -1)
-		makeBuffer(fd, size, width, height, stride, buffer);
+		makeBuffer(fd, span.size(), width, height, stride, buffer);
 
 	unsigned int x_off = 0, y_off = 0;
 	unsigned int w = width_, h = height_;

@@ -10,6 +10,8 @@
 #include <functional>
 #include <string>
 
+#include <libcamera/base/span.h>
+
 #include "core/options.hpp"
 
 class Preview
@@ -25,7 +27,7 @@ public:
 	virtual void SetInfoText(const std::string &text) {}
 	// Display the buffer. You get given the fd back in the BufferDoneCallback
 	// once its available for re-use.
-	virtual void Show(int fd, size_t size, int width, int height, int stride) = 0;
+	virtual void Show(int fd, libcamera::Span<uint8_t> span, int width, int height, int stride) = 0;
 	// Reset the preview window, clearing the current buffers and being ready to
 	// show new ones.
 	virtual void Reset() = 0;
