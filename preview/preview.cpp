@@ -10,11 +10,16 @@
 Preview *make_null_preview(Options const *options);
 Preview *make_egl_preview(Options const *options);
 Preview *make_drm_preview(Options const *options);
+Preview *make_qt_preview(Options const *options);
 
 Preview *make_preview(Options const *options)
 {
 	if (options->nopreview)
 		return make_null_preview(options);
+#if QT_PRESENT
+	else if (options->qt_preview)
+		return make_qt_preview(options);
+#endif
 	else
 	{
 		try
