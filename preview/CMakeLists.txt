@@ -4,7 +4,7 @@ pkg_check_modules(LIBDRM QUIET libdrm)
 pkg_check_modules(X11 QUIET x11)
 pkg_check_modules(EPOXY QUIET epoxy)
 
-set(SRC "")
+set(SRC "preview.cpp")
 set(TARGET_LIBS "")
 
 set(DRM_FOUND 0)

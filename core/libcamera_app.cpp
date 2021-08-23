@@ -42,39 +42,7 @@ std::string const &LibcameraApp::CameraId() const
 void LibcameraApp::OpenCamera()
 {
 	// Make a preview window.
-	if (options_->nopreview)
-		preview_ = std::unique_ptr<Preview>(make_null_preview(options_.get()));
-	else
-	{
-		try
-		{
-#if LIBEGL_PRESENT
-			preview_ = std::unique_ptr<Preview>(make_egl_preview(options_.get()));
-			if (options_->verbose)
-				std::cout << "Made X/EGL preview window" << std::endl;
-#else
-			throw std::runtime_error("egl libraries unavailable.");
-#endif
-		}
-		catch (std::exception const &e)
-		{
-			try
-			{
-#if LIBDRM_PRESENT
-				preview_ = std::unique_ptr<Preview>(make_drm_preview(options_.get()));
-				if (options_->verbose)
-					std::cout << "Made DRM preview window" << std::endl;
-#else
-				throw std::runtime_error("drm libraries unavailable.");
-#endif
-			}
-			catch (std::exception const &e)
-			{
-				std::cout << "Preview window unavailable" << std::endl;
-				preview_ = std::unique_ptr<Preview>(make_null_preview(options_.get()));
-			}
-		}
-	}
+	preview_ = std::unique_ptr<Preview>(make_preview(options_.get()));
 	preview_->SetDoneCallback(std::bind(&LibcameraApp::previewDoneCallback, this, std::placeholders::_1));
 
 	if (options_->verbose)
