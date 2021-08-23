@@ -3,6 +3,8 @@ cmake_minimum_required(VERSION 3.6)
 pkg_check_modules(LIBDRM QUIET libdrm)
 pkg_check_modules(X11 QUIET x11)
 pkg_check_modules(EPOXY QUIET epoxy)
+pkg_check_modules(QTCORE QUIET Qt5Core)
+pkg_check_modules(QTWIDGETS QUIET Qt5Widgets)
 
 set(SRC "preview.cpp")
 set(TARGET_LIBS "")
@@ -29,11 +31,24 @@ else()
     message(WARNING "EGL libraries not found, this display mode will be unavailable!")
 endif()
 
+set(QT_FOUND 0)
+if (QTCORE_FOUND AND QTWIDGETS_FOUND)
+    message(STATUS "QTCORE_LINK_LIBRARIES=${QTCORE_LINK_LIBRARIES}")
+    message(STATUS "QTCORE_INCLUDE_DIRS=${QTCORE_INCLUDE_DIRS}")
+    include_directories(${QTCORE_INCLUDE_DIRS} ${QTWIDGETS_INCLUDE_DIRS})
+    set(TARGET_LIBS ${TARGET_LIBS} ${QTCORE_LIBRARIES} ${QTWIDGETS_LIBRARIES})
+    set(SRC ${SRC} qt_preview.cpp)
+    set(QT_FOUND 1)
+else()
+    message(STATUS "QT not found, this display mode will be unavailable")
+endif()
+
 add_library(preview null_preview.cpp ${SRC})
 target_link_libraries(preview ${TARGET_LIBS})
 
 target_compile_definitions(preview PUBLIC LIBDRM_PRESENT=${DRM_FOUND})
 target_compile_definitions(preview PUBLIC LIBEGL_PRESENT=${EGL_FOUND})
+target_compile_definitions(preview PUBLIC QT_PRESENT=${QT_FOUND})
 
 install(TARGETS preview LIBRARY DESTINATION lib ARCHIVE DESTINATION lib)
 
