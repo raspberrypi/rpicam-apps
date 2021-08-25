@@ -27,8 +27,8 @@ endif()
 
 set(ENABLE_TFLITE)
 if (ENABLE_TFLITE)
-    set(SRC ${SRC} object_classify_tf_stage.cpp)
-    set(TARGET_LIBS ${TARGET_LIBS} tensorflow-lite atomic)
+    set(SRC ${SRC} object_classify_tf_stage.cpp pose_estimation_tf_stage)
+    set(TARGET_LIBS ${TARGET_LIBS} tensorflow-lite)
 endif()
 
 add_library(post_processing_stages ${SRC})
