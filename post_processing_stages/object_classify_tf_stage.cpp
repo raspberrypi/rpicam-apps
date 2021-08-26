@@ -24,20 +24,8 @@
 #include "tensorflow/lite/c/common.h"
 #include "tensorflow/lite/interpreter.h"
 #include "tensorflow/lite/kernels/register.h"
-#include "tensorflow/lite/string_util.h"
 
 using Stream = libcamera::Stream;
-
-struct TfSettings
-{
-	TfLiteType input_type = kTfLiteFloat32;
-	bool allow_fp16 = false;
-	tflite::string model_name = "/home/pi/models/mobilenet_quant_v1_224.tflite";
-	tflite::FlatBufferModel *model;
-	tflite::string labels_file_name = "/home/pi/models/labels.txt";
-	int number_of_threads = 4;
-	int number_of_results = 3;
-};
 
 constexpr int IMAGE_WIDTH = 224;
 constexpr int IMAGE_HEIGHT = 224;
@@ -63,35 +51,37 @@ private:
 
 	void runInference();
 
-	TfLiteStatus readLabelsFile(const tflite::string &file_name, std::vector<tflite::string> *result,
-								size_t *found_label_count);
+	void readLabelsFile(const std::string &file_name, std::vector<std::string> *result, size_t *found_label_count);
 
 	std::vector<uint8_t> yuvToRgb(uint8_t *mem, int w, int h, int stride);
 
-	void getTopResults(uint8_t *prediction, int prediction_size, size_t num_results,
-					   std::vector<std::pair<float, int>> *top_results, TfLiteType input_type);
+	void getTopResults(uint8_t *prediction, int prediction_size, size_t num_results);
 
+	struct Config
+	{
+		int number_of_threads;
+		int number_of_results;
+		int refresh_rate;
+		int top_n_results;
+		float threshold_high;
+		float threshold_low;
+		std::string model_file;
+		std::string labels_file;
+		int display_labels;
+		int verbose;
+	} config_;
 	Stream *stream_;
 	int w_, h_, stride_;
 	std::mutex future_ptr_mutex_;
 	std::mutex output_results_mutex_;
-	TfSettings settings_;
 	std::unique_ptr<tflite::FlatBufferModel> model_;
 	std::unique_ptr<tflite::Interpreter> interpreter_;
 	std::vector<std::pair<std::string, float>> output_results_;
 	std::unique_ptr<std::future<void>> future_ptr_;
-	int refresh_rate_;
-	int top_n_results_;
-	float threshold_high_;
-	float threshold_low_;
-	std::string model_file_;
-	std::string labels_file_;
-	int display_labels_;
-	std::vector<tflite::string> labels_;
+	std::vector<std::string> labels_;
 	size_t label_count_;
 	std::vector<uint8_t> tensor_input_;
 	std::vector<std::pair<float, int>> top_results_;
-	int verbose_;
 };
 
 #define NAME "object_classify_tf"
@@ -103,28 +93,24 @@ char const *ObjectClassifyTfStage::Name() const
 
 void ObjectClassifyTfStage::Read(boost::property_tree::ptree const &params)
 {
-	top_n_results_ = params.get<int>("top_n_results", 3);
-	refresh_rate_ = params.get<int>("refresh_rate", 10);
-	threshold_high_ = params.get<float>("threshold_high", 0.01f);
-	threshold_low_ = params.get<float>("threshold_low", 0.01f);
-	model_file_ = params.get<std::string>("model_file", "/home/pi/models/mobilenet_quant_v1_224.tflite");
-	labels_file_ = params.get<std::string>("labels_file", "/home/pi/models/labels.txt");
-	display_labels_ = params.get<int>("display_labels", 1);
-	verbose_ = params.get<int>("verbose", 1);
-
-	settings_.number_of_results = top_n_results_;
-	settings_.model_name = model_file_;
-	settings_.labels_file_name = labels_file_;
+	config_.number_of_results = params.get<int>("number_of_results", 3);
+	config_.number_of_threads = params.get<int>("number_of_threads", 2);
+	config_.refresh_rate = params.get<int>("refresh_rate", 10);
+	config_.threshold_high = params.get<float>("threshold_high", 0.2f);
+	config_.threshold_low = params.get<float>("threshold_low", 0.1f);
+	config_.model_file = params.get<std::string>("model_file", "/home/pi/models/mobilenet_quant_v1_224.tflite");
+	config_.labels_file = params.get<std::string>("labels_file", "/home/pi/models/labels.txt");
+	config_.display_labels = params.get<int>("display_labels", 1);
+	config_.verbose = params.get<int>("verbose", 1);
 
 	initialize();
 }
 
 void ObjectClassifyTfStage::initialize()
 {
-	model_ = tflite::FlatBufferModel::BuildFromFile(settings_.model_name.c_str());
+	model_ = tflite::FlatBufferModel::BuildFromFile(config_.model_file.c_str());
 
-	settings_.model = model_.get();
-	std::cout << "Loaded model " << settings_.model_name << std::endl;
+	std::cout << "Loaded model " << config_.model_file << std::endl;
 	model_->error_reporter();
 
 	tflite::ops::builtin::BuiltinOpResolver resolver;
@@ -134,16 +120,14 @@ void ObjectClassifyTfStage::initialize()
 		throw std::runtime_error("ObjectClassifyStage: Failed to construct interpreter");
 
 	std::cout << "Input size " << interpreter_->inputs().size() << std::endl;
-	// interpreter_->SetAllowFp16PrecisionForFp32(settings_.allow_fp16);
 
-	if (settings_.number_of_threads != -1)
-		interpreter_->SetNumThreads(settings_.number_of_threads);
+	if (config_.number_of_threads != -1)
+		interpreter_->SetNumThreads(config_.number_of_threads);
 
 	if (interpreter_->AllocateTensors() != kTfLiteOk)
 		throw std::runtime_error("ObjectClassifyStage: Failed to allocate tensors");
 
-	if (readLabelsFile(settings_.labels_file_name, &labels_, &label_count_) != kTfLiteOk)
-		throw std::runtime_error("ObjectClassifyStage: Failed to read labels file");
+	readLabelsFile(config_.labels_file, &labels_, &label_count_);
 }
 
 void ObjectClassifyTfStage::Configure()
@@ -164,7 +148,7 @@ bool ObjectClassifyTfStage::Process(CompletedRequest &completed_request)
 
 	{
 		std::unique_lock<std::mutex> lck(future_ptr_mutex_);
-		if (refresh_rate_ && completed_request.sequence % refresh_rate_ == 0 &&
+		if (config_.refresh_rate && completed_request.sequence % config_.refresh_rate == 0 &&
 			(!future_ptr_ || future_ptr_->wait_for(std::chrono::seconds(0)) == std::future_status::ready))
 		{
 			libcamera::Span<uint8_t> buffer = app_->Mmap(completed_request.buffers[stream_])[0];
@@ -177,25 +161,37 @@ bool ObjectClassifyTfStage::Process(CompletedRequest &completed_request)
 				auto time_taken =
 					ExecutionTime<std::micro>(std::bind(&ObjectClassifyTfStage::runInference, this)).count();
 
-				if (verbose_)
+				if (config_.verbose)
 					std::cout << "Detection Time: " << time_taken << " ms" << std::endl;
 			}));
 		}
 	}
 
 	std::unique_lock<std::mutex> lock(output_results_mutex_);
-	std::stringstream annotation;
-	annotation << "Detected: ";
-
-	for (const auto &result : output_results_)
-	{
-		annotation << result.first << " : " << std::to_string(result.second) << "  ";
-	}
 
 	completed_request.post_process_metadata.Set("object_classify.results", output_results_);
 
-	if (display_labels_)
+	if (config_.display_labels)
+	{
+		std::stringstream annotation;
+		annotation.precision(2);
+		annotation << "Detected: ";
+		bool first = true;
+
+		for (const auto &result : output_results_)
+		{
+			unsigned int start = result.first.find(':');
+			unsigned int end = result.first.find(',');
+			// Note: this does the right thing if start and/or end are std::string::npos
+			std::string label = result.first.substr(start + 1, end - (start + 1));
+			if (!first)
+				annotation << ", ";
+			annotation << label << " " << result.second;
+			first = false;
+		}
+
 		completed_request.post_process_metadata.Set("annotate.text", annotation.str());
+	}
 
 	return false;
 }
@@ -210,14 +206,11 @@ static RegisterStage reg(NAME, &Create);
 void ObjectClassifyTfStage::runInference()
 {
 	int input = interpreter_->inputs()[0];
-	settings_.input_type = interpreter_->tensor(input)->type;
 
 	TfLiteIntArray *dims = interpreter_->tensor(input)->dims;
 
 	for (int i = 0; i < tensor_input_.size(); i++)
-	{
 		interpreter_->typed_tensor<uint8_t>(input)[i] = static_cast<uint8_t>(tensor_input_[i]);
-	}
 
 	if (interpreter_->Invoke() != kTfLiteOk)
 		throw std::runtime_error("ObjectClassifyStage: Failed to invoke TFLite");
@@ -227,31 +220,27 @@ void ObjectClassifyTfStage::runInference()
 	// assume output dims to be something like (1, 1, ... ,size)
 	auto output_size = output_dims->data[output_dims->size - 1];
 
-	getTopResults(interpreter_->typed_output_tensor<uint8_t>(0), output_size, top_n_results_, &top_results_,
-				  settings_.input_type);
+	getTopResults(interpreter_->typed_output_tensor<uint8_t>(0), output_size, config_.number_of_results);
 
 	std::unique_lock<std::mutex> lock(output_results_mutex_);
 	output_results_.clear();
 
 	for (const auto &result : top_results_)
 	{
-		const float confidence = result.first;
-		const int index = result.second;
-		const std::string label = labels_[index];
-		output_results_.push_back(std::make_pair(label, confidence));
+		float confidence = result.first;
+		int index = result.second;
+		output_results_.push_back(std::make_pair(labels_[index], confidence));
 	}
 
-	if (verbose_)
+	if (config_.verbose)
 	{
 		for (const auto &result : output_results_)
-		{
 			std::cout << result.first << " : " << std::to_string(result.second) << std::endl;
-		}
 		std::cout << std::endl;
 	}
 }
 
-TfLiteStatus ObjectClassifyTfStage::readLabelsFile(const tflite::string &file_name, std::vector<tflite::string> *result,
+void ObjectClassifyTfStage::readLabelsFile(const std::string &file_name, std::vector<std::string> *result,
 												   size_t *found_label_count)
 {
 	std::ifstream file(file_name);
@@ -259,21 +248,15 @@ TfLiteStatus ObjectClassifyTfStage::readLabelsFile(const tflite::string &file_na
 		throw std::runtime_error("ObjectClassifyStage: Failed to load labels file");
 
 	result->clear();
-	tflite::string line;
+	std::string line;
 	while (std::getline(file, line))
-	{
 		result->push_back(line);
-	}
 
 	*found_label_count = result->size();
-	const int padding = 16;
+	constexpr int padding = 16;
 
 	while (result->size() % padding)
-	{
 		result->emplace_back();
-	}
-
-	return kTfLiteOk;
 }
 
 std::vector<uint8_t> ObjectClassifyTfStage::yuvToRgb(uint8_t *mem, int w, int h, int stride)
@@ -301,8 +284,7 @@ std::vector<uint8_t> ObjectClassifyTfStage::yuvToRgb(uint8_t *mem, int w, int h,
 	return output;
 }
 
-void ObjectClassifyTfStage::getTopResults(uint8_t *prediction, int prediction_size, size_t num_results,
-										  std::vector<std::pair<float, int>> *top_results, TfLiteType input_type)
+void ObjectClassifyTfStage::getTopResults(uint8_t *prediction, int prediction_size, size_t num_results)
 {
 	// Will contain top N results in ascending order.
 	std::priority_queue<std::pair<float, int>, std::vector<std::pair<float, int>>, std::greater<std::pair<float, int>>>
@@ -310,65 +292,33 @@ void ObjectClassifyTfStage::getTopResults(uint8_t *prediction, int prediction_si
 	std::vector<std::pair<float, int>> top_results_old = std::move(top_results_);
 	top_results_.clear();
 
-	const long count = prediction_size;
-	float value = 0.0;
-
-	for (int i = 0; i < count; ++i)
+	for (int i = 0; i < prediction_size; ++i)
 	{
-		value = prediction[i] / 255.0;
-		// Only add it if it beats the threshold and has a chance at being in
-		// the top N.
-		if (value < threshold_high_)
-		{
+		float confidence = prediction[i] / 255.0;
+
+		if (confidence < config_.threshold_low)
 			continue;
-		}
 
-		top_result_pq.push(std::pair<float, int>(value, i));
-
-		for (int i = 0; i < top_results_old.size(); i++)
+		// Consider keeping if above the high threshold or it was in the old list.
+		if (confidence >= config_.threshold_high ||
+			std::find_if(top_results_old.begin(), top_results_old.end(),
+						 [i] (auto &p) { return p.second == i; }) != top_results_old.end())
 		{
-			if (top_results_old[i].second == i)
-			{
-				top_results_old.erase(top_results_old.begin() + i);
-			}
-		}
-
-		// If at capacity, kick the smallest value out.
-		if (top_result_pq.size() > num_results)
-		{
-			top_result_pq.pop();
-		}
-	}
-
-	if (top_result_pq.size() < num_results)
-	{
-		for (int i = 0; i < top_results_old.size(); i++)
-		{
-			value = prediction[(int)top_results_old[i].second] / 255.0;
-			// Only add it if it beats the threshold and has a chance at being in
-			// the top N.
-			if (value < threshold_low_)
-			{
-				continue;
-			}
-
-			top_result_pq.push(std::pair<float, int>(value, i));
+			top_result_pq.push(std::pair<float, int>(confidence, i));
 
 			// If at capacity, kick the smallest value out.
 			if (top_result_pq.size() > num_results)
-			{
 				top_result_pq.pop();
-			}
 		}
 	}
 
 	// Copy to output vector and reverse into descending order.
 	while (!top_result_pq.empty())
 	{
-		top_results->push_back(top_result_pq.top());
+		top_results_.push_back(top_result_pq.top());
 		top_result_pq.pop();
 	}
-	std::reverse(top_results->begin(), top_results->end());
+	std::reverse(top_results_.begin(), top_results_.end());
 }
 
 void ObjectClassifyTfStage::Stop()
