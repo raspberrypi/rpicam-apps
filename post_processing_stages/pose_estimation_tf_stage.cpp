@@ -32,15 +32,17 @@ struct TfSettings
 {
 	TfLiteType input_type = kTfLiteFloat32;
 	bool allow_fp16 = false;
-	tflite::string model_name = "/home/pi/models/posenet_mobilenet_v1_100_257x257_multi_kpt_stripped.tflite";
-	tflite::FlatBufferModel *model;
+	std::string model_name = "/home/pi/models/posenet_mobilenet_v1_100_257x257_multi_kpt_stripped.tflite";
 	int number_of_threads = 4;
 	int number_of_results = 3;
+	int refresh_rate;
 };
 
 constexpr int IMAGE_WIDTH = 258;
 constexpr int IMAGE_HEIGHT = 258;
 constexpr int IMAGE_CHANNELS = 3;
+constexpr int FEATURE_SIZE = 17;
+constexpr int HEATMAP_DIMS = 9;
 
 class PoseEstimationTfStage : public PostProcessingStage
 {
@@ -71,10 +73,7 @@ private:
 	TfSettings settings_;
 	std::unique_ptr<tflite::FlatBufferModel> model_;
 	std::unique_ptr<tflite::Interpreter> interpreter_;
-	int input_;
 	std::unique_ptr<std::future<void>> future_ptr_;
-	int refresh_rate_;
-	std::string model_file_;
 	std::mutex future_ptr_mutex_;
 	std::mutex output_results_mutex_;
 	std::vector<float> tensor_input_;
@@ -92,10 +91,9 @@ char const *PoseEstimationTfStage::Name() const
 
 void PoseEstimationTfStage::Read(boost::property_tree::ptree const &params)
 {
-	refresh_rate_ = params.get<int>("refresh_rate", 10);
-	model_file_ = params.get<std::string>("model_file",
-										  "/home/pi/models/posenet_mobilenet_v1_100_257x257_multi_kpt_stripped.tflite");
-	settings_.model_name = model_file_;
+	settings_.refresh_rate = params.get<int>("refresh_rate", 10);
+	settings_.model_name = params.get<std::string>(
+		"model_file", "/home/pi/models/posenet_mobilenet_v1_100_257x257_multi_kpt_stripped.tflite");
 
 	initialize();
 }
@@ -103,7 +101,6 @@ void PoseEstimationTfStage::Read(boost::property_tree::ptree const &params)
 void PoseEstimationTfStage::initialize()
 {
 	model_ = tflite::FlatBufferModel::BuildFromFile(settings_.model_name.c_str());
-	settings_.model = model_.get();
 	std::cout << "Loaded model " << settings_.model_name << std::endl;
 
 	model_->error_reporter();
@@ -138,6 +135,10 @@ void PoseEstimationTfStage::Configure()
 		app_->StreamDimensions(main_stream_, &main_w_, &main_h_, &main_stride_);
 		std::cout << main_w_ << " " << main_h_ << std::endl;
 	}
+	else
+	{
+		throw std::runtime_error("Main Stream is null");
+	}
 }
 
 bool PoseEstimationTfStage::Process(CompletedRequest &completed_request)
@@ -146,7 +147,7 @@ bool PoseEstimationTfStage::Process(CompletedRequest &completed_request)
 		return false;
 	{
 		std::unique_lock<std::mutex> lck(future_ptr_mutex_);
-		if (completed_request.sequence % refresh_rate_ == 0 &&
+		if (completed_request.sequence % settings_.refresh_rate == 0 &&
 			(!future_ptr_ || future_ptr_->wait_for(std::chrono::seconds(0)) == std::future_status::ready))
 		{
 			libcamera::Span<uint8_t> buffer = app_->Mmap(completed_request.buffers[lores_stream_])[0];
@@ -160,8 +161,8 @@ bool PoseEstimationTfStage::Process(CompletedRequest &completed_request)
 	}
 
 	std::unique_lock<std::mutex> lock(output_results_mutex_);
-	completed_request.post_process_metadata.Set("locations", locations_);
-	completed_request.post_process_metadata.Set("confidences", confidences_);
+	completed_request.post_process_metadata.Set("pose_estimation.locations", locations_);
+	completed_request.post_process_metadata.Set("pose_estimation.confidences", confidences_);
 
 	return false;
 }
@@ -170,14 +171,14 @@ void PoseEstimationTfStage::runInference()
 {
 	// This code has been adapted from the "Qengineering/TensorFlow_Lite_Pose_RPi_32-bits" repository and can be
 	// found here: "https://github.com/Qengineering/TensorFlow_Lite_Pose_RPi_32-bits/blob/master/Pose_single.cpp"
-	std::unique_lock<std::mutex> lock(output_results_mutex_);
-
 	for (int i = 0; i < tensor_input_.size(); i++)
 	{
 		interpreter_->typed_tensor<float>(interpreter_->inputs()[0])[i] = static_cast<float>(tensor_input_[i]);
 	}
 
 	interpreter_->Invoke();
+
+	std::unique_lock<std::mutex> lock(output_results_mutex_);
 
 	float *heatmaps = interpreter_->tensor(interpreter_->outputs()[0])->data.f;
 	float *offsets = interpreter_->tensor(interpreter_->outputs()[1])->data.f;
@@ -186,15 +187,15 @@ void PoseEstimationTfStage::runInference()
 	int j;
 	heats_.clear();
 
-	for (int i = 0; i < 17; i++)
+	for (int i = 0; i < FEATURE_SIZE; i++)
 	{
 		confidence_temp = heatmaps[i];
 		libcamera::Point heat_coord;
-		for (int y = 0; y < 9; y++)
+		for (int y = 0; y < HEATMAP_DIMS; y++)
 		{
-			for (int x = 0; x < 9; x++)
+			for (int x = 0; x < HEATMAP_DIMS; x++)
 			{
-				j = 17 * (9 * y + x) + i;
+				j = FEATURE_SIZE * (HEATMAP_DIMS * y + x) + i;
 				if (heatmaps[j] > confidence_temp)
 				{
 					confidence_temp = heatmaps[j];
@@ -209,13 +210,13 @@ void PoseEstimationTfStage::runInference()
 
 	locations_.clear();
 
-	for (int i = 0; i < 17; i++)
+	for (int i = 0; i < FEATURE_SIZE; i++)
 	{
 		libcamera::Point location_coord;
-		int x = heats_[i].x, y = heats_[i].y, j = 34 * (9 * y + x) + i;
+		int x = heats_[i].x, y = heats_[i].y, j = (FEATURE_SIZE * 2) * (HEATMAP_DIMS * y + x) + i;
 
-		location_coord.y = (y * main_h_) / 8 + offsets[j];
-		location_coord.x = (x * main_w_) / 8 + offsets[j + 17];
+		location_coord.y = (y * main_h_) / (HEATMAP_DIMS - 1) + offsets[j];
+		location_coord.x = (x * main_w_) / (HEATMAP_DIMS - 1) + offsets[j + FEATURE_SIZE];
 
 		locations_.push_back(location_coord);
 	}
@@ -224,6 +225,7 @@ void PoseEstimationTfStage::runInference()
 std::vector<float> PoseEstimationTfStage::yuvToRgb(uint8_t *mem, int w, int h, int stride)
 {
 	int dst;
+	//our Low-Res input (YUV420) has to be 258*258 but the PoseNet model requires 257*257 so we trim the ends.
 	std::vector<float> output((h - 1) * (w - 1) * 3);
 
 	for (int y = 0; y < h - 1; y++)

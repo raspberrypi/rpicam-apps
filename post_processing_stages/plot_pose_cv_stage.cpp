@@ -9,21 +9,43 @@
 #include <chrono>
 #include <iostream>
 #include <iterator>
-#include <libcamera/stream.h>
 #include <memory>
 #include <vector>
 
-#include "../core/libcamera_app.hpp"
-#include "../core/post_processing_stage.hpp"
+#include <libcamera/stream.h>
 #include "libcamera/geometry.h"
-#include "opencv2/highgui.hpp"
+
+#include "core/libcamera_app.hpp"
+#include "core/post_processing_stage.hpp"
+
 #include "opencv2/imgproc.hpp"
-#include "opencv2/objdetect.hpp"
-#include "opencv2/videoio.hpp"
 
 using namespace cv;
 
 using Stream = libcamera::Stream;
+
+enum features
+{
+	nose,
+	leftEye,
+	rightEye,
+	leftEar,
+	rightEar,
+	leftShoulder,
+	rightShoulder,
+	leftElbow,
+	rightElbow,
+	leftWrist,
+	rightWrist,
+	leftHip,
+	rightHip,
+	leftKnee,
+	rightKnee,
+	leftAnkle,
+	rightAnkle
+};
+
+constexpr int FEATURE_SIZE = 17;
 
 class PlotPoseCvStage : public PostProcessingStage
 {
@@ -42,7 +64,6 @@ private:
 	void drawFeatures(cv::Mat &img, std::vector<Point> locations, std::vector<float> confidences);
 
 	Stream *stream_;
-	std::mutex future_ptr_mutex_;
 	float confidence_threshold_;
 };
 
@@ -60,12 +81,11 @@ void PlotPoseCvStage::Configure()
 
 void PlotPoseCvStage::Read(boost::property_tree::ptree const &params)
 {
-	confidence_threshold_ = params.get<float>("confidence_threshold_", -1.0);
+	confidence_threshold_ = params.get<float>("confidence_threshold", -1.0);
 }
 
 bool PlotPoseCvStage::Process(CompletedRequest &completed_request)
 {
-	std::unique_lock<std::mutex> lck(future_ptr_mutex_);
 	int w, h, stride;
 	libcamera::Span<uint8_t> buffer = app_->Mmap(completed_request.buffers[stream_])[0];
 	uint32_t *ptr = (uint32_t *)buffer.data();
@@ -76,8 +96,8 @@ bool PlotPoseCvStage::Process(CompletedRequest &completed_request)
 	std::vector<Point> cv_locations;
 	std::vector<float> confidences;
 
-	completed_request.post_process_metadata.Get("locations", lib_locations);
-	completed_request.post_process_metadata.Get("confidences", confidences);
+	completed_request.post_process_metadata.Get("pose_estimation.locations", lib_locations);
+	completed_request.post_process_metadata.Get("pose_estimation.confidences", confidences);
 
 	if (!confidences.empty() && !lib_locations.empty())
 	{
@@ -96,64 +116,64 @@ bool PlotPoseCvStage::Process(CompletedRequest &completed_request)
 
 void PlotPoseCvStage::drawFeatures(Mat &img, std::vector<cv::Point> locations, std::vector<float> confidences)
 {
-	Scalar color = Scalar(255, 255, 255);
+	Scalar colour = Scalar(255, 255, 255);
 	int radius = 5;
 
-	for (int i = 0; i < 17; i++)
+	for (int i = 0; i < FEATURE_SIZE; i++)
 	{
 		if (confidences[i] < confidence_threshold_)
-			circle(img, locations[i], radius, color, 3, 8, 0);
+			circle(img, locations[i], radius, colour, 2, 8, 0);
 	}
 
-	if (confidences[5] > confidence_threshold_)
+	if (confidences[leftShoulder] > confidence_threshold_)
 	{
-		if (confidences[6] > confidence_threshold_)
-			line(img, locations[5], locations[6], color, 3);
+		if (confidences[rightShoulder] > confidence_threshold_)
+			line(img, locations[leftShoulder], locations[rightShoulder], colour, 2);
 
-		if (confidences[7] > confidence_threshold_)
-			line(img, locations[5], locations[7], color, 3);
+		if (confidences[leftElbow] > confidence_threshold_)
+			line(img, locations[leftShoulder], locations[leftElbow], colour, 2);
 
-		if (confidences[11] > confidence_threshold_)
-			line(img, locations[5], locations[11], color, 3);
+		if (confidences[leftHip] > confidence_threshold_)
+			line(img, locations[leftShoulder], locations[leftHip], colour, 2);
 	}
-	if (confidences[6] > confidence_threshold_)
+	if (confidences[rightShoulder] > confidence_threshold_)
 	{
-		if (confidences[8] > confidence_threshold_)
-			line(img, locations[6], locations[8], color, 3);
+		if (confidences[rightElbow] > confidence_threshold_)
+			line(img, locations[rightShoulder], locations[rightElbow], colour, 2);
 
-		if (confidences[12] > confidence_threshold_)
-			line(img, locations[6], locations[12], color, 3);
+		if (confidences[rightHip] > confidence_threshold_)
+			line(img, locations[rightShoulder], locations[rightHip], colour, 2);
 	}
-	if (confidences[7] > confidence_threshold_)
+	if (confidences[leftElbow] > confidence_threshold_)
 	{
-		if (confidences[9] > confidence_threshold_)
-			line(img, locations[7], locations[9], color, 3);
+		if (confidences[leftWrist] > confidence_threshold_)
+			line(img, locations[leftElbow], locations[leftWrist], colour, 2);
 	}
-	if (confidences[8] > confidence_threshold_)
+	if (confidences[rightElbow] > confidence_threshold_)
 	{
-		if (confidences[10] > confidence_threshold_)
-			line(img, locations[8], locations[10], color, 3);
+		if (confidences[rightWrist] > confidence_threshold_)
+			line(img, locations[rightElbow], locations[rightWrist], colour, 2);
 	}
-	if (confidences[11] > confidence_threshold_)
+	if (confidences[leftHip] > confidence_threshold_)
 	{
-		if (confidences[12] > confidence_threshold_)
-			line(img, locations[11], locations[12], color, 3);
+		if (confidences[rightHip] > confidence_threshold_)
+			line(img, locations[leftHip], locations[rightHip], colour, 2);
 
-		if (confidences[13] > confidence_threshold_)
-			line(img, locations[11], locations[13], color, 3);
+		if (confidences[leftKnee] > confidence_threshold_)
+			line(img, locations[leftHip], locations[leftKnee], colour, 2);
 	}
-	if (confidences[13] > confidence_threshold_)
+	if (confidences[leftKnee] > confidence_threshold_)
 	{
-		if (confidences[15] > confidence_threshold_)
-			line(img, locations[13], locations[15], color, 3);
+		if (confidences[leftAnkle] > confidence_threshold_)
+			line(img, locations[leftKnee], locations[leftAnkle], colour, 2);
 	}
-	if (confidences[14] > confidence_threshold_)
+	if (confidences[rightKnee] > confidence_threshold_)
 	{
-		if (confidences[12] > confidence_threshold_)
-			line(img, locations[14], locations[12], color, 3);
+		if (confidences[rightHip] > confidence_threshold_)
+			line(img, locations[rightKnee], locations[rightHip], colour, 2);
 
-		if (confidences[16] > confidence_threshold_)
-			line(img, locations[14], locations[16], color, 3);
+		if (confidences[rightAnkle] > confidence_threshold_)
+			line(img, locations[rightKnee], locations[rightAnkle], colour, 2);
 	}
 }
 
