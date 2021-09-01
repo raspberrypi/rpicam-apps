@@ -19,6 +19,8 @@ void TfStage::Read(boost::property_tree::ptree const &params)
 	config_->refresh_rate = params.get<int>("refresh_rate", 5);
 	config_->model_file = params.get<std::string>("model_file", "");
 	config_->verbose = params.get<int>("verbose", 0);
+	config_->normalisation_offset = params.get<float>("normalisation_offset", 127.5);
+	config_->normalisation_scale = params.get<float>("normalisation_scale", 127.5);
 
 	initialise();
 
@@ -169,7 +171,7 @@ void TfStage::runInference()
 	{
 		float *tensor = interpreter_->typed_tensor<float>(input);
 		for (int i = 0; i < tensor_input_.size(); i++)
-			tensor[i] = (tensor_input_[i] - 127.5) / 127.5;
+			tensor[i] = (tensor_input_[i] - config_->normalisation_offset) / config_->normalisation_scale;
 	}
 
 	if (interpreter_->Invoke() != kTfLiteOk)
