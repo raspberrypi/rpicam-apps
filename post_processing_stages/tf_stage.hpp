@@ -32,6 +32,8 @@ struct TfConfig
 	int refresh_rate = 5;
 	std::string model_file;
 	bool verbose = false;
+	float normalisation_offset = 127.5;
+	float normalisation_scale = 127.5;
 };
 
 class TfStage : public PostProcessingStage
