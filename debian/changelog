@@ -1,5 +1,5 @@
-libcamera-apps (0~git20210824+b1d84d8-1) unstable; urgency=medium
+libcamera-apps (0~git20210824+b1d84d8-1) bullseye; urgency=medium
 
-  * Initial release (Closes: #nnnn)  <nnnn is the bug number of your ITP>
+  * Initial release
 
  -- Serge Schneider <serge@raspberrypi.com>  Thu, 02 Sep 2021 15:41:30 +0100
