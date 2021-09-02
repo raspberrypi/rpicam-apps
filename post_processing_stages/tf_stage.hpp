@@ -77,9 +77,10 @@ protected:
 	// to the image, or even drawn onto the image itself.
 	virtual void applyResults(CompletedRequest &completed_request) {}
 
-	// Convert YUV420 (low resolution) image to RGB for TFLite. We crop from the centre
-	// of the image if the low resolution image is larger than TFLite requires.
-	std::vector<uint8_t> yuvToRgb(uint8_t *src);
+	// Convert YUV420 image to RGB. We crop from the centre of the image if the src
+	// image is larger than the destination.
+	std::vector<uint8_t> yuvToRgb(const uint8_t *src, int src_w, int src_h, int src_stride, int dst_w, int dst_h,
+								  int dst_stride);
 
 	std::unique_ptr<TfConfig> config_;
 
@@ -103,6 +104,6 @@ private:
 
 	std::mutex future_mutex_;
 	std::unique_ptr<std::future<void>> future_;
-	std::vector<uint8_t> tensor_input_;
+	std::vector<uint8_t> lores_copy_;
 	std::mutex output_mutex_;
 };
