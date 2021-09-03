@@ -77,11 +77,6 @@ protected:
 	// to the image, or even drawn onto the image itself.
 	virtual void applyResults(CompletedRequest &completed_request) {}
 
-	// Convert YUV420 image to RGB. We crop from the centre of the image if the src
-	// image is larger than the destination.
-	std::vector<uint8_t> yuvToRgb(const uint8_t *src, int src_w, int src_h, int src_stride, int dst_w, int dst_h,
-								  int dst_stride);
-
 	std::unique_ptr<TfConfig> config_;
 
 	// The width and height that TFLite wants.
