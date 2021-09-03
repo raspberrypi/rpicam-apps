@@ -45,6 +45,13 @@ public:
 
 	virtual void Teardown();
 
+	// Below here are some helpers provided for the convenience of derived classes.
+
+	// Convert YUV420 image to RGB. We crop from the centre of the image if the src
+	// image is larger than the destination.
+	static std::vector<uint8_t> Yuv420ToRgb(const uint8_t *src, int src_w, int src_h, int src_stride, int dst_w,
+											int dst_h, int dst_stride);
+
 protected:
 	// Helper to calculate the execution time of any callable object and return it in as a std::chrono::duration.
 	// For functions returning a value, the simplest thing would be to wrap the call in a lambda and capture
