@@ -43,6 +43,8 @@ struct StillOptions : public Options
 			 "Also save raw file in DNG format")
 			("latest", value<std::string>(&latest),
 			 "Create a symbolic link with this name to most recent saved file")
+			("immediate", value<bool>(&immediate)->default_value(false)->implicit_value(true),
+			 "Perform first capture immediately, with no preview phase")
 			;
 	}
 
@@ -60,6 +62,7 @@ struct StillOptions : public Options
 	std::string encoding;
 	bool raw;
 	std::string latest;
+	bool immediate;
 
 	virtual bool Parse(int argc, char *argv[]) override
 	{
@@ -100,6 +103,7 @@ struct StillOptions : public Options
 		std::cout << "    thumbnail height: " << thumb_height << std::endl;
 		std::cout << "    thumbnail quality: " << thumb_quality << std::endl;
 		std::cout << "    latest: " << latest << std::endl;
+		std::cout << "    immediate " << immediate << std::endl;
 		for (auto &s : exif)
 			std::cout << "    EXIF: " << s << std::endl;
 	}

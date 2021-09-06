@@ -169,7 +169,10 @@ static void event_loop(LibcameraStillApp &app)
 		still_flags |= LibcameraApp::FLAG_STILL_RAW;
 
 	app.OpenCamera();
-	app.ConfigureViewfinder();
+	if (options->immediate)
+		app.ConfigureStill(still_flags);
+	else
+		app.ConfigureViewfinder();
 	app.StartCamera();
 	app.SetPreviewDoneCallback(std::bind(&LibcameraApp::QueueRequest, &app, _1));
 	auto start_time = std::chrono::high_resolution_clock::now();
