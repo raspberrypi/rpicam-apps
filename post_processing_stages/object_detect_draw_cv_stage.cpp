@@ -1,0 +1,96 @@
+/* SPDX-License-Identifier: BSD-2-Clause */
+/*
+ * Copyright (C) 2021, Raspberry Pi (Trading) Limited
+ *
+ * object_detect_draw_cv_stage.cpp - draw object detection results
+ */
+
+#include "opencv2/imgproc.hpp"
+
+#include "core/libcamera_app.hpp"
+#include "core/post_processing_stage.hpp"
+
+#include "object_detect.hpp"
+
+using namespace cv;
+
+using Rectange = libcamera::Rectangle;
+using Stream = libcamera::Stream;
+
+class ObjectDetectDrawCvStage : public PostProcessingStage
+{
+public:
+	ObjectDetectDrawCvStage(LibcameraApp *app) : PostProcessingStage(app) {}
+
+	char const *Name() const override;
+
+	void Read(boost::property_tree::ptree const &params);
+
+	void Configure();
+
+	bool Process(CompletedRequest &completed_request);
+
+private:
+	Stream *stream_;
+	int line_thickness_;
+	double font_size_;
+};
+
+#define NAME "object_detect_draw_cv"
+
+char const *ObjectDetectDrawCvStage::Name() const
+{
+	return NAME;
+}
+
+void ObjectDetectDrawCvStage::Configure()
+{
+	stream_ = app_->GetMainStream();
+}
+
+void ObjectDetectDrawCvStage::Read(boost::property_tree::ptree const &params)
+{
+	line_thickness_ = params.get<int>("line_thickness", 1);
+	font_size_ = params.get<double>("font_size", 1.0);
+}
+
+bool ObjectDetectDrawCvStage::Process(CompletedRequest &completed_request)
+{
+	if (!stream_)
+		return false;
+
+	int w, h, stride;
+	libcamera::Span<uint8_t> buffer = app_->Mmap(completed_request.buffers[stream_])[0];
+	uint32_t *ptr = (uint32_t *)buffer.data();
+	app_->StreamDimensions(stream_, &w, &h, &stride);
+
+	std::vector<Detection> detections;
+
+	completed_request.post_process_metadata.Get("object_detect.results", detections);
+
+	Mat image(h, w, CV_8U, ptr, stride);
+	Scalar colour = Scalar(255, 255, 255);
+	int font = FONT_HERSHEY_SIMPLEX;
+
+	for (auto &detection : detections)
+	{
+		Rect r(detection.box.x, detection.box.y, detection.box.width, detection.box.height);
+		rectangle(image, r, colour, line_thickness_);
+		std::stringstream text_stream;
+		text_stream << detection.name << " " << (int)(detection.confidence * 100) << "%";
+		std::string text = text_stream.str();
+		int baseline = 0;
+		Size size = getTextSize(text, font, font_size_, 2, &baseline);
+		Point text_origin(detection.box.x + 5, detection.box.y + size.height + 5);
+		putText(image, text, text_origin, font, font_size_, colour, 2);
+	}
+
+	return false;
+}
+
+static PostProcessingStage *Create(LibcameraApp *app)
+{
+	return new ObjectDetectDrawCvStage(app);
+}
+
+static RegisterStage reg(NAME, &Create);
