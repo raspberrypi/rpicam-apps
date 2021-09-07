@@ -30,7 +30,7 @@ endif()
 
 set(ENABLE_TFLITE)
 if (ENABLE_TFLITE)
-    set(SRC ${SRC} tf_stage.cpp object_classify_tf_stage.cpp pose_estimation_tf_stage.cpp)
+    set(SRC ${SRC} tf_stage.cpp object_classify_tf_stage.cpp pose_estimation_tf_stage.cpp object_detect_tf_stage.cpp)
     set(TARGET_LIBS ${TARGET_LIBS} tensorflow-lite)
 endif()
 
