@@ -599,12 +599,20 @@ void LibcameraApp::setupCapture()
 
 		for (const std::unique_ptr<FrameBuffer> &buffer : allocator_->buffers(stream))
 		{
+			// "Single plane" buffers appear as multi-plane here, but we can spot them because then
+			// planes all share the same fd. We accumulate them so as to mmap the buffer only once.
+			size_t buffer_size = 0;
 			for (unsigned i = 0; i < buffer->planes().size(); i++)
 			{
 				const FrameBuffer::Plane &plane = buffer->planes()[i];
-				void *memory = mmap(NULL, plane.length, PROT_READ | PROT_WRITE, MAP_SHARED, plane.fd.fd(), 0);
-				std::size_t len = plane.length;
-				mapped_buffers_[buffer.get()].push_back(libcamera::Span<uint8_t>(static_cast<uint8_t *>(memory), len));
+				buffer_size += plane.length;
+				if (i == buffer->planes().size() - 1 || plane.fd.fd() != buffer->planes()[i + 1].fd.fd())
+				{
+					void *memory = mmap(NULL, buffer_size, PROT_READ | PROT_WRITE, MAP_SHARED, plane.fd.fd(), 0);
+					mapped_buffers_[buffer.get()].push_back(
+						libcamera::Span<uint8_t>(static_cast<uint8_t *>(memory), buffer_size));
+					buffer_size = 0;
+				}
 			}
 			frame_buffers_[stream].push(buffer.get());
 		}
