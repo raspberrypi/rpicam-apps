@@ -36,7 +36,8 @@ public:
 		int w, h, stride;
 		StreamDimensions(stream, &w, &h, &stride);
 		FrameBuffer *buffer = completed_request.buffers[stream];
-		void *mem = Mmap(buffer)[0].data();
+		libcamera::Span span = Mmap(buffer)[0];
+		void *mem = span.data();
 		if (!buffer || !mem)
 			throw std::runtime_error("no buffer to encode");
 		int64_t timestamp_ns = buffer->metadata().timestamp;
@@ -44,8 +45,7 @@ public:
 			std::lock_guard<std::mutex> lock(encode_buffer_queue_mutex_);
 			encode_buffer_queue_.push(std::move(completed_request));
 		}
-		encoder_->EncodeBuffer(buffer->planes()[0].fd.fd(), buffer->planes()[0].length, mem, w, h, stride,
-							   timestamp_ns / 1000);
+		encoder_->EncodeBuffer(buffer->planes()[0].fd.fd(), span.size(), mem, w, h, stride, timestamp_ns / 1000);
 	}
 	VideoOptions *GetOptions() const { return static_cast<VideoOptions *>(options_.get()); }
 	void StopEncoder() { encoder_.reset(); }
