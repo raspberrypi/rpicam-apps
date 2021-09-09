@@ -5,7 +5,11 @@
  * post_processing_stage.hpp - Post processing stage base class definition.
  */
 
+#include <map>
 #include <string>
+
+// Prevents compiler warnings in Boost headers with more recent versions of GCC.
+#define BOOST_BIND_GLOBAL_PLACEHOLDERS
 
 #include <boost/property_tree/json_parser.hpp>
 #include <boost/property_tree/ptree.hpp>
