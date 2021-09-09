@@ -28,9 +28,9 @@ public:
 };
 
 // In jpeg.cpp:
-void jpeg_save(std::vector<void *> const &mem, int w, int h, int stride, libcamera::PixelFormat const &pixel_format,
-			   libcamera::ControlList const &metadata, std::string const &filename, std::string const &cam_name,
-			   StillOptions const *options);
+void jpeg_save(std::vector<libcamera::Span<uint8_t>> const &mem, int w, int h, int stride,
+			   libcamera::PixelFormat const &pixel_format, libcamera::ControlList const &metadata,
+			   std::string const &filename, std::string const &cam_name, StillOptions const *options);
 
 // The main even loop for the application.
 
@@ -79,7 +79,7 @@ static void event_loop(LibcameraJpegApp &app)
 			Stream *stream = app.StillStream();
 			app.StreamDimensions(stream, &w, &h, &stride);
 			CompletedRequest &payload = std::get<CompletedRequest>(msg.payload);
-			std::vector<void *> mem = app.Mmap(payload.buffers[stream]);
+			const std::vector<libcamera::Span<uint8_t>> mem = app.Mmap(payload.buffers[stream]);
 			jpeg_save(mem, w, h, stride, stream->configuration().pixelFormat, payload.metadata, options->output,
 					  app.CameraId(), options);
 			return;

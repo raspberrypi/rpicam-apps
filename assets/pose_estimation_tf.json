@@ -1,0 +1,11 @@
+{
+    "pose_estimation_tf":
+    {
+        "refresh_rate" : 5,
+        "model_file" : "/home/pi/models/posenet_mobilenet_v1_100_257x257_multi_kpt_stripped.tflite"
+    },
+    "plot_pose_cv":
+    {
+        "confidence_threshold" : -0.5
+    }
+}

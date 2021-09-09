@@ -42,6 +42,8 @@ struct Options
 			 "Time (in ms) for which program runs")
 			("output,o", value<std::string>(&output),
 			 "Set the output file name")
+			("post-process-file", value<std::string>(&post_process_file),
+			 "Set the file name for configuring the post-processing")
 			("rawfull", value<bool>(&rawfull)->default_value(false)->implicit_value(true),
 			 "Force use of full resolution raw frames")
 			("nopreview,n", value<bool>(&nopreview)->default_value(false)->implicit_value(true),
@@ -94,6 +96,10 @@ struct Options
 			 "Height of viewfinder frames from the camera (distinct from the preview window size)")
 			("tuning-file", value<std::string>(&tuning_file)->default_value("-"),
 			 "Name of camera tuning file to use, omit this option for libcamera default behaviour")
+			("lores-width", value<unsigned int>(&lores_width)->default_value(0),
+			 "Width of low resolution frames (use 0 to omit low resolution stream")
+			("lores-height", value<unsigned int>(&lores_height)->default_value(0),
+			 "Height of low resolution frames (use 0 to omit low resolution stream")
 			;
 	}
 
@@ -102,6 +108,7 @@ struct Options
 	uint64_t timeout; // in ms
 	std::string config_file;
 	std::string output;
+	std::string post_process_file;
 	unsigned int width;
 	unsigned int height;
 	bool rawfull;
@@ -137,6 +144,8 @@ struct Options
 	unsigned int viewfinder_height;
 	std::string tuning_file;
 	bool qt_preview;
+	unsigned int lores_width;
+	unsigned int lores_height;
 
 	virtual bool Parse(int argc, char *argv[])
 	{
@@ -239,6 +248,7 @@ struct Options
 		std::cout << "    width: " << width << std::endl;
 		std::cout << "    height: " << height << std::endl;
 		std::cout << "    output: " << output << std::endl;
+		std::cout << "    post_process_file: " << post_process_file << std::endl;
 		std::cout << "    rawfull: " << rawfull << std::endl;
 		if (nopreview)
 			std::cout << "    preview: none" << std::endl;
@@ -276,6 +286,8 @@ struct Options
 		std::cout << "    viewfinder-width: " << viewfinder_width << std::endl;
 		std::cout << "    viewfinder-height: " << viewfinder_height << std::endl;
 		std::cout << "    tuning-file: " << (tuning_file == "-" ? "(libcamera)" : tuning_file) << std::endl;
+		std::cout << "    lores-width: " << lores_width << std::endl;
+		std::cout << "    lores-height: " << lores_height << std::endl;
 	}
 
 protected:

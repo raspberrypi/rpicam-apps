@@ -1,0 +1,19 @@
+{
+    "hdr" :
+    {
+	"num_frames" : 8,
+	"lp_filter_strength" : 0.2,
+	"lp_filter_threshold" : [ 0, 10.0 , 2048, 205.0, 4095, 205.0 ],
+	"global_tonemap_points" :
+	[
+	    { "q": 0.1, "width": 0.05, "target": 0.15, "max_up": 5.0, "max_down": 0.5 },
+	    { "q": 0.5, "width": 0.05, "target": 0.45, "max_up": 5.0, "max_down": 0.5 },
+	    { "q": 0.8, "width": 0.05, "target": 0.7, "max_up": 5.0, "max_down": 0.5 }
+	],
+	"global_tonemap_strength" : 1.0,
+	"local_pos_strength" : [ 0, 6.0, 1024, 2.0, 4095, 2.0 ],
+	"local_neg_strength" : [ 0, 4.0, 1024, 1.5, 4095, 1.5 ],
+	"local_tonemap_strength" : 1.0,
+	"local_colour_scale" : 0.8
+    }
+}

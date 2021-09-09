@@ -73,14 +73,14 @@ def test_hello(dir):
     print("    run test")
     retcode, time_taken = run_executable([executable, '-t', '2000'], logfile)
     check_retcode(retcode, "test_hello: run test")
-    check_time(time_taken, 2, 5, "test_hello: run test")
+    check_time(time_taken, 2, 6, "test_hello: run test")
 
     # "roi test". Specify an roi and see if it blows up.
     print("    roi test")
     retcode, time_taken = run_executable(
         [executable, '-t', '2000', '--roi', '0.25,0.25,0.5,0.5'], logfile)
     check_retcode(retcode, "test_hello: roi test")
-    check_time(time_taken, 2, 5, "test_hello: roi test")
+    check_time(time_taken, 2, 6, "test_hello: roi test")
 
     # "controls test". Specify some image controls and see if it blows up.
     print("    controls test")
@@ -88,7 +88,7 @@ def test_hello(dir):
         [executable, '-t', '2000', '--brightness', '0.2', '--contrast', '1.2',
          '--saturation', '1.3', '--sharpness', '1.5'], logfile)
     check_retcode(retcode, "test_hello: controls test")
-    check_time(time_taken, 2, 5, "test_hello: controls test")
+    check_time(time_taken, 2, 6, "test_hello: controls test")
 
     print("libcamera-hello tests passed")
 
@@ -238,7 +238,7 @@ def test_vid(dir):
     retcode, time_taken = run_executable([executable, '-t', '2000', '-o', output_h264],
                                          logfile)
     check_retcode(retcode, "test_vid: h264 test")
-    check_time(time_taken, 2, 5, "test_vid: h264 test")
+    check_time(time_taken, 2, 6, "test_vid: h264 test")
     check_size(output_h264, 1024, "test_vid: h264 test")
 
     # "mjpeg test". As above, but write an mjpeg file.
@@ -247,7 +247,7 @@ def test_vid(dir):
                                           '-o', output_mjpeg],
                                          logfile)
     check_retcode(retcode, "test_vid: mjpeg test")
-    check_time(time_taken, 2, 5, "test_vid: mjpeg test")
+    check_time(time_taken, 2, 6, "test_vid: mjpeg test")
     check_size(output_mjpeg, 1024, "test_vid: mjpeg test")
 
     # "segment test". As above, write the output in single frame segements.
@@ -256,7 +256,7 @@ def test_vid(dir):
                                           '--segment', '1', '-o', os.path.join(dir, 'test%03d.jpg')],
                                          logfile)
     check_retcode(retcode, "test_vid: segment test")
-    check_time(time_taken, 2, 5, "test_vid: segment test")
+    check_time(time_taken, 2, 6, "test_vid: segment test")
     # A bug in commit b20dc097621a trunctated each jpg to 4096 bytes, so check against 4100:
     check_size(os.path.join(dir, 'test035.jpg'), 4100, "test_vid: segment test")
 
@@ -265,7 +265,7 @@ def test_vid(dir):
     retcode, time_taken = run_executable([executable, '-t', '2000', '--inline', '--circular',
                                           '-o', output_circular], logfile)
     check_retcode(retcode, "test_vid: circular test")
-    check_time(time_taken, 2, 5, "test_vid: circular test")
+    check_time(time_taken, 2, 6, "test_vid: circular test")
     check_size(output_circular, 1024, "test_vid: circular test")
     
     # "pause test". Should be no output file if we start 'paused'.
@@ -273,7 +273,7 @@ def test_vid(dir):
     retcode, time_taken = run_executable([executable, '-t', '2000', '--inline',
                                           '--initial', 'pause', '-o', output_pause], logfile)
     check_retcode(retcode, "test_vid: pause test")
-    check_time(time_taken, 2, 5, "test_vid: pause test")
+    check_time(time_taken, 2, 6, "test_vid: pause test")
     if os.path.isfile(output_pause):
         raise TestFailure("test_vid: pause test - output file was not expected")
 
@@ -282,7 +282,7 @@ def test_vid(dir):
     retcode, time_taken = run_executable([executable, '-t', '2000', '-o', output_h264,
                                           '--save-pts', output_timestamps], logfile)
     check_retcode(retcode, "test_vid: timestamp test")
-    check_time(time_taken, 2, 5, "test_vid: timestamp test")
+    check_time(time_taken, 2, 6, "test_vid: timestamp test")
     check_size(output_h264, 1024, "test_vid: timestamp test")
     check_timestamps(output_timestamps, "test_vid: timestamp test")
 
