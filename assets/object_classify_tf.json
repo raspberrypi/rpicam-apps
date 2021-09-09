@@ -1,0 +1,23 @@
+{
+    "object_classify_tf":
+    {
+	"number_of_results" : 2,
+	"number_of_threads" : 2,
+	"refresh_rate" : 30,
+	"threshold_high" : 0.1,
+	"threshold_low" : 0.05,
+	"model_file" : "/home/pi/models/mobilenet_v1_1.0_224_quant.tflite",
+	"labels_file" : "/home/pi/models/labels.txt",
+	"display_labels" : 1,
+	"verbose" : 1
+    },
+    "annotate_cv" :
+    {
+	"text" : "Frame %frame exp %exp ag %ag dg %dg",
+	"fg" : 255,
+	"bg" : 0,
+	"scale" : 1.0,
+	"thickness" : 2,
+	"alpha" : 0.3
+    }
+}

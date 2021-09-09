@@ -1,0 +1,16 @@
+{
+    "object_detect_tf":
+    {
+	"number_of_threads" : 2,
+	"refresh_rate" : 10,
+	"confidence_threshold" : 0.5,
+	"overlap_threshold" : 0.5,
+	"model_file" : "/home/pi/models/coco_ssd_mobilenet_v1_1.0_quant_2018_06_29/detect.tflite",
+	"labels_file" : "/home/pi/models/coco_ssd_mobilenet_v1_1.0_quant_2018_06_29/labelmap.txt",
+	"verbose" : 1
+    },
+    "object_detect_draw_cv":
+    {
+	"line_thickness" : 2
+    }
+}

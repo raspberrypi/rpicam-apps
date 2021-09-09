@@ -453,10 +453,10 @@ static void YUV_to_JPEG(PixelFormat const &pixel_format, const uint8_t *input, c
 		throw std::runtime_error("unsupported YUV format in JPEG encode");
 }
 
-static void create_exif_data(PixelFormat const &pixel_format, std::vector<void *> const &mem, int w, int h, int stride,
-							 ControlList const &metadata, std::string const &cam_name, StillOptions const *options,
-							 uint8_t *&exif_buffer, unsigned int &exif_len, uint8_t *&thumb_buffer,
-							 jpeg_mem_len_t &thumb_len)
+static void create_exif_data(PixelFormat const &pixel_format, std::vector<libcamera::Span<uint8_t>> const &mem, int w,
+							 int h, int stride, ControlList const &metadata, std::string const &cam_name,
+							 StillOptions const *options, uint8_t *&exif_buffer, unsigned int &exif_len,
+							 uint8_t *&thumb_buffer, jpeg_mem_len_t &thumb_len)
 {
 	exif_buffer = nullptr;
 	ExifData *exif = nullptr;
@@ -545,8 +545,8 @@ static void create_exif_data(PixelFormat const &pixel_format, std::vector<void *
 		int q = options->thumb_quality;
 		for (; q > 0; q -= 5)
 		{
-			YUV_to_JPEG(pixel_format, (uint8_t *)(mem[0]), w, h, stride, options->thumb_width, options->thumb_height, q,
-						0, thumb_buffer, thumb_len);
+			YUV_to_JPEG(pixel_format, (uint8_t *)(mem[0].data()), w, h, stride, options->thumb_width,
+						options->thumb_height, q, 0, thumb_buffer, thumb_len);
 			if (thumb_len < 60000) // entire EXIF data must be < 65536, so this should be safe
 				break;
 			free(thumb_buffer);
@@ -581,9 +581,9 @@ static void create_exif_data(PixelFormat const &pixel_format, std::vector<void *
 	}
 }
 
-void jpeg_save(std::vector<void *> const &mem, int w, int h, int stride, PixelFormat const &pixel_format,
-			   ControlList const &metadata, std::string const &filename, std::string const &cam_name,
-			   StillOptions const *options)
+void jpeg_save(std::vector<libcamera::Span<uint8_t>> const &mem, int w, int h, int stride,
+			   PixelFormat const &pixel_format, ControlList const &metadata, std::string const &filename,
+			   std::string const &cam_name, StillOptions const *options)
 {
 	FILE *fp = nullptr;
 	uint8_t *thumb_buffer = nullptr;
@@ -608,7 +608,7 @@ void jpeg_save(std::vector<void *> const &mem, int w, int h, int stride, PixelFo
 		// YUV422 or YUV420 planar format).
 
 		jpeg_mem_len_t jpeg_len;
-		YUV_to_JPEG(pixel_format, (uint8_t *)(mem[0]), w, h, stride, w, h, options->quality, options->restart,
+		YUV_to_JPEG(pixel_format, (uint8_t *)(mem[0].data()), w, h, stride, w, h, options->quality, options->restart,
 					jpeg_buffer, jpeg_len);
 		if (options->verbose)
 			std::cout << "JPEG size is " << jpeg_len << std::endl;

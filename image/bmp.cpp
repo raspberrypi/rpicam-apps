@@ -40,8 +40,8 @@ struct FileHeader
 };
 static_assert(sizeof(FileHeader) == 16, "FileHeader size wrong");
 
-void bmp_save(std::vector<void *> const &mem, int w, int h, int stride, libcamera::PixelFormat const &pixel_format,
-			  std::string const &filename, StillOptions const *options)
+void bmp_save(std::vector<libcamera::Span<uint8_t>> const &mem, int w, int h, int stride,
+			  libcamera::PixelFormat const &pixel_format, std::string const &filename, StillOptions const *options)
 {
 	if (pixel_format != libcamera::formats::RGB888)
 		throw std::runtime_error("pixel format for bmp should be RGB");
@@ -57,7 +57,7 @@ void bmp_save(std::vector<void *> const &mem, int w, int h, int stride, libcamer
 		unsigned int pitch = (line + 3) & ~3; // lines are multiples of 4 bytes
 		unsigned int pad = pitch - line;
 		uint8_t padding[3] = {};
-		uint8_t *ptr = (uint8_t *)mem[0];
+		uint8_t *ptr = (uint8_t *)mem[0].data();
 
 		FileHeader file_header;
 		ImageHeader image_header;

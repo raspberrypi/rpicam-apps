@@ -12,7 +12,7 @@
 #include "core/options.hpp"
 
 LibcameraApp::LibcameraApp(std::unique_ptr<Options> opts)
-	: options_(std::move(opts)), preview_thread_(&LibcameraApp::previewThread, this)
+	: options_(std::move(opts)), preview_thread_(&LibcameraApp::previewThread, this), post_processor_(this)
 {
 	if (!options_)
 		options_ = std::make_unique<Options>();
@@ -68,6 +68,11 @@ void LibcameraApp::OpenCamera()
 
 	if (options_->verbose)
 		std::cout << "Acquired camera " << cam_id << std::endl;
+
+	if (!options_->post_process_file.empty())
+		post_processor_.Read(options_->post_process_file);
+	post_processor_.SetCallback(
+		[this](CompletedRequest &r) { this->msg_queue_.Post(Msg(MsgType::RequestComplete, std::move(r))); });
 }
 
 void LibcameraApp::CloseCamera()
@@ -91,7 +96,11 @@ void LibcameraApp::ConfigureViewfinder()
 	if (options_->verbose)
 		std::cout << "Configuring viewfinder..." << std::endl;
 
-	configuration_ = camera_->generateConfiguration({ StreamRole::Viewfinder });
+	bool have_lores_stream = options_->lores_width && options_->lores_height;
+	StreamRoles stream_roles = { StreamRole::Viewfinder };
+	if (have_lores_stream)
+		stream_roles.push_back(StreamRole::Viewfinder);
+	configuration_ = camera_->generateConfiguration(stream_roles);
 	if (!configuration_)
 		throw std::runtime_error("failed to generate viewfinder configuration");
 
@@ -126,12 +135,30 @@ void LibcameraApp::ConfigureViewfinder()
 	// Now we get to override any of the default settings from the options_->
 	configuration_->at(0).pixelFormat = libcamera::formats::YUV420;
 	configuration_->at(0).size = size;
+
+	if (have_lores_stream)
+	{
+		Size lores_size(options_->lores_width, options_->lores_height);
+		lores_size.alignDownTo(2, 2);
+		if (lores_size.width > size.width || lores_size.height > size.height)
+			throw std::runtime_error("Low res image larger than viewfinder");
+		configuration_->at(1).pixelFormat = libcamera::formats::YUV420;
+		configuration_->at(1).size = lores_size;
+		configuration_->at(1).bufferCount = configuration_->at(0).bufferCount;
+	}
+
 	configuration_->transform = options_->transform;
+
+	post_processor_.AdjustConfig("viewfinder", &configuration_->at(0));
 
 	configureDenoise(options_->denoise == "auto" ? "cdn_off" : options_->denoise);
 	setupCapture();
 
-	viewfinder_stream_ = configuration_->at(0).stream();
+	streams_["viewfinder"] = configuration_->at(0).stream();
+	if (have_lores_stream)
+		streams_["lores"] = configuration_->at(1).stream();
+
+	post_processor_.Configure();
 
 	if (options_->verbose)
 		std::cout << "Viewfinder setup complete" << std::endl;
@@ -167,19 +194,24 @@ void LibcameraApp::ConfigureStill(unsigned int flags)
 		configuration_->at(0).size.width = options_->width;
 	if (options_->height)
 		configuration_->at(0).size.height = options_->height;
+	configuration_->transform = options_->transform;
+
+	post_processor_.AdjustConfig("still", &configuration_->at(0));
+
 	if ((flags & FLAG_STILL_RAW) && !options_->rawfull)
 	{
 		configuration_->at(1).size.width = configuration_->at(0).size.width;
 		configuration_->at(1).size.height = configuration_->at(0).size.height;
 		configuration_->at(1).bufferCount = configuration_->at(0).bufferCount;
 	}
-	configuration_->transform = options_->transform;
 
 	configureDenoise(options_->denoise == "auto" ? "cdn_hq" : options_->denoise);
 	setupCapture();
 
-	still_stream_ = configuration_->at(0).stream();
-	raw_stream_ = configuration_->at(1).stream();
+	streams_["still"] = configuration_->at(0).stream();
+	streams_["raw"] = configuration_->at(1).stream();
+
+	post_processor_.Configure();
 
 	if (options_->verbose)
 		std::cout << "Still capture setup complete" << std::endl;
@@ -190,11 +222,17 @@ void LibcameraApp::ConfigureVideo(unsigned int flags)
 	if (options_->verbose)
 		std::cout << "Configuring video..." << std::endl;
 
-	StreamRoles stream_roles;
-	if (flags & FLAG_VIDEO_RAW)
-		stream_roles = { StreamRole::VideoRecording, StreamRole::Raw };
-	else
-		stream_roles = { StreamRole::VideoRecording };
+	bool have_raw_stream = flags & FLAG_VIDEO_RAW;
+	bool have_lores_stream = options_->lores_width && options_->lores_height;
+	StreamRoles stream_roles = { StreamRole::VideoRecording };
+	int lores_index = 1;
+	if (have_raw_stream)
+	{
+		stream_roles.push_back(StreamRole::Raw);
+		lores_index = 2;
+	}
+	if (have_lores_stream)
+		stream_roles.push_back(StreamRole::Viewfinder);
 	configuration_ = camera_->generateConfiguration(stream_roles);
 	if (!configuration_)
 		throw std::runtime_error("failed to generate video configuration");
@@ -206,7 +244,11 @@ void LibcameraApp::ConfigureVideo(unsigned int flags)
 		configuration_->at(0).size.width = options_->width;
 	if (options_->height)
 		configuration_->at(0).size.height = options_->height;
-	if (flags & FLAG_VIDEO_RAW)
+	configuration_->transform = options_->transform;
+
+	post_processor_.AdjustConfig("video", &configuration_->at(0));
+
+	if (have_raw_stream)
 	{
 		if (!options_->rawfull)
 		{
@@ -215,13 +257,29 @@ void LibcameraApp::ConfigureVideo(unsigned int flags)
 		}
 		configuration_->at(1).bufferCount = configuration_->at(0).bufferCount;
 	}
+	if (have_lores_stream)
+	{
+		Size lores_size(options_->lores_width, options_->lores_height);
+		lores_size.alignDownTo(2, 2);
+		if (lores_size.width > configuration_->at(0).size.width ||
+			lores_size.height > configuration_->at(0).size.height)
+			throw std::runtime_error("Low res image larger than video");
+		configuration_->at(lores_index).pixelFormat = libcamera::formats::YUV420;
+		configuration_->at(lores_index).size = lores_size;
+		configuration_->at(lores_index).bufferCount = configuration_->at(0).bufferCount;
+	}
 	configuration_->transform = options_->transform;
 
 	configureDenoise(options_->denoise == "auto" ? "cdn_fast" : options_->denoise);
 	setupCapture();
 
-	video_stream_ = configuration_->at(0).stream();
-	raw_stream_ = configuration_->at(1).stream();
+	streams_["video"] = configuration_->at(0).stream();
+	if (have_raw_stream)
+		streams_["raw"] = configuration_->at(1).stream();
+	if (have_lores_stream)
+		streams_["lores"] = configuration_->at(lores_index).stream();
+
+	post_processor_.Configure();
 
 	if (options_->verbose)
 		std::cout << "Video setup complete" << std::endl;
@@ -229,14 +287,17 @@ void LibcameraApp::ConfigureVideo(unsigned int flags)
 
 void LibcameraApp::Teardown()
 {
+	post_processor_.Teardown();
+
 	if (options_->verbose && !options_->help)
 		std::cout << "Tearing down requests, buffers and configuration" << std::endl;
 
 	for (auto &iter : mapped_buffers_)
 	{
-		assert(iter.first->planes().size() == iter.second.size());
-		for (unsigned i = 0; i < iter.first->planes().size(); i++)
-			munmap(iter.second[i], iter.first->planes()[i].length);
+		// assert(iter.first->planes().size() == iter.second.size());
+		// for (unsigned i = 0; i < iter.first->planes().size(); i++)
+		for (auto &span : iter.second)
+			munmap(span.data(), span.size());
 	}
 	mapped_buffers_.clear();
 
@@ -247,10 +308,7 @@ void LibcameraApp::Teardown()
 
 	frame_buffers_.clear();
 
-	viewfinder_stream_ = nullptr;
-	still_stream_ = nullptr;
-	raw_stream_ = nullptr;
-	video_stream_ = nullptr;
+	streams_.clear();
 }
 
 void LibcameraApp::StartCamera()
@@ -279,7 +337,7 @@ void LibcameraApp::StartCamera()
 	// as long as possible so that we get whatever the exposure profile wants.
 	if (!controls_.contains(controls::FrameDurationLimits))
 	{
-		if (still_stream_)
+		if (StillStream())
 			controls_.set(controls::FrameDurationLimits, { INT64_C(100), INT64_C(1000000000) });
 		else if (options_->framerate > 0)
 		{
@@ -311,6 +369,8 @@ void LibcameraApp::StartCamera()
 	if (!controls_.contains(controls::Sharpness))
 		controls_.set(controls::Sharpness, options_->sharpness);
 
+	post_processor_.Start();
+
 	if (camera_->start(&controls_))
 		throw std::runtime_error("failed to start camera");
 	controls_.clear();
@@ -338,6 +398,9 @@ void LibcameraApp::StopCamera()
 		{
 			if (camera_->stop())
 				throw std::runtime_error("failed to stop camera");
+
+			post_processor_.Stop();
+
 			camera_started_ = false;
 		}
 	}
@@ -416,35 +479,56 @@ void LibcameraApp::PostMessage(MsgType &t, MsgPayload &p)
 	msg_queue_.Post(Msg(t, p));
 }
 
+libcamera::Stream *LibcameraApp::GetStream(std::string const &name, int *w, int *h, int *stride) const
+{
+	auto it = streams_.find(name);
+	if (it == streams_.end())
+		return nullptr;
+	StreamDimensions(it->second, w, h, stride);
+	return it->second;
+}
+
 libcamera::Stream *LibcameraApp::ViewfinderStream(int *w, int *h, int *stride) const
 {
-	StreamDimensions(viewfinder_stream_, w, h, stride);
-	return viewfinder_stream_;
+	return GetStream("viewfinder", w, h, stride);
 }
 
 libcamera::Stream *LibcameraApp::StillStream(int *w, int *h, int *stride) const
 {
-	StreamDimensions(still_stream_, w, h, stride);
-	return still_stream_;
+	return GetStream("still", w, h, stride);
 }
 
 libcamera::Stream *LibcameraApp::RawStream(int *w, int *h, int *stride) const
 {
-	StreamDimensions(raw_stream_, w, h, stride);
-	return raw_stream_;
+	return GetStream("raw", w, h, stride);
 }
 
 libcamera::Stream *LibcameraApp::VideoStream(int *w, int *h, int *stride) const
 {
-	StreamDimensions(video_stream_, w, h, stride);
-	return video_stream_;
+	return GetStream("video", w, h, stride);
 }
 
-std::vector<void *> LibcameraApp::Mmap(FrameBuffer *buffer) const
+libcamera::Stream *LibcameraApp::LoresStream(int *w, int *h, int *stride) const
+{
+	return GetStream("lores", w, h, stride);
+}
+
+libcamera::Stream *LibcameraApp::GetMainStream() const
+{
+	for (auto &p : streams_)
+	{
+		if (p.first == "viewfinder" || p.first == "still" || p.first == "video")
+			return p.second;
+	}
+
+	return nullptr;
+}
+
+std::vector<libcamera::Span<uint8_t>> LibcameraApp::Mmap(FrameBuffer *buffer) const
 {
 	auto item = mapped_buffers_.find(buffer);
 	if (item == mapped_buffers_.end())
-		return std::vector<void *>();
+		return {};
 	return item->second;
 }
 
@@ -515,11 +599,20 @@ void LibcameraApp::setupCapture()
 
 		for (const std::unique_ptr<FrameBuffer> &buffer : allocator_->buffers(stream))
 		{
+			// "Single plane" buffers appear as multi-plane here, but we can spot them because then
+			// planes all share the same fd. We accumulate them so as to mmap the buffer only once.
+			size_t buffer_size = 0;
 			for (unsigned i = 0; i < buffer->planes().size(); i++)
 			{
 				const FrameBuffer::Plane &plane = buffer->planes()[i];
-				void *memory = mmap(NULL, plane.length, PROT_READ, MAP_SHARED, plane.fd.fd(), 0);
-				mapped_buffers_[buffer.get()].push_back(memory);
+				buffer_size += plane.length;
+				if (i == buffer->planes().size() - 1 || plane.fd.fd() != buffer->planes()[i + 1].fd.fd())
+				{
+					void *memory = mmap(NULL, buffer_size, PROT_READ | PROT_WRITE, MAP_SHARED, plane.fd.fd(), 0);
+					mapped_buffers_[buffer.get()].push_back(
+						libcamera::Span<uint8_t>(static_cast<uint8_t *>(memory), buffer_size));
+					buffer_size = 0;
+				}
 			}
 			frame_buffers_[stream].push(buffer.get());
 		}
@@ -567,8 +660,7 @@ void LibcameraApp::requestComplete(Request *request)
 	if (request->status() == Request::RequestCancelled)
 		return;
 
-	CompletedRequest payload(request->buffers().begin()->second->metadata().sequence, request->buffers(),
-							 request->metadata());
+	CompletedRequest payload(sequence_++, request->buffers(), request->metadata());
 	{
 		request->reuse();
 		std::lock_guard<std::mutex> lock(free_requests_mutex_);
@@ -583,7 +675,7 @@ void LibcameraApp::requestComplete(Request *request)
 		payload.framerate = 1e9 / (timestamp - last_timestamp_);
 	last_timestamp_ = timestamp;
 
-	msg_queue_.Post(Msg(MsgType::RequestComplete, std::move(payload)));
+	post_processor_.Process(payload);
 }
 
 void LibcameraApp::previewDoneCallback(int fd)
@@ -623,7 +715,7 @@ void LibcameraApp::previewThread()
 		int w, h, stride;
 		StreamDimensions(item.stream, &w, &h, &stride);
 		FrameBuffer *buffer = item.completed_request.buffers[item.stream];
-		void *mem = Mmap(buffer)[0];
+		libcamera::Span span = Mmap(buffer)[0];
 
 		// Fill the frame info with the ControlList items and ancillary bits.
 		FrameInfo frame_info(item.completed_request.metadata);
@@ -631,7 +723,6 @@ void LibcameraApp::previewThread()
 		frame_info.sequence = item.completed_request.sequence;
 
 		int fd = buffer->planes()[0].fd.fd();
-		size_t size = buffer->planes()[0].length;
 		{
 			std::lock_guard<std::mutex> lock(preview_mutex_);
 			preview_completed_requests_[fd] = std::move(item.completed_request);
@@ -643,7 +734,6 @@ void LibcameraApp::previewThread()
 			msg_queue_.Post(Msg(MsgType::Quit, QuitPayload()));
 		}
 		preview_frames_displayed_++;
-		libcamera::Span<uint8_t> span((uint8_t *)mem, size);
 		preview_->Show(fd, span, w, h, stride);
 		if (!options_->info_text.empty())
 		{
