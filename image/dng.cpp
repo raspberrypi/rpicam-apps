@@ -282,7 +282,11 @@ void dng_save(std::vector<libcamera::Span<uint8_t>> const &mem, int w, int h, in
 		TIFFSetField(tif, TIFFTAG_SAMPLESPERPIXEL, 1);
 		TIFFSetField(tif, TIFFTAG_PLANARCONFIG, PLANARCONFIG_CONTIG);
 		TIFFSetField(tif, TIFFTAG_CFAREPEATPATTERNDIM, cfa_repeat_pattern_dim);
+#if TIFFLIB_VERSION >= 20201219 // version 4.2.0 or later
+		TIFFSetField(tif, TIFFTAG_CFAPATTERN, 4, bayer_format.order);
+#else
 		TIFFSetField(tif, TIFFTAG_CFAPATTERN, bayer_format.order);
+#endif
 		TIFFSetField(tif, TIFFTAG_WHITELEVEL, 1, &white);
 		const uint16_t black_level_repeat_dim[] = { 2, 2 };
 		TIFFSetField(tif, TIFFTAG_BLACKLEVELREPEATDIM, &black_level_repeat_dim);

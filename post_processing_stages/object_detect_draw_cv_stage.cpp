@@ -45,7 +45,8 @@ char const *ObjectDetectDrawCvStage::Name() const
 
 void ObjectDetectDrawCvStage::Configure()
 {
-	stream_ = app_->GetMainStream();
+	// Only draw on image if a low res stream was specified.
+	stream_ = app_->LoresStream() ? app_->GetMainStream() : nullptr;
 }
 
 void ObjectDetectDrawCvStage::Read(boost::property_tree::ptree const &params)
