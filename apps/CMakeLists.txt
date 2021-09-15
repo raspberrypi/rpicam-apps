@@ -20,5 +20,14 @@ project(libcamera-jpeg)
 add_executable(libcamera-jpeg libcamera_jpeg.cpp)
 target_link_libraries(libcamera-jpeg libcamera_app)
 
+set(EXECUTABLES libcamera-still libcamera-vid libcamera-hello libcamera-raw libcamera-jpeg)
+
+if (ENABLE_TFLITE)
+    project(libcamera-detect)
+    add_executable(libcamera-detect libcamera_detect.cpp)
+    target_link_libraries(libcamera-detect libcamera_app)
+    set(EXECUTABLES ${EXECUTABLES} libcamera-detect)
+endif()
+
 set(EXECUTABLE_OUTPUT_PATH  ${CMAKE_BINARY_DIR})
-install(TARGETS libcamera-still libcamera-vid libcamera-hello libcamera-raw libcamera-jpeg RUNTIME DESTINATION bin)
+install(TARGETS ${EXECUTABLES} RUNTIME DESTINATION bin)
