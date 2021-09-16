@@ -62,12 +62,13 @@ def check_jpeg(file, preamble):
     if "Image Width" not in stdout:
         raise TestFailure(preamble + "- bad EXIF data")
 
-def test_hello(dir):
-    executable = os.path.join(dir, 'libcamera-hello')
-    logfile = os.path.join(dir, 'log.txt')
+
+def test_hello(exe_dir, output_dir):
+    executable = os.path.join(exe_dir, 'libcamera-hello')
+    logfile = os.path.join(output_dir, 'log.txt')
     print("Testing", executable)
     check_exists(executable, 'test_hello')
-    clean_dir(dir)
+    clean_dir(output_dir)
 
     # "run test". Just see if the executable appeared to run.
     print("    run test")
@@ -96,16 +97,17 @@ def check_size(file, limit, presamble):
     if os.path.getsize(file) < limit:
         raise TestFailure(preamble + " failed, file " + file + " too small")
 
-def test_still(dir):
-    executable = os.path.join(dir, 'libcamera-still')
-    output_jpg = os.path.join(dir, 'test.jpg')
-    output_png = os.path.join(dir, 'test.png')
-    output_bmp = os.path.join(dir, 'test.bmp')
-    output_dng = os.path.join(dir, 'test.dng')
-    logfile = os.path.join(dir, 'log.txt')
+
+def test_still(exe_dir, output_dir):
+    executable = os.path.join(exe_dir, 'libcamera-still')
+    output_jpg = os.path.join(output_dir, 'test.jpg')
+    output_png = os.path.join(output_dir, 'test.png')
+    output_bmp = os.path.join(output_dir, 'test.bmp')
+    output_dng = os.path.join(output_dir, 'test.dng')
+    logfile = os.path.join(output_dir, 'log.txt')
     print("Testing", executable)
     check_exists(executable, 'test_still')
-    clean_dir(dir)
+    clean_dir(output_dir)
 
     # "jpg test". See if the executable appears to run and write an jpg output file.
     print("    jpg test")
@@ -142,13 +144,13 @@ def test_still(dir):
     # "timelapse test". Check that a timelapse sequence captures more than one jpg.
     print("    timelapse test")
     retcode, time_taken = run_executable(
-        [executable, '-t', '10000', '--timelapse', '3500', '-o', os.path.join(dir, 'test%03d.jpg')],
+        [executable, '-t', '10000', '--timelapse', '3500', '-o', os.path.join(output_dir, 'test%03d.jpg')],
         logfile)
     check_retcode(retcode, "test_still: timelapse test")
     check_time(time_taken, 9, 20, "test_still: timelapse test")
-    check_size(os.path.join(dir, 'test000.jpg'), 1024, "test_still: timelapse test")
-    check_size(os.path.join(dir, 'test001.jpg'), 1024, "test_still: timelapse test")
-    if os.path.isfile(os.path.join(dir, 'test002.jpg')):
+    check_size(os.path.join(output_dir, 'test000.jpg'), 1024, "test_still: timelapse test")
+    check_size(os.path.join(output_dir, 'test001.jpg'), 1024, "test_still: timelapse test")
+    if os.path.isfile(os.path.join(output_dir, 'test002.jpg')):
                raise("test_still: timelapse test, unexpected output file")
 
     print("libcamera-still tests passed")
@@ -172,14 +174,15 @@ def check_jpeg_shutter(file, shutter_string, iso_string, preamble):
     elif iso_string not in iso_line[0]:
         raise(preamble + " - bad ISO value")
 
-def test_jpeg(dir):
-    executable = os.path.join(dir, 'libcamera-jpeg')
-    output_jpg = os.path.join(dir, 'test.jpg')
-    output_shutter = os.path.join(dir, 'shutter.jpg')
-    logfile = os.path.join(dir, 'log.txt')
+
+def test_jpeg(exe_dir, output_dir):
+    executable = os.path.join(exe_dir, 'libcamera-jpeg')
+    output_jpg = os.path.join(output_dir, 'test.jpg')
+    output_shutter = os.path.join(output_dir, 'shutter.jpg')
+    logfile = os.path.join(output_dir, 'log.txt')
     print("Testing", executable)
     check_exists(executable, 'test_jpeg')
-    clean_dir(dir)
+    clean_dir(output_dir)
 
     # "jpg test". See if the executable appears to run and write an jpg output file.
     print("    jpg test")
@@ -221,17 +224,18 @@ def check_timestamps(file, preamble):
     if t2 >= t3:
         raise TestFailure(preamble + " - timestamps not increasing")
 
-def test_vid(dir):
-    executable = os.path.join(dir, 'libcamera-vid')
-    output_h264 = os.path.join(dir, 'test.h264')
-    output_mjpeg = os.path.join(dir, 'test.mjpeg')
-    output_circular = os.path.join(dir, 'circular.h264')
-    output_pause = os.path.join(dir, 'pause.h264')
-    output_timestamps = os.path.join(dir, 'timestamps.txt')
-    logfile = os.path.join(dir, 'log.txt')
+
+def test_vid(exe_dir, output_dir):
+    executable = os.path.join(exe_dir, 'libcamera-vid')
+    output_h264 = os.path.join(output_dir, 'test.h264')
+    output_mjpeg = os.path.join(output_dir, 'test.mjpeg')
+    output_circular = os.path.join(output_dir, 'circular.h264')
+    output_pause = os.path.join(output_dir, 'pause.h264')
+    output_timestamps = os.path.join(output_dir, 'timestamps.txt')
+    logfile = os.path.join(output_dir, 'log.txt')
     print("Testing", executable)
     check_exists(executable, 'test_vid')
-    clean_dir(dir)
+    clean_dir(output_dir)
 
     # "h264 test". See if the executable appears to run and write an h264 output file.
     print("    h264 test")
@@ -253,12 +257,12 @@ def test_vid(dir):
     # "segment test". As above, write the output in single frame segements.
     print("    segment test")
     retcode, time_taken = run_executable([executable, '-t', '2000', '--codec', 'mjpeg',
-                                          '--segment', '1', '-o', os.path.join(dir, 'test%03d.jpg')],
+                                          '--segment', '1', '-o', os.path.join(output_dir, 'test%03d.jpg')],
                                          logfile)
     check_retcode(retcode, "test_vid: segment test")
     check_time(time_taken, 2, 6, "test_vid: segment test")
     # A bug in commit b20dc097621a trunctated each jpg to 4096 bytes, so check against 4100:
-    check_size(os.path.join(dir, 'test035.jpg'), 4100, "test_vid: segment test")
+    check_size(os.path.join(output_dir, 'test035.jpg'), 4100, "test_vid: segment test")
 
     # "circular test". Test circular buffer (really we should wait for it to wrap...)
     print("    circular test")
@@ -288,13 +292,14 @@ def test_vid(dir):
 
     print("libcamera-vid tests passed")
 
-def test_raw(dir):
-    executable = os.path.join(dir, 'libcamera-raw')
-    output_raw = os.path.join(dir, 'test.raw')
-    logfile = os.path.join(dir, 'log.txt')
+
+def test_raw(exe_dir, output_dir):
+    executable = os.path.join(exe_dir, 'libcamera-raw')
+    output_raw = os.path.join(output_dir, 'test.raw')
+    logfile = os.path.join(output_dir, 'log.txt')
     print("Testing", executable)
     check_exists(executable, 'test_raw')
-    clean_dir(dir)
+    clean_dir(output_dir)
 
     # "raw test". See if the executable appears to run and write an output file.
     print("    raw test")
@@ -306,21 +311,22 @@ def test_raw(dir):
 
     print("libcamera-raw tests passed")
 
-def test_all(apps, dir):
+
+def test_all(apps, exe_dir, output_dir):
     try:
         if 'hello' in apps:
-            test_hello(dir)
+            test_hello(exe_dir, output_dir)
         if 'still' in apps:
-            test_still(dir)
+            test_still(exe_dir, output_dir)
         if 'jpeg' in apps:
-            test_jpeg(dir)
+            test_jpeg(exe_dir, output_dir)
         if 'vid' in apps:
-            test_vid(dir)
+            test_vid(exe_dir, output_dir)
         if 'raw' in apps:
-            test_raw(dir)
+            test_raw(exe_dir, output_dir)
 
         print("All tests passed")
-        clean_dir(dir)
+        clean_dir(output_dir)
 
     except TestFailure as e:
         print("ERROR:", e)
@@ -328,11 +334,15 @@ def test_all(apps, dir):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description = 'libcamera-apps automated tests')
-    parser.add_argument('--apps', '-a', action = 'store', default = 'hello,still,vid,jpeg,raw',
-                       help = 'List of apps to test')
-    parser.add_argument('--dir', '-d', action = 'store', default = 'build',
-                       help = 'Directory name for executables to test')
+    parser.add_argument('--apps', '-a', action='store', default='hello,still,vid,jpeg,raw',
+                        help='List of apps to test')
+    parser.add_argument('--exe-dir', '-d', action='store', default='build',
+                        help='Directory name for executables to test')
+    parser.add_argument('--output-dir', '-o', action='store', default='.',
+                        help='Directory name for executables to test')
     args = parser.parse_args()
     apps = args.apps.split(',')
-    dir = args.dir.strip('/')
-    test_all(apps, dir)
+    exe_dir = args.exe_dir.rstrip('/')
+    output_dir = args.output_dir
+    print("Exe_dir:", exe_dir, " Output_dir:", output_dir)
+    test_all(apps, exe_dir, output_dir)
