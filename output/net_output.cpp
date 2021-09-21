@@ -95,10 +95,20 @@ NetOutput::~NetOutput()
 	close(fd_);
 }
 
+// Maximum size that sendto will accept.
+constexpr size_t MAX_UDP_SIZE = 65507;
+
 void NetOutput::outputBuffer(void *mem, size_t size, int64_t /*timestamp_us*/, uint32_t /*flags*/)
 {
 	if (options_->verbose)
 		std::cout << "NetOutput: output buffer " << mem << " size " << size << "\n";
-	if (sendto(fd_, mem, size, 0, saddr_ptr_, sockaddr_in_size_) < 0)
-		throw std::runtime_error("failed to send data on socket");
+	size_t max_size = saddr_ptr_ ? MAX_UDP_SIZE : size;
+	for (uint8_t *ptr = (uint8_t *)mem; size;)
+	{
+		size_t bytes_to_send = std::min(size, max_size);
+		if (sendto(fd_, ptr, bytes_to_send, 0, saddr_ptr_, sockaddr_in_size_) < 0)
+			throw std::runtime_error("failed to send data on socket");
+		ptr += bytes_to_send;
+		size -= bytes_to_send;
+	}
 }
