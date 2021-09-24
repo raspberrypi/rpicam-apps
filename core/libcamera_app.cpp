@@ -476,7 +476,7 @@ void LibcameraApp::QueueRequest(CompletedRequest const &completed_request)
 
 void LibcameraApp::PostMessage(MsgType &t, MsgPayload &p)
 {
-	msg_queue_.Post(Msg(t, p));
+	msg_queue_.Post(Msg(t, std::move(p)));
 }
 
 libcamera::Stream *LibcameraApp::GetStream(std::string const &name, int *w, int *h, int *stride) const

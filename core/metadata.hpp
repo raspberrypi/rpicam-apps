@@ -35,7 +35,7 @@ public:
 	void Set(std::string const &tag, T &&value)
 	{
 		std::scoped_lock lock(mutex_);
-		data_.insert_or_assign(tag, value);
+		data_.insert_or_assign(tag, std::forward<T>(value));
 	}
 
 	template <typename T>
