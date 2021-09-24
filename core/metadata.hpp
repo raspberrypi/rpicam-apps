@@ -35,7 +35,7 @@ public:
 	void Set(std::string const &tag, T &&value)
 	{
 		std::scoped_lock lock(mutex_);
-		data_.insert_or_assign(tag, value);
+		data_.insert_or_assign(tag, std::forward<T>(value));
 	}
 
 	template <typename T>
@@ -88,10 +88,10 @@ public:
 	}
 
 	template <typename T>
-	void SetLocked(std::string const &tag, T const &value)
+	void SetLocked(std::string const &tag, T &&value)
 	{
 		// Use this only if you're holding the lock yourself.
-		data_[tag] = value;
+		data_.insert_or_assign(tag, std::forward<T>(value));
 	}
 
 	// Note: use of (lowercase) lock and unlock means you can create scoped

@@ -159,10 +159,7 @@ private:
 	struct PreviewItem
 	{
 		PreviewItem() : stream(nullptr) {}
-		template <typename T>
-		PreviewItem(T b, Stream *s) : completed_request(std::forward<T>(b)), stream(s)
-		{
-		}
+		PreviewItem(CompletedRequest &&b, Stream *s) : completed_request(std::move(b)), stream(s) {}
 		PreviewItem &operator=(PreviewItem &&other)
 		{
 			completed_request = std::move(other.completed_request);

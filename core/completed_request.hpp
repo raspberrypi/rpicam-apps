@@ -19,6 +19,15 @@ struct CompletedRequest
 
 	CompletedRequest() {}
 
+	// Mark CompletedRequest as non-copyable.
+	CompletedRequest(const CompletedRequest &c) = delete;
+	CompletedRequest &operator=(CompletedRequest &c) = delete;
+	CompletedRequest &operator=(const CompletedRequest &c) = delete;
+
+	// But allow it to be movable.
+	CompletedRequest(CompletedRequest &&c) = default;
+	CompletedRequest &operator=(CompletedRequest &&c) = default;
+
 	CompletedRequest(unsigned int seq, BufferMap const &b, ControlList const &m)
 		: sequence(seq), buffers(b), metadata(m)
 	{
