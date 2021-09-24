@@ -731,7 +731,7 @@ void LibcameraApp::previewThread()
 		{
 			if (options_->verbose)
 				std::cout << "Preview window has quit" << std::endl;
-			msg_queue_.Post(Msg(MsgType::Quit, QuitPayload()));
+			msg_queue_.Post(Msg(MsgType::Quit));
 		}
 		preview_frames_displayed_++;
 		preview_->Show(fd, span, w, h, stride);
