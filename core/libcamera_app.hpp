@@ -56,18 +56,19 @@ public:
 	using BufferMap = Request::BufferMap;
 	using Size = libcamera::Size;
 	using Rectangle = libcamera::Rectangle;
-	struct QuitPayload
-	{
-	};
 	enum class MsgType
 	{
 		RequestComplete,
 		Quit
 	};
-	typedef std::variant<CompletedRequest, QuitPayload> MsgPayload;
+	typedef std::variant<CompletedRequest> MsgPayload;
 	struct Msg
 	{
-		Msg(MsgType const &t, MsgPayload const &p) : type(t), payload(p) {}
+		Msg(MsgType const &t) : type(t) {}
+		template <typename T>
+		Msg(MsgType const &t, T p) : type(t), payload(std::forward<T>(p))
+		{
+		}
 		MsgType type;
 		MsgPayload payload;
 	};
@@ -158,7 +159,10 @@ private:
 	struct PreviewItem
 	{
 		PreviewItem() : stream(nullptr) {}
-		PreviewItem(CompletedRequest &&b, Stream *s) : completed_request(b), stream(s) {}
+		template <typename T>
+		PreviewItem(T b, Stream *s) : completed_request(std::forward<T>(b)), stream(s)
+		{
+		}
 		PreviewItem &operator=(PreviewItem &&other)
 		{
 			completed_request = std::move(other.completed_request);

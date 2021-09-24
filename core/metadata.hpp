@@ -32,10 +32,10 @@ public:
 	}
 
 	template <typename T>
-	void Set(std::string const &tag, T const &value)
+	void Set(std::string const &tag, T &&value)
 	{
 		std::scoped_lock lock(mutex_);
-		data_[tag] = value;
+		data_.insert_or_assign(tag, value);
 	}
 
 	template <typename T>

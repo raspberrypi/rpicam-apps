@@ -149,7 +149,7 @@ bool MotionDetectStage::Process(CompletedRequest &completed_request)
 				*(old_value_ptr++) = *new_value_ptr;
 		}
 
-		completed_request.post_process_metadata.Set<bool>("motion_detect.result", motion_detected_);
+		completed_request.post_process_metadata.Set("motion_detect.result", motion_detected_);
 
 		return false;
 	}
@@ -177,7 +177,7 @@ bool MotionDetectStage::Process(CompletedRequest &completed_request)
 		std::cout << "Motion " << (motion_detected ? "detected" : "stopped") << std::endl;
 
 	motion_detected_ = motion_detected;
-	completed_request.post_process_metadata.Set<bool>("motion_detect.result", motion_detected);
+	completed_request.post_process_metadata.Set("motion_detect.result", motion_detected);
 
 	return false;
 }
