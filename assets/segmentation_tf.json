@@ -1,0 +1,10 @@
+{
+    "segmentation_tf":
+    {
+	"number_of_threads" : 2,
+	"refresh_rate" : 10,
+	"model_file" : "/home/pi/models/lite-model_deeplabv3_1_metadata_2.tflite",
+	"labels_file" : "/home/pi/models/segmentation_labels.txt",
+	"verbose" : 1
+    }
+}
