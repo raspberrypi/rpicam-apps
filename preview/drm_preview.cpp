@@ -11,6 +11,8 @@
 #include <xf86drm.h>
 #include <xf86drmMode.h>
 
+#include "core/options.hpp"
+
 #include "preview.hpp"
 
 class DrmPreview : public Preview

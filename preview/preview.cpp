@@ -5,6 +5,8 @@
  * preview.cpp - preview window interface
  */
 
+#include "core/options.hpp"
+
 #include "preview.hpp"
 
 Preview *make_null_preview(Options const *options);
