@@ -12,8 +12,11 @@
 
 #include <boost/program_options.hpp>
 
+#include <libcamera/camera_manager.h>
 #include <libcamera/control_ids.h>
 #include <libcamera/transform.h>
+
+#include "core/version.hpp"
 
 struct Options
 {
@@ -23,6 +26,8 @@ struct Options
 		options_.add_options()
 			("help,h", value<bool>(&help)->default_value(false)->implicit_value(true),
 			 "Print this help message")
+			("version", value<bool>(&version)->default_value(false)->implicit_value(true),
+			 "Displays the build version number")
 			("verbose,v", value<bool>(&verbose)->default_value(false)->implicit_value(true),
 			 "Output extra debug and diagnostics")
 			("config,c", value<std::string>(&config_file)->implicit_value("config.txt"),
@@ -104,6 +109,7 @@ struct Options
 	}
 
 	bool help;
+	bool version;
 	bool verbose;
 	uint64_t timeout; // in ms
 	std::string config_file;
@@ -166,6 +172,13 @@ struct Options
 		if (help)
 		{
 			std::cout << options_;
+			return false;
+		}
+
+		if (version)
+		{
+			std::cout << "libcamera-apps build: " << LibcameraAppsVersion() << std::endl;
+			std::cout << "libcamera build: " << libcamera::CameraManager::version() << std::endl;
 			return false;
 		}
 
