@@ -15,6 +15,7 @@ import argparse
 import os
 import os.path
 import subprocess
+import sys
 from timeit import default_timer as timer
 
 class TestFailure(Exception):
@@ -330,6 +331,8 @@ def test_all(apps, exe_dir, output_dir):
 
     except TestFailure as e:
         print("ERROR:", e)
+        sys.exit(1)
+
     return
 
 if __name__ == '__main__':
