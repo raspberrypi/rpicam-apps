@@ -114,7 +114,7 @@ def test_still(exe_dir, output_dir):
     print("    jpg test")
     retcode, time_taken = run_executable([executable, '-t', '1000', '-o', output_jpg], logfile)
     check_retcode(retcode, "test_still: jpg test")
-    check_time(time_taken, 1.8, 8, "test_still: jpg test")
+    check_time(time_taken, 1.2, 8, "test_still: jpg test")
     check_size(output_jpg, 1024, "test_still: jpg test")
 
     # "png test". As above, but write a png.
@@ -122,7 +122,7 @@ def test_still(exe_dir, output_dir):
     retcode, time_taken = run_executable(
         [executable, '-t', '1000', '-e', 'png', '-o', output_png], logfile)
     check_retcode(retcode, "test_still: png test")
-    check_time(time_taken, 1.8, 8, "test_still: png test")
+    check_time(time_taken, 1.2, 8, "test_still: png test")
     check_size(output_png, 1024, "test_still: png test")
 
     # "bmp test". As above, but write a bmp.
@@ -130,7 +130,7 @@ def test_still(exe_dir, output_dir):
     retcode, time_taken = run_executable(
         [executable, '-t', '1000', '-e', 'bmp', '-o', output_bmp], logfile)
     check_retcode(retcode, "test_still: bmp test")
-    check_time(time_taken, 1.8, 8, "test_still: bmp test")
+    check_time(time_taken, 1.2, 8, "test_still: bmp test")
     check_size(output_png, 1024, "test_still: bmp test")
 
     # "dng test". Write a dng along with the jpg.
@@ -138,7 +138,7 @@ def test_still(exe_dir, output_dir):
     retcode, time_taken = run_executable(
         [executable, '-t', '1000', '-o', output_jpg, '-r'], logfile)
     check_retcode(retcode, "test_still: dng test")
-    check_time(time_taken, 1.8, 8, "test_still: dng test")
+    check_time(time_taken, 1.2, 8, "test_still: dng test")
     check_size(output_jpg, 1024, "test_still: dng test")
     check_size(output_dng, 1024 * 1024, "test_still: dng test")
 
@@ -190,7 +190,7 @@ def test_jpeg(exe_dir, output_dir):
     retcode, time_taken = run_executable([executable, '-t', '1000', '-o', output_jpg],
                                          logfile)
     check_retcode(retcode, "test_jpeg: jpg test")
-    check_time(time_taken, 1.8, 8, "test_jpeg: jpg test")
+    check_time(time_taken, 1.2, 8, "test_jpeg: jpg test")
     check_size(output_jpg, 1024, "test_jpeg: jpg test")
     # For this one, we're actually going to peak inside the jpeg.
     check_jpeg(output_jpg, "test_jpeg: jpg test")
@@ -201,7 +201,7 @@ def test_jpeg(exe_dir, output_dir):
         [executable, '-t', '1000', '-o', output_shutter,
          '--shutter', '20000', '--gain', '1.0', '--awbgains', '1.0,1.0'], logfile)
     check_retcode(retcode, "test_jpeg: shutter test")
-    check_time(time_taken, 1.8, 8, "test_jpeg: shutter test")
+    check_time(time_taken, 1.2, 8, "test_jpeg: shutter test")
     check_size(output_shutter, 1024, "test_jpeg: shutter test")
     check_jpeg_shutter(output_shutter, '1/50', '100', "test_jpeg: shutter test")
 
@@ -243,7 +243,7 @@ def test_vid(exe_dir, output_dir):
     retcode, time_taken = run_executable([executable, '-t', '2000', '-o', output_h264],
                                          logfile)
     check_retcode(retcode, "test_vid: h264 test")
-    check_time(time_taken, 1.8, 6, "test_vid: h264 test")
+    check_time(time_taken, 2, 6, "test_vid: h264 test")
     check_size(output_h264, 1024, "test_vid: h264 test")
 
     # "mjpeg test". As above, but write an mjpeg file.
@@ -252,7 +252,7 @@ def test_vid(exe_dir, output_dir):
                                           '-o', output_mjpeg],
                                          logfile)
     check_retcode(retcode, "test_vid: mjpeg test")
-    check_time(time_taken, 1.8, 6, "test_vid: mjpeg test")
+    check_time(time_taken, 2, 6, "test_vid: mjpeg test")
     check_size(output_mjpeg, 1024, "test_vid: mjpeg test")
 
     # "segment test". As above, write the output in single frame segements.
@@ -261,7 +261,7 @@ def test_vid(exe_dir, output_dir):
                                           '--segment', '1', '-o', os.path.join(output_dir, 'test%03d.jpg')],
                                          logfile)
     check_retcode(retcode, "test_vid: segment test")
-    check_time(time_taken, 1.8, 6, "test_vid: segment test")
+    check_time(time_taken, 2, 6, "test_vid: segment test")
     # A bug in commit b20dc097621a trunctated each jpg to 4096 bytes, so check against 4100:
     check_size(os.path.join(output_dir, 'test035.jpg'), 4100, "test_vid: segment test")
 
@@ -270,7 +270,7 @@ def test_vid(exe_dir, output_dir):
     retcode, time_taken = run_executable([executable, '-t', '2000', '--inline', '--circular',
                                           '-o', output_circular], logfile)
     check_retcode(retcode, "test_vid: circular test")
-    check_time(time_taken, 1.8, 6, "test_vid: circular test")
+    check_time(time_taken, 2, 6, "test_vid: circular test")
     check_size(output_circular, 1024, "test_vid: circular test")
     
     # "pause test". Should be no output file if we start 'paused'.
@@ -278,7 +278,7 @@ def test_vid(exe_dir, output_dir):
     retcode, time_taken = run_executable([executable, '-t', '2000', '--inline',
                                           '--initial', 'pause', '-o', output_pause], logfile)
     check_retcode(retcode, "test_vid: pause test")
-    check_time(time_taken, 1.8, 6, "test_vid: pause test")
+    check_time(time_taken, 2, 6, "test_vid: pause test")
     if os.path.isfile(output_pause):
         raise TestFailure("test_vid: pause test - output file was not expected")
 
@@ -287,7 +287,7 @@ def test_vid(exe_dir, output_dir):
     retcode, time_taken = run_executable([executable, '-t', '2000', '-o', output_h264,
                                           '--save-pts', output_timestamps], logfile)
     check_retcode(retcode, "test_vid: timestamp test")
-    check_time(time_taken, 1.8, 6, "test_vid: timestamp test")
+    check_time(time_taken, 2, 6, "test_vid: timestamp test")
     check_size(output_h264, 1024, "test_vid: timestamp test")
     check_timestamps(output_timestamps, "test_vid: timestamp test")
 
