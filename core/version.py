@@ -12,28 +12,32 @@ digits = 12
 def generate_version():
     commit = '0' * digits
 
-    # Check if this is a git directory
-    r = subprocess.run('git rev-parse --git-dir',
-                       shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    if r.returncode:
-        print("VERSION ERR: Invalid git directory!", file=sys.stderr)
+    try:
+        # Check if this is a git directory
+        r = subprocess.run(['git', 'rev-parse', '--git-dir'],
+                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, text=True)
+        if r.returncode:
+            raise RuntimeError('Invalid git directory!')
 
-    # Get commit id
-    r = subprocess.run(f'git describe --abbrev={digits} --always',
-                       shell=True, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
-    if r.returncode:
-        print("VERSION ERR: Invalid git commit!", file=sys.stderr)
-    else:
-        commit = r.stdout.decode("utf-8").strip('\n')
+        # Get commit id
+        r = subprocess.run(['git', 'describe', f'--abbrev={digits}', '--always'],
+                           stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True)
+        if r.returncode:
+            raise RuntimeError('Invalid git commit!')
 
-    # Check dirty status
-    r = subprocess.run('git diff-index --quiet HEAD',
-                       shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    if r.returncode:
-        commit = f'{commit}-dirty'
+        commit = r.stdout.strip('\n')
 
-    print(f'{commit} {datetime.now().strftime("%d-%m-%Y (%H:%M:%S)")}', end="")
+        # Check dirty status
+        r = subprocess.run(['git', 'diff-index', '--quiet', 'HEAD'],
+                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, text=True)
+        if r.returncode:
+            commit = commit + '-dirty'
 
+    except RuntimeError as e:
+        print(f'ERR: {e}', file=sys.stderr)
+
+    finally:
+        print(f'{commit} {datetime.now().strftime("%d-%m-%Y (%H:%M:%S)")}', end="")
 
 if __name__ == "__main__":
     generate_version()
