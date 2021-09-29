@@ -7,6 +7,7 @@ on:
 env:
   # Customize the CMake build type here (Release, Debug, RelWithDebInfo, etc.)
   BUILD_TYPE: Release
+  NUM_JOBS: 4
 
 jobs:
   build-test:
@@ -15,21 +16,46 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2
+      with:
+        fetch-depth: 1
+        clean: true
 
     - name: Configure CMake
       run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}
       timeout-minutes: 5
 
     - name: Build
-      run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}} --parallel 4
+      run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}} --parallel ${{env.NUM_JOBS}}
       timeout-minutes: 5
 
+    - name: Tar files
+      run: tar -cvf build_artifacts.tar -C ${{github.workspace}}/build .
+
+    - name: Upload build files
+      uses: actions/upload-artifact@v2
+      with:
+        name: build-artifacts
+        path: build_artifacts.tar
+        retention-days: 21
+
   run-test:
-      
+
     runs-on: self-hosted
     needs: build-test
 
     steps:
+
+    - name: Create test output dir
+      run: mkdir -p ${{github.workspace}}/test_output
+
     - name: Test
-      run: ${{github.workspace}}/test.py --exe-dir ${{github.workspace}}/build
+      run: ${{github.workspace}}/test.py --exe-dir ${{github.workspace}}/build --output-dir ${{github.workspace}}/test_output
       timeout-minutes: 5
+
+    - name: Upload test output
+      if: ${{ failure() }}
+      uses: actions/upload-artifact@v2
+      with:
+        name: test-artifacts
+        path: ${{github.workspace}}/test_output/
+        retention-days: 21
