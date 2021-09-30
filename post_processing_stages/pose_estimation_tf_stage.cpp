@@ -28,7 +28,7 @@ protected:
 	void interpretOutputs() override;
 
 	// Attach results as metadata.
-	void applyResults(CompletedRequest &completed_request) override;
+	void applyResults(CompletedRequestPtr &completed_request) override;
 
 private:
 	std::vector<libcamera::Point> heats_;
@@ -53,10 +53,10 @@ void PoseEstimationTfStage::checkConfiguration()
 		throw std::runtime_error("PoseEstimationTfStage: Main stream is required");
 }
 
-void PoseEstimationTfStage::applyResults(CompletedRequest &completed_request)
+void PoseEstimationTfStage::applyResults(CompletedRequestPtr &completed_request)
 {
-	completed_request.post_process_metadata.Set("pose_estimation.locations", locations_);
-	completed_request.post_process_metadata.Set("pose_estimation.confidences", confidences_);
+	completed_request->post_process_metadata.Set("pose_estimation.locations", locations_);
+	completed_request->post_process_metadata.Set("pose_estimation.confidences", confidences_);
 }
 
 void PoseEstimationTfStage::interpretOutputs()

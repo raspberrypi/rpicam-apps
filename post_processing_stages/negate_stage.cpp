@@ -24,7 +24,7 @@ public:
 
 	void Configure() override;
 
-	bool Process(CompletedRequest &completed_request) override;
+	bool Process(CompletedRequestPtr &completed_request) override;
 
 private:
 	Stream *stream_;
@@ -42,9 +42,9 @@ void NegateStage::Configure()
 	stream_ = app_->GetMainStream();
 }
 
-bool NegateStage::Process(CompletedRequest &completed_request)
+bool NegateStage::Process(CompletedRequestPtr &completed_request)
 {
-	libcamera::Span<uint8_t> buffer = app_->Mmap(completed_request.buffers[stream_])[0];
+	libcamera::Span<uint8_t> buffer = app_->Mmap(completed_request->buffers[stream_])[0];
 	uint32_t *ptr = (uint32_t *)buffer.data();
 
 	// Constraints on the stride mean we always have multiple-of-4 bytes.

@@ -14,6 +14,7 @@
 #include <memory>
 #include <mutex>
 #include <queue>
+#include <set>
 #include <string>
 #include <thread>
 #include <variant>
@@ -35,8 +36,6 @@ class Preview;
 
 namespace controls = libcamera::controls;
 namespace properties = libcamera::properties;
-
-typedef std::function<void(CompletedRequest &)> PreviewDoneCallback;
 
 class LibcameraApp
 {
@@ -61,7 +60,7 @@ public:
 		RequestComplete,
 		Quit
 	};
-	typedef std::variant<CompletedRequest> MsgPayload;
+	typedef std::variant<CompletedRequestPtr> MsgPayload;
 	struct Msg
 	{
 		Msg(MsgType const &t) : type(t) {}
@@ -103,7 +102,6 @@ public:
 	void StopCamera();
 
 	Msg Wait();
-	void QueueRequest(CompletedRequest const &completed_request);
 	void PostMessage(MsgType &t, MsgPayload &p);
 
 	Stream *GetStream(std::string const &name, unsigned int *w = nullptr, unsigned int *h = nullptr,
@@ -118,8 +116,7 @@ public:
 
 	std::vector<libcamera::Span<uint8_t>> Mmap(FrameBuffer *buffer) const;
 
-	void SetPreviewDoneCallback(PreviewDoneCallback preview_done_callback);
-	void ShowPreview(CompletedRequest &completed_request, Stream *stream);
+	void ShowPreview(CompletedRequestPtr &completed_request, Stream *stream);
 
 	void SetControls(ControlList &controls);
 	void StreamDimensions(Stream const *stream, unsigned int *w, unsigned int *h, unsigned int *stride) const;
@@ -161,7 +158,7 @@ private:
 	struct PreviewItem
 	{
 		PreviewItem() : stream(nullptr) {}
-		PreviewItem(CompletedRequest &&b, Stream *s) : completed_request(std::move(b)), stream(s) {}
+		PreviewItem(CompletedRequestPtr &b, Stream *s) : completed_request(b), stream(s) {}
 		PreviewItem &operator=(PreviewItem &&other)
 		{
 			completed_request = std::move(other.completed_request);
@@ -169,12 +166,13 @@ private:
 			other.stream = nullptr;
 			return *this;
 		}
-		CompletedRequest completed_request;
+		CompletedRequestPtr completed_request;
 		Stream *stream;
 	};
 
 	void setupCapture();
 	void makeRequests();
+	void queueRequest(CompletedRequest *completed_request);
 	void requestComplete(Request *request);
 	void previewDoneCallback(int fd);
 	void previewThread();
@@ -191,13 +189,13 @@ private:
 	std::mutex free_requests_mutex_;
 	std::queue<Request *> free_requests_;
 	std::vector<std::unique_ptr<Request>> requests_;
+	std::set<CompletedRequest *> known_completed_requests_;
 	bool camera_started_ = false;
 	std::mutex camera_stop_mutex_;
 	MessageQueue<Msg> msg_queue_;
 	// Related to the preview window.
 	std::unique_ptr<Preview> preview_;
-	PreviewDoneCallback preview_done_callback_;
-	std::map<int, CompletedRequest> preview_completed_requests_;
+	std::map<int, CompletedRequestPtr> preview_completed_requests_;
 	std::mutex preview_mutex_;
 	std::mutex preview_item_mutex_;
 	PreviewItem preview_item_;

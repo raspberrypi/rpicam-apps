@@ -55,7 +55,6 @@ static void event_loop(LibcameraDetectApp &app)
 	app.OpenCamera();
 	app.ConfigureViewfinder();
 	app.StartCamera();
-	app.SetPreviewDoneCallback(std::bind(&LibcameraApp::QueueRequest, &app, std::placeholders::_1));
 	auto start_time = std::chrono::high_resolution_clock::now();
 	unsigned int last_capture_frame = 0;
 
@@ -67,17 +66,16 @@ static void event_loop(LibcameraDetectApp &app)
 
 		// In viewfinder mode, simply run until the timeout, but do a capture if the object
 		// we're looking for is detected.
-		CompletedRequest &completed_request = std::get<CompletedRequest>(msg.payload);
+		CompletedRequestPtr &completed_request = std::get<CompletedRequestPtr>(msg.payload);
 		if (app.ViewfinderStream())
 		{
 			auto now = std::chrono::high_resolution_clock::now();
 			if (options->timeout && now - start_time > std::chrono::milliseconds(options->timeout))
 				return;
 
-			// Must check the metadata before sending to preview.
 			std::vector<Detection> detections;
-			bool detected = completed_request.sequence - last_capture_frame >= options->gap &&
-							completed_request.post_process_metadata.Get("object_detect.results", detections) == 0 &&
+			bool detected = completed_request->sequence - last_capture_frame >= options->gap &&
+							completed_request->post_process_metadata.Get("object_detect.results", detections) == 0 &&
 							std::find_if(detections.begin(), detections.end(), [options](const Detection &d) {
 								return d.name.find(options->object) != std::string::npos;
 							}) != detections.end();
@@ -97,11 +95,11 @@ static void event_loop(LibcameraDetectApp &app)
 		else if (app.StillStream())
 		{
 			app.StopCamera();
-			last_capture_frame = completed_request.sequence;
+			last_capture_frame = completed_request->sequence;
 
 			unsigned int w, h, stride;
 			libcamera::Stream *stream = app.StillStream(&w, &h, &stride);
-			const std::vector<libcamera::Span<uint8_t>> mem = app.Mmap(completed_request.buffers[stream]);
+			const std::vector<libcamera::Span<uint8_t>> mem = app.Mmap(completed_request->buffers[stream]);
 
 			// Make a filename for the output and save it.
 			char filename[128];
@@ -109,7 +107,7 @@ static void event_loop(LibcameraDetectApp &app)
 			filename[sizeof(filename) - 1] = 0;
 			options->framestart++;
 			std::cerr << "Save image " << filename << std::endl;
-			jpeg_save(mem, w, h, stride, stream->configuration().pixelFormat, completed_request.metadata,
+			jpeg_save(mem, w, h, stride, stream->configuration().pixelFormat, completed_request->metadata,
 					  std::string(filename), app.CameraId(), options);
 
 			// Restart camera in preview mode.

@@ -44,7 +44,7 @@ protected:
 
 	// Attach the results as metadata; optionally write the labels too for the annotate_cv
 	// stage to pick up.
-	void applyResults(CompletedRequest &completed_request) override;
+	void applyResults(CompletedRequestPtr &completed_request) override;
 
 private:
 	void readLabelsFile(const std::string &file_name);
@@ -92,9 +92,9 @@ void ObjectDetectTfStage::checkConfiguration()
 		throw std::runtime_error("ObjectDetectTfStage: Main stream is required");
 }
 
-void ObjectDetectTfStage::applyResults(CompletedRequest &completed_request)
+void ObjectDetectTfStage::applyResults(CompletedRequestPtr &completed_request)
 {
-	completed_request.post_process_metadata.Set("object_detect.results", output_results_);
+	completed_request->post_process_metadata.Set("object_detect.results", output_results_);
 }
 
 static unsigned int area(const Rectangle &r)

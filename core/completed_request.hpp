@@ -7,6 +7,8 @@
 
 #pragma once
 
+#include <memory>
+
 #include <libcamera/controls.h>
 #include <libcamera/request.h>
 
@@ -16,17 +18,6 @@ struct CompletedRequest
 {
 	using BufferMap = libcamera::Request::BufferMap;
 	using ControlList = libcamera::ControlList;
-
-	CompletedRequest() {}
-
-	// Mark CompletedRequest as non-copyable.
-	CompletedRequest(const CompletedRequest &c) = delete;
-	CompletedRequest &operator=(CompletedRequest &c) = delete;
-	CompletedRequest &operator=(const CompletedRequest &c) = delete;
-
-	// But allow it to be movable.
-	CompletedRequest(CompletedRequest &&c) = default;
-	CompletedRequest &operator=(CompletedRequest &&c) = default;
 
 	CompletedRequest(unsigned int seq, BufferMap const &b, ControlList const &m)
 		: sequence(seq), buffers(b), metadata(m)
@@ -38,3 +29,5 @@ struct CompletedRequest
 	float framerate;
 	Metadata post_process_metadata;
 };
+
+using CompletedRequestPtr = std::shared_ptr<CompletedRequest>;

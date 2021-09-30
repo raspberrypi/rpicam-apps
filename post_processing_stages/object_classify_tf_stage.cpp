@@ -39,7 +39,7 @@ protected:
 
 	// Attach the results as metadata; optionally write the labels too for the annotate_cv
 	// stage to pick up.
-	void applyResults(CompletedRequest &completed_request) override;
+	void applyResults(CompletedRequestPtr &completed_request) override;
 
 private:
 	void readLabelsFile(const std::string &file_name);
@@ -86,9 +86,9 @@ void ObjectClassifyTfStage::readLabelsFile(const std::string &file_name)
 		labels_.emplace_back();
 }
 
-void ObjectClassifyTfStage::applyResults(CompletedRequest &completed_request)
+void ObjectClassifyTfStage::applyResults(CompletedRequestPtr &completed_request)
 {
-	completed_request.post_process_metadata.Set("object_classify.results", output_results_);
+	completed_request->post_process_metadata.Set("object_classify.results", output_results_);
 
 	if (config()->display_labels)
 	{
@@ -109,7 +109,7 @@ void ObjectClassifyTfStage::applyResults(CompletedRequest &completed_request)
 			first = false;
 		}
 
-		completed_request.post_process_metadata.Set("annotate.text", annotation.str());
+		completed_request->post_process_metadata.Set("annotate.text", annotation.str());
 	}
 }
 

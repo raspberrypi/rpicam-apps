@@ -382,7 +382,7 @@ public:
 
 	void Configure() override;
 
-	bool Process(CompletedRequest &completed_request) override;
+	bool Process(CompletedRequestPtr &completed_request) override;
 
 private:
 	Stream *stream_;
@@ -455,7 +455,7 @@ void HdrStage::Configure()
 	lp_ = HdrImage(width_, height_, width_ * height_);
 }
 
-bool HdrStage::Process(CompletedRequest &completed_request)
+bool HdrStage::Process(CompletedRequestPtr &completed_request)
 {
 	if (!stream_)
 		return false; // in viewfinder mode, do nothing
@@ -467,7 +467,7 @@ bool HdrStage::Process(CompletedRequest &completed_request)
 	if (frame_num_ >= config_.num_frames)
 		return false;
 
-	libcamera::Span<uint8_t> buffer = app_->Mmap(completed_request.buffers[stream_])[0];
+	libcamera::Span<uint8_t> buffer = app_->Mmap(completed_request->buffers[stream_])[0];
 	uint8_t *image = buffer.data();
 
 	// Accumulate frame.

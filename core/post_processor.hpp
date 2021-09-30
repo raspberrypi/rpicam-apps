@@ -24,7 +24,7 @@ class LibcameraApp;
 
 using namespace std::chrono_literals;
 class PostProcessingStage;
-using PostProcessorCallback = std::function<void(CompletedRequest &)>;
+using PostProcessorCallback = std::function<void(CompletedRequestPtr &)>;
 using StreamConfiguration = libcamera::StreamConfiguration;
 typedef std::unique_ptr<PostProcessingStage> StagePtr;
 
@@ -45,7 +45,7 @@ public:
 
 	void Start();
 
-	void Process(CompletedRequest &request);
+	void Process(CompletedRequestPtr &request);
 
 	void Stop();
 
@@ -58,7 +58,7 @@ private:
 	std::vector<StagePtr> stages_;
 	void outputThread();
 
-	std::queue<CompletedRequest> requests_;
+	std::queue<CompletedRequestPtr> requests_;
 	std::queue<std::future<bool>> futures_;
 	std::thread output_thread_;
 	bool quit_;

@@ -41,7 +41,7 @@ protected:
 	void interpretOutputs() override;
 
 	// Add metadata and optionally draw the segmentation in the corner of the image.
-	void applyResults(CompletedRequest &completed_request) override;
+	void applyResults(CompletedRequestPtr &completed_request) override;
 
 	void readLabelsFile(const std::string &filename);
 
@@ -81,17 +81,17 @@ void SegmentationTfStage::checkConfiguration()
 		throw std::runtime_error("SegmentationTfStage: Main stream is required for drawing");
 }
 
-void SegmentationTfStage::applyResults(CompletedRequest &completed_request)
+void SegmentationTfStage::applyResults(CompletedRequestPtr &completed_request)
 {
 	// Store the segmentation in image metadata.
-	completed_request.post_process_metadata.Set("segmentation.result",
+	completed_request->post_process_metadata.Set("segmentation.result",
 												Segmentation(WIDTH, HEIGHT, labels_, segmentation_));
 
 	// Optionally, draw the segmentation in the bottom right corner of the main image.
 	if (!config()->draw)
 		return;
 
-	libcamera::Span<uint8_t> buffer = app_->Mmap(completed_request.buffers[main_stream_])[0];
+	libcamera::Span<uint8_t> buffer = app_->Mmap(completed_request->buffers[main_stream_])[0];
 	int y_offset = main_h_ - HEIGHT;
 	int x_offset = main_w_ - WIDTH;
 	int scale = 255 / labels_.size();

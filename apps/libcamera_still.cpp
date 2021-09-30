@@ -86,17 +86,18 @@ static void update_latest_link(std::string const &filename, StillOptions const *
 	}
 }
 
-static void save_image(LibcameraStillApp &app, CompletedRequest &payload, Stream *stream, std::string const &filename)
+static void save_image(LibcameraStillApp &app, CompletedRequestPtr &payload, Stream *stream,
+					   std::string const &filename)
 {
 	StillOptions const *options = app.GetOptions();
 	unsigned int w, h, stride;
 	app.StreamDimensions(stream, &w, &h, &stride);
 	libcamera::PixelFormat const &pixel_format = stream->configuration().pixelFormat;
-	const std::vector<libcamera::Span<uint8_t>> mem = app.Mmap(payload.buffers[stream]);
+	const std::vector<libcamera::Span<uint8_t>> mem = app.Mmap(payload->buffers[stream]);
 	if (stream == app.RawStream())
-		dng_save(mem, w, h, stride, pixel_format, payload.metadata, filename, app.CameraId(), options);
+		dng_save(mem, w, h, stride, pixel_format, payload->metadata, filename, app.CameraId(), options);
 	else if (options->encoding == "jpg")
-		jpeg_save(mem, w, h, stride, pixel_format, payload.metadata, filename, app.CameraId(), options);
+		jpeg_save(mem, w, h, stride, pixel_format, payload->metadata, filename, app.CameraId(), options);
 	else if (options->encoding == "png")
 		png_save(mem, w, h, stride, pixel_format, filename, options);
 	else if (options->encoding == "bmp")
@@ -107,7 +108,7 @@ static void save_image(LibcameraStillApp &app, CompletedRequest &payload, Stream
 		std::cerr << "Saved image " << w << " x " << h << " to file " << filename << std::endl;
 }
 
-static void save_images(LibcameraStillApp &app, CompletedRequest &payload)
+static void save_images(LibcameraStillApp &app, CompletedRequestPtr &payload)
 {
 	StillOptions *options = app.GetOptions();
 	std::string filename = generate_filename(options);
@@ -174,7 +175,6 @@ static void event_loop(LibcameraStillApp &app)
 	else
 		app.ConfigureViewfinder();
 	app.StartCamera();
-	app.SetPreviewDoneCallback(std::bind(&LibcameraApp::QueueRequest, &app, _1));
 	auto start_time = std::chrono::high_resolution_clock::now();
 	auto timelapse_time = start_time;
 
@@ -226,7 +226,7 @@ static void event_loop(LibcameraStillApp &app)
 			}
 			else
 			{
-				CompletedRequest &completed_request = std::get<CompletedRequest>(msg.payload);
+				CompletedRequestPtr &completed_request = std::get<CompletedRequestPtr>(msg.payload);
 				app.ShowPreview(completed_request, app.ViewfinderStream());
 			}
 		}
@@ -236,7 +236,7 @@ static void event_loop(LibcameraStillApp &app)
 		{
 			app.StopCamera();
 			std::cerr << "Still capture image received" << std::endl;
-			save_images(app, std::get<CompletedRequest>(msg.payload));
+			save_images(app, std::get<CompletedRequestPtr>(msg.payload));
 			if (options->timelapse)
 			{
 				app.Teardown();
