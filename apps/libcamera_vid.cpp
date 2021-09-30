@@ -55,12 +55,10 @@ static void event_loop(LibcameraEncoder &app)
 {
 	VideoOptions const *options = app.GetOptions();
 	std::unique_ptr<Output> output = std::unique_ptr<Output>(Output::Create(options));
-	app.SetEncodeBufferDoneCallback(std::bind(&LibcameraEncoder::ShowPreview, &app, _1, _2));
 	app.SetEncodeOutputReadyCallback(std::bind(&Output::OutputReady, output.get(), _1, _2, _3, _4));
 	app.StartEncoder();
 
 	app.OpenCamera();
-	app.SetPreviewDoneCallback(std::bind(&LibcameraEncoder::QueueRequest, &app, _1));
 	app.ConfigureVideo();
 	app.StartCamera();
 	auto start_time = std::chrono::high_resolution_clock::now();
@@ -92,7 +90,9 @@ static void event_loop(LibcameraEncoder &app)
 			return;
 		}
 
-		app.EncodeBuffer(std::get<CompletedRequest>(msg.payload), app.VideoStream());
+		CompletedRequestPtr &completed_request = std::get<CompletedRequestPtr>(msg.payload);
+		app.EncodeBuffer(completed_request, app.VideoStream());
+		app.ShowPreview(completed_request, app.VideoStream());
 	}
 }
 

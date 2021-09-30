@@ -37,7 +37,7 @@ public:
 
 	void Configure() override;
 
-	bool Process(CompletedRequest &completed_request) override;
+	bool Process(CompletedRequestPtr &completed_request) override;
 
 	void Stop() override;
 
@@ -110,17 +110,17 @@ void FaceDetectCvStage::Configure()
 		throw std::runtime_error("FaceDetectCvStage: drawing only supported for YUV420 images");
 }
 
-bool FaceDetectCvStage::Process(CompletedRequest &completed_request)
+bool FaceDetectCvStage::Process(CompletedRequestPtr &completed_request)
 {
 	if (!stream_)
 		return false;
 
 	{
 		std::unique_lock<std::mutex> lck(future_ptr_mutex_);
-		if (completed_request.sequence % refresh_rate_ == 0 &&
+		if (completed_request->sequence % refresh_rate_ == 0 &&
 			(!future_ptr_ || future_ptr_->wait_for(std::chrono::seconds(0)) == std::future_status::ready))
 		{
-			libcamera::Span<uint8_t> buffer = app_->Mmap(completed_request.buffers[stream_])[0];
+			libcamera::Span<uint8_t> buffer = app_->Mmap(completed_request->buffers[stream_])[0];
 			uint8_t *ptr = (uint8_t *)buffer.data();
 			Mat image(height_, width_, CV_8U, ptr, stride_);
 			image_ = image.clone();
@@ -135,11 +135,11 @@ bool FaceDetectCvStage::Process(CompletedRequest &completed_request)
 	std::vector<libcamera::Rectangle> temprect;
 	std::transform(faces_.begin(), faces_.end(), std::back_inserter(temprect),
 				   [](Rect &r) { return libcamera::Rectangle(r.x, r.y, r.width, r.height); });
-	completed_request.post_process_metadata.Set("detected_faces", temprect);
+	completed_request->post_process_metadata.Set("detected_faces", temprect);
 
 	if (draw_features_)
 	{
-		libcamera::Span<uint8_t> buffer = app_->Mmap(completed_request.buffers[full_stream_])[0];
+		libcamera::Span<uint8_t> buffer = app_->Mmap(completed_request->buffers[full_stream_])[0];
 		uint8_t *ptr = (uint8_t *)buffer.data();
 		Mat image(full_height_, full_width_, CV_8U, ptr, full_stride_);
 		drawFeatures(image);

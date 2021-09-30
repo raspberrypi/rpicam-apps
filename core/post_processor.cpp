@@ -79,7 +79,7 @@ void PostProcessor::Start()
 	}
 }
 
-void PostProcessor::Process(CompletedRequest &request)
+void PostProcessor::Process(CompletedRequestPtr &request)
 {
 	if (stages_.empty())
 	{
@@ -88,10 +88,10 @@ void PostProcessor::Process(CompletedRequest &request)
 	}
 
 	std::unique_lock<std::mutex> l(mutex_);
-	requests_.push(std::move(request));
+	requests_.push(std::move(request)); // caller has given us ownership of this reference
 
 	std::promise<bool> promise;
-	auto process_fn = [this](CompletedRequest &request, std::promise<bool> promise) {
+	auto process_fn = [this](CompletedRequestPtr &request, std::promise<bool> promise) {
 		bool drop_request = false;
 		for (auto &stage : stages_)
 		{
@@ -115,7 +115,7 @@ void PostProcessor::outputThread()
 {
 	while (true)
 	{
-		CompletedRequest request;
+		CompletedRequestPtr request;
 
 		bool drop_request = false;
 		{
@@ -132,14 +132,12 @@ void PostProcessor::outputThread()
 
 			drop_request = futures_.front().get();
 			futures_.pop();
-			request = std::move(requests_.front());
+			request = std::move(requests_.front()); // reuse as it's being dropped from the queue
 			requests_.pop();
 		}
 
-		if (drop_request)
-			app_->QueueRequest(request);
-		else
-			callback_(request);
+		if (!drop_request)
+			callback_(request); // callback can take over ownership from us
 	}
 }
 

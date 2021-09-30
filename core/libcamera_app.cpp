@@ -72,8 +72,9 @@ void LibcameraApp::OpenCamera()
 
 	if (!options_->post_process_file.empty())
 		post_processor_.Read(options_->post_process_file);
+	// The queue takes over ownership from the post-processor.
 	post_processor_.SetCallback(
-		[this](CompletedRequest &r) { this->msg_queue_.Post(Msg(MsgType::RequestComplete, std::move(r))); });
+		[this](CompletedRequestPtr &r) { this->msg_queue_.Post(Msg(MsgType::RequestComplete, std::move(r))); });
 }
 
 void LibcameraApp::CloseCamera()
@@ -408,15 +409,12 @@ void LibcameraApp::StopCamera()
 		}
 	}
 
-	if (camera_started_)
-	{
-		if (camera_->stop())
-			throw std::runtime_error("failed to stop camera");
-		camera_started_ = false;
-	}
-
 	if (camera_)
 		camera_->requestCompleted.disconnect(this, &LibcameraApp::requestComplete);
+
+	// An application might be holding a CompletedRequest, so queueRequest will get
+	// called to delete it later, but we need to know not to try and re-queue it.
+	known_completed_requests_.clear();
 
 	msg_queue_.Clear();
 
@@ -439,13 +437,24 @@ LibcameraApp::Msg LibcameraApp::Wait()
 	return msg_queue_.Wait();
 }
 
-void LibcameraApp::QueueRequest(CompletedRequest const &completed_request)
+void LibcameraApp::queueRequest(CompletedRequest *completed_request)
 {
+	BufferMap buffers(std::move(completed_request->buffers));
+
+	delete completed_request;
+
 	// This function may run asynchronously so needs protection from the
 	// camera stopping at the same time.
 	std::lock_guard<std::mutex> stop_lock(camera_stop_mutex_);
 	if (!camera_started_)
 		return;
+
+	// An application could be holding a CompletedRequest while it stops and re-starts
+	// the camera, after which we don't want to queue another request now.
+	auto it = known_completed_requests_.find(completed_request);
+	if (it == known_completed_requests_.end())
+		return;
+	known_completed_requests_.erase(it);
 
 	Request *request = nullptr;
 	{
@@ -462,7 +471,7 @@ void LibcameraApp::QueueRequest(CompletedRequest const &completed_request)
 		return;
 	}
 
-	for (auto const &p : completed_request.buffers)
+	for (auto const &p : buffers)
 	{
 		if (request->addBuffer(p.first, p.second) < 0)
 			throw std::runtime_error("failed to add buffer to request in QueueRequest");
@@ -536,27 +545,14 @@ std::vector<libcamera::Span<uint8_t>> LibcameraApp::Mmap(FrameBuffer *buffer) co
 	return item->second;
 }
 
-void LibcameraApp::SetPreviewDoneCallback(PreviewDoneCallback preview_done_callback)
+void LibcameraApp::ShowPreview(CompletedRequestPtr &completed_request, Stream *stream)
 {
-	preview_done_callback_ = preview_done_callback;
-}
-
-void LibcameraApp::ShowPreview(CompletedRequest &completed_request, Stream *stream)
-{
-	PreviewItem item(std::move(completed_request), stream);
-	{
-		std::lock_guard<std::mutex> lock(preview_item_mutex_);
-		if (!preview_item_.stream)
-			preview_item_ = std::move(item);
-		preview_cond_var_.notify_one();
-	}
-	// If we couldn't display this frame we must still return it through the callback
-	if (item.stream)
-	{
+	std::lock_guard<std::mutex> lock(preview_item_mutex_);
+	if (!preview_item_.stream)
+		preview_item_ = PreviewItem(completed_request, stream); // copy the shared_ptr here
+	else
 		preview_frames_dropped_++;
-		if (preview_done_callback_)
-			preview_done_callback_(item.completed_request);
-	}
+	preview_cond_var_.notify_one();
 }
 
 void LibcameraApp::SetControls(ControlList &controls)
@@ -664,7 +660,9 @@ void LibcameraApp::requestComplete(Request *request)
 	if (request->status() == Request::RequestCancelled)
 		return;
 
-	CompletedRequest payload(sequence_++, request->buffers(), request->metadata());
+	CompletedRequest *r = new CompletedRequest(sequence_++, request->buffers(), request->metadata());
+	CompletedRequestPtr payload(r, [this](CompletedRequest *cr) { this->queueRequest(cr); });
+	known_completed_requests_.insert(r);
 	{
 		request->reuse();
 		std::lock_guard<std::mutex> lock(free_requests_mutex_);
@@ -672,29 +670,23 @@ void LibcameraApp::requestComplete(Request *request)
 	}
 
 	// We calculate the instantaneous framerate in case anyone wants it.
-	uint64_t timestamp = payload.buffers.begin()->second->metadata().timestamp;
+	uint64_t timestamp = payload->buffers.begin()->second->metadata().timestamp;
 	if (last_timestamp_ == 0 || last_timestamp_ == timestamp)
-		payload.framerate = 0;
+		payload->framerate = 0;
 	else
-		payload.framerate = 1e9 / (timestamp - last_timestamp_);
+		payload->framerate = 1e9 / (timestamp - last_timestamp_);
 	last_timestamp_ = timestamp;
 
-	post_processor_.Process(payload);
+	post_processor_.Process(payload); // post-processor can re-use our shared_ptr
 }
 
 void LibcameraApp::previewDoneCallback(int fd)
 {
-	CompletedRequest completed_request;
-	{
-		std::lock_guard<std::mutex> lock(preview_mutex_);
-		auto it = preview_completed_requests_.find(fd);
-		if (it == preview_completed_requests_.end())
-			throw std::runtime_error("previewDoneCallback: missing fd " + std::to_string(fd));
-		completed_request = std::move(it->second);
-		preview_completed_requests_.erase(it);
-	}
-	if (preview_done_callback_)
-		preview_done_callback_(completed_request);
+	std::lock_guard<std::mutex> lock(preview_mutex_);
+	auto it = preview_completed_requests_.find(fd);
+	if (it == preview_completed_requests_.end())
+		throw std::runtime_error("previewDoneCallback: missing fd " + std::to_string(fd));
+	preview_completed_requests_.erase(it); // drop shared_ptr reference
 }
 
 void LibcameraApp::previewThread()
@@ -708,7 +700,7 @@ void LibcameraApp::previewThread()
 			if (preview_abort_)
 				return;
 			else if (preview_item_.stream)
-				item = std::move(preview_item_);
+				item = std::move(preview_item_); // re-use existing shared_ptr reference
 			else
 				preview_cond_var_.wait(lock);
 		}
@@ -718,17 +710,18 @@ void LibcameraApp::previewThread()
 
 		unsigned int w, h, stride;
 		StreamDimensions(item.stream, &w, &h, &stride);
-		FrameBuffer *buffer = item.completed_request.buffers[item.stream];
+		FrameBuffer *buffer = item.completed_request->buffers[item.stream];
 		libcamera::Span span = Mmap(buffer)[0];
 
 		// Fill the frame info with the ControlList items and ancillary bits.
-		FrameInfo frame_info(item.completed_request.metadata);
-		frame_info.fps = item.completed_request.framerate;
-		frame_info.sequence = item.completed_request.sequence;
+		FrameInfo frame_info(item.completed_request->metadata);
+		frame_info.fps = item.completed_request->framerate;
+		frame_info.sequence = item.completed_request->sequence;
 
 		int fd = buffer->planes()[0].fd.fd();
 		{
 			std::lock_guard<std::mutex> lock(preview_mutex_);
+			// the reference to the shared_ptr moves to the map here
 			preview_completed_requests_[fd] = std::move(item.completed_request);
 		}
 		if (preview_->Quit())

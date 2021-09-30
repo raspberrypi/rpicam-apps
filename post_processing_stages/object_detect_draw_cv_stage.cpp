@@ -29,7 +29,7 @@ public:
 
 	void Configure() override;
 
-	bool Process(CompletedRequest &completed_request) override;
+	bool Process(CompletedRequestPtr &completed_request) override;
 
 private:
 	Stream *stream_;
@@ -56,19 +56,19 @@ void ObjectDetectDrawCvStage::Read(boost::property_tree::ptree const &params)
 	font_size_ = params.get<double>("font_size", 1.0);
 }
 
-bool ObjectDetectDrawCvStage::Process(CompletedRequest &completed_request)
+bool ObjectDetectDrawCvStage::Process(CompletedRequestPtr &completed_request)
 {
 	if (!stream_)
 		return false;
 
 	unsigned int w, h, stride;
-	libcamera::Span<uint8_t> buffer = app_->Mmap(completed_request.buffers[stream_])[0];
+	libcamera::Span<uint8_t> buffer = app_->Mmap(completed_request->buffers[stream_])[0];
 	uint32_t *ptr = (uint32_t *)buffer.data();
 	app_->StreamDimensions(stream_, &w, &h, &stride);
 
 	std::vector<Detection> detections;
 
-	completed_request.post_process_metadata.Get("object_detect.results", detections);
+	completed_request->post_process_metadata.Get("object_detect.results", detections);
 
 	Mat image(h, w, CV_8U, ptr, stride);
 	Scalar colour = Scalar(255, 255, 255);
