@@ -12,7 +12,7 @@
 
 #include <libcamera/base/span.h>
 
-class Options;
+struct Options;
 
 class Preview
 {

@@ -30,7 +30,7 @@
 #include "core/completed_request.hpp"
 #include "core/post_processor.hpp"
 
-class Options;
+struct Options;
 class Preview;
 
 namespace controls = libcamera::controls;
