@@ -1,5 +1,7 @@
 cmake_minimum_required(VERSION 3.6)
 
+include(GNUInstallDirs)
+
 pkg_check_modules(LIBDRM QUIET libdrm)
 pkg_check_modules(X11 QUIET x11)
 pkg_check_modules(EPOXY QUIET epoxy)
@@ -50,5 +52,5 @@ target_compile_definitions(preview PUBLIC LIBDRM_PRESENT=${DRM_FOUND})
 target_compile_definitions(preview PUBLIC LIBEGL_PRESENT=${EGL_FOUND})
 target_compile_definitions(preview PUBLIC QT_PRESENT=${QT_FOUND})
 
-install(TARGETS preview LIBRARY DESTINATION lib ARCHIVE DESTINATION lib)
+install(TARGETS preview LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR} ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})
 

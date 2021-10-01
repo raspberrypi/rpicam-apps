@@ -16,6 +16,8 @@
 #include <epoxy/egl.h>
 #include <epoxy/gl.h>
 
+#include "core/options.hpp"
+
 #include "preview.hpp"
 
 class EglPreview : public Preview

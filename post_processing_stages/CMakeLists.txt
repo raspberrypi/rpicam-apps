@@ -1,5 +1,7 @@
 cmake_minimum_required(VERSION 3.6)
 
+include(GNUInstallDirs)
+
 set(SRC negate_stage.cpp hdr_stage.cpp pwl.cpp histogram.cpp motion_detect_stage.cpp)
 set(TARGET_LIBS "")
 
@@ -30,7 +32,7 @@ endif()
 
 set(ENABLE_TFLITE)
 if (ENABLE_TFLITE)
-    set(SRC ${SRC} tf_stage.cpp object_classify_tf_stage.cpp pose_estimation_tf_stage.cpp object_detect_tf_stage.cpp)
+    set(SRC ${SRC} tf_stage.cpp object_classify_tf_stage.cpp pose_estimation_tf_stage.cpp object_detect_tf_stage.cpp segmentation_tf_stage.cpp)
     set(TARGET_LIBS ${TARGET_LIBS} tensorflow-lite)
 endif()
 
@@ -38,4 +40,4 @@ add_library(post_processing_stages ${SRC})
 target_link_libraries(post_processing_stages ${TARGET_LIBS})
 target_compile_definitions(post_processing_stages PUBLIC OPENCV_PRESENT=${OpenCV_FOUND})
 
-install(TARGETS post_processing_stages LIBRARY DESTINATION lib ARCHIVE DESTINATION lib)
+install(TARGETS post_processing_stages LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR} ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})
