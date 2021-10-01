@@ -54,11 +54,11 @@ public:
 
 	char const *Name() const override;
 
-	void Read(boost::property_tree::ptree const &params);
+	void Read(boost::property_tree::ptree const &params) override;
 
-	void Configure();
+	void Configure() override;
 
-	bool Process(CompletedRequest &completed_request);
+	bool Process(CompletedRequest &completed_request) override;
 
 private:
 	void drawFeatures(cv::Mat &img, std::vector<Point> locations, std::vector<float> confidences);

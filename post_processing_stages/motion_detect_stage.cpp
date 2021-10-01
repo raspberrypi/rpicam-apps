@@ -36,9 +36,9 @@ public:
 
 	void Read(boost::property_tree::ptree const &params) override;
 
-	void Configure();
+	void Configure() override;
 
-	bool Process(CompletedRequest &completed_request);
+	bool Process(CompletedRequest &completed_request) override;
 
 private:
 	// In the Config, dimensions are given as fractions of the lores image size.

@@ -32,11 +32,11 @@ public:
 
 	void Read(boost::property_tree::ptree const &params) override;
 
-	void Configure();
+	void Configure() override;
 
-	bool Process(CompletedRequest &completed_request);
+	bool Process(CompletedRequest &completed_request) override;
 
-	void Stop();
+	void Stop() override;
 
 private:
 	void detectFeatures(cv::CascadeClassifier &cascade);
