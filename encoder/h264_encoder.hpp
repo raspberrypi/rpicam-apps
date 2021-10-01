@@ -20,7 +20,8 @@ public:
 	H264Encoder(VideoOptions const *options);
 	~H264Encoder();
 	// Encode the given DMABUF.
-	void EncodeBuffer(int fd, size_t size, void *mem, int width, int height, int stride, int64_t timestamp_us) override;
+	void EncodeBuffer(int fd, size_t size, void *mem, unsigned int width, unsigned int height, unsigned int stride,
+					  int64_t timestamp_us) override;
 
 private:
 	// We want at least as many output buffers as there are in the camera queue

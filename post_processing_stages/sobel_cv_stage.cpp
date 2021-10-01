@@ -55,7 +55,7 @@ void SobelCvStage::Configure()
 
 bool SobelCvStage::Process(CompletedRequest &completed_request)
 {
-	int w, h, stride;
+	unsigned int w, h, stride;
 	app_->StreamDimensions(stream_, &w, &h, &stride);
 	libcamera::Span<uint8_t> buffer = app_->Mmap(completed_request.buffers[stream_])[0];
 	uint8_t *ptr = (uint8_t *)buffer.data();

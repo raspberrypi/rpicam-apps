@@ -43,9 +43,9 @@ private:
 	void drawFeatures(cv::Mat &img);
 
 	Stream *stream_;
-	int width_, height_, stride_;
+	unsigned int width_, height_, stride_;
 	Stream *full_stream_;
-	int full_width_, full_height_, full_stride_;
+	unsigned int full_width_, full_height_, full_stride_;
 	std::unique_ptr<std::future<void>> future_ptr_;
 	std::mutex face_mutex_;
 	std::mutex future_ptr_mutex_;

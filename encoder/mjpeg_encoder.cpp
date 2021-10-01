@@ -38,7 +38,8 @@ MjpegEncoder::~MjpegEncoder()
 		std::cout << "MjpegEncoder closed" << std::endl;
 }
 
-void MjpegEncoder::EncodeBuffer(int fd, size_t size, void *mem, int width, int height, int stride, int64_t timestamp_us)
+void MjpegEncoder::EncodeBuffer(int fd, size_t size, void *mem, unsigned int width, unsigned int height,
+								unsigned int stride, int64_t timestamp_us)
 {
 	std::lock_guard<std::mutex> lock(encode_mutex_);
 	EncodeItem item = { mem, width, height, stride, timestamp_us, index_++ };
@@ -74,7 +75,7 @@ void MjpegEncoder::encodeJPEG(struct jpeg_compress_struct &cinfo, EncodeItem &it
 	JSAMPROW u_rows[8];
 	JSAMPROW v_rows[8];
 
-	int height_align = item.height & ~15;
+	unsigned int height_align = item.height & ~15;
 	while (cinfo.next_scanline < height_align)
 	{
 		uint8_t *Y_row = Y + cinfo.next_scanline * item.stride;

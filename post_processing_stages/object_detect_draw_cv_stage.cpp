@@ -60,7 +60,7 @@ bool ObjectDetectDrawCvStage::Process(CompletedRequest &completed_request)
 	if (!stream_)
 		return false;
 
-	int w, h, stride;
+	unsigned int w, h, stride;
 	libcamera::Span<uint8_t> buffer = app_->Mmap(completed_request.buffers[stream_])[0];
 	uint32_t *ptr = (uint32_t *)buffer.data();
 	app_->StreamDimensions(stream_, &w, &h, &stride);

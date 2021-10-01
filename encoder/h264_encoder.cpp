@@ -193,7 +193,8 @@ H264Encoder::~H264Encoder()
 	// Other stuff will mostly get hoovered up with the process quits.
 }
 
-void H264Encoder::EncodeBuffer(int fd, size_t size, void *mem, int width, int height, int stride, int64_t timestamp_us)
+void H264Encoder::EncodeBuffer(int fd, size_t size, void *mem, unsigned int width, unsigned int height,
+							   unsigned int stride, int64_t timestamp_us)
 {
 	int index;
 	{

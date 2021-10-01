@@ -380,13 +380,13 @@ public:
 
 	void Read(boost::property_tree::ptree const &params) override;
 
-	void Configure();
+	void Configure() override;
 
-	bool Process(CompletedRequest &completed_request);
+	bool Process(CompletedRequest &completed_request) override;
 
 private:
 	Stream *stream_;
-	int width_, height_, stride_;
+	unsigned width_, height_, stride_;
 	HdrConfig config_;
 	unsigned int frame_num_;
 	std::mutex mutex_;

@@ -40,7 +40,7 @@ struct FileHeader
 };
 static_assert(sizeof(FileHeader) == 16, "FileHeader size wrong");
 
-void bmp_save(std::vector<libcamera::Span<uint8_t>> const &mem, int w, int h, int stride,
+void bmp_save(std::vector<libcamera::Span<uint8_t>> const &mem, unsigned int w, unsigned int h, unsigned int stride,
 			  libcamera::PixelFormat const &pixel_format, std::string const &filename, StillOptions const *options)
 {
 	if (pixel_format != libcamera::formats::RGB888)
@@ -70,7 +70,7 @@ void bmp_save(std::vector<libcamera::Span<uint8_t>> const &mem, int w, int h, in
 			fwrite(&image_header, sizeof(image_header), 1, fp) != 1)
 			throw std::runtime_error("failed to write BMP file");
 
-		for (int i = 0; i < h; i++, ptr += stride)
+		for (unsigned int i = 0; i < h; i++, ptr += stride)
 		{
 			if (fwrite(ptr, line, 1, fp) != 1 || (pad != 0 && fwrite(padding, pad, 1, fp) != 1))
 				throw std::runtime_error("failed to write BMP file, row " + std::to_string(i));
