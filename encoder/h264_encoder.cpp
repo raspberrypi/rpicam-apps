@@ -227,7 +227,7 @@ void H264Encoder::pollThread()
 {
 	while (true)
 	{
-		pollfd p = { fd_, POLLIN };
+		pollfd p = { fd_, POLLIN, 0 };
 		int ret = poll(&p, 1, 200);
 		if (abort_)
 			break;
