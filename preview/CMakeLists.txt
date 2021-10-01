@@ -39,6 +39,11 @@ if (QTCORE_FOUND AND QTWIDGETS_FOUND)
     message(STATUS "QTCORE_INCLUDE_DIRS=${QTCORE_INCLUDE_DIRS}")
     include_directories(${QTCORE_INCLUDE_DIRS} ${QTWIDGETS_INCLUDE_DIRS})
     set(TARGET_LIBS ${TARGET_LIBS} ${QTCORE_LIBRARIES} ${QTWIDGETS_LIBRARIES})
+    # The qt5/QtCore/qvariant.h header throws a warning, so suppress this.
+    # Annoyingly there are two different (incompatible) flags for clang < 10
+    # and >= 10, so set both, and supress unknown options warnings.
+    set_source_files_properties(qt_preview.cpp PROPERTIES COMPILE_FLAGS
+                                "-Wno-unknown-warning-option -Wno-deprecated-copy -Wno-deprecated")
     set(SRC ${SRC} qt_preview.cpp)
     set(QT_FOUND 1)
 else()
