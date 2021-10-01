@@ -10,7 +10,7 @@ env:
   NUM_JOBS: 4
 
 jobs:
-  build-test:
+  build-test-gcc:
 
     runs-on: self-hosted
 
@@ -29,24 +29,64 @@ jobs:
       timeout-minutes: 5
 
     - name: Tar files
-      run: tar -cvf build_artifacts.tar -C ${{github.workspace}}/build .
+      run: tar -cvf build-artifacts-gcc.tar -C ${{github.workspace}}/build .
 
     - name: Upload build files
       uses: actions/upload-artifact@v2
       with:
-        name: build-artifacts
-        path: build_artifacts.tar
+        name: build-artifacts-gcc
+        path: build-artifacts-gcc.tar
+        retention-days: 21
+
+  build-test-clang:
+
+    runs-on: self-hosted
+
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        fetch-depth: 1
+        clean: true
+
+    - name: Configure CMake
+      run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DCMAKE_C_COMPILER=/usr/bin/clang -DCMAKE_CXX_COMPILER=/usr/bin/clang++
+      timeout-minutes: 5
+
+    - name: Build
+      run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}} --parallel ${{env.NUM_JOBS}}
+      timeout-minutes: 5
+
+    - name: Tar files
+      run: tar -cvf build-artifacts-clang.tar -C ${{github.workspace}}/build .
+
+    - name: Upload build files
+      uses: actions/upload-artifact@v2
+      with:
+        name: build-artifacts-clang
+        path: build-artifacts-clang.tar
         retention-days: 21
 
   run-test:
 
     runs-on: self-hosted
-    needs: build-test
+    needs: build-test-gcc
 
     steps:
 
     - name: Create test output dir
       run: mkdir -p ${{github.workspace}}/test_output
+
+    - name: Remove existing build directory
+      run: rm -rf ${{github.workspace}}/build
+
+    - name: Download build
+      uses: actions/download-artifact@v2
+      with:
+        name: build-artifacts-gcc
+        path: ${{github.workspace}}
+
+    - name: Untar files
+      run: tar -xvf build-artifacts-gcc.tar --one-top-level=build
 
     - name: Test
       run: ${{github.workspace}}/test.py --exe-dir ${{github.workspace}}/build --output-dir ${{github.workspace}}/test_output
