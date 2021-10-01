@@ -36,9 +36,9 @@ public:
 
 	void Read(boost::property_tree::ptree const &params) override;
 
-	void Configure();
+	void Configure() override;
 
-	bool Process(CompletedRequest &completed_request);
+	bool Process(CompletedRequest &completed_request) override;
 
 private:
 	// In the Config, dimensions are given as fractions of the lores image size.
@@ -54,12 +54,12 @@ private:
 		bool verbose;
 	} config_;
 	Stream *stream_;
-	int lores_stride_;
+	unsigned lores_stride_;
 	// Here we convert the dimensions to pixel locations in the lores image, as if subsampled
 	// by hskip and vskip.
-	int roi_x_, roi_y_;
-	int roi_width_, roi_height_;
-	int region_threshold_;
+	unsigned int roi_x_, roi_y_;
+	unsigned int roi_width_, roi_height_;
+	unsigned int region_threshold_;
 	std::vector<uint8_t> previous_frame_;
 	bool first_time_;
 	bool motion_detected_;
@@ -90,7 +90,7 @@ void MotionDetectStage::Read(boost::property_tree::ptree const &params)
 
 void MotionDetectStage::Configure()
 {
-	int lores_width, lores_height;
+	unsigned lores_width, lores_height;
 	stream_ = app_->LoresStream(&lores_width, &lores_height, &lores_stride_);
 	if (!stream_)
 		return;
@@ -109,11 +109,11 @@ void MotionDetectStage::Configure()
 	roi_height_ = config_.roi_height * lores_height;
 	region_threshold_ = config_.region_threshold * roi_width_ * roi_height_;
 
-	roi_x_ = std::clamp(roi_x_, 0, lores_width);
-	roi_y_ = std::clamp(roi_y_, 0, lores_height);
-	roi_width_ = std::clamp(roi_width_, 0, lores_width - roi_x_);
-	roi_height_ = std::clamp(roi_height_, 0, lores_height - roi_y_);
-	region_threshold_ = std::clamp(region_threshold_, 0, roi_width_ * roi_height_);
+	roi_x_ = std::clamp(roi_x_, 0u, lores_width);
+	roi_y_ = std::clamp(roi_y_, 0u, lores_height);
+	roi_width_ = std::clamp(roi_width_, 0u, lores_width - roi_x_);
+	roi_height_ = std::clamp(roi_height_, 0u, lores_height - roi_y_);
+	region_threshold_ = std::clamp(region_threshold_, 0u, roi_width_ * roi_height_);
 
 	if (config_.verbose)
 		std::cout << "Lores: " << lores_width << "x" << lores_height << " roi: (" << roi_x_ << "," << roi_y_ << ") "
@@ -141,11 +141,11 @@ bool MotionDetectStage::Process(CompletedRequest &completed_request)
 	if (first_time_)
 	{
 		first_time_ = false;
-		for (int y = 0; y < roi_height_; y++)
+		for (unsigned int y = 0; y < roi_height_; y++)
 		{
 			uint8_t *new_value_ptr = image + (roi_y_ + y) * lores_stride_ + roi_x_ * config_.hskip;
 			uint8_t *old_value_ptr = &previous_frame_[0] + y * roi_width_;
-			for (int x = 0; x < roi_width_; x++, new_value_ptr += config_.hskip)
+			for (unsigned int x = 0; x < roi_width_; x++, new_value_ptr += config_.hskip)
 				*(old_value_ptr++) = *new_value_ptr;
 		}
 
@@ -155,15 +155,15 @@ bool MotionDetectStage::Process(CompletedRequest &completed_request)
 	}
 
 	bool motion_detected = false;
-	int regions = 0;
+	unsigned int regions = 0;
 
 	// Count the lores pixels where the difference between the new and previous values
 	// exceeds the threshold. At the same time, update the previous image buffer.
-	for (int y = 0; y < roi_height_; y++)
+	for (unsigned int y = 0; y < roi_height_; y++)
 	{
 		uint8_t *new_value_ptr = image + (roi_y_ + y) * lores_stride_ + roi_x_ * config_.hskip;
 		uint8_t *old_value_ptr = &previous_frame_[0] + y * roi_width_;
-		for (int x = 0; x < roi_width_; x++, new_value_ptr += config_.hskip)
+		for (unsigned int x = 0; x < roi_width_; x++, new_value_ptr += config_.hskip)
 		{
 			int new_value = *new_value_ptr;
 			int old_value = *old_value_ptr;

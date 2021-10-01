@@ -54,11 +54,11 @@ public:
 
 	char const *Name() const override;
 
-	void Read(boost::property_tree::ptree const &params);
+	void Read(boost::property_tree::ptree const &params) override;
 
-	void Configure();
+	void Configure() override;
 
-	bool Process(CompletedRequest &completed_request);
+	bool Process(CompletedRequest &completed_request) override;
 
 private:
 	void drawFeatures(cv::Mat &img, std::vector<Point> locations, std::vector<float> confidences);
@@ -89,7 +89,7 @@ bool PlotPoseCvStage::Process(CompletedRequest &completed_request)
 	if (!stream_)
 		return false;
 
-	int w, h, stride;
+	unsigned int w, h, stride;
 	libcamera::Span<uint8_t> buffer = app_->Mmap(completed_request.buffers[stream_])[0];
 	uint32_t *ptr = (uint32_t *)buffer.data();
 	app_->StreamDimensions(stream_, &w, &h, &stride);

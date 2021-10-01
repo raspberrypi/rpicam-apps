@@ -8,7 +8,7 @@
 #include "file_output.hpp"
 
 FileOutput::FileOutput(VideoOptions const *options)
-	: fp_(nullptr), count_(0), file_start_time_ms_(0), Output(options)
+	: Output(options), fp_(nullptr), count_(0), file_start_time_ms_(0)
 {
 }
 
@@ -54,7 +54,7 @@ void FileOutput::openFile(int64_t timestamp_us)
 		count_++;
 		if (options_->wrap)
 			count_ = count_ % options_->wrap;
-		if (n < 0 || n >= sizeof(filename))
+		if (n < 0)
 			throw std::runtime_error("failed to generate filename");
 
 		fp_ = fopen(filename, "w");

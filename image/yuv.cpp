@@ -10,8 +10,8 @@
 
 #include "core/still_options.hpp"
 
-static void yuv420_save(std::vector<libcamera::Span<uint8_t>> const &mem, int w, int h, int stride,
-						std::string const &filename, StillOptions const *options)
+static void yuv420_save(std::vector<libcamera::Span<uint8_t>> const &mem, unsigned int w, unsigned int h,
+						unsigned int stride, std::string const &filename, StillOptions const *options)
 {
 	if (options->encoding == "yuv420")
 	{
@@ -25,20 +25,20 @@ static void yuv420_save(std::vector<libcamera::Span<uint8_t>> const &mem, int w,
 		try
 		{
 			uint8_t *Y = (uint8_t *)mem[0].data();
-			for (int j = 0; j < h; j++)
+			for (unsigned int j = 0; j < h; j++)
 			{
 				if (fwrite(Y + j * stride, w, 1, fp) != 1)
 					throw std::runtime_error("failed to write file " + filename);
 			}
 			uint8_t *U = Y + stride * h;
 			h /= 2, w /= 2, stride /= 2;
-			for (int j = 0; j < h; j++)
+			for (unsigned int j = 0; j < h; j++)
 			{
 				if (fwrite(U + j * stride, w, 1, fp) != 1)
 					throw std::runtime_error("failed to write file " + filename);
 			}
 			uint8_t *V = U + stride * h;
-			for (int j = 0; j < h; j++)
+			for (unsigned int j = 0; j < h; j++)
 			{
 				if (fwrite(V + j * stride, w, 1, fp) != 1)
 					throw std::runtime_error("failed to write file " + filename);
@@ -54,8 +54,8 @@ static void yuv420_save(std::vector<libcamera::Span<uint8_t>> const &mem, int w,
 		throw std::runtime_error("output format " + options->encoding + " not supported");
 }
 
-static void yuyv_save(std::vector<libcamera::Span<uint8_t>> const &mem, int w, int h, int stride,
-					  std::string const &filename, StillOptions const *options)
+static void yuyv_save(std::vector<libcamera::Span<uint8_t>> const &mem, unsigned int w, unsigned int h,
+					  unsigned int stride, std::string const &filename, StillOptions const *options)
 {
 	if (options->encoding == "yuv420")
 	{
@@ -70,25 +70,25 @@ static void yuyv_save(std::vector<libcamera::Span<uint8_t>> const &mem, int w, i
 			// YUV420 planar buffer would have been nice.
 			std::vector<uint8_t> row(w);
 			uint8_t *ptr = (uint8_t *)mem[0].data();
-			for (int j = 0; j < h; j++, ptr += stride)
+			for (unsigned int j = 0; j < h; j++, ptr += stride)
 			{
-				for (int i = 0; i < w; i++)
+				for (unsigned int i = 0; i < w; i++)
 					row[i] = ptr[i << 1];
 				if (fwrite(&row[0], w, 1, fp) != 1)
 					throw std::runtime_error("failed to write file " + filename);
 			}
 			ptr = (uint8_t *)mem[0].data();
-			for (int j = 0; j < h; j += 2, ptr += 2 * stride)
+			for (unsigned int j = 0; j < h; j += 2, ptr += 2 * stride)
 			{
-				for (int i = 0; i < w / 2; i++)
+				for (unsigned int i = 0; i < w / 2; i++)
 					row[i] = ptr[(i << 2) + 1];
 				if (fwrite(&row[0], w / 2, 1, fp) != 1)
 					throw std::runtime_error("failed to write file " + filename);
 			}
 			ptr = (uint8_t *)mem[0].data();
-			for (int j = 0; j < h; j += 2, ptr += 2 * stride)
+			for (unsigned int j = 0; j < h; j += 2, ptr += 2 * stride)
 			{
-				for (int i = 0; i < w / 2; i++)
+				for (unsigned int i = 0; i < w / 2; i++)
 					row[i] = ptr[(i << 2) + 3];
 				if (fwrite(&row[0], w / 2, 1, fp) != 1)
 					throw std::runtime_error("failed to write file " + filename);
@@ -105,8 +105,8 @@ static void yuyv_save(std::vector<libcamera::Span<uint8_t>> const &mem, int w, i
 		throw std::runtime_error("output format " + options->encoding + " not supported");
 }
 
-static void rgb_save(std::vector<libcamera::Span<uint8_t>> const &mem, int w, int h, int stride,
-					 std::string const &filename, StillOptions const *options)
+static void rgb_save(std::vector<libcamera::Span<uint8_t>> const &mem, unsigned int w, unsigned int h,
+					 unsigned int stride, std::string const &filename, StillOptions const *options)
 {
 	if (options->encoding != "rgb")
 		throw std::runtime_error("encoding should be set to rgb");
@@ -116,7 +116,7 @@ static void rgb_save(std::vector<libcamera::Span<uint8_t>> const &mem, int w, in
 	try
 	{
 		uint8_t *ptr = (uint8_t *)mem[0].data();
-		for (int j = 0; j < h; j++, ptr += stride)
+		for (unsigned int j = 0; j < h; j++, ptr += stride)
 		{
 			if (fwrite(ptr, 3 * w, 1, fp) != 1)
 				throw std::runtime_error("failed to write file " + filename);
@@ -130,7 +130,7 @@ static void rgb_save(std::vector<libcamera::Span<uint8_t>> const &mem, int w, in
 	}
 }
 
-void yuv_save(std::vector<libcamera::Span<uint8_t>> const &mem, int w, int h, int stride,
+void yuv_save(std::vector<libcamera::Span<uint8_t>> const &mem, unsigned int w, unsigned int h, unsigned int stride,
 			  libcamera::PixelFormat const &pixel_format, std::string const &filename, StillOptions const *options)
 {
 	if (pixel_format == libcamera::formats::YUYV)

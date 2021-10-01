@@ -28,7 +28,7 @@ public:
 };
 
 // In jpeg.cpp:
-void jpeg_save(std::vector<libcamera::Span<uint8_t>> const &mem, int w, int h, int stride,
+void jpeg_save(std::vector<libcamera::Span<uint8_t>> const &mem, unsigned int w, unsigned int h, unsigned int stride,
 			   libcamera::PixelFormat const &pixel_format, libcamera::ControlList const &metadata,
 			   std::string const &filename, std::string const &cam_name, StillOptions const *options);
 
@@ -75,7 +75,7 @@ static void event_loop(LibcameraJpegApp &app)
 			app.StopCamera();
 			std::cout << "Still capture image received" << std::endl;
 
-			int w, h, stride;
+			unsigned int w, h, stride;
 			Stream *stream = app.StillStream();
 			app.StreamDimensions(stream, &w, &h, &stride);
 			CompletedRequest &payload = std::get<CompletedRequest>(msg.payload);

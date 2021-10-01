@@ -111,12 +111,12 @@ bool TfStage::Process(CompletedRequest &completed_request)
 			lores_copy_.assign(buffer.data(), buffer.data() + buffer.size());
 
 			future_ = std::make_unique<std::future<void>>();
-			*future_ = std::move(std::async(std::launch::async, [this] {
+			*future_ = std::async(std::launch::async, [this] {
 				auto time_taken = ExecutionTime<std::micro>(&TfStage::runInference, this).count();
 
 				if (config_->verbose)
 					std::cout << "TfStage: Inference time: " << time_taken << " ms" << std::endl;
-			}));
+			});
 		}
 	}
 
@@ -135,13 +135,13 @@ void TfStage::runInference()
 	if (interpreter_->tensor(input)->type == kTfLiteUInt8)
 	{
 		uint8_t *tensor = interpreter_->typed_tensor<uint8_t>(input);
-		for (int i = 0; i < rgb_image.size(); i++)
+		for (unsigned int i = 0; i < rgb_image.size(); i++)
 			tensor[i] = rgb_image[i];
 	}
 	else if (interpreter_->tensor(input)->type == kTfLiteFloat32)
 	{
 		float *tensor = interpreter_->typed_tensor<float>(input);
-		for (int i = 0; i < rgb_image.size(); i++)
+		for (unsigned int i = 0; i < rgb_image.size(); i++)
 			tensor[i] = (rgb_image[i] - config_->normalisation_offset) / config_->normalisation_scale;
 	}
 

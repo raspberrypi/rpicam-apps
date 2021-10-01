@@ -32,20 +32,20 @@ public:
 
 	void Read(boost::property_tree::ptree const &params) override;
 
-	void Configure();
+	void Configure() override;
 
-	bool Process(CompletedRequest &completed_request);
+	bool Process(CompletedRequest &completed_request) override;
 
-	void Stop();
+	void Stop() override;
 
 private:
 	void detectFeatures(cv::CascadeClassifier &cascade);
 	void drawFeatures(cv::Mat &img);
 
 	Stream *stream_;
-	int width_, height_, stride_;
+	unsigned int width_, height_, stride_;
 	Stream *full_stream_;
-	int full_width_, full_height_, full_stride_;
+	unsigned int full_width_, full_height_, full_stride_;
 	std::unique_ptr<std::future<void>> future_ptr_;
 	std::mutex face_mutex_;
 	std::mutex future_ptr_mutex_;
@@ -123,7 +123,7 @@ bool FaceDetectCvStage::Process(CompletedRequest &completed_request)
 			image_ = image.clone();
 
 			future_ptr_ = std::make_unique<std::future<void>>();
-			*future_ptr_ = std::move(std::async(std::launch::async, [this] { detectFeatures(cascade_); }));
+			*future_ptr_ = std::async(std::launch::async, [this] { detectFeatures(cascade_); });
 		}
 	}
 

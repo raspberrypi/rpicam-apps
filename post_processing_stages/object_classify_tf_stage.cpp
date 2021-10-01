@@ -65,7 +65,7 @@ void ObjectClassifyTfStage::readExtras(boost::property_tree::ptree const &params
 	int output = interpreter_->outputs()[0];
 	TfLiteIntArray *output_dims = interpreter_->tensor(output)->dims;
 	// Causes might include loading the wrong model, or the wrong labels file.
-	if (output_dims->data[output_dims->size - 1] != label_count_)
+	if (output_dims->data[output_dims->size - 1] != static_cast<int>(label_count_))
 		throw std::runtime_error("ObjectClassifyTfStage: Label count mismatch");
 }
 

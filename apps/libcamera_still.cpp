@@ -27,25 +27,25 @@ public:
 };
 
 // In jpeg.cpp:
-void jpeg_save(std::vector<libcamera::Span<uint8_t>> const &mem, int w, int h, int stride,
+void jpeg_save(std::vector<libcamera::Span<uint8_t>> const &mem, unsigned int w, unsigned int h, unsigned int stride,
 			   libcamera::PixelFormat const &pixel_format, libcamera::ControlList const &metadata,
 			   std::string const &filename, std::string const &cam_name, StillOptions const *options);
 
 // In yuv.cpp:
-void yuv_save(std::vector<libcamera::Span<uint8_t>> const &mem, int w, int h, int stride,
+void yuv_save(std::vector<libcamera::Span<uint8_t>> const &mem, unsigned int w, unsigned int h, unsigned int stride,
 			  libcamera::PixelFormat const &pixel_format, std::string const &filename, StillOptions const *options);
 
 // In dng.cpp:
-void dng_save(std::vector<libcamera::Span<uint8_t>> const &mem, int w, int h, int stride,
+void dng_save(std::vector<libcamera::Span<uint8_t>> const &mem, unsigned int w, unsigned int h, unsigned int stride,
 			  libcamera::PixelFormat const &pixel_format, libcamera::ControlList const &metadata,
 			  std::string const &filename, std::string const &cam_name, StillOptions const *options);
 
 // In png.cpp:
-void png_save(std::vector<libcamera::Span<uint8_t>> const &mem, int w, int h, int stride,
+void png_save(std::vector<libcamera::Span<uint8_t>> const &mem, unsigned int w, unsigned int h, unsigned int stride,
 			  libcamera::PixelFormat const &pixel_format, std::string const &filename, StillOptions const *options);
 
 // In bmp.cpp:
-void bmp_save(std::vector<libcamera::Span<uint8_t>> const &mem, int w, int h, int stride,
+void bmp_save(std::vector<libcamera::Span<uint8_t>> const &mem, unsigned int w, unsigned int h, unsigned int stride,
 			  libcamera::PixelFormat const &pixel_format, std::string const &filename, StillOptions const *options);
 
 static std::string generate_filename(StillOptions const *options)
@@ -89,7 +89,7 @@ static void update_latest_link(std::string const &filename, StillOptions const *
 static void save_image(LibcameraStillApp &app, CompletedRequest &payload, Stream *stream, std::string const &filename)
 {
 	StillOptions const *options = app.GetOptions();
-	int w, h, stride;
+	unsigned int w, h, stride;
 	app.StreamDimensions(stream, &w, &h, &stride);
 	libcamera::PixelFormat const &pixel_format = stream->configuration().pixelFormat;
 	const std::vector<libcamera::Span<uint8_t>> mem = app.Mmap(payload.buffers[stream]);
@@ -181,7 +181,7 @@ static void event_loop(LibcameraStillApp &app)
 	// Monitoring for keypresses and signals.
 	signal(SIGUSR1, default_signal_handler);
 	signal(SIGUSR2, default_signal_handler);
-	pollfd p[1] = { { STDIN_FILENO, POLLIN } };
+	pollfd p[1] = { { STDIN_FILENO, POLLIN, 0 } };
 
 	for (unsigned int count = 0; ; count++)
 	{

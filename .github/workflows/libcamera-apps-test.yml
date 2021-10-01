@@ -10,6 +10,7 @@ env:
   NUM_JOBS: 4
   GCC_COMPILER: "-DCMAKE_C_COMPILER=/usr/bin/gcc -DCMAKE_CXX_COMPILER=/usr/bin/g++"
   CLANG_COMPILER: "-DCMAKE_C_COMPILER=/usr/bin/clang -DCMAKE_CXX_COMPILER=/usr/bin/clang++"
+  CMAKE_OTHER_FLAGS: "-DENABLE_TFLITE=1"
 
 jobs:
   build-test-gcc:
@@ -23,7 +24,7 @@ jobs:
         clean: true
 
     - name: Configure CMake
-      run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} ${{env.GCC_COMPILER}}
+      run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} ${{env.GCC_COMPILER}} ${{env.CMAKE_OTHER_FLAGS}}
       timeout-minutes: 5
 
     - name: Build
@@ -51,7 +52,7 @@ jobs:
         clean: true
 
     - name: Configure CMake
-      run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} ${{env.CLANG_COMPILER}}
+      run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} ${{env.CLANG_COMPILER}} ${{env.CMAKE_OTHER_FLAGS}}
       timeout-minutes: 5
 
     - name: Build

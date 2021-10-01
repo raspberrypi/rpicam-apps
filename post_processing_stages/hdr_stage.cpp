@@ -154,20 +154,20 @@ static void forward_pass(std::vector<double> &fwd_pixels, std::vector<double> &f
 			double pixel_wt_sum = pixel * strength, wt_sum = strength;
 
 			// Compiler generates faster code from this:
-			int p[4], idx[4];
+			unsigned int p[4], idx[4];
 			double wt[4];
 			p[0] = fwd_pixels[off - width - 1];
 			p[1] = fwd_pixels[off - width];
 			p[2] = fwd_pixels[off - width + 1];
 			p[3] = fwd_pixels[off - 1];
-			idx[0] = abs(p[0] - pixel) * scale;
-			idx[1] = abs(p[1] - pixel) * scale;
-			idx[2] = abs(p[2] - pixel) * scale;
-			idx[3] = abs(p[3] - pixel) * scale;
-			wt[0] = idx[0] >= weights.size() ? 0 : weights[idx[0]];
-			wt[1] = idx[1] >= weights.size() ? 0 : weights[idx[1]];
-			wt[2] = idx[2] >= weights.size() ? 0 : weights[idx[2]];
-			wt[3] = idx[3] >= weights.size() ? 0 : weights[idx[3]];
+			idx[0] = std::abs(static_cast<int>(p[0]) - pixel) * scale;
+			idx[1] = std::abs(static_cast<int>(p[1]) - pixel) * scale;
+			idx[2] = std::abs(static_cast<int>(p[2]) - pixel) * scale;
+			idx[3] = std::abs(static_cast<int>(p[3]) - pixel) * scale;
+			wt[0] = idx[0] >= weights.size() ? 0.0 : weights[idx[0]];
+			wt[1] = idx[1] >= weights.size() ? 0.0 : weights[idx[1]];
+			wt[2] = idx[2] >= weights.size() ? 0.0 : weights[idx[2]];
+			wt[3] = idx[3] >= weights.size() ? 0.0 : weights[idx[3]];
 			pixel_wt_sum += wt[0] * p[0] + wt[1] * p[1] + wt[2] * p[2] + wt[3] * p[3];
 			wt_sum += wt[0] + wt[1] + wt[2] + wt[3];
 
@@ -221,20 +221,20 @@ HdrImage HdrImage::LpFilter(LpFilterConfig const &config) const
 			double pixel_wt_sum = pixel * strength, wt_sum = strength;
 
 			// Compiler generates faster code from this:
-			int p[4], idx[4];
+			unsigned int p[4], idx[4];
 			double wt[4];
 			p[0] = rev_pixels[off + width + 1];
 			p[1] = rev_pixels[off + width];
 			p[2] = rev_pixels[off + width - 1];
 			p[3] = rev_pixels[off + 1];
-			idx[0] = abs(p[0] - pixel) * scale;
-			idx[1] = abs(p[1] - pixel) * scale;
-			idx[2] = abs(p[2] - pixel) * scale;
-			idx[3] = abs(p[3] - pixel) * scale;
-			wt[0] = idx[0] >= weights.size() ? 0 : weights[idx[0]];
-			wt[1] = idx[1] >= weights.size() ? 0 : weights[idx[1]];
-			wt[2] = idx[2] >= weights.size() ? 0 : weights[idx[2]];
-			wt[3] = idx[3] >= weights.size() ? 0 : weights[idx[3]];
+			idx[0] = std::abs(static_cast<int>(p[0]) - pixel) * scale;
+			idx[1] = std::abs(static_cast<int>(p[1]) - pixel) * scale;
+			idx[2] = std::abs(static_cast<int>(p[2]) - pixel) * scale;
+			idx[3] = std::abs(static_cast<int>(p[3]) - pixel) * scale;
+			wt[0] = idx[0] >= weights.size() ? 0.0 : weights[idx[0]];
+			wt[1] = idx[1] >= weights.size() ? 0.0 : weights[idx[1]];
+			wt[2] = idx[2] >= weights.size() ? 0.0 : weights[idx[2]];
+			wt[3] = idx[3] >= weights.size() ? 0.0 : weights[idx[3]];
 			pixel_wt_sum += wt[0] * p[0] + wt[1] * p[1] + wt[2] * p[2] + wt[3] * p[3];
 			wt_sum += wt[0] + wt[1] + wt[2] + wt[3];
 
@@ -380,13 +380,13 @@ public:
 
 	void Read(boost::property_tree::ptree const &params) override;
 
-	void Configure();
+	void Configure() override;
 
-	bool Process(CompletedRequest &completed_request);
+	bool Process(CompletedRequest &completed_request) override;
 
 private:
 	Stream *stream_;
-	int width_, height_, stride_;
+	unsigned width_, height_, stride_;
 	HdrConfig config_;
 	unsigned int frame_num_;
 	std::mutex mutex_;

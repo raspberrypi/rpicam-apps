@@ -163,7 +163,7 @@ static void gl_setup(int width, int height, int window_width, int window_height)
 	glEnableVertexAttribArray(0);
 }
 
-EglPreview::EglPreview(Options const *options) : last_fd_(-1), first_time_(true), Preview(options)
+EglPreview::EglPreview(Options const *options) : Preview(options), last_fd_(-1), first_time_(true)
 {
 	display_ = XOpenDisplay(NULL);
 	if (!display_)
@@ -239,7 +239,6 @@ void EglPreview::makeWindow(char const *name)
 	XSetWindowAttributes attr;
 	unsigned long mask;
 	Window root = RootWindow(display_, screen_num);
-	Window win;
 	int screen_width = DisplayWidth(display_, screen_num);
 	int screen_height = DisplayHeight(display_, screen_num);
 
@@ -400,7 +399,7 @@ void EglPreview::Show(int fd, libcamera::Span<uint8_t> span, int width, int heig
 
 	glBindTexture(GL_TEXTURE_EXTERNAL_OES, buffer.texture);
 	glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
-	EGLBoolean success = eglSwapBuffers(egl_display_, egl_surface_);
+	EGLBoolean success [[maybe_unused]] = eglSwapBuffers(egl_display_, egl_surface_);
 	if (last_fd_ >= 0)
 		done_callback_(last_fd_);
 	last_fd_ = fd;
@@ -419,7 +418,7 @@ bool EglPreview::Quit()
 	XEvent event;
 	while (XCheckTypedWindowEvent(display_, window_, ClientMessage, &event))
 	{
-		if (event.xclient.data.l[0] == wm_delete_window_)
+		if (static_cast<Atom>(event.xclient.data.l[0]) == wm_delete_window_)
 			return true;
 	}
 	return false;
