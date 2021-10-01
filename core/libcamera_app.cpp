@@ -170,8 +170,9 @@ void LibcameraApp::ConfigureStill(unsigned int flags)
 		std::cout << "Configuring still capture..." << std::endl;
 
 	// Will add a raw capture stream once that works properly.
+	bool have_raw_stream = flags & FLAG_STILL_RAW;
 	StreamRoles stream_roles;
-	if (flags & FLAG_STILL_RAW)
+	if (have_raw_stream)
 		stream_roles = { StreamRole::StillCapture, StreamRole::Raw };
 	else
 		stream_roles = { StreamRole::StillCapture };
@@ -198,7 +199,7 @@ void LibcameraApp::ConfigureStill(unsigned int flags)
 
 	post_processor_.AdjustConfig("still", &configuration_->at(0));
 
-	if ((flags & FLAG_STILL_RAW) && !options_->rawfull)
+	if (have_raw_stream && !options_->rawfull)
 	{
 		configuration_->at(1).size.width = configuration_->at(0).size.width;
 		configuration_->at(1).size.height = configuration_->at(0).size.height;
@@ -209,7 +210,8 @@ void LibcameraApp::ConfigureStill(unsigned int flags)
 	setupCapture();
 
 	streams_["still"] = configuration_->at(0).stream();
-	streams_["raw"] = configuration_->at(1).stream();
+	if (have_raw_stream)
+		streams_["raw"] = configuration_->at(1).stream();
 
 	post_processor_.Configure();
 
@@ -476,7 +478,7 @@ void LibcameraApp::QueueRequest(CompletedRequest const &completed_request)
 
 void LibcameraApp::PostMessage(MsgType &t, MsgPayload &p)
 {
-	msg_queue_.Post(Msg(t, p));
+	msg_queue_.Post(Msg(t, std::move(p)));
 }
 
 libcamera::Stream *LibcameraApp::GetStream(std::string const &name, int *w, int *h, int *stride) const
@@ -731,7 +733,7 @@ void LibcameraApp::previewThread()
 		{
 			if (options_->verbose)
 				std::cout << "Preview window has quit" << std::endl;
-			msg_queue_.Post(Msg(MsgType::Quit, QuitPayload()));
+			msg_queue_.Post(Msg(MsgType::Quit));
 		}
 		preview_frames_displayed_++;
 		preview_->Show(fd, span, w, h, stride);
