@@ -11,10 +11,15 @@ endif()
 
 set (CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set (CMAKE_CXX_STANDARD 17)
-set (CMAKE CXX_FLAGS "-Wall -Wextra -pedantic -Wno-unused-parameter -faligned-new")
+set (CMAKE_CXX_FLAGS "-Wall -Wextra -pedantic -Wno-unused-parameter -faligned-new")
+add_definitions(-Werror)
 add_definitions(-Wfatal-errors)
-add_definitions(-Wno-psabi)
 add_definitions(-D_FILE_OFFSET_BITS=64)
+
+if (CMAKE_COMPILER_IS_GNUCXX)
+    add_definitions(-Wno-psabi)
+endif()
+
 option(BUILD_SHARED_LIBS "Build using shared libraries" ON)
 
 IF (NOT ENABLE_COMPILE_FLAGS_FOR_TARGET)
