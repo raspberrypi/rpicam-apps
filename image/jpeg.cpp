@@ -179,7 +179,7 @@ void exif_read_tag(ExifData *exif, char const *str)
 
 	char ifd_name[5];
 	char tag_name[128];
-	unsigned int bytes_consumed;
+	int bytes_consumed;
 	if (sscanf(str, "%4[^.].%127[^=]=%n", ifd_name, tag_name, &bytes_consumed) != 2)
 		throw std::runtime_error("failed to read EXIF IFD and tag");
 	if (exif_ifd_map.count(std::string(ifd_name)) == 0)
@@ -242,7 +242,7 @@ void exif_read_tag(ExifData *exif, char const *str)
 	size_t len = strlen(str);
 	for (unsigned i = 0; i < entry->components; i++)
 	{
-		if (bytes_consumed >= len)
+		if (static_cast<unsigned int>(bytes_consumed) >= len)
 			throw std::runtime_error("too few parameters for EXIF tag " + tag_string);
 		unsigned char *dest = entry->data + i * item_size;
 		int extra_consumed = (exif_read_functions[entry->format])(str + bytes_consumed, dest);

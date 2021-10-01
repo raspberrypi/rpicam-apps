@@ -17,7 +17,7 @@
 
 #include "h264_encoder.hpp"
 
-static int xioctl(int fd, int ctl, void *arg)
+static int xioctl(int fd, unsigned long ctl, void *arg)
 {
 	int ret, num_tries = 10;
 	do
@@ -134,7 +134,7 @@ H264Encoder::H264Encoder(VideoOptions const *options) : Encoder(options), abort_
 
 	// We have to maintain a list of the buffers we can use when our caller gives
 	// us another frame to encode.
-	for (int i = 0; i < reqbufs.count; i++)
+	for (unsigned int i = 0; i < reqbufs.count; i++)
 		input_buffers_available_.push(i);
 
 	reqbufs = {};
@@ -146,7 +146,7 @@ H264Encoder::H264Encoder(VideoOptions const *options) : Encoder(options), abort_
 	if (options->verbose)
 		std::cout << "Got " << reqbufs.count << " capture buffers" << std::endl;
 
-	for (int i = 0; i < reqbufs.count; i++)
+	for (unsigned int i = 0; i < reqbufs.count; i++)
 	{
 		v4l2_plane planes[VIDEO_MAX_PLANES];
 		v4l2_buffer buffer = {};

@@ -418,7 +418,7 @@ bool EglPreview::Quit()
 	XEvent event;
 	while (XCheckTypedWindowEvent(display_, window_, ClientMessage, &event))
 	{
-		if (event.xclient.data.l[0] == wm_delete_window_)
+		if (static_cast<Atom>(event.xclient.data.l[0]) == wm_delete_window_)
 			return true;
 	}
 	return false;

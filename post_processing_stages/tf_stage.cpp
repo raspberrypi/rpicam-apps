@@ -135,13 +135,13 @@ void TfStage::runInference()
 	if (interpreter_->tensor(input)->type == kTfLiteUInt8)
 	{
 		uint8_t *tensor = interpreter_->typed_tensor<uint8_t>(input);
-		for (int i = 0; i < rgb_image.size(); i++)
+		for (unsigned int i = 0; i < rgb_image.size(); i++)
 			tensor[i] = rgb_image[i];
 	}
 	else if (interpreter_->tensor(input)->type == kTfLiteFloat32)
 	{
 		float *tensor = interpreter_->typed_tensor<float>(input);
-		for (int i = 0; i < rgb_image.size(); i++)
+		for (unsigned int i = 0; i < rgb_image.size(); i++)
 			tensor[i] = (rgb_image[i] - config_->normalisation_offset) / config_->normalisation_scale;
 	}
 

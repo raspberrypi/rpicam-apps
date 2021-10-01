@@ -172,7 +172,7 @@ void MjpegEncoder::encodeThread(int num)
 void MjpegEncoder::outputThread()
 {
 	OutputItem item;
-	int index = 0;
+	uint64_t index = 0;
 	while (true)
 	{
 		{

@@ -54,7 +54,7 @@ void FileOutput::openFile(int64_t timestamp_us)
 		count_++;
 		if (options_->wrap)
 			count_ = count_ % options_->wrap;
-		if (n < 0 || n >= sizeof(filename))
+		if (n < 0)
 			throw std::runtime_error("failed to generate filename");
 
 		fp_ = fopen(filename, "w");
