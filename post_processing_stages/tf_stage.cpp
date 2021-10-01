@@ -111,12 +111,12 @@ bool TfStage::Process(CompletedRequest &completed_request)
 			lores_copy_.assign(buffer.data(), buffer.data() + buffer.size());
 
 			future_ = std::make_unique<std::future<void>>();
-			*future_ = std::move(std::async(std::launch::async, [this] {
+			*future_ = std::async(std::launch::async, [this] {
 				auto time_taken = ExecutionTime<std::micro>(&TfStage::runInference, this).count();
 
 				if (config_->verbose)
 					std::cout << "TfStage: Inference time: " << time_taken << " ms" << std::endl;
-			}));
+			});
 		}
 	}
 

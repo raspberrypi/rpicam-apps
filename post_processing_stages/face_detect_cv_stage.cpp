@@ -123,7 +123,7 @@ bool FaceDetectCvStage::Process(CompletedRequest &completed_request)
 			image_ = image.clone();
 
 			future_ptr_ = std::make_unique<std::future<void>>();
-			*future_ptr_ = std::move(std::async(std::launch::async, [this] { detectFeatures(cascade_); }));
+			*future_ptr_ = std::async(std::launch::async, [this] { detectFeatures(cascade_); });
 		}
 	}
 

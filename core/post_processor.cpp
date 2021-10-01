@@ -106,7 +106,7 @@ void PostProcessor::Process(CompletedRequest &request)
 
 	// Queue the futures to ensure we have correct ordering in the output thread. The promise/future return value
 	// tells us when all the streams for this request have been processed and output_ready_callback_ can be called.
-	futures_.push(std::move(promise.get_future()));
+	futures_.push(promise.get_future());
 	std::thread { process_fn, std::ref(requests_.back()), std::move(promise) }.detach();
 }
 
