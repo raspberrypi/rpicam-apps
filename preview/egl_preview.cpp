@@ -163,7 +163,7 @@ static void gl_setup(int width, int height, int window_width, int window_height)
 	glEnableVertexAttribArray(0);
 }
 
-EglPreview::EglPreview(Options const *options) : last_fd_(-1), first_time_(true), Preview(options)
+EglPreview::EglPreview(Options const *options) : Preview(options), last_fd_(-1), first_time_(true)
 {
 	display_ = XOpenDisplay(NULL);
 	if (!display_)

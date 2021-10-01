@@ -11,7 +11,7 @@
 
 #include "null_encoder.hpp"
 
-NullEncoder::NullEncoder(VideoOptions const *options) : abort_(false), Encoder(options)
+NullEncoder::NullEncoder(VideoOptions const *options) : Encoder(options), abort_(false)
 {
 	if (options->verbose)
 		std::cout << "Opened NullEncoder" << std::endl;

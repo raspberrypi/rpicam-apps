@@ -8,7 +8,7 @@
 #include "file_output.hpp"
 
 FileOutput::FileOutput(VideoOptions const *options)
-	: fp_(nullptr), count_(0), file_start_time_ms_(0), Output(options)
+	: Output(options), fp_(nullptr), count_(0), file_start_time_ms_(0)
 {
 }
 
