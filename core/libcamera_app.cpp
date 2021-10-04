@@ -12,7 +12,8 @@
 #include "core/options.hpp"
 
 LibcameraApp::LibcameraApp(std::unique_ptr<Options> opts)
-	: options_(std::move(opts)), preview_thread_(&LibcameraApp::previewThread, this), post_processor_(this)
+	: options_(std::move(opts)), preview_thread_(&LibcameraApp::previewThread, this), controls_(controls::controls),
+	  post_processor_(this)
 {
 	if (!options_)
 		options_ = std::make_unique<Options>();
