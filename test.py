@@ -12,6 +12,7 @@
 # get a test in here.
 
 import argparse
+import json
 import os
 import os.path
 import subprocess
@@ -122,7 +123,7 @@ def test_still(exe_dir, output_dir):
     retcode, time_taken = run_executable(
         [executable, '-t', '1000', '-e', 'png', '-o', output_png], logfile)
     check_retcode(retcode, "test_still: png test")
-    check_time(time_taken, 1.2, 8, "test_still: png test")
+    check_time(time_taken, 1.2, 9, "test_still: png test")
     check_size(output_png, 1024, "test_still: png test")
 
     # "bmp test". As above, but write a bmp.
@@ -130,7 +131,7 @@ def test_still(exe_dir, output_dir):
     retcode, time_taken = run_executable(
         [executable, '-t', '1000', '-e', 'bmp', '-o', output_bmp], logfile)
     check_retcode(retcode, "test_still: bmp test")
-    check_time(time_taken, 1.2, 8, "test_still: bmp test")
+    check_time(time_taken, 1.2, 9, "test_still: bmp test")
     check_size(output_png, 1024, "test_still: bmp test")
 
     # "dng test". Write a dng along with the jpg.
@@ -138,7 +139,7 @@ def test_still(exe_dir, output_dir):
     retcode, time_taken = run_executable(
         [executable, '-t', '1000', '-o', output_jpg, '-r'], logfile)
     check_retcode(retcode, "test_still: dng test")
-    check_time(time_taken, 1.2, 8, "test_still: dng test")
+    check_time(time_taken, 1.2, 10, "test_still: dng test")
     check_size(output_jpg, 1024, "test_still: dng test")
     check_size(output_dng, 1024 * 1024, "test_still: dng test")
 
@@ -313,7 +314,86 @@ def test_raw(exe_dir, output_dir):
     print("libcamera-raw tests passed")
 
 
-def test_all(apps, exe_dir, output_dir):
+def test_post_processing(exe_dir, output_dir, json_dir):
+    logfile = os.path.join(output_dir, 'log.txt')
+    print("Testing post-processing")
+    clean_dir(output_dir)
+
+    # "negate test". See if negate stage appears to run.
+    print("    negate test")
+    executable = os.path.join(exe_dir, 'libcamera-hello')
+    check_exists(executable, 'post-processing')
+    json_file = os.path.join(json_dir, 'negate.json')
+    check_exists(json_file, 'post-processing')
+    retcode, time_taken = run_executable([executable, '-t', '2000',
+                                          '--post-process-file', json_file],
+                                         logfile)
+    check_retcode(retcode, "test_post_processing: negate test")
+    check_time(time_taken, 2, 8, "test_post_processing: negate test")
+
+    # "hdr test". Take an HDR capture.
+    print("    hdr test")
+    executable = os.path.join(exe_dir, 'libcamera-still')
+    check_exists(executable, 'post-processing')
+    output_hdr = os.path.join(output_dir, 'hdr.jpg')
+    json_file = os.path.join(json_dir, 'hdr.json')
+    check_exists(json_file, 'post-processing')
+    retcode, time_taken = run_executable([executable, '-t', '2000', '--denoise', 'cdn_off',
+                                          '--ev', '-2', '-o', output_hdr,
+                                          '--post-process-file', json_file],
+                                         logfile)
+    check_retcode(retcode, "test_post_processing: hdr test")
+    check_time(time_taken, 6, 12, "test_post_processing: hdr test")
+    check_size(output_hdr, 1024, "test_post_processing: hdr test")
+
+    # "sobel test". Try to run a stage that uses OpenCV.
+    print("    sobel test")
+    executable = os.path.join(exe_dir, 'libcamera-hello')
+    check_exists(executable, 'post-processing')
+    json_file = os.path.join(json_dir, 'sobel_cv.json')
+    check_exists(json_file, 'post-processing')
+    retcode, time_taken = run_executable([executable, '-t', '2000',
+                                          '--viewfinder-width', '1024', '--viewfinder-height', '768',
+                                          '--post-process-file', json_file],
+                                         logfile)
+    check_retcode(retcode, "test_post_processing: sobel test")
+    check_time(time_taken, 2, 8, "test_post_processing: sobel test")
+    if open(logfile, 'r').read().find('No post processing stage found') >= 0:
+        print("WARNING: test_post_processing: sobel test - missing stages, test incomplete")
+
+    # "detect test". Try to run a stage that uses TFLite.
+    print("    detect test")
+    executable = os.path.join(exe_dir, 'libcamera-hello')
+    check_exists(executable, 'post-processing')
+    json_file = os.path.join(json_dir, 'object_detect_tf.json')
+    check_exists(json_file, 'post-processing')
+    # Not finding the model files, or the stage not loading, produce warnings but are not errors.
+    try:
+        json_object = json.load(open(json_file, 'r'))
+        model_file = json_object['object_detect_tf']['model_file']
+        labels_file = json_object['object_detect_tf']['labels_file']
+        check_exists(model_file, 'post-processing')
+        check_exists(labels_file, 'post-processing')
+    except Exception:
+        print('WARNING: test_post_processing: detect test - model unavailable, skipping test')
+    else:
+        retcode, time_taken = run_executable([executable, '-t', '2000',
+                                              '--lores-width', '400', '--lores-height', '300',
+                                              '--post-process-file', json_file],
+                                             logfile)
+        check_retcode(retcode, "test_post_processing: detect test")
+        check_time(time_taken, 2, 8, "test_post_processing: detect test")
+        log_text = open(logfile, 'r').read()
+        if log_text.find('No post processing stage found') >= 0:
+            print("WARNING: test_post_processing: detect test - missing stages, test incomplete")
+        else:
+            if log_text.find('Inference time') < 0:  # relies on "verbose" being set in the JSON
+                raise TestFailure("test_post_processing: detect test - TFLite model did not run")
+
+    print("post-processing tests passed")
+
+
+def test_all(apps, exe_dir, output_dir, json_dir):
     try:
         if 'hello' in apps:
             test_hello(exe_dir, output_dir)
@@ -325,6 +405,8 @@ def test_all(apps, exe_dir, output_dir):
             test_vid(exe_dir, output_dir)
         if 'raw' in apps:
             test_raw(exe_dir, output_dir)
+        if 'post-processing' in apps:
+            test_post_processing(exe_dir, output_dir, json_dir)
 
         print("All tests passed")
         clean_dir(output_dir)
@@ -337,15 +419,18 @@ def test_all(apps, exe_dir, output_dir):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description = 'libcamera-apps automated tests')
-    parser.add_argument('--apps', '-a', action='store', default='hello,still,vid,jpeg,raw',
+    parser.add_argument('--apps', '-a', action='store', default='hello,still,vid,jpeg,raw,post-processing',
                         help='List of apps to test')
     parser.add_argument('--exe-dir', '-d', action='store', default='build',
                         help='Directory name for executables to test')
     parser.add_argument('--output-dir', '-o', action='store', default='.',
-                        help='Directory name for executables to test')
+                        help='Directory name for output files')
+    parser.add_argument('--json-dir', '-j', action='store', default='.',
+                        help='Directory name for JSON post-processing files')
     args = parser.parse_args()
     apps = args.apps.split(',')
     exe_dir = args.exe_dir.rstrip('/')
     output_dir = args.output_dir
-    print("Exe_dir:", exe_dir, " Output_dir:", output_dir)
-    test_all(apps, exe_dir, output_dir)
+    json_dir = args.json_dir
+    print("Exe_dir:", exe_dir, "Output_dir:", output_dir, "Json_dir:", json_dir)
+    test_all(apps, exe_dir, output_dir, json_dir)

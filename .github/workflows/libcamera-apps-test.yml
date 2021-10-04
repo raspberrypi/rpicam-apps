@@ -92,7 +92,7 @@ jobs:
       run: tar -xvf build-artifacts-gcc.tar --one-top-level=build
 
     - name: Test
-      run: ${{github.workspace}}/test.py --exe-dir ${{github.workspace}}/build --output-dir ${{github.workspace}}/test_output
+      run: ${{github.workspace}}/test.py --exe-dir ${{github.workspace}}/build --output-dir ${{github.workspace}}/test_output --json-dir ${{github.workspace}}/assets
       timeout-minutes: 5
 
     - name: Upload test output
@@ -126,7 +126,7 @@ jobs:
       run: tar -xvf build-artifacts-gcc.tar --one-top-level=build
 
     - name: Test
-      run: ${{github.workspace}}/test.py --exe-dir ${{github.workspace}}/build --output-dir ${{github.workspace}}/test_output
+      run: ${{github.workspace}}/test.py --exe-dir ${{github.workspace}}/build --output-dir ${{github.workspace}}/test_output --json-dir ${{github.workspace}}/assets
       timeout-minutes: 5
 
     - name: Upload test output
