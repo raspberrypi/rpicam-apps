@@ -1,0 +1,76 @@
+name: ToT libcamera build/run test
+
+on:
+  schedule:
+  - cron: '02 01 * * *'
+  workflow_dispatch:
+
+env:
+  # Customize the CMake build type here (Release, Debug, RelWithDebInfo, etc.)
+  BUILD_TYPE: Release
+  NUM_JOBS: 4
+  GCC_COMPILER: "-DCMAKE_C_COMPILER=/usr/bin/gcc -DCMAKE_CXX_COMPILER=/usr/bin/g++"
+  CLANG_COMPILER: "-DCMAKE_C_COMPILER=/usr/bin/clang -DCMAKE_CXX_COMPILER=/usr/bin/clang++"
+  CMAKE_OTHER_FLAGS: "-DENABLE_TFLITE=1"
+  LIBCAMERA_SRC_DIR: "${{github.workspace}}/../libcamera"
+  LIBCAMERA_INSTALL_DIR: "${{github.workspace}}/../libcamera/install"
+
+jobs:
+  build-libcamera:
+
+    runs-on: [ self-hosted, imx477 ]
+
+    steps:
+    - name: Clean libcamera
+      run: rm -rf ${{env.LIBCAMERA_SRC_DIR}}
+
+    - name: Pull libcamera
+      run: git clone --depth=1 git://linuxtv.org/libcamera.git ${{env.LIBCAMERA_SRC_DIR}}
+
+    - name: Setup meson
+      run: cd ${{env.LIBCAMERA_SRC_DIR}} && meson build && meson configure build -Dprefix=${{env.LIBCAMERA_INSTALL_DIR}} -Dpipelines=raspberrypi -Dtest=false
+
+    - name: Build
+      run: cd ${{env.LIBCAMERA_SRC_DIR}}/build && ninja install
+      timeout-minutes: 10
+
+  build-libcamera-apps:
+
+    runs-on: [ self-hosted, imx477 ]
+    needs: build-libcamera
+
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        fetch-depth: 1
+        clean: true
+
+    - name: Configure CMake
+      run: LD_LIBRARY_PATH=${{env.LIBCAMERA_INSTALL_DIR}} cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} ${{env.GCC_COMPILER}} ${{env.CMAKE_OTHER_FLAGS}}
+      timeout-minutes: 5
+
+    - name: Build
+      run: LD_LIBRARY_PATH=${{env.LIBCAMERA_INSTALL_DIR}} cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}} --parallel ${{env.NUM_JOBS}}
+      timeout-minutes: 10
+
+  run-test-imx477:
+
+    runs-on: [ self-hosted, imx477 ]
+    needs: build-libcamera-apps
+
+    steps:
+
+    - name: Create test output dir
+      run: mkdir -p ${{github.workspace}}/test_output
+
+    - name: Test
+      run: ${{github.workspace}}/test.py --exe-dir ${{github.workspace}}/build --output-dir ${{github.workspace}}/test_output --json-dir ${{github.workspace}}/assets
+      timeout-minutes: 5
+
+    - name: Upload test output
+      if: ${{ failure() }}
+      uses: actions/upload-artifact@v2
+      with:
+        name: test-artifacts-imx477
+        path: ${{github.workspace}}/test_output/
+        retention-days: 21
