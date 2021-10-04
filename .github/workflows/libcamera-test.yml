@@ -19,14 +19,8 @@ jobs:
     runs-on: [ self-hosted ]
 
     steps:
-    - uses: actions/checkout@v2
-      with:
-        repository: 'git://linuxtv.org/libcamera.git'
-        fetch-depth: 1
-        clean: true
-    
     - name: Configure meson
-      run: meson -Dprefix=${{github.workspace}}/install build
+      run: echo ${{github.workspace}}
       timeout-minutes: 5
 
     - name: Build
