@@ -196,6 +196,18 @@ def test_jpeg(exe_dir, output_dir):
     # For this one, we're actually going to peak inside the jpeg.
     check_jpeg(output_jpg, "test_jpeg: jpg test")
 
+    # "isolation test". As above, but force IPA to run is "isolation" mode.
+    print("    isolation test")
+    os.environ['LIBCAMERA_IPA_FORCE_ISOLATION'] = 'true'
+    retcode, time_taken = run_executable([executable, '-t', '1000', '-o', output_jpg],
+                                         logfile)
+    os.environ.pop('LIBCAMERA_IPA_FORCE_ISOLATION')
+    check_retcode(retcode, "test_jpeg: isolation test")
+    check_time(time_taken, 1.2, 8, "test_jpeg: isolation test")
+    check_size(output_jpg, 1024, "test_jpeg: isolation test")
+    # For this one, we're actually going to peak inside the jpeg.
+    check_jpeg(output_jpg, "test_jpeg: isolation test")
+
     # "shutter test". See if we appear to get the shutter/gain we asked for.
     print("    shutter test")
     retcode, time_taken = run_executable(
