@@ -4,6 +4,15 @@ on:
   schedule:
   - cron: '02 01 * * *'
   workflow_dispatch:
+    inputs:
+      workflow_runner:
+        description: 'Runner (imx477/imx219)'
+        default: 'imx477'
+        required: true
+      workflow_update:
+        description: 'Update libcamera base if tests pass'
+        default: false
+        required: true
 
 env:
   # Customize the CMake build type here (Release, Debug, RelWithDebInfo, etc.)
@@ -18,7 +27,7 @@ env:
 jobs:
   build-libcamera:
 
-    runs-on: [ self-hosted, imx477 ]
+    runs-on: [ self-hosted, ${{ github.event.inputs.logLevel }} ]
 
     steps:
     - name: Clean libcamera
@@ -36,7 +45,7 @@ jobs:
 
   build-libcamera-apps:
 
-    runs-on: [ self-hosted, imx477 ]
+    runs-on: [ self-hosted, ${{ github.event.inputs.logLevel }} ]
     needs: build-libcamera
 
     steps:
@@ -53,9 +62,9 @@ jobs:
       run: LD_LIBRARY_PATH=${{env.LIBCAMERA_INSTALL_DIR}} cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}} --parallel ${{env.NUM_JOBS}}
       timeout-minutes: 10
 
-  run-test-imx477:
+  run-test:
 
-    runs-on: [ self-hosted, imx477 ]
+    runs-on: [ self-hosted, ${{ github.event.inputs.logLevel }} ]
     needs: build-libcamera-apps
 
     steps:
@@ -71,6 +80,6 @@ jobs:
       if: ${{ failure() }}
       uses: actions/upload-artifact@v2
       with:
-        name: test-artifacts-imx477
+        name: test-artifacts-${{ github.event.inputs.logLevel }}
         path: ${{github.workspace}}/test_output/
         retention-days: 21
