@@ -25,9 +25,9 @@
 #include <libcamera/stream.h>
 
 #include "core/libcamera_app.hpp"
-#include "core/post_processing_stage.hpp"
 
 #include "post_processing_stages/histogram.hpp"
+#include "post_processing_stages/post_processing_stage.hpp"
 #include "post_processing_stages/pwl.hpp"
 
 using Stream = libcamera::Stream;

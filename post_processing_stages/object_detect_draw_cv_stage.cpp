@@ -8,7 +8,8 @@
 #include "opencv2/imgproc.hpp"
 
 #include "core/libcamera_app.hpp"
-#include "core/post_processing_stage.hpp"
+
+#include "post_processing_stages/post_processing_stage.hpp"
 
 #include "object_detect.hpp"
 

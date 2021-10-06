@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.6)
 
 include(GNUInstallDirs)
 
-set(SRC negate_stage.cpp hdr_stage.cpp pwl.cpp histogram.cpp motion_detect_stage.cpp)
+set(SRC post_processing_stage.cpp negate_stage.cpp hdr_stage.cpp pwl.cpp histogram.cpp motion_detect_stage.cpp)
 set(TARGET_LIBS "")
 
 

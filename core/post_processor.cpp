@@ -9,7 +9,8 @@
 
 #include "core/libcamera_app.hpp"
 #include "core/post_processor.hpp"
-#include "post_processing_stage.hpp"
+
+#include "post_processing_stages/post_processing_stage.hpp"
 
 #include <boost/property_tree/json_parser.hpp>
 #include <boost/property_tree/ptree.hpp>
