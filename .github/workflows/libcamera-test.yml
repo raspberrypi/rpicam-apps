@@ -18,7 +18,7 @@ env:
 jobs:
   build-libcamera:
 
-    runs-on: [ self-hosted, imx477 ]
+    runs-on: [ self-hosted ]
 
     steps:
     - name: Clean libcamera
@@ -27,16 +27,29 @@ jobs:
     - name: Pull libcamera
       run: git clone --depth=1 git://linuxtv.org/libcamera.git ${{env.LIBCAMERA_SRC_DIR}}
 
+    - name: libcamera version
+      run: cd ${{env.LIBCAMERA_SRC_DIR}} && git log -1
+
     - name: Setup meson
-      run: cd ${{env.LIBCAMERA_SRC_DIR}} && meson build && meson configure build -Dprefix=${{env.LIBCAMERA_INSTALL_DIR}} -Dpipelines=raspberrypi -Dtest=false
+      run: cd ${{env.LIBCAMERA_SRC_DIR}} && meson build -Dprefix=${{env.LIBCAMERA_INSTALL_DIR}} -Dpipelines=raspberrypi -Dtest=false
 
     - name: Build
       run: cd ${{env.LIBCAMERA_SRC_DIR}}/build && ninja install
       timeout-minutes: 10
 
+    - name: Tar files
+      run: tar -cvf build-artifacts-libcamera.tar -C ${{env.LIBCAMERA_INSTALL_DIR}} .
+
+    - name: Upload build files
+      uses: actions/upload-artifact@v2
+      with:
+        name: build-artifacts-libcamera
+        path: build-artifacts-libcamera.tar
+        retention-days: 21
+
   build-libcamera-apps:
 
-    runs-on: [ self-hosted, imx477 ]
+    runs-on: [ self-hosted ]
     needs: build-libcamera
 
     steps:
@@ -45,13 +58,35 @@ jobs:
         fetch-depth: 1
         clean: true
 
+    - name: Clean libcamera
+      run: rm -rf ${{env.LIBCAMERA_SRC_DIR}} && mkdir -p ${{env.LIBCAMERA_SRC_DIR}}
+
+    - name: Download libcamera build
+      uses: actions/download-artifact@v2
+      with:
+        name: build-artifacts-libcamera
+        path: ${{github.workspace}}
+
+    - name: Untar libcamera files
+      run: tar -xvf build-artifacts-libcamera.tar -C ${{env.LIBCAMERA_SRC_DIR}} --one-top-level=install
+
     - name: Configure CMake
-      run: LD_LIBRARY_PATH=${{env.LIBCAMERA_INSTALL_DIR}} cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} ${{env.GCC_COMPILER}} ${{env.CMAKE_OTHER_FLAGS}}
+      run: cmake -B ${{github.workspace}}/build -DCMAKE_PREFIX_PATH=${{env.LIBCAMERA_INSTALL_DIR}} -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} ${{env.GCC_COMPILER}} ${{env.CMAKE_OTHER_FLAGS}}
       timeout-minutes: 5
 
     - name: Build
-      run: LD_LIBRARY_PATH=${{env.LIBCAMERA_INSTALL_DIR}} cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}} --parallel ${{env.NUM_JOBS}}
+      run: make -C ${{github.workspace}}/build -j ${{env.NUM_JOBS}}
       timeout-minutes: 10
+
+    - name: Tar files
+      run: tar -cvf build-artifacts-libcamera-apps.tar -C ${{github.workspace}}/build .
+
+    - name: Upload build files
+      uses: actions/upload-artifact@v2
+      with:
+        name: build-artifacts-libcamera-apps
+        path: build-artifacts-libcamera-apps.tar
+        retention-days: 21
 
   run-test-imx477:
 
@@ -59,9 +94,34 @@ jobs:
     needs: build-libcamera-apps
 
     steps:
+    - uses: actions/checkout@v2
+      with:
+        fetch-depth: 1
+        clean: true
 
     - name: Create test output dir
       run: mkdir -p ${{github.workspace}}/test_output
+
+    - name: Download libcamera-apps build
+      uses: actions/download-artifact@v2
+      with:
+        name: build-artifacts-libcamera-apps
+        path: ${{github.workspace}}
+
+    - name: Untar libcamera-apps files
+      run: tar -xvf build-artifacts-libcamera-apps.tar --one-top-level=build
+
+    - name: Clean libcamera
+      run: rm -rf ${{env.LIBCAMERA_SRC_DIR}} && mkdir -p ${{env.LIBCAMERA_SRC_DIR}}
+
+    - name: Download libcamera build
+      uses: actions/download-artifact@v2
+      with:
+        name: build-artifacts-libcamera
+        path: ${{github.workspace}}
+
+    - name: Untar libcamera files
+      run: tar -xvf build-artifacts-libcamera.tar -C ${{env.LIBCAMERA_SRC_DIR}} --one-top-level=install
 
     - name: Test
       run: ${{github.workspace}}/test.py --exe-dir ${{github.workspace}}/build --output-dir ${{github.workspace}}/test_output --json-dir ${{github.workspace}}/assets
@@ -72,5 +132,52 @@ jobs:
       uses: actions/upload-artifact@v2
       with:
         name: test-artifacts-imx477
+        path: ${{github.workspace}}/test_output/
+        retention-days: 21
+
+  run-test-imx219:
+
+    runs-on: [ self-hosted, imx219 ]
+    needs: build-libcamera-apps
+
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        fetch-depth: 1
+        clean: true
+
+    - name: Create test output dir
+      run: mkdir -p ${{github.workspace}}/test_output
+
+    - name: Download libcamera-apps build
+      uses: actions/download-artifact@v2
+      with:
+        name: build-artifacts-libcamera-apps
+        path: ${{github.workspace}}
+
+    - name: Untar libcamera-apps files
+      run: tar -xvf build-artifacts-libcamera-apps.tar --one-top-level=build
+
+    - name: Clean libcamera
+      run: rm -rf ${{env.LIBCAMERA_SRC_DIR}} && mkdir -p ${{env.LIBCAMERA_SRC_DIR}}
+
+    - name: Download libcamera build
+      uses: actions/download-artifact@v2
+      with:
+        name: build-artifacts-libcamera
+        path: ${{github.workspace}}
+
+    - name: Untar libcamera files
+      run: tar -xvf build-artifacts-libcamera.tar -C ${{env.LIBCAMERA_SRC_DIR}} --one-top-level=install
+
+    - name: Test
+      run: ${{github.workspace}}/test.py --exe-dir ${{github.workspace}}/build --output-dir ${{github.workspace}}/test_output --json-dir ${{github.workspace}}/assets
+      timeout-minutes: 5
+
+    - name: Upload test output
+      if: ${{ failure() }}
+      uses: actions/upload-artifact@v2
+      with:
+        name: test-artifacts-imx219
         path: ${{github.workspace}}/test_output/
         retention-days: 21
