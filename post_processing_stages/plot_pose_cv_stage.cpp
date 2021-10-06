@@ -12,11 +12,12 @@
 #include <memory>
 #include <vector>
 
+#include <libcamera/geometry.h>
 #include <libcamera/stream.h>
-#include "libcamera/geometry.h"
 
 #include "core/libcamera_app.hpp"
-#include "core/post_processing_stage.hpp"
+
+#include "post_processing_stages/post_processing_stage.hpp"
 
 #include "opencv2/imgproc.hpp"
 

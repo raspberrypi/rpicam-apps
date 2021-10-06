@@ -19,7 +19,8 @@
 #include "tensorflow/lite/kernels/register.h"
 
 #include "core/libcamera_app.hpp"
-#include "core/post_processing_stage.hpp"
+
+#include "post_processing_stages/post_processing_stage.hpp"
 
 // The TfStage is a convenient base class from which post processing stages using
 // TensorFlowLite can be derived. It provides a certain amount of boiler plate code
