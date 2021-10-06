@@ -5,15 +5,13 @@ on:
     branches: [ main ]
 
 env:
-  # Customize the CMake build type here (Release, Debug, RelWithDebInfo, etc.)
-  BUILD_TYPE: Release
   NUM_JOBS: 4
   GCC_COMPILER: "-DCMAKE_C_COMPILER=/usr/bin/gcc -DCMAKE_CXX_COMPILER=/usr/bin/g++"
   CLANG_COMPILER: "-DCMAKE_C_COMPILER=/usr/bin/clang -DCMAKE_CXX_COMPILER=/usr/bin/clang++"
   CMAKE_OTHER_FLAGS: "-DENABLE_TFLITE=1"
 
 jobs:
-  build-test-gcc:
+  build-test-gcc-rel:
 
     runs-on: [ self-hosted ]
 
@@ -24,11 +22,11 @@ jobs:
         clean: true
 
     - name: Configure CMake
-      run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} ${{env.GCC_COMPILER}} ${{env.CMAKE_OTHER_FLAGS}}
+      run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=Release ${{env.GCC_COMPILER}} ${{env.CMAKE_OTHER_FLAGS}}
       timeout-minutes: 5
 
     - name: Build
-      run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}} --parallel ${{env.NUM_JOBS}}
+      run: make -C ${{github.workspace}}/build -j ${{env.NUM_JOBS}}
       timeout-minutes: 10
 
     - name: Tar files
@@ -41,7 +39,7 @@ jobs:
         path: build-artifacts-gcc.tar
         retention-days: 21
 
-  build-test-clang:
+  build-test-clang-rel:
 
     runs-on: [ self-hosted ]
 
@@ -52,11 +50,11 @@ jobs:
         clean: true
 
     - name: Configure CMake
-      run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} ${{env.CLANG_COMPILER}} ${{env.CMAKE_OTHER_FLAGS}}
+      run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=Release ${{env.CLANG_COMPILER}} ${{env.CMAKE_OTHER_FLAGS}}
       timeout-minutes: 5
 
     - name: Build
-      run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}} --parallel ${{env.NUM_JOBS}}
+      run: make -C ${{github.workspace}}/build -j ${{env.NUM_JOBS}}
       timeout-minutes: 10
 
     - name: Tar files
@@ -69,18 +67,83 @@ jobs:
         path: build-artifacts-clang.tar
         retention-days: 21
 
+  build-test-gcc-deb:
+
+    runs-on: [ self-hosted ]
+
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        fetch-depth: 1
+        clean: true
+
+    - name: Configure CMake
+      run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=Debug ${{env.GCC_COMPILER}} ${{env.CMAKE_OTHER_FLAGS}}
+      timeout-minutes: 5
+
+    - name: Build
+      run: make -C ${{github.workspace}}/build -j ${{env.NUM_JOBS}}
+      timeout-minutes: 10
+
+  build-test-clang-deb:
+
+    runs-on: [ self-hosted ]
+
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        fetch-depth: 1
+        clean: true
+
+    - name: Configure CMake
+      run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=Debug ${{env.CLANG_COMPILER}} ${{env.CMAKE_OTHER_FLAGS}}
+      timeout-minutes: 5
+
+    - name: Build
+      run: make -C ${{github.workspace}}/build -j ${{env.NUM_JOBS}}
+      timeout-minutes: 10
+
+  build-test-lite:
+
+    runs-on: [ self-hosted ]
+
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        fetch-depth: 1
+        clean: true
+
+    - name: Configure CMake
+      run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=Release ${{env.GCC_COMPILER}} ${{env.CMAKE_OTHER_FLAGS}} -DENABLE_DRM=0 -DENABLE_X11=0 -DENABLE_QT=0 -DENABLE_OPENCV=0 -DENABLE_TFLITE=0
+      timeout-minutes: 5
+
+    - name: Build
+      run: make -C ${{github.workspace}}/build -j ${{env.NUM_JOBS}}
+      timeout-minutes: 10
+
+    - name: Tar files
+      run: tar -cvf build-artifacts-gcc-lite.tar -C ${{github.workspace}}/build .
+
+    - name: Upload build files
+      uses: actions/upload-artifact@v2
+      with:
+        name: build-artifacts-gcc-lite
+        path: build-artifacts-gcc-lite.tar
+        retention-days: 21
+
   run-test-imx219:
 
     runs-on: [ self-hosted, imx219 ]
-    needs: build-test-gcc
+    needs: build-test-gcc-rel
 
     steps:
+    - uses: actions/checkout@v2
+      with:
+        fetch-depth: 1
+        clean: true
 
     - name: Create test output dir
       run: mkdir -p ${{github.workspace}}/test_output
-
-    - name: Remove existing build directory
-      run: rm -rf ${{github.workspace}}/build
 
     - name: Download build
       uses: actions/download-artifact@v2
@@ -106,15 +169,16 @@ jobs:
   run-test-imx477:
 
     runs-on: [ self-hosted, imx477 ]
-    needs: build-test-gcc
+    needs: build-test-gcc-rel
 
     steps:
+    - uses: actions/checkout@v2
+      with:
+        fetch-depth: 1
+        clean: true
 
     - name: Create test output dir
       run: mkdir -p ${{github.workspace}}/test_output
-
-    - name: Remove existing build directory
-      run: rm -rf ${{github.workspace}}/build
 
     - name: Download build
       uses: actions/download-artifact@v2
