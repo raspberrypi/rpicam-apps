@@ -28,7 +28,7 @@ def check_exists(file, preamble):
     if not os.path.isfile(file):
         raise TestFailure(preamble + ": " + file + " not found")
 
-def clean_dir(dir, exts = ('.jpg', '.png', '.bmp', '.dng', '.h264', '.mjpeg', '.raw', '.txt')):
+def clean_dir(dir, exts = ('.jpg', '.png', '.bmp', '.dng', '.h264', '.mjpeg', '.raw', 'log.txt')):
     for file in os.listdir(dir):
         if file.endswith(exts):
             os.remove(os.path.join(dir, file))
