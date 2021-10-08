@@ -88,10 +88,14 @@ jobs:
         path: build-artifacts-libcamera-apps.tar
         retention-days: 21
 
-  run-test-imx477:
+  run-test:
 
-    runs-on: [ self-hosted, imx477 ]
+    runs-on: ${{matrix.camera}}
     needs: build-libcamera-apps
+
+    strategy:
+      matrix:
+        camera: [ imx219, imx477 ]
 
     steps:
     - uses: actions/checkout@v2
@@ -128,56 +132,9 @@ jobs:
       timeout-minutes: 5
 
     - name: Upload test output
-      if: ${{ failure() }}
+      if: ${{failure()}}
       uses: actions/upload-artifact@v2
       with:
-        name: test-artifacts-imx477
-        path: ${{github.workspace}}/test_output/
-        retention-days: 21
-
-  run-test-imx219:
-
-    runs-on: [ self-hosted, imx219 ]
-    needs: build-libcamera-apps
-
-    steps:
-    - uses: actions/checkout@v2
-      with:
-        fetch-depth: 1
-        clean: true
-
-    - name: Create test output dir
-      run: mkdir -p ${{github.workspace}}/test_output
-
-    - name: Download libcamera-apps build
-      uses: actions/download-artifact@v2
-      with:
-        name: build-artifacts-libcamera-apps
-        path: ${{github.workspace}}
-
-    - name: Untar libcamera-apps files
-      run: tar -xvf build-artifacts-libcamera-apps.tar --one-top-level=build
-
-    - name: Clean libcamera
-      run: rm -rf ${{env.LIBCAMERA_SRC_DIR}} && mkdir -p ${{env.LIBCAMERA_SRC_DIR}}
-
-    - name: Download libcamera build
-      uses: actions/download-artifact@v2
-      with:
-        name: build-artifacts-libcamera
-        path: ${{github.workspace}}
-
-    - name: Untar libcamera files
-      run: tar -xvf build-artifacts-libcamera.tar -C ${{env.LIBCAMERA_SRC_DIR}} --one-top-level=install
-
-    - name: Test
-      run: ${{github.workspace}}/test.py --exe-dir ${{github.workspace}}/build --output-dir ${{github.workspace}}/test_output --json-dir ${{github.workspace}}/assets
-      timeout-minutes: 5
-
-    - name: Upload test output
-      if: ${{ failure() }}
-      uses: actions/upload-artifact@v2
-      with:
-        name: test-artifacts-imx219
+        name: test-artifacts-${{matrix.camera}}
         path: ${{github.workspace}}/test_output/
         retention-days: 21
