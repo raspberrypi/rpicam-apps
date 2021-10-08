@@ -14,6 +14,7 @@ env:
   CMAKE_OTHER_FLAGS: "-DENABLE_TFLITE=1"
   LIBCAMERA_SRC_DIR: "${{github.workspace}}/../libcamera"
   LIBCAMERA_INSTALL_DIR: "${{github.workspace}}/../libcamera/install"
+  LIBCAMERA_LKG_DIR: "${{github.workspace}}/../libcamera_lkg"
 
 jobs:
   build-libcamera:
@@ -138,3 +139,25 @@ jobs:
         name: test-artifacts-${{matrix.camera}}
         path: ${{github.workspace}}/test_output/
         retention-days: 21
+
+  update-libcamera-base:
+
+    runs-on: ${{matrix.camera}}
+    needs: run-test
+
+    strategy:
+      matrix:
+        camera: [ imx219, imx477 ]
+
+    steps:
+    - name: Clean libcamera LKG
+      run: rm -rf ${{env.LIBCAMERA_LKG_DIR}} && mkdir -p ${{env.LIBCAMERA_LKG_DIR}}
+
+    - name: Download libcamera build
+      uses: actions/download-artifact@v2
+      with:
+        name: build-artifacts-libcamera
+        path: ${{github.workspace}}
+
+    - name: Untar libcamera LKG files
+      run: tar -xvf build-artifacts-libcamera.tar -C ${{env.LIBCAMERA_LKG_DIR}}
