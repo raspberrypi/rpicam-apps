@@ -5,6 +5,7 @@ Maintainer: Serge Schneider <serge@raspberrypi.com>
 Build-Depends: debhelper (>= 11),
  cmake,
  pkg-config,
+ python3,
  libboost-dev,
  libboost-program-options-dev,
  libcamera-dev,
@@ -12,7 +13,6 @@ Build-Depends: debhelper (>= 11),
  libepoxy-dev,
  libexif-dev,
  libjpeg62-turbo-dev,
- libopencv-dev,
  libpng-dev,
  libtiff-dev,
  libx11-dev,
@@ -23,6 +23,18 @@ Homepage: https://github.com/raspberrypi/libcamera-apps/
 Package: libcamera-apps
 Architecture: armhf arm64
 Depends: ${shlibs:Depends}, ${misc:Depends}
+Conflicts: libcamera-apps-lite
+Replaces: libcamera-apps-lite
 Description: libcamera-apps
  Small suite of libcamera-based apps that aim to copy the functionality of the
  existing "raspicam" apps
+
+Package: libcamera-apps-lite
+Architecture: armhf arm64
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Conflicts: libcamera-apps
+Replaces: libcamera-apps
+Description: libcamera-apps-lite
+ Small suite of libcamera-based apps that aim to copy the functionality of the
+ existing "raspicam" apps. This version excludes features which require X11 and
+ Qt

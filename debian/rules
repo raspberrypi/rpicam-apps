@@ -1,5 +1,25 @@
 #!/usr/bin/make -f
 #export DH_VERBOSE = 1
 
+CONFIG_COMMON := -DENABLE_OPENCV=0 \
+	-DVERSION_SHA=$(shell cat debian/git_hash)
+CONFIG_LITE := -DENABLE_X11=0 -DENABLE_QT=0
+
 %:
 	dh $@
+
+override_dh_auto_configure:
+	dh_auto_configure --builddirectory=build_lite -- $(CONFIG_COMMON) $(CONFIG_LITE)
+	dh_auto_configure -- $(CONFIG_COMMON)
+
+override_dh_auto_build:
+	dh_auto_build --builddirectory=build_lite
+	dh_auto_build
+
+override_dh_auto_test:
+	dh_auto_test --builddirectory=build_lite
+	dh_auto_test
+
+override_dh_auto_install:
+	dh_auto_install --builddirectory=build_lite --destdir=debian/libcamera-apps-lite/
+	dh_auto_install --destdir=debian/libcamera-apps/
