@@ -33,7 +33,7 @@ public:
 	void EncodeBuffer(CompletedRequest &completed_request, Stream *stream)
 	{
 		assert(encoder_);
-		int w, h, stride;
+		unsigned int w, h, stride;
 		StreamDimensions(stream, &w, &h, &stride);
 		FrameBuffer *buffer = completed_request.buffers[stream];
 		libcamera::Span span = Mmap(buffer)[0];

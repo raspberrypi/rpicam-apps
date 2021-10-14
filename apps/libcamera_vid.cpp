@@ -68,7 +68,7 @@ static void event_loop(LibcameraEncoder &app)
 	// Monitoring for keypresses and signals.
 	signal(SIGUSR1, default_signal_handler);
 	signal(SIGUSR2, default_signal_handler);
-	pollfd p[1] = { { STDIN_FILENO, POLLIN } };
+	pollfd p[1] = { { STDIN_FILENO, POLLIN, 0 } };
 
 	for (unsigned int count = 0; ; count++)
 	{

@@ -19,7 +19,8 @@
 #include "tensorflow/lite/kernels/register.h"
 
 #include "core/libcamera_app.hpp"
-#include "core/post_processing_stage.hpp"
+
+#include "post_processing_stages/post_processing_stage.hpp"
 
 // The TfStage is a convenient base class from which post processing stages using
 // TensorFlowLite can be derived. It provides a certain amount of boiler plate code
@@ -80,15 +81,15 @@ protected:
 	std::unique_ptr<TfConfig> config_;
 
 	// The width and height that TFLite wants.
-	int tf_w_, tf_h_;
+	unsigned int tf_w_, tf_h_;
 
 	// We run TFLite on the low resolution image, details of which are here.
 	libcamera::Stream *lores_stream_;
-	int lores_w_, lores_h_, lores_stride_;
+	unsigned int lores_w_, lores_h_, lores_stride_;
 
 	// The stage may or may not make use of the larger or "main" image stream.
 	libcamera::Stream *main_stream_;
-	int main_w_, main_h_, main_stride_;
+	unsigned int main_w_, main_h_, main_stride_;
 
 	std::unique_ptr<tflite::FlatBufferModel> model_;
 	std::unique_ptr<tflite::Interpreter> interpreter_;

@@ -17,7 +17,7 @@
 
 namespace libcamera
 {
-class StreamConfiguration;
+struct StreamConfiguration;
 }
 
 class LibcameraApp;

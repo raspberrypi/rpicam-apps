@@ -15,7 +15,7 @@
 
 #include "core/still_options.hpp"
 
-void png_save(std::vector<libcamera::Span<uint8_t>> const &mem, int w, int h, int stride,
+void png_save(std::vector<libcamera::Span<uint8_t>> const &mem, unsigned int w, unsigned int h, unsigned int stride,
 			  libcamera::PixelFormat const &pixel_format, std::string const &filename, StillOptions const *options)
 {
 	if (pixel_format != libcamera::formats::BGR888)
@@ -52,7 +52,7 @@ void png_save(std::vector<libcamera::Span<uint8_t>> const &mem, int w, int h, in
 		// Set up the image data.
 		png_byte **row_ptrs = (png_byte **)png_malloc(png_ptr, h * sizeof(png_byte *));
 		png_byte *row = (uint8_t *)mem[0].data();
-		for (int i = 0; i < h; i++, row += stride)
+		for (unsigned int i = 0; i < h; i++, row += stride)
 			row_ptrs[i] = row;
 
 		png_init_io(png_ptr, fp);

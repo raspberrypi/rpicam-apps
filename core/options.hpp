@@ -108,6 +108,8 @@ struct Options
 			;
 	}
 
+	virtual ~Options() {}
+
 	bool help;
 	bool version;
 	bool verbose;

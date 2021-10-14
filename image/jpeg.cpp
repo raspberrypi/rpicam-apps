@@ -242,7 +242,7 @@ void exif_read_tag(ExifData *exif, char const *str)
 	size_t len = strlen(str);
 	for (unsigned i = 0; i < entry->components; i++)
 	{
-		if (bytes_consumed >= len)
+		if (static_cast<unsigned int>(bytes_consumed) >= len)
 			throw std::runtime_error("too few parameters for EXIF tag " + tag_string);
 		unsigned char *dest = entry->data + i * item_size;
 		int extra_consumed = (exif_read_functions[entry->format])(str + bytes_consumed, dest);
@@ -250,9 +250,9 @@ void exif_read_tag(ExifData *exif, char const *str)
 	}
 }
 
-static void YUYV_to_JPEG(const uint8_t *input, const int input_width, const int input_height, const int stride,
-						 const int output_width, const int output_height, const int quality, const unsigned int restart,
-						 uint8_t *&jpeg_buffer, jpeg_mem_len_t &jpeg_len)
+static void YUYV_to_JPEG(const uint8_t *input, const unsigned int input_width, const unsigned int input_height,
+						 const unsigned int stride, const unsigned int output_width, const unsigned int output_height,
+						 const int quality, const unsigned int restart, uint8_t *&jpeg_buffer, jpeg_mem_len_t &jpeg_len)
 {
 	struct jpeg_compress_struct cinfo;
 	struct jpeg_error_mgr jerr;
@@ -304,9 +304,9 @@ static void YUYV_to_JPEG(const uint8_t *input, const int input_width, const int 
 	jpeg_destroy_compress(&cinfo);
 }
 
-static void YUV420_to_JPEG_fast(const uint8_t *input, const int width, const int height, const int stride,
-								const int quality, const unsigned int restart, uint8_t *&jpeg_buffer,
-								jpeg_mem_len_t &jpeg_len)
+static void YUV420_to_JPEG_fast(const uint8_t *input, const unsigned int width, const unsigned int height,
+								const unsigned int stride, const int quality, const unsigned int restart,
+								uint8_t *&jpeg_buffer, jpeg_mem_len_t &jpeg_len)
 {
 	struct jpeg_compress_struct cinfo;
 	struct jpeg_error_mgr jerr;
@@ -337,7 +337,7 @@ static void YUV420_to_JPEG_fast(const uint8_t *input, const int width, const int
 	JSAMPROW u_rows[8];
 	JSAMPROW v_rows[8];
 
-	int height_align = height & ~15;
+	unsigned int height_align = height & ~15;
 	while (cinfo.next_scanline < height_align)
 	{
 		uint8_t *Y_row = Y + cinfo.next_scanline * stride;
@@ -375,9 +375,10 @@ static void YUV420_to_JPEG_fast(const uint8_t *input, const int width, const int
 	jpeg_destroy_compress(&cinfo);
 }
 
-static void YUV420_to_JPEG(const uint8_t *input, const int input_width, const int input_height, const int stride,
-						   const int output_width, const int output_height, const int quality,
-						   const unsigned int restart, uint8_t *&jpeg_buffer, jpeg_mem_len_t &jpeg_len)
+static void YUV420_to_JPEG(const uint8_t *input, const unsigned int input_width, const unsigned int input_height,
+						   const unsigned int stride, const unsigned int output_width, const unsigned int output_height,
+						   const int quality, const unsigned int restart, uint8_t *&jpeg_buffer,
+						   jpeg_mem_len_t &jpeg_len)
 {
 	if (input_width == output_width && input_height == output_height)
 	{
@@ -581,7 +582,7 @@ static void create_exif_data(PixelFormat const &pixel_format, std::vector<libcam
 	}
 }
 
-void jpeg_save(std::vector<libcamera::Span<uint8_t>> const &mem, int w, int h, int stride,
+void jpeg_save(std::vector<libcamera::Span<uint8_t>> const &mem, unsigned int w, unsigned int h, unsigned int stride,
 			   PixelFormat const &pixel_format, ControlList const &metadata, std::string const &filename,
 			   std::string const &cam_name, StillOptions const *options)
 {

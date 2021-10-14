@@ -8,7 +8,8 @@
 #include "opencv2/imgproc.hpp"
 
 #include "core/libcamera_app.hpp"
-#include "core/post_processing_stage.hpp"
+
+#include "post_processing_stages/post_processing_stage.hpp"
 
 #include "object_detect.hpp"
 
@@ -24,11 +25,11 @@ public:
 
 	char const *Name() const override;
 
-	void Read(boost::property_tree::ptree const &params);
+	void Read(boost::property_tree::ptree const &params) override;
 
-	void Configure();
+	void Configure() override;
 
-	bool Process(CompletedRequest &completed_request);
+	bool Process(CompletedRequest &completed_request) override;
 
 private:
 	Stream *stream_;
@@ -60,7 +61,7 @@ bool ObjectDetectDrawCvStage::Process(CompletedRequest &completed_request)
 	if (!stream_)
 		return false;
 
-	int w, h, stride;
+	unsigned int w, h, stride;
 	libcamera::Span<uint8_t> buffer = app_->Mmap(completed_request.buffers[stream_])[0];
 	uint32_t *ptr = (uint32_t *)buffer.data();
 	app_->StreamDimensions(stream_, &w, &h, &stride);

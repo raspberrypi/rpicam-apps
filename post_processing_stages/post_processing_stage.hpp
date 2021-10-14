@@ -17,10 +17,10 @@
 
 namespace libcamera
 {
-class StreamConfiguration;
+struct StreamConfiguration;
 }
 
-class CompletedRequest;
+struct CompletedRequest;
 class LibcameraApp;
 
 using StreamConfiguration = libcamera::StreamConfiguration;

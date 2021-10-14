@@ -14,7 +14,7 @@
 #include "output.hpp"
 
 Output::Output(VideoOptions const *options)
-	: state_(WAITING_KEYFRAME), options_(options), fp_timestamps_(nullptr), time_offset_(0), last_timestamp_(0)
+	: options_(options), state_(WAITING_KEYFRAME), fp_timestamps_(nullptr), time_offset_(0), last_timestamp_(0)
 {
 	if (!options->save_pts.empty())
 	{
