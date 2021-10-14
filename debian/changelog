@@ -1,3 +1,13 @@
+libcamera-apps (0~git20211012+4bb06a1-1) bullseye; urgency=medium
+
+  * New upstream version 0~git20211012+4bb06a1
+  * Add libcamera-apps-lite with X11 and Qt dependencies removed
+  * Disable OpenCV support
+  * Embed git sha1sum in binary version output
+  * Force ldconfig trigger
+
+ -- Serge Schneider <serge@raspberrypi.com>  Thu, 14 Oct 2021 16:42:33 +0100
+
 libcamera-apps (0~git20211001+c6f4a83-1) bullseye; urgency=medium
 
   * New upstream version 0~git20211001+c6f4a83
