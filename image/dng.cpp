@@ -41,14 +41,13 @@ static const std::map<PixelFormat, BayerFormat> bayer_formats =
 	{ formats::SGBRG12_CSI2P, { "GBRG-12", 12, TIFF_GBRG } },
 };
 
-static void unpack_10bit(uint8_t *src, int w, int h, int stride, uint16_t *dest)
+static void unpack_10bit(uint8_t *src, unsigned int w, unsigned int h, unsigned int stride, uint16_t *dest)
 {
-	int i = 0;
-	int w_align = w & ~3;
-	for (int y = 0; y < h; y++, src += stride)
+	unsigned int w_align = w & ~3;
+	for (unsigned int y = 0; y < h; y++, src += stride)
 	{
 		uint8_t *ptr = src;
-		int x;
+		unsigned int x;
 		for (x = 0; x < w_align; x += 4, ptr += 5)
 		{
 			*dest++ = (ptr[0] << 2) | ((ptr[4] >> 0) & 3);
@@ -61,14 +60,13 @@ static void unpack_10bit(uint8_t *src, int w, int h, int stride, uint16_t *dest)
 	}
 }
 
-static void unpack_12bit(uint8_t *src, int w, int h, int stride, uint16_t *dest)
+static void unpack_12bit(uint8_t *src, unsigned int w, unsigned int h, unsigned int stride, uint16_t *dest)
 {
-	int i = 0;
-	int w_align = w & ~1;
-	for (int y = 0; y < h; y++, src += stride)
+	unsigned int w_align = w & ~1;
+	for (unsigned int y = 0; y < h; y++, src += stride)
 	{
 		uint8_t *ptr = src;
-		int x;
+		unsigned int x;
 		for (x = 0; x < w_align; x += 2, ptr += 3)
 		{
 			*dest++ = (ptr[0] << 4) | ((ptr[2] >> 0) & 15);
@@ -128,7 +126,7 @@ Matrix(float m0, float m1, float m2,
 	}
 };
 
-void dng_save(std::vector<libcamera::Span<uint8_t>> const &mem, int w, int h, int stride,
+void dng_save(std::vector<libcamera::Span<uint8_t>> const &mem, unsigned int w, unsigned int h, unsigned int stride,
 			  PixelFormat const &pixel_format, ControlList const &metadata, std::string const &filename,
 			  std::string const &cam_name, StillOptions const *options)
 {
@@ -258,11 +256,11 @@ void dng_save(std::vector<libcamera::Span<uint8_t>> const &mem, int w, int h, in
 		// Make a small greyscale thumbnail, just to give some clue what's in here.
 		std::vector<uint8_t> thumb_buf((w >> 4) * 3);
 
-		for (int y = 0; y < h >> 4; y++)
+		for (unsigned int y = 0; y < (h >> 4); y++)
 		{
-			for (int x = 0; x < w >> 4; x++)
+			for (unsigned int x = 0; x < (w >> 4); x++)
 			{
-				int off = (y * w + x) << 4;
+				unsigned int off = (y * w + x) << 4;
 				int grey = buf[off] + buf[off + 1] + buf[off + w] + buf[off + w + 1];
 				grey = white * sqrt(grey / (double)white); // fake "gamma"
 				thumb_buf[3 * x] = thumb_buf[3 * x + 1] = thumb_buf[3 * x + 2] = grey >> (bayer_format.bits - 6);
@@ -292,7 +290,7 @@ void dng_save(std::vector<libcamera::Span<uint8_t>> const &mem, int w, int h, in
 		TIFFSetField(tif, TIFFTAG_BLACKLEVELREPEATDIM, &black_level_repeat_dim);
 		TIFFSetField(tif, TIFFTAG_BLACKLEVEL, 4, &black_levels);
 
-		for (int y = 0; y < h; y++)
+		for (unsigned int y = 0; y < h; y++)
 		{
 			if (TIFFWriteScanline(tif, &buf[w * y], y, 0) != 1)
 				throw std::runtime_error("error writing DNG image data");

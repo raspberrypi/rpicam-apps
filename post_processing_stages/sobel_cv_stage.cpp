@@ -7,8 +7,10 @@
 
 #include <libcamera/stream.h>
 
-#include "../core/libcamera_app.hpp"
-#include "../core/post_processing_stage.hpp"
+#include "core/libcamera_app.hpp"
+
+#include "post_processing_stages/post_processing_stage.hpp"
+
 #include "opencv2/core.hpp"
 #include "opencv2/imgproc.hpp"
 
@@ -25,9 +27,9 @@ public:
 
 	void Read(boost::property_tree::ptree const &params) override;
 
-	void Configure();
+	void Configure() override;
 
-	bool Process(CompletedRequest &completed_request);
+	bool Process(CompletedRequest &completed_request) override;
 
 private:
 	Stream *stream_;
@@ -55,7 +57,7 @@ void SobelCvStage::Configure()
 
 bool SobelCvStage::Process(CompletedRequest &completed_request)
 {
-	int w, h, stride;
+	unsigned int w, h, stride;
 	app_->StreamDimensions(stream_, &w, &h, &stride);
 	libcamera::Span<uint8_t> buffer = app_->Mmap(completed_request.buffers[stream_])[0];
 	uint8_t *ptr = (uint8_t *)buffer.data();

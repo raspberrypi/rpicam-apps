@@ -53,4 +53,6 @@ Preview *make_preview(Options const *options)
 			}
 		}
 	}
+
+	return nullptr; // prevents compiler warning in debug builds
 }

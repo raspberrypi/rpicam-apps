@@ -5,7 +5,7 @@
  * post_processing_stage.cpp - Post processing stage base class implementation.
  */
 
-#include "core/post_processing_stage.hpp"
+#include "post_processing_stage.hpp"
 
 PostProcessingStage::PostProcessingStage(LibcameraApp *app) : app_(app)
 {

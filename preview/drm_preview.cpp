@@ -225,7 +225,7 @@ void DrmPreview::findPlane()
 	drmModeFreePlaneResources(planes);
 }
 
-DrmPreview::DrmPreview(Options const *options) : last_fd_(-1), Preview(options)
+DrmPreview::DrmPreview(Options const *options) : Preview(options), last_fd_(-1)
 {
 	drmfd_ = drmOpen("vc4", NULL);
 	if (drmfd_ < 0)

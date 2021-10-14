@@ -42,7 +42,7 @@ struct FrameInfo
 	{
 		std::string parsed(info_string);
 
-		for (auto const t : tokens)
+		for (auto const &t : tokens)
 		{
 			std::size_t pos = parsed.find(t);
 			if (pos != std::string::npos)

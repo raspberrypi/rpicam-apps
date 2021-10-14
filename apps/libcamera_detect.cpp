@@ -43,7 +43,7 @@ public:
 };
 
 // In jpeg.cpp:
-void jpeg_save(std::vector<libcamera::Span<uint8_t>> const &mem, int w, int h, int stride,
+void jpeg_save(std::vector<libcamera::Span<uint8_t>> const &mem, unsigned int w, unsigned int h, unsigned int stride,
 			   libcamera::PixelFormat const &pixel_format, libcamera::ControlList const &metadata,
 			   std::string const &filename, std::string const &cam_name, StillOptions const *options);
 
@@ -99,7 +99,7 @@ static void event_loop(LibcameraDetectApp &app)
 			app.StopCamera();
 			last_capture_frame = completed_request.sequence;
 
-			int w, h, stride;
+			unsigned int w, h, stride;
 			libcamera::Stream *stream = app.StillStream(&w, &h, &stride);
 			const std::vector<libcamera::Span<uint8_t>> mem = app.Mmap(completed_request.buffers[stream]);
 

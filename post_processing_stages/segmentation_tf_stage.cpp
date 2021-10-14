@@ -70,7 +70,8 @@ void SegmentationTfStage::readExtras([[maybe_unused]] boost::property_tree::ptre
 	// Check the output dimensions.
 	int output = interpreter_->outputs()[0];
 	TfLiteIntArray *dims = interpreter_->tensor(output)->dims;
-	if (dims->size != 4 || dims->data[1] != HEIGHT || dims->data[2] != WIDTH || dims->data[3] != labels_.size())
+	if (dims->size != 4 || dims->data[1] != HEIGHT || dims->data[2] != WIDTH ||
+		dims->data[3] != static_cast<int>(labels_.size()))
 		throw std::runtime_error("SegmentationTfStage: Unexpected output tensor size");
 }
 

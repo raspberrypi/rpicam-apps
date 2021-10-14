@@ -30,7 +30,7 @@
 #include "core/completed_request.hpp"
 #include "core/post_processor.hpp"
 
-class Options;
+struct Options;
 class Preview;
 
 namespace controls = libcamera::controls;
@@ -106,12 +106,14 @@ public:
 	void QueueRequest(CompletedRequest const &completed_request);
 	void PostMessage(MsgType &t, MsgPayload &p);
 
-	Stream *GetStream(std::string const &name, int *w = nullptr, int *h = nullptr, int *stride = nullptr) const;
-	Stream *ViewfinderStream(int *w = nullptr, int *h = nullptr, int *stride = nullptr) const;
-	Stream *StillStream(int *w = nullptr, int *h = nullptr, int *stride = nullptr) const;
-	Stream *RawStream(int *w = nullptr, int *h = nullptr, int *stride = nullptr) const;
-	Stream *VideoStream(int *w = nullptr, int *h = nullptr, int *stride = nullptr) const;
-	Stream *LoresStream(int *w = nullptr, int *h = nullptr, int *stride = nullptr) const;
+	Stream *GetStream(std::string const &name, unsigned int *w = nullptr, unsigned int *h = nullptr,
+					  unsigned int *stride = nullptr) const;
+	Stream *ViewfinderStream(unsigned int *w = nullptr, unsigned int *h = nullptr,
+							 unsigned int *stride = nullptr) const;
+	Stream *StillStream(unsigned int *w = nullptr, unsigned int *h = nullptr, unsigned int *stride = nullptr) const;
+	Stream *RawStream(unsigned int *w = nullptr, unsigned int *h = nullptr, unsigned int *stride = nullptr) const;
+	Stream *VideoStream(unsigned int *w = nullptr, unsigned int *h = nullptr, unsigned int *stride = nullptr) const;
+	Stream *LoresStream(unsigned int *w = nullptr, unsigned int *h = nullptr, unsigned int *stride = nullptr) const;
 	Stream *GetMainStream() const;
 
 	std::vector<libcamera::Span<uint8_t>> Mmap(FrameBuffer *buffer) const;
@@ -120,7 +122,7 @@ public:
 	void ShowPreview(CompletedRequest &completed_request, Stream *stream);
 
 	void SetControls(ControlList &controls);
-	void StreamDimensions(Stream const *stream, int *w, int *h, int *stride) const;
+	void StreamDimensions(Stream const *stream, unsigned int *w, unsigned int *h, unsigned int *stride) const;
 
 protected:
 	std::unique_ptr<Options> options_;

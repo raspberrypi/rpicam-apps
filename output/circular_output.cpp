@@ -20,7 +20,7 @@ struct Header
 };
 static_assert(sizeof(Header) % ALIGN == 0, "Header should have aligned size");
 
-CircularOutput::CircularOutput(VideoOptions const *options) : cb_(CIRCULAR_BUFFER_SIZE), Output(options)
+CircularOutput::CircularOutput(VideoOptions const *options) : Output(options), cb_(CIRCULAR_BUFFER_SIZE)
 {
 	// Open this now, so that we can get any complaints out of the way
 	fp_ = fopen(options_->output.c_str(), "w");
