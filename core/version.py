@@ -33,7 +33,7 @@ def generate_version():
             if r.returncode:
                 commit = commit + '-dirty'
         else:
-            commit = sys.argv[1].lower()
+            commit = sys.argv[1].lower().strip()
             if any(c not in hexdigits for c in commit):
                 raise RuntimeError('Invalid git sha!')
 
