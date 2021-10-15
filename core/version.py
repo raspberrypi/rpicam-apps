@@ -20,12 +20,12 @@ def generate_version():
                 raise RuntimeError('Invalid git directory!')
 
             # Get commit id
-            r = subprocess.run(['git', 'describe', f'--abbrev={digits}', '--always'],
+            r = subprocess.run(['git', 'rev-parse', '--verify', 'HEAD'],
                                stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True)
             if r.returncode:
                 raise RuntimeError('Invalid git commit!')
 
-            commit = r.stdout.strip('\n') + '-auto'
+            commit = r.stdout.strip('\n')[0:digits] + '-intree'
 
             # Check dirty status
             r = subprocess.run(['git', 'diff-index', '--quiet', 'HEAD'],
@@ -33,9 +33,11 @@ def generate_version():
             if r.returncode:
                 commit = commit + '-dirty'
         else:
-            commit = sys.argv[1][0:digits].rjust(digits, '0').lower()
+            commit = sys.argv[1].lower()
             if any(c not in hexdigits for c in commit):
                 raise RuntimeError('Invalid git sha!')
+
+            commit = commit[0:digits]
 
     except RuntimeError as e:
         print(f'ERR: {e}', file=sys.stderr)
