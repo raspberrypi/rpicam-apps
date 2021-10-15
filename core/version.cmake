@@ -1,9 +1,13 @@
 # Script to generate a version string and embed it in the version.cpp source file
 
-if (NOT VERSION_SHA STREQUAL "")
-    message("Using user supplied version sha: " ${VERSION_SHA})
+if (EXISTS ${SOURCE_DIR}/version.gen)
+    message("Reading version string from version.gen")
+    file(READ ${SOURCE_DIR}/version.gen SHA)
 endif()
 
-execute_process(COMMAND ${CMAKE_CURRENT_LIST_DIR}/version.py ${VERSION_SHA} OUTPUT_VARIABLE VER)
-message("Generating version string: " ${VER})
+execute_process(COMMAND ${SOURCE_DIR}/core/version.py ${SHA}
+                WORKING_DIRECTORY ${SOURCE_DIR}
+                OUTPUT_VARIABLE VER)
+
 configure_file(${CMAKE_CURRENT_LIST_DIR}/version.cpp.in version.cpp @ONLY)
+message("Generating version string: " ${VER})
