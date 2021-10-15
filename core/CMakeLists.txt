@@ -4,7 +4,7 @@ include(GNUInstallDirs)
 
 find_package(Boost REQUIRED COMPONENTS program_options)
 
-add_custom_target(VersionCpp ${CMAKE_COMMAND} -DVERSION_SHA=${VERSION_SHA} -P ${CMAKE_CURRENT_LIST_DIR}/version.cmake)
+add_custom_target(VersionCpp ${CMAKE_COMMAND} -DSOURCE_DIR=${CMAKE_SOURCE_DIR} -P ${CMAKE_CURRENT_LIST_DIR}/version.cmake)
 set_source_files_properties(version.cpp PROPERTIES GENERATED 1)
 
 add_library(libcamera_app libcamera_app.cpp post_processor.cpp version.cpp)
