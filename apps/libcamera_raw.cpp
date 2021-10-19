@@ -47,12 +47,12 @@ static void event_loop(LibcameraRaw &app)
 		if (count == 0)
 		{
 			libcamera::StreamConfiguration const &cfg = app.RawStream()->configuration();
-			std::cout << "Raw stream: " << cfg.size.width << "x" << cfg.size.height << " stride " << cfg.stride
+			std::cerr << "Raw stream: " << cfg.size.width << "x" << cfg.size.height << " stride " << cfg.stride
 					  << " format " << cfg.pixelFormat.toString() << std::endl;
 		}
 
 		if (options->verbose)
-			std::cout << "Viewfinder frame " << count << std::endl;
+			std::cerr << "Viewfinder frame " << count << std::endl;
 		auto now = std::chrono::high_resolution_clock::now();
 		if (options->timeout && now - start_time > std::chrono::milliseconds(options->timeout))
 		{

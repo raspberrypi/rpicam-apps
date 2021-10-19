@@ -189,7 +189,7 @@ void exif_read_tag(ExifData *exif, char const *str)
 	ExifTag tag = exif_tag_from_name(tag_name);
 	if (tag == 0)
 	{
-		std::cout << "WARNING: no EXIF tag " << tag_name << " found - ignoring" << std::endl;
+		std::cerr << "WARNING: no EXIF tag " << tag_name << " found - ignoring" << std::endl;
 		return;
 	}
 
@@ -200,7 +200,7 @@ void exif_read_tag(ExifData *exif, char const *str)
 		throw std::runtime_error("failed to create entry for EXIF tag " + tag_string + ", please try without this tag");
 	if (entry->format == 0)
 	{
-		std::cout << "WARNING: format for EXIF tag " << tag_name << " unknown - ignoring" << std::endl;
+		std::cerr << "WARNING: format for EXIF tag " << tag_name << " unknown - ignoring" << std::endl;
 		return;
 	}
 	if (entry->format == EXIF_FORMAT_UNDEFINED)
@@ -213,7 +213,7 @@ void exif_read_tag(ExifData *exif, char const *str)
 		}
 		else
 		{
-			std::cout << "WARNING: libexif format for tag " << tag_name << " undefined - treating as ASCII"
+			std::cerr << "WARNING: libexif format for tag " << tag_name << " undefined - treating as ASCII"
 					  << std::endl;
 			entry->format = EXIF_FORMAT_ASCII;
 		}
@@ -492,7 +492,7 @@ static void create_exif_data(PixelFormat const &pixel_format, std::vector<libcam
 			entry = exif_create_tag(exif, EXIF_IFD_EXIF, EXIF_TAG_EXPOSURE_TIME);
 			int32_t exposure_time = metadata.get(libcamera::controls::ExposureTime);
 			if (options->verbose)
-				std::cout << "Exposure time: " << exposure_time << std::endl;
+				std::cerr << "Exposure time: " << exposure_time << std::endl;
 			ExifRational exposure = { (ExifLong)exposure_time, 1000000 };
 			exif_set_rational(entry->data, exif_byte_order, exposure);
 		}
@@ -504,7 +504,7 @@ static void create_exif_data(PixelFormat const &pixel_format, std::vector<libcam
 				dg = metadata.get(libcamera::controls::DigitalGain);
 			gain = ag * dg;
 			if (options->verbose)
-				std::cout << "Ag " << ag << " Dg " << dg << " Total " << gain << std::endl;
+				std::cerr << "Ag " << ag << " Dg " << dg << " Total " << gain << std::endl;
 			exif_set_short(entry->data, exif_byte_order, 100 * gain);
 		}
 
@@ -512,7 +512,7 @@ static void create_exif_data(PixelFormat const &pixel_format, std::vector<libcam
 		for (auto &exif_item : options->exif)
 		{
 			if (options->verbose)
-				std::cout << "Processing EXIF item: " << exif_item << std::endl;
+				std::cerr << "Processing EXIF item: " << exif_item << std::endl;
 			exif_read_tag(exif, exif_item.c_str());
 		}
 
@@ -520,7 +520,7 @@ static void create_exif_data(PixelFormat const &pixel_format, std::vector<libcam
 		// offset/length to occupy the right amount of space, and fill them in later.
 
 		if (options->verbose)
-			std::cout << "Thumbnail dimensions are " << options->thumb_width << " x " << options->thumb_height
+			std::cerr << "Thumbnail dimensions are " << options->thumb_width << " x " << options->thumb_height
 					  << std::endl;
 		entry = exif_create_tag(exif, EXIF_IFD_1, EXIF_TAG_IMAGE_WIDTH);
 		exif_set_short(entry->data, exif_byte_order, options->thumb_width);
@@ -554,7 +554,7 @@ static void create_exif_data(PixelFormat const &pixel_format, std::vector<libcam
 			thumb_buffer = nullptr;
 		}
 		if (options->verbose)
-			std::cout << "Thumbnail size " << thumb_len << std::endl;
+			std::cerr << "Thumbnail size " << thumb_len << std::endl;
 		if (q <= 0)
 			throw std::runtime_error("failed to make acceptable thumbnail");
 
@@ -612,7 +612,7 @@ void jpeg_save(std::vector<libcamera::Span<uint8_t>> const &mem, unsigned int w,
 		YUV_to_JPEG(pixel_format, (uint8_t *)(mem[0].data()), w, h, stride, w, h, options->quality, options->restart,
 					jpeg_buffer, jpeg_len);
 		if (options->verbose)
-			std::cout << "JPEG size is " << jpeg_len << std::endl;
+			std::cerr << "JPEG size is " << jpeg_len << std::endl;
 
 		// Write everything out.
 
@@ -621,7 +621,7 @@ void jpeg_save(std::vector<libcamera::Span<uint8_t>> const &mem, unsigned int w,
 			throw std::runtime_error("failed to open file " + options->output);
 
 		if (options->verbose)
-			std::cout << "EXIF data len " << exif_len << std::endl;
+			std::cerr << "EXIF data len " << exif_len << std::endl;
 
 		if (fwrite(exif_header, sizeof(exif_header), 1, fp) != 1 || fputc((exif_len + thumb_len + 2) >> 8, fp) == EOF ||
 			fputc((exif_len + thumb_len + 2) & 0xff, fp) == EOF || fwrite(exif_buffer, exif_len, 1, fp) != 1 ||

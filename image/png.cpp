@@ -62,7 +62,7 @@ void png_save(std::vector<libcamera::Span<uint8_t>> const &mem, unsigned int w, 
 		if (options->verbose)
 		{
 			long int size = ftell(fp);
-			std::cout << "Wrote PNG file of " << size << " bytes" << std::endl;
+			std::cerr << "Wrote PNG file of " << size << " bytes" << std::endl;
 		}
 
 		// Free and close everything and we're done.

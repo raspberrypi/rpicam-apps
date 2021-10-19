@@ -30,8 +30,8 @@ struct DetectOptions : public StillOptions
 	virtual void Print() const override
 	{
 		StillOptions::Print();
-		std::cout << "    object: " << object << std::endl;
-		std::cout << "    gap: " << gap << std::endl;
+		std::cerr << "    object: " << object << std::endl;
+		std::cerr << "    gap: " << gap << std::endl;
 	}
 };
 
@@ -90,7 +90,7 @@ static void event_loop(LibcameraDetectApp &app)
 				app.Teardown();
 				app.ConfigureStill();
 				app.StartCamera();
-				std::cout << options->object << " detected" << std::endl;
+				std::cerr << options->object << " detected" << std::endl;
 			}
 		}
 		// In still capture mode, save a jpeg and go back to preview.
@@ -108,7 +108,7 @@ static void event_loop(LibcameraDetectApp &app)
 			snprintf(filename, sizeof(filename), options->output.c_str(), options->framestart);
 			filename[sizeof(filename) - 1] = 0;
 			options->framestart++;
-			std::cout << "Save image " << filename << std::endl;
+			std::cerr << "Save image " << filename << std::endl;
 			jpeg_save(mem, w, h, stride, stream->configuration().pixelFormat, completed_request.metadata,
 					  std::string(filename), app.CameraId(), options);
 

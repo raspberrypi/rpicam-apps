@@ -71,7 +71,7 @@ public:
 		while (!pane_)
 			cond_var_.wait(lock);
 		if (options->verbose)
-			std::cout << "Made Qt preview" << std::endl;
+			std::cerr << "Made Qt preview" << std::endl;
 	}
 	~QtPreview()
 	{

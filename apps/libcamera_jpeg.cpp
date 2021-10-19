@@ -73,7 +73,7 @@ static void event_loop(LibcameraJpegApp &app)
 		else if (app.StillStream())
 		{
 			app.StopCamera();
-			std::cout << "Still capture image received" << std::endl;
+			std::cerr << "Still capture image received" << std::endl;
 
 			unsigned int w, h, stride;
 			Stream *stream = app.StillStream();

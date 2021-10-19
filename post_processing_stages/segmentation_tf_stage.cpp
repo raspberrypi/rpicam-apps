@@ -144,8 +144,8 @@ void SegmentationTfStage::interpretOutputs()
 		// Output the category names of the largest histogram bins.
 		std::sort(hist.begin(), hist.end(), [](const auto &lhs, const auto &rhs) { return lhs.first > rhs.first; });
 		for (int i = 0; i < num_categories && hist[i].first >= config()->threshold; i++)
-			std::cout << (i ? ", " : "") << labels_[hist[i].second] << " (" << hist[i].first << ")";
-		std::cout << std::endl;
+			std::cerr << (i ? ", " : "") << labels_[hist[i].second] << " (" << hist[i].first << ")";
+		std::cerr << std::endl;
 	}
 }
 

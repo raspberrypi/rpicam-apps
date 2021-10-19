@@ -75,13 +75,13 @@ static void update_latest_link(std::string const &filename, StillOptions const *
 	{
 		struct stat buf;
 		if (stat(options->latest.c_str(), &buf) == 0 && unlink(options->latest.c_str()))
-			std::cout << "WARNING: could not delete latest link " << options->latest << std::endl;
+			std::cerr << "WARNING: could not delete latest link " << options->latest << std::endl;
 		else
 		{
 			if (symlink(filename.c_str(), options->latest.c_str()))
-				std::cout << "WARNING: failed to create latest link " << options->latest << std::endl;
+				std::cerr << "WARNING: failed to create latest link " << options->latest << std::endl;
 			else if (options->verbose)
-				std::cout << "Link " << options->latest << " created" << std::endl;
+				std::cerr << "Link " << options->latest << " created" << std::endl;
 		}
 	}
 }
@@ -104,7 +104,7 @@ static void save_image(LibcameraStillApp &app, CompletedRequest &payload, Stream
 	else
 		yuv_save(mem, w, h, stride, pixel_format, filename, options);
 	if (options->verbose)
-		std::cout << "Saved image " << w << " x " << h << " to file " << filename << std::endl;
+		std::cerr << "Saved image " << w << " x " << h << " to file " << filename << std::endl;
 }
 
 static void save_images(LibcameraStillApp &app, CompletedRequest &payload)
@@ -127,7 +127,7 @@ static int signal_received;
 static void default_signal_handler(int signal_number)
 {
 	signal_received = signal_number;
-	std::cout << "Received signal " << signal_number << std::endl;
+	std::cerr << "Received signal " << signal_number << std::endl;
 }
 static int get_key_or_signal(StillOptions const *options, pollfd p[1])
 {
@@ -201,7 +201,7 @@ static void event_loop(LibcameraStillApp &app)
 		if (app.ViewfinderStream())
 		{
 			if (options->verbose)
-				std::cout << "Viewfinder frame " << count << std::endl;
+				std::cerr << "Viewfinder frame " << count << std::endl;
 
 			bool timed_out = options->timeout && now - start_time > std::chrono::milliseconds(options->timeout);
 			bool keypressed = key == '\n';
@@ -235,7 +235,7 @@ static void event_loop(LibcameraStillApp &app)
 		else if (app.StillStream())
 		{
 			app.StopCamera();
-			std::cout << "Still capture image received" << std::endl;
+			std::cerr << "Still capture image received" << std::endl;
 			save_images(app, std::get<CompletedRequest>(msg.payload));
 			if (options->timelapse)
 			{

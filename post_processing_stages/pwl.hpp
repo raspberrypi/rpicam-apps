@@ -86,7 +86,7 @@ public:
 		return lut;
 	}
 	Pwl &operator*=(double d);
-	void Debug(FILE *fp = stdout) const;
+	void Debug(FILE *fp = stderr) const;
 
 private:
 	int findSpan(double x, int span) const;
