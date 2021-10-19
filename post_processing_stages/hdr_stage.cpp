@@ -471,7 +471,7 @@ bool HdrStage::Process(CompletedRequest &completed_request)
 	uint8_t *image = buffer.data();
 
 	// Accumulate frame.
-	std::cout << "Accumulating frame " << frame_num_ << std::endl;
+	std::cerr << "Accumulating frame " << frame_num_ << std::endl;
 	acc_.Accumulate(image, stride_);
 
 	// Now we'll drop this frame unless it's the last one that we need, at which point
@@ -481,14 +481,14 @@ bool HdrStage::Process(CompletedRequest &completed_request)
 		return true;
 
 	// Do HDR processing.
-	std::cout << "Doing HDR processing..." << std::endl;
+	std::cerr << "Doing HDR processing..." << std::endl;
 	acc_.Scale(16.0 / config_.num_frames);
 
 	lp_ = acc_.LpFilter(config_.lp_filter);
 	acc_.Tonemap(lp_, config_);
 
 	acc_.Extract(image, stride_);
-	std::cout << "HDR done!" << std::endl;
+	std::cerr << "HDR done!" << std::endl;
 
 	return false;
 }

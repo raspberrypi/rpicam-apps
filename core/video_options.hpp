@@ -95,28 +95,28 @@ struct VideoOptions : public Options
 		else
 			throw std::runtime_error("incorrect initial value " + initial);
 		if ((pause || split || segment || circular) && !inline_headers)
-			std::cout << "WARNING: consider inline headers with 'pause'/split/segment/circular" << std::endl;
+			std::cerr << "WARNING: consider inline headers with 'pause'/split/segment/circular" << std::endl;
 		if ((split || segment) && output.find('%') == std::string::npos)
-			std::cout << "WARNING: expected % directive in output filename" << std::endl;
+			std::cerr << "WARNING: expected % directive in output filename" << std::endl;
 
 		return true;
 	}
 	virtual void Print() const override
 	{
 		Options::Print();
-		std::cout << "    bitrate: " << bitrate << std::endl;
-		std::cout << "    profile: " << profile << std::endl;
-		std::cout << "    level:  " << level << std::endl;
-		std::cout << "    intra: " << intra << std::endl;
-		std::cout << "    inline: " << inline_headers << std::endl;
-		std::cout << "    save-pts: " << save_pts << std::endl;
-		std::cout << "    codec: " << codec << std::endl;
-		std::cout << "    quality (for MJPEG): " << quality << std::endl;
-		std::cout << "    keypress: " << keypress << std::endl;
-		std::cout << "    signal: " << signal << std::endl;
-		std::cout << "    initial: " << initial << std::endl;
-		std::cout << "    split: " << split << std::endl;
-		std::cout << "    segment: " << segment << std::endl;
-		std::cout << "    circular: " << circular << std::endl;
+		std::cerr << "    bitrate: " << bitrate << std::endl;
+		std::cerr << "    profile: " << profile << std::endl;
+		std::cerr << "    level:  " << level << std::endl;
+		std::cerr << "    intra: " << intra << std::endl;
+		std::cerr << "    inline: " << inline_headers << std::endl;
+		std::cerr << "    save-pts: " << save_pts << std::endl;
+		std::cerr << "    codec: " << codec << std::endl;
+		std::cerr << "    quality (for MJPEG): " << quality << std::endl;
+		std::cerr << "    keypress: " << keypress << std::endl;
+		std::cerr << "    signal: " << signal << std::endl;
+		std::cerr << "    initial: " << initial << std::endl;
+		std::cerr << "    split: " << split << std::endl;
+		std::cerr << "    segment: " << segment << std::endl;
+		std::cerr << "    circular: " << circular << std::endl;
 	}
 };

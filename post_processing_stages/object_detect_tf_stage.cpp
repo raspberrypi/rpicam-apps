@@ -62,7 +62,7 @@ void ObjectDetectTfStage::readExtras(boost::property_tree::ptree const &params)
 	std::string labels_file = params.get<std::string>("labels_file", "");
 	readLabelsFile(labels_file);
 	if (config()->verbose)
-		std::cout << "Read " << label_count_ << " labels" << std::endl;
+		std::cerr << "Read " << label_count_ << " labels" << std::endl;
 
 	// Check the tensor outputs and label classes match up.
 	int output = interpreter_->outputs()[0];
@@ -165,7 +165,7 @@ void ObjectDetectTfStage::interpretOutputs()
 	if (config()->verbose)
 	{
 		for (auto &detection : output_results_)
-			std::cout << detection.toString() << std::endl;
+			std::cerr << detection.toString() << std::endl;
 	}
 }
 

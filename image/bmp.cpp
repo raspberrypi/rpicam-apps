@@ -77,7 +77,7 @@ void bmp_save(std::vector<libcamera::Span<uint8_t>> const &mem, unsigned int w, 
 		}
 
 		if (options->verbose)
-			std::cout << "Wrote " << file_header.filesize << " bytes to BMP file" << std::endl;
+			std::cerr << "Wrote " << file_header.filesize << " bytes to BMP file" << std::endl;
 
 		fclose(fp);
 	}

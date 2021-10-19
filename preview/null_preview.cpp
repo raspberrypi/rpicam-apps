@@ -17,7 +17,7 @@ public:
 	NullPreview(Options const *options) : Preview(options)
 	{
 		if (options->verbose)
-			std::cout << "Running without preview window" << std::endl;
+			std::cerr << "Running without preview window" << std::endl;
 	}
 	~NullPreview() {}
 	// Display the buffer. You get given the fd back in the BufferDoneCallback

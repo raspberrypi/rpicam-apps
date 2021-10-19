@@ -117,7 +117,7 @@ void MotionDetectStage::Configure()
 	region_threshold_ = std::clamp(region_threshold_, 0u, roi_width_ * roi_height_);
 
 	if (config_.verbose)
-		std::cout << "Lores: " << lores_width << "x" << lores_height << " roi: (" << roi_x_ << "," << roi_y_ << ") "
+		std::cerr << "Lores: " << lores_width << "x" << lores_height << " roi: (" << roi_x_ << "," << roi_y_ << ") "
 				  << roi_width_ << "x" << roi_height_ << " threshold: " << region_threshold_ << std::endl;
 
 	previous_frame_.resize(roi_width_ * roi_height_);
@@ -175,7 +175,7 @@ bool MotionDetectStage::Process(CompletedRequest &completed_request)
 	}
 
 	if (config_.verbose && motion_detected != motion_detected_)
-		std::cout << "Motion " << (motion_detected ? "detected" : "stopped") << std::endl;
+		std::cerr << "Motion " << (motion_detected ? "detected" : "stopped") << std::endl;
 
 	motion_detected_ = motion_detected;
 	completed_request.post_process_metadata.Set("motion_detect.result", motion_detected);
