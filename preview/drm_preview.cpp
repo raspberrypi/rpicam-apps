@@ -84,7 +84,7 @@ void DrmPreview::findCrtc()
 	if (!conId_)
 	{
 		if (options_->verbose)
-			std::cout << "No connector ID specified.  Choosing default from list:" << std::endl;
+			std::cerr << "No connector ID specified.  Choosing default from list:" << std::endl;
 
 		for (i = 0; i < res->count_connectors; i++)
 		{
@@ -114,7 +114,7 @@ void DrmPreview::findCrtc()
 			}
 
 			if (options_->verbose)
-				std::cout << "Connector " << con->connector_id << " (crtc " << (crtc ? crtc->crtc_id : 0) << "): type "
+				std::cerr << "Connector " << con->connector_id << " (crtc " << (crtc ? crtc->crtc_id : 0) << "): type "
 						  << con->connector_type << ", " << (crtc ? crtc->width : 0) << "x" << (crtc ? crtc->height : 0)
 						  << (conId_ == (int)con->connector_id ? " (chosen)" : "") << std::endl;
 		}

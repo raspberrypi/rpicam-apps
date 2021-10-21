@@ -36,7 +36,7 @@ H264Encoder::H264Encoder(VideoOptions const *options) : Encoder(options), abort_
 	if (fd_ < 0)
 		throw std::runtime_error("failed to open V4L2 H264 encoder");
 	if (options->verbose)
-		std::cout << "Opened H264Encoder on " << device_name << " as fd " << fd_ << std::endl;
+		std::cerr << "Opened H264Encoder on " << device_name << " as fd " << fd_ << std::endl;
 
 	// Apply any options->
 
@@ -130,7 +130,7 @@ H264Encoder::H264Encoder(VideoOptions const *options) : Encoder(options), abort_
 	if (xioctl(fd_, VIDIOC_REQBUFS, &reqbufs) < 0)
 		throw std::runtime_error("request for output buffers failed");
 	if (options->verbose)
-		std::cout << "Got " << reqbufs.count << " output buffers" << std::endl;
+		std::cerr << "Got " << reqbufs.count << " output buffers" << std::endl;
 
 	// We have to maintain a list of the buffers we can use when our caller gives
 	// us another frame to encode.
@@ -144,7 +144,7 @@ H264Encoder::H264Encoder(VideoOptions const *options) : Encoder(options), abort_
 	if (xioctl(fd_, VIDIOC_REQBUFS, &reqbufs) < 0)
 		throw std::runtime_error("request for capture buffers failed");
 	if (options->verbose)
-		std::cout << "Got " << reqbufs.count << " capture buffers" << std::endl;
+		std::cerr << "Got " << reqbufs.count << " capture buffers" << std::endl;
 
 	for (unsigned int i = 0; i < reqbufs.count; i++)
 	{
@@ -177,7 +177,7 @@ H264Encoder::H264Encoder(VideoOptions const *options) : Encoder(options), abort_
 	if (xioctl(fd_, VIDIOC_STREAMON, &type) < 0)
 		throw std::runtime_error("failed to start capture streaming");
 	if (options->verbose)
-		std::cout << "Codec streaming started" << std::endl;
+		std::cerr << "Codec streaming started" << std::endl;
 
 	output_thread_ = std::thread(&H264Encoder::outputThread, this);
 	poll_thread_ = std::thread(&H264Encoder::pollThread, this);
@@ -189,7 +189,7 @@ H264Encoder::~H264Encoder()
 	output_thread_.join();
 	poll_thread_.join();
 	if (options_->verbose)
-		std::cout << "H264Encoder closed" << std::endl;
+		std::cerr << "H264Encoder closed" << std::endl;
 	// Other stuff will mostly get hoovered up with the process quits.
 }
 
