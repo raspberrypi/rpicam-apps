@@ -1,8 +1,7 @@
 #!/usr/bin/make -f
 #export DH_VERBOSE = 1
 
-CONFIG_COMMON := -DENABLE_OPENCV=0 \
-	-DVERSION_SHA=$(shell cat debian/git_hash)
+CONFIG_COMMON := -DENABLE_OPENCV=0
 CONFIG_LITE := -DENABLE_X11=0 -DENABLE_QT=0
 
 %:
