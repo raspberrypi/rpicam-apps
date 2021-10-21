@@ -89,22 +89,22 @@ struct StillOptions : public Options
 	virtual void Print() const override
 	{
 		Options::Print();
-		std::cout << "    encoding: " << encoding << std::endl;
-		std::cout << "    quality: " << quality << std::endl;
-		std::cout << "    raw: " << raw << std::endl;
-		std::cout << "    restart: " << restart << std::endl;
-		std::cout << "    timelapse: " << timelapse << std::endl;
-		std::cout << "    framestart: " << framestart << std::endl;
-		std::cout << "    datetime: " << datetime << std::endl;
-		std::cout << "    timestamp: " << timestamp << std::endl;
-		std::cout << "    keypress: " << keypress << std::endl;
-		std::cout << "    signal: " << signal << std::endl;
-		std::cout << "    thumbnail width: " << thumb_width << std::endl;
-		std::cout << "    thumbnail height: " << thumb_height << std::endl;
-		std::cout << "    thumbnail quality: " << thumb_quality << std::endl;
-		std::cout << "    latest: " << latest << std::endl;
-		std::cout << "    immediate " << immediate << std::endl;
+		std::cerr << "    encoding: " << encoding << std::endl;
+		std::cerr << "    quality: " << quality << std::endl;
+		std::cerr << "    raw: " << raw << std::endl;
+		std::cerr << "    restart: " << restart << std::endl;
+		std::cerr << "    timelapse: " << timelapse << std::endl;
+		std::cerr << "    framestart: " << framestart << std::endl;
+		std::cerr << "    datetime: " << datetime << std::endl;
+		std::cerr << "    timestamp: " << timestamp << std::endl;
+		std::cerr << "    keypress: " << keypress << std::endl;
+		std::cerr << "    signal: " << signal << std::endl;
+		std::cerr << "    thumbnail width: " << thumb_width << std::endl;
+		std::cerr << "    thumbnail height: " << thumb_height << std::endl;
+		std::cerr << "    thumbnail quality: " << thumb_quality << std::endl;
+		std::cerr << "    latest: " << latest << std::endl;
+		std::cerr << "    immediate " << immediate << std::endl;
 		for (auto &s : exif)
-			std::cout << "    EXIF: " << s << std::endl;
+			std::cerr << "    EXIF: " << s << std::endl;
 	}
 };

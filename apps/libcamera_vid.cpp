@@ -22,7 +22,7 @@ static int signal_received;
 static void default_signal_handler(int signal_number)
 {
 	signal_received = signal_number;
-	std::cout << "Received signal " << signal_number << std::endl;
+	std::cerr << "Received signal " << signal_number << std::endl;
 }
 
 static int get_key_or_signal(VideoOptions const *options, pollfd p[1])
@@ -82,7 +82,7 @@ static void event_loop(LibcameraEncoder &app)
 			output->Signal();
 
 		if (options->verbose)
-			std::cout << "Viewfinder frame " << count << std::endl;
+			std::cerr << "Viewfinder frame " << count << std::endl;
 		auto now = std::chrono::high_resolution_clock::now();
 		if ((options->timeout && now - start_time > std::chrono::milliseconds(options->timeout)) || key == 'x' ||
 			key == 'X')

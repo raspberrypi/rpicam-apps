@@ -32,7 +32,7 @@ void TfStage::initialise()
 	model_ = tflite::FlatBufferModel::BuildFromFile(config_->model_file.c_str());
 	if (!model_)
 		throw std::runtime_error("TfStage: Failed to load model");
-	std::cout << "TfStage: Loaded model " << config_->model_file << std::endl;
+	std::cerr << "TfStage: Loaded model " << config_->model_file << std::endl;
 
 	tflite::ops::builtin::BuiltinOpResolver resolver;
 	tflite::InterpreterBuilder(*model_, resolver)(&interpreter_);
@@ -69,15 +69,15 @@ void TfStage::Configure()
 	{
 		app_->StreamDimensions(lores_stream_, &lores_w_, &lores_h_, &lores_stride_);
 		if (config_->verbose)
-			std::cout << "TfStage: Low resolution stream is " << lores_w_ << "x" << lores_h_ << std::endl;
+			std::cerr << "TfStage: Low resolution stream is " << lores_w_ << "x" << lores_h_ << std::endl;
 		if (tf_w_ > lores_w_ || tf_h_ > lores_h_)
 		{
-			std::cout << "TfStage: WARNING: Low resolution image too small" << std::endl;
+			std::cerr << "TfStage: WARNING: Low resolution image too small" << std::endl;
 			lores_stream_ = nullptr;
 		}
 	}
 	else if (config_->verbose)
-		std::cout << "TfStage: no low resolution stream" << std::endl;
+		std::cerr << "TfStage: no low resolution stream" << std::endl;
 
 	main_w_ = main_h_ = main_stride_ = 0;
 	main_stream_ = app_->GetMainStream();
@@ -85,10 +85,10 @@ void TfStage::Configure()
 	{
 		app_->StreamDimensions(main_stream_, &main_w_, &main_h_, &main_stride_);
 		if (config_->verbose)
-			std::cout << "TfStage: Main stream is " << main_w_ << "x" << main_h_ << std::endl;
+			std::cerr << "TfStage: Main stream is " << main_w_ << "x" << main_h_ << std::endl;
 	}
 	else if (config_->verbose)
-		std::cout << "TfStage: No main stream" << std::endl;
+		std::cerr << "TfStage: No main stream" << std::endl;
 
 	checkConfiguration();
 }
@@ -115,7 +115,7 @@ bool TfStage::Process(CompletedRequest &completed_request)
 				auto time_taken = ExecutionTime<std::micro>(&TfStage::runInference, this).count();
 
 				if (config_->verbose)
-					std::cout << "TfStage: Inference time: " << time_taken << " ms" << std::endl;
+					std::cerr << "TfStage: Inference time: " << time_taken << " ms" << std::endl;
 			});
 		}
 	}

@@ -34,6 +34,15 @@ elseif ("${ENABLE_COMPILE_FLAGS_FOR_TARGET}" STREQUAL "armv8-neon")
     add_definitions(-mfpu=neon-fp-armv8 -ftree-vectorize)
 endif()
 
+# Source package generation setup.
+set(CPACK_GENERATOR "TXZ")
+set(CPACK_PACKAGE_FILE_NAME "libcamera-apps-build")
+set(CPACK_SOURCE_GENERATOR "TXZ")
+set(CPACK_INSTALL_SCRIPTS ${CMAKE_SOURCE_DIR}/package.cmake)
+set(CPACK_SOURCE_PACKAGE_FILE_NAME "libcamera-apps-src")
+set(CPACK_SOURCE_IGNORE_FILES "/\.git*;/build;")
+include(CPack)
+
 find_package(PkgConfig REQUIRED)
 
 pkg_check_modules(LIBCAMERA REQUIRED libcamera)
