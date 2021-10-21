@@ -1,3 +1,10 @@
+libcamera-apps (0~git20211021+2a38ae9-1) bullseye; urgency=medium
+
+  * New upstream version 0~git20211021+2a38ae9
+  * Remove git_hash
+
+ -- Serge Schneider <serge@raspberrypi.com>  Thu, 21 Oct 2021 15:33:56 +0100
+
 libcamera-apps (0~git20211012+4bb06a1-1) bullseye; urgency=medium
 
   * New upstream version 0~git20211012+4bb06a1
