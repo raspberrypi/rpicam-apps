@@ -93,6 +93,13 @@ def test_hello(exe_dir, output_dir):
     check_retcode(retcode, "test_hello: controls test")
     check_time(time_taken, 1.8, 6, "test_hello: controls test")
 
+    # "controls test". Apply flips and see if it blows up.
+    print("    flips test")
+    retcode, time_taken = run_executable(
+        [executable, '-t', '2000', '--hflip', '--vflip'], logfile)
+    check_retcode(retcode, "test_hello: flips test")
+    check_time(time_taken, 1.8, 6, "test_hello: flips test")
+
     print("libcamera-hello tests passed")
 
 def check_size(file, limit, presamble):
