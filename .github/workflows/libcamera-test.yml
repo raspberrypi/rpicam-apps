@@ -46,7 +46,7 @@ jobs:
       with:
         name: build-artifacts-libcamera
         path: build-artifacts-libcamera.tar
-        retention-days: 21
+        retention-days: 7
 
   build-libcamera-apps:
 
@@ -87,7 +87,7 @@ jobs:
       with:
         name: build-artifacts-libcamera-apps
         path: build-artifacts-libcamera-apps.tar
-        retention-days: 21
+        retention-days: 7
 
   run-test:
 
@@ -144,7 +144,7 @@ jobs:
       with:
         name: test-artifacts-${{matrix.camera}}
         path: ${{github.workspace}}/test_output/
-        retention-days: 21
+        retention-days: 7
 
   update-libcamera-base:
 
