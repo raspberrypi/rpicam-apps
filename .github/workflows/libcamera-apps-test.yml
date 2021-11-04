@@ -112,6 +112,10 @@ jobs:
       run: ${{github.workspace}}/test.py --exe-dir ${{github.workspace}}/build --output-dir ${{github.workspace}}/test_output --json-dir ${{github.workspace}}/assets
       timeout-minutes: 5
 
+    - name: Save dmesg output
+      if: ${{failure()}}
+      run: dmesg > ${{github.workspace}}/test_output/dmesg.txt
+
     - name: Upload test output
       if: ${{ failure() }}
       uses: actions/upload-artifact@v2
