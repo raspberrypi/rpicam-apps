@@ -596,7 +596,7 @@ void jpeg_save(std::vector<libcamera::Span<uint8_t>> const &mem, unsigned int w,
 
 		// Write everything out.
 
-		fp = fopen(filename.c_str(), "w");
+		fp = filename == "-" ? stdout : fopen(filename.c_str(), "w");
 		if (!fp)
 			throw std::runtime_error("failed to open file " + options->output);
 
@@ -609,7 +609,8 @@ void jpeg_save(std::vector<libcamera::Span<uint8_t>> const &mem, unsigned int w,
 			fwrite(jpeg_buffer + exif_image_offset, jpeg_len - exif_image_offset, 1, fp) != 1)
 			throw std::runtime_error("failed to write file - output probably corrupt");
 
-		fclose(fp);
+		if (fp != stdout)
+			fclose(fp);
 		fp = nullptr;
 
 		free(exif_buffer);
