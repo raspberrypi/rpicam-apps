@@ -237,7 +237,7 @@ static void event_loop(LibcameraStillApp &app)
 			app.StopCamera();
 			std::cerr << "Still capture image received" << std::endl;
 			save_images(app, std::get<CompletedRequestPtr>(msg.payload));
-			if (options->timelapse)
+			if (options->timelapse || options->signal || options->keypress)
 			{
 				app.Teardown();
 				app.ConfigureViewfinder();
