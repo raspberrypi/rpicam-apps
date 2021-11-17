@@ -12,7 +12,7 @@
 #include "core/options.hpp"
 
 LibcameraApp::LibcameraApp(std::unique_ptr<Options> opts)
-	: options_(std::move(opts)), preview_thread_(&LibcameraApp::previewThread, this), controls_(controls::controls),
+	: options_(std::move(opts)), controls_(controls::controls),
 	  post_processor_(this)
 {
 	if (!options_)
@@ -26,7 +26,8 @@ LibcameraApp::~LibcameraApp()
 		preview_abort_ = true;
 		preview_cond_var_.notify_one();
 	}
-	preview_thread_.join();
+	if (preview_thread_.joinable())
+		preview_thread_.join();
 	if (options_->verbose && !options_->help)
 		std::cerr << "Closing Libcamera application"
 				  << "(frames displayed " << preview_frames_displayed_ << ", dropped " << preview_frames_dropped_ << ")"
@@ -46,6 +47,9 @@ void LibcameraApp::OpenCamera()
 	// Make a preview window.
 	preview_ = std::unique_ptr<Preview>(make_preview(options_.get()));
 	preview_->SetDoneCallback(std::bind(&LibcameraApp::previewDoneCallback, this, std::placeholders::_1));
+
+	if (!options_->nopreview)
+		preview_thread_ = std::thread(&LibcameraApp::previewThread, this);
 
 	if (options_->verbose)
 		std::cerr << "Opening camera..." << std::endl;
