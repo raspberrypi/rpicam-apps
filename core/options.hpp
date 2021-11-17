@@ -12,8 +12,10 @@
 
 #include <boost/program_options.hpp>
 
+#include <libcamera/camera.h>
 #include <libcamera/camera_manager.h>
 #include <libcamera/control_ids.h>
+#include <libcamera/property_ids.h>
 #include <libcamera/transform.h>
 
 #include "core/version.hpp"
@@ -28,6 +30,10 @@ struct Options
 			 "Print this help message")
 			("version", value<bool>(&version)->default_value(false)->implicit_value(true),
 			 "Displays the build version number")
+			("list-cameras", value<bool>(&list_cameras)->default_value(false)->implicit_value(true),
+			 "Lists the available cameras attached to the system.")
+			("camera", value<unsigned int>(&camera)->default_value(0),
+			 "Chooses the camera to use. To list the available indexes, use the --list-cameras option.")
 			("verbose,v", value<bool>(&verbose)->default_value(false)->implicit_value(true),
 			 "Output extra debug and diagnostics")
 			("config,c", value<std::string>(&config_file)->implicit_value("config.txt"),
@@ -112,6 +118,7 @@ struct Options
 
 	bool help;
 	bool version;
+	bool list_cameras;
 	bool verbose;
 	uint64_t timeout; // in ms
 	std::string config_file;
@@ -154,6 +161,7 @@ struct Options
 	bool qt_preview;
 	unsigned int lores_width;
 	unsigned int lores_height;
+	unsigned int camera;
 
 	virtual bool Parse(int argc, char *argv[])
 	{
@@ -181,6 +189,37 @@ struct Options
 		{
 			std::cerr << "libcamera-apps build: " << LibcameraAppsVersion() << std::endl;
 			std::cerr << "libcamera build: " << libcamera::CameraManager::version() << std::endl;
+			return false;
+		}
+
+		if (list_cameras)
+		{
+			std::unique_ptr<CameraManager> cm = std::make_unique<CameraManager>();
+			int ret = cm->start();
+			if (ret)
+				throw std::runtime_error("camera manager failed to start, code " + std::to_string(-ret));
+
+			std::vector<std::shared_ptr<libcamera::Camera>> cameras = cm->cameras();
+			if (cameras.size() != 0)
+			{
+				unsigned int idx = 0;
+				std::cerr << "Available cameras" << std::endl
+						  << "-----------------" << std::endl;
+				for (auto const cam : cameras)
+				{
+					std::cerr << idx++ << " : " << cam->properties().get(libcamera::properties::Model);
+					if (cam->properties().contains(properties::PixelArrayActiveAreas))
+						std::cerr << " ["
+						          << cam->properties().get(properties::PixelArrayActiveAreas)[0].size().toString()
+								  << "]";
+					std::cerr  << " (" << cam->id() << ")" << std::endl;
+				}
+			}
+			else
+				std::cerr << "No cameras available!" << std::endl;
+
+			cameras.clear();
+			cm->stop();
 			return false;
 		}
 
