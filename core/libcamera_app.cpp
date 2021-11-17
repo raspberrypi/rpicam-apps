@@ -57,8 +57,10 @@ void LibcameraApp::OpenCamera()
 
 	if (camera_manager_->cameras().size() == 0)
 		throw std::runtime_error("no cameras available");
+	if (options_->camera >= camera_manager_->cameras().size())
+		throw std::runtime_error("selected camera is not available");
 
-	std::string const &cam_id = camera_manager_->cameras()[0]->id();
+	std::string const &cam_id = camera_manager_->cameras()[options_->camera]->id();
 	camera_ = camera_manager_->get(cam_id);
 	if (!camera_)
 		throw std::runtime_error("failed to find camera " + cam_id);
