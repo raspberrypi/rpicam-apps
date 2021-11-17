@@ -526,8 +526,16 @@ static void create_exif_data(PixelFormat const &pixel_format, std::vector<libcam
 		int q = options->thumb_quality;
 		for (; q > 0; q -= 5)
 		{
-			YUV_to_JPEG(pixel_format, (uint8_t *)(mem[0].data()), w, h, stride, options->thumb_width,
-						options->thumb_height, q, 0, thumb_buffer, thumb_len);
+			switch (pixel_format) {
+			case libcamera::formats::YUYV:
+			case libcamera::formats::YUV420:
+				YUV_to_JPEG(pixel_format, (uint8_t *)(mem[0].data()), w, h, stride, options->thumb_width,
+							options->thumb_height, q, 0, thumb_buffer, thumb_len);
+				break;
+			default:
+				throw std::runtime_error("unsupported format in JPEG encode: "+pixel_format.toString());
+			}
+
 			if (thumb_len < 60000) // entire EXIF data must be < 65536, so this should be safe
 				break;
 			free(thumb_buffer);
@@ -589,8 +597,15 @@ void jpeg_save(std::vector<libcamera::Span<uint8_t>> const &mem, unsigned int w,
 		// YUV422 or YUV420 planar format).
 
 		jpeg_mem_len_t jpeg_len;
-		YUV_to_JPEG(pixel_format, (uint8_t *)(mem[0].data()), w, h, stride, w, h, options->quality, options->restart,
-					jpeg_buffer, jpeg_len);
+		switch (pixel_format) {
+		case libcamera::formats::YUV420:
+		case libcamera::formats::YUYV:
+			YUV_to_JPEG(pixel_format, (uint8_t *)(mem[0].data()), w, h, stride, w, h, options->quality, options->restart,
+						jpeg_buffer, jpeg_len);
+			break;
+		default:
+			throw std::runtime_error("unsupported format in JPEG encode: "+pixel_format.toString());
+		}
 		if (options->verbose)
 			std::cerr << "JPEG size is " << jpeg_len << std::endl;
 
