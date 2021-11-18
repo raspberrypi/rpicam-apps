@@ -533,6 +533,8 @@ static void create_exif_data(PixelFormat const &pixel_format, std::vector<libcam
 							options->thumb_height, q, 0, thumb_buffer, thumb_len);
 				break;
 			default:
+				thumb_buffer = nullptr;
+				thumb_len = 0;
 				throw std::runtime_error("unsupported format in JPEG encode: "+pixel_format.toString());
 			}
 
@@ -543,7 +545,7 @@ static void create_exif_data(PixelFormat const &pixel_format, std::vector<libcam
 		}
 		if (options->verbose)
 			std::cerr << "Thumbnail size " << thumb_len << std::endl;
-		if (q <= 0)
+		if (q <= 0 && thumb_buffer != nullptr)
 			throw std::runtime_error("failed to make acceptable thumbnail");
 
 		// Now fill in the correct offsets and length.
@@ -586,13 +588,6 @@ void jpeg_save(std::vector<libcamera::Span<uint8_t>> const &mem, unsigned int w,
 		if (mem.size() != 1)
 			throw std::runtime_error("only single plane YUV supported");
 
-		// Make all the EXIF data, which includes the thumbnail.
-
-		jpeg_mem_len_t thumb_len;
-		unsigned int exif_len;
-		create_exif_data(pixel_format, mem, w, h, stride, metadata, cam_name, options, exif_buffer, exif_len,
-						 thumb_buffer, thumb_len);
-
 		// Make the full size JPEG (could probably be more efficient if we had
 		// YUV422 or YUV420 planar format).
 
@@ -602,6 +597,12 @@ void jpeg_save(std::vector<libcamera::Span<uint8_t>> const &mem, unsigned int w,
 		case libcamera::formats::YUYV:
 			YUV_to_JPEG(pixel_format, (uint8_t *)(mem[0].data()), w, h, stride, w, h, options->quality, options->restart,
 						jpeg_buffer, jpeg_len);
+			break;
+		case libcamera::formats::MJPEG:
+			// save raw JPEG buffer including all meta-data
+			jpeg_buffer = new uint8_t[mem[0].size()];
+			std::memcpy(jpeg_buffer, mem[0].data(), mem[0].size());
+			jpeg_len = mem[0].size();
 			break;
 		default:
 			throw std::runtime_error("unsupported format in JPEG encode: "+pixel_format.toString());
@@ -614,15 +615,26 @@ void jpeg_save(std::vector<libcamera::Span<uint8_t>> const &mem, unsigned int w,
 		fp = filename == "-" ? stdout : fopen(filename.c_str(), "w");
 		if (!fp)
 			throw std::runtime_error("failed to open file " + options->output);
+		if (pixel_format == libcamera::formats::MJPEG) {
+			fwrite(jpeg_buffer, jpeg_len, 1, fp);
+		}
+		else {
+			// Make all the EXIF data, which includes the thumbnail.
 
-		if (options->verbose)
-			std::cerr << "EXIF data len " << exif_len << std::endl;
+			jpeg_mem_len_t thumb_len;
+			unsigned int exif_len;
+			create_exif_data(pixel_format, mem, w, h, stride, metadata, cam_name, options, exif_buffer, exif_len,
+							thumb_buffer, thumb_len);
 
-		if (fwrite(exif_header, sizeof(exif_header), 1, fp) != 1 || fputc((exif_len + thumb_len + 2) >> 8, fp) == EOF ||
-			fputc((exif_len + thumb_len + 2) & 0xff, fp) == EOF || fwrite(exif_buffer, exif_len, 1, fp) != 1 ||
-			fwrite(thumb_buffer, thumb_len, 1, fp) != 1 ||
-			fwrite(jpeg_buffer + exif_image_offset, jpeg_len - exif_image_offset, 1, fp) != 1)
-			throw std::runtime_error("failed to write file - output probably corrupt");
+			if (options->verbose)
+				std::cerr << "EXIF data len " << exif_len << std::endl;
+
+			if (fwrite(exif_header, sizeof(exif_header), 1, fp) != 1 || fputc((exif_len + thumb_len + 2) >> 8, fp) == EOF ||
+				fputc((exif_len + thumb_len + 2) & 0xff, fp) == EOF || fwrite(exif_buffer, exif_len, 1, fp) != 1 ||
+				fwrite(thumb_buffer, thumb_len, 1, fp) != 1 ||
+				fwrite(jpeg_buffer + exif_image_offset, jpeg_len - exif_image_offset, 1, fp) != 1)
+				throw std::runtime_error("failed to write file - output probably corrupt");
+		}
 
 		if (fp != stdout)
 			fclose(fp);
