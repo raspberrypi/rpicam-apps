@@ -51,6 +51,9 @@ void bmp_save(std::vector<libcamera::Span<uint8_t>> const &mem, unsigned int w, 
 static std::string generate_filename(StillOptions const *options)
 {
 	char filename[128];
+	std::string folder = options->output; // sometimes "output" is used as a folder name
+	if (!folder.empty() && folder.back() != '/')
+		folder += "/";
 	if (options->datetime)
 	{
 		std::time_t raw_time;
@@ -58,10 +61,11 @@ static std::string generate_filename(StillOptions const *options)
 		char time_string[32];
 		std::tm *time_info = std::localtime(&raw_time);
 		std::strftime(time_string, sizeof(time_string), "%m%d%H%M%S", time_info);
-		snprintf(filename, sizeof(filename), "%s.%s", time_string, options->encoding.c_str());
+		snprintf(filename, sizeof(filename), "%s%s.%s", folder.c_str(), time_string, options->encoding.c_str());
 	}
 	else if (options->timestamp)
-		snprintf(filename, sizeof(filename), "%u.%s", (unsigned)time(NULL), options->encoding.c_str());
+		snprintf(filename, sizeof(filename), "%s%u.%s", folder.c_str(), (unsigned)time(NULL),
+				 options->encoding.c_str());
 	else
 		snprintf(filename, sizeof(filename), options->output.c_str(), options->framestart);
 	filename[sizeof(filename) - 1] = 0;
