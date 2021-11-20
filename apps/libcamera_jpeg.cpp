@@ -10,6 +10,8 @@
 #include "core/libcamera_app.hpp"
 #include "core/still_options.hpp"
 
+#include "image/image.hpp"
+
 using namespace std::placeholders;
 using libcamera::Stream;
 
@@ -26,11 +28,6 @@ public:
 		return static_cast<StillOptions *>(options_.get());
 	}
 };
-
-// In jpeg.cpp:
-void jpeg_save(std::vector<libcamera::Span<uint8_t>> const &mem, unsigned int w, unsigned int h, unsigned int stride,
-			   libcamera::PixelFormat const &pixel_format, libcamera::ControlList const &metadata,
-			   std::string const &filename, std::string const &cam_name, StillOptions const *options);
 
 // The main even loop for the application.
 
