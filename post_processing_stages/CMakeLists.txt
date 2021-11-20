@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.6)
 include(GNUInstallDirs)
 
 set(SRC post_processing_stage.cpp negate_stage.cpp hdr_stage.cpp pwl.cpp histogram.cpp motion_detect_stage.cpp)
-set(TARGET_LIBS "")
+set(TARGET_LIBS images)
 
 
 if (NOT DEFINED ENABLE_OPENCV)
@@ -27,7 +27,7 @@ if (OpenCV_FOUND)
     message(STATUS "    include path: ${OpenCV_INCLUDE_DIRS}")
     include_directories(${OpenCV_INCLUDE_DIRS})
     set(SRC ${SRC} sobel_cv_stage.cpp face_detect_cv_stage.cpp annotate_cv_stage.cpp plot_pose_cv_stage.cpp object_detect_draw_cv_stage.cpp)
-    set(TARGET_LIBS ${OpenCV_LIBS_REDUCED})
+    set(TARGET_LIBS ${TARGET_LIBS} ${OpenCV_LIBS_REDUCED})
     message(STATUS "OpenCV support is included")
 else()
     if (ENABLE_OPENCV)

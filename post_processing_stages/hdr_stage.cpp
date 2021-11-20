@@ -25,6 +25,9 @@
 #include <libcamera/stream.h>
 
 #include "core/libcamera_app.hpp"
+#include "core/still_options.hpp"
+
+#include "image/image.hpp"
 
 #include "post_processing_stages/histogram.hpp"
 #include "post_processing_stages/post_processing_stage.hpp"
@@ -78,6 +81,7 @@ struct HdrConfig
 	LpFilterConfig lp_filter; // low pass filter settings
 	GlobalTonemapConfig global_tonemap; // global tonemap settings
 	LocalTonemapConfig local_tonemap; // settings for adding back local contrast
+	std::string jpeg_filename; // set this if you want individual jpegs saved as well
 };
 
 struct HdrImage
@@ -430,6 +434,8 @@ void HdrStage::Read(boost::property_tree::ptree const &params)
 		y = y * strength + 1 - strength;
 		config_.local_tonemap.neg_strength.Append(x, y);
 	});
+
+	config_.jpeg_filename = params.get<std::string>("jpeg_filename", "");
 }
 
 void HdrStage::AdjustConfig(std::string const &use_case, StreamConfiguration *config)
@@ -467,12 +473,28 @@ bool HdrStage::Process(CompletedRequestPtr &completed_request)
 	if (frame_num_ >= config_.num_frames)
 		return false;
 
-	libcamera::Span<uint8_t> buffer = app_->Mmap(completed_request->buffers[stream_])[0];
+	std::vector<libcamera::Span<uint8_t>> const &buffers = app_->Mmap(completed_request->buffers[stream_]);
+	libcamera::Span<uint8_t> buffer = buffers[0];
 	uint8_t *image = buffer.data();
 
 	// Accumulate frame.
 	std::cerr << "Accumulating frame " << frame_num_ << std::endl;
 	acc_.Accumulate(image, stride_);
+
+	// Optionally save individual JPEGs of each of the constituent images. Obviously this
+	// will rather slow down the accumulation process.
+	if (!config_.jpeg_filename.empty())
+	{
+		char filename[128];
+		snprintf(filename, sizeof(filename), config_.jpeg_filename.c_str(), frame_num_);
+		filename[sizeof(filename) - 1] = 0;
+		StillOptions const *options = dynamic_cast<StillOptions *>(app_->GetOptions());
+		if (options)
+			jpeg_save(buffers, width_, height_, stride_, libcamera::formats::YUV420, completed_request->metadata,
+					  filename, app_->CameraId(), options);
+		else
+			std::cerr << "No still options - unable to save JPEG" << std::endl;
+	}
 
 	// Now we'll drop this frame unless it's the last one that we need, at which point
 	// we do our HDR processing and send that through.
