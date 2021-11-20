@@ -15,6 +15,8 @@
 #include "core/libcamera_app.hpp"
 #include "core/still_options.hpp"
 
+#include "image/image.hpp"
+
 using namespace std::placeholders;
 using libcamera::Stream;
 
@@ -25,28 +27,6 @@ public:
 
 	StillOptions *GetOptions() const { return static_cast<StillOptions *>(options_.get()); }
 };
-
-// In jpeg.cpp:
-void jpeg_save(std::vector<libcamera::Span<uint8_t>> const &mem, unsigned int w, unsigned int h, unsigned int stride,
-			   libcamera::PixelFormat const &pixel_format, libcamera::ControlList const &metadata,
-			   std::string const &filename, std::string const &cam_name, StillOptions const *options);
-
-// In yuv.cpp:
-void yuv_save(std::vector<libcamera::Span<uint8_t>> const &mem, unsigned int w, unsigned int h, unsigned int stride,
-			  libcamera::PixelFormat const &pixel_format, std::string const &filename, StillOptions const *options);
-
-// In dng.cpp:
-void dng_save(std::vector<libcamera::Span<uint8_t>> const &mem, unsigned int w, unsigned int h, unsigned int stride,
-			  libcamera::PixelFormat const &pixel_format, libcamera::ControlList const &metadata,
-			  std::string const &filename, std::string const &cam_name, StillOptions const *options);
-
-// In png.cpp:
-void png_save(std::vector<libcamera::Span<uint8_t>> const &mem, unsigned int w, unsigned int h, unsigned int stride,
-			  libcamera::PixelFormat const &pixel_format, std::string const &filename, StillOptions const *options);
-
-// In bmp.cpp:
-void bmp_save(std::vector<libcamera::Span<uint8_t>> const &mem, unsigned int w, unsigned int h, unsigned int stride,
-			  libcamera::PixelFormat const &pixel_format, std::string const &filename, StillOptions const *options);
 
 static std::string generate_filename(StillOptions const *options)
 {
