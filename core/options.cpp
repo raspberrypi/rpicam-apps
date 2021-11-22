@@ -48,7 +48,7 @@ bool Options::Parse(int argc, char *argv[])
 			unsigned int idx = 0;
 			std::cerr << "Available cameras" << std::endl
 						<< "-----------------" << std::endl;
-			for (auto const cam : cameras)
+			for (auto const &cam : cameras)
 			{
 				std::cerr << idx++ << " : " << cam->properties().get(libcamera::properties::Model);
 				if (cam->properties().contains(properties::PixelArrayActiveAreas))
