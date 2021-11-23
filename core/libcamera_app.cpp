@@ -11,10 +11,38 @@
 #include "core/libcamera_app.hpp"
 #include "core/options.hpp"
 
+#include <fcntl.h>
+
+#include <sys/ioctl.h>
+
+#include <linux/videodev2.h>
+
+// If we definitely appear to be running the old camera stack, complain and give up.
+// Everything else, Pi or not, we let through.
+
+static void check_camera_stack()
+{
+	int fd = open("/dev/video0", O_RDWR, 0);
+	if (fd < 0)
+		return;
+
+	v4l2_capability caps;
+	int ret = ioctl(fd, VIDIOC_QUERYCAP, &caps);
+	close(fd);
+
+	if (ret < 0 || strcmp((char *)caps.driver, "bm2835 mmal"))
+		return;
+
+	fprintf(stderr, "ERROR: the system appears to be configured for the legacy camera stack\n");
+	exit(-1);
+}
+
 LibcameraApp::LibcameraApp(std::unique_ptr<Options> opts)
 	: options_(std::move(opts)), preview_thread_(&LibcameraApp::previewThread, this), controls_(controls::controls),
 	  post_processor_(this)
 {
+	check_camera_stack();
+
 	if (!options_)
 		options_ = std::make_unique<Options>();
 }
