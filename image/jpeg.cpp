@@ -496,53 +496,56 @@ static void create_exif_data(PixelFormat const &pixel_format, std::vector<libcam
 			exif_read_tag(exif, exif_item.c_str());
 		}
 
-		// Add some tags for the thumbnail. We put in dummy values for the thumbnail
-		// offset/length to occupy the right amount of space, and fill them in later.
-
-		if (options->verbose)
-			std::cerr << "Thumbnail dimensions are " << options->thumb_width << " x " << options->thumb_height
-					  << std::endl;
-		entry = exif_create_tag(exif, EXIF_IFD_1, EXIF_TAG_IMAGE_WIDTH);
-		exif_set_short(entry->data, exif_byte_order, options->thumb_width);
-		entry = exif_create_tag(exif, EXIF_IFD_1, EXIF_TAG_IMAGE_LENGTH);
-		exif_set_short(entry->data, exif_byte_order, options->thumb_height);
-		entry = exif_create_tag(exif, EXIF_IFD_1, EXIF_TAG_COMPRESSION);
-		exif_set_short(entry->data, exif_byte_order, 6);
-		ExifEntry *thumb_offset_entry = exif_create_tag(exif, EXIF_IFD_1, EXIF_TAG_JPEG_INTERCHANGE_FORMAT);
-		exif_set_long(thumb_offset_entry->data, exif_byte_order, 0);
-		ExifEntry *thumb_length_entry = exif_create_tag(exif, EXIF_IFD_1, EXIF_TAG_JPEG_INTERCHANGE_FORMAT_LENGTH);
-		exif_set_long(thumb_length_entry->data, exif_byte_order, 0);
-
-		// We actually have to write out an EXIF buffer to find out how long it is.
-
-		exif_len = 0;
-		exif_data_save_data(exif, &exif_buffer, &exif_len);
-		free(exif_buffer);
-		exif_buffer = nullptr;
-
-		// Next create the JPEG for the thumbnail, we need to do this now so that we can
-		// go back and fill in the correct values for the thumbnail offsets/length.
-
-		int q = options->thumb_quality;
-		for (; q > 0; q -= 5)
+		if (options->thumb_quality)
 		{
-			YUV_to_JPEG(pixel_format, (uint8_t *)(mem[0].data()), w, h, stride, options->thumb_width,
-						options->thumb_height, q, 0, thumb_buffer, thumb_len);
-			if (thumb_len < 60000) // entire EXIF data must be < 65536, so this should be safe
-				break;
-			free(thumb_buffer);
-			thumb_buffer = nullptr;
+			// Add some tags for the thumbnail. We put in dummy values for the thumbnail
+			// offset/length to occupy the right amount of space, and fill them in later.
+
+			if (options->verbose)
+				std::cerr << "Thumbnail dimensions are " << options->thumb_width << " x " << options->thumb_height
+						  << std::endl;
+			entry = exif_create_tag(exif, EXIF_IFD_1, EXIF_TAG_IMAGE_WIDTH);
+			exif_set_short(entry->data, exif_byte_order, options->thumb_width);
+			entry = exif_create_tag(exif, EXIF_IFD_1, EXIF_TAG_IMAGE_LENGTH);
+			exif_set_short(entry->data, exif_byte_order, options->thumb_height);
+			entry = exif_create_tag(exif, EXIF_IFD_1, EXIF_TAG_COMPRESSION);
+			exif_set_short(entry->data, exif_byte_order, 6);
+			ExifEntry *thumb_offset_entry = exif_create_tag(exif, EXIF_IFD_1, EXIF_TAG_JPEG_INTERCHANGE_FORMAT);
+			exif_set_long(thumb_offset_entry->data, exif_byte_order, 0);
+			ExifEntry *thumb_length_entry = exif_create_tag(exif, EXIF_IFD_1, EXIF_TAG_JPEG_INTERCHANGE_FORMAT_LENGTH);
+			exif_set_long(thumb_length_entry->data, exif_byte_order, 0);
+
+			// We actually have to write out an EXIF buffer to find out how long it is.
+
+			exif_len = 0;
+			exif_data_save_data(exif, &exif_buffer, &exif_len);
+			free(exif_buffer);
+			exif_buffer = nullptr;
+
+			// Next create the JPEG for the thumbnail, we need to do this now so that we can
+			// go back and fill in the correct values for the thumbnail offsets/length.
+
+			int q = options->thumb_quality;
+			for (; q > 0; q -= 5)
+			{
+				YUV_to_JPEG(pixel_format, (uint8_t *)(mem[0].data()), w, h, stride, options->thumb_width,
+							options->thumb_height, q, 0, thumb_buffer, thumb_len);
+				if (thumb_len < 60000) // entire EXIF data must be < 65536, so this should be safe
+					break;
+				free(thumb_buffer);
+				thumb_buffer = nullptr;
+			}
+			if (options->verbose)
+				std::cerr << "Thumbnail size " << thumb_len << std::endl;
+			if (q <= 0)
+				throw std::runtime_error("failed to make acceptable thumbnail");
+
+			// Now fill in the correct offsets and length.
+
+			unsigned int offset = exif_len - 6; // do not ask me why "- 6", I have no idea
+			exif_set_long(thumb_offset_entry->data, exif_byte_order, offset);
+			exif_set_long(thumb_length_entry->data, exif_byte_order, thumb_len);
 		}
-		if (options->verbose)
-			std::cerr << "Thumbnail size " << thumb_len << std::endl;
-		if (q <= 0)
-			throw std::runtime_error("failed to make acceptable thumbnail");
-
-		// Now fill in the correct offsets and length.
-
-		unsigned int offset = exif_len - 6; // do not ask me why "- 6", I have no idea
-		exif_set_long(thumb_offset_entry->data, exif_byte_order, offset);
-		exif_set_long(thumb_length_entry->data, exif_byte_order, thumb_len);
 
 		// And create the EXIF data buffer *again*.
 
@@ -580,7 +583,7 @@ void jpeg_save(std::vector<libcamera::Span<uint8_t>> const &mem, unsigned int w,
 
 		// Make all the EXIF data, which includes the thumbnail.
 
-		jpeg_mem_len_t thumb_len;
+		jpeg_mem_len_t thumb_len = 0; // stays zero if no thumbnail
 		unsigned int exif_len;
 		create_exif_data(pixel_format, mem, w, h, stride, metadata, cam_name, options, exif_buffer, exif_len,
 						 thumb_buffer, thumb_len);
@@ -605,7 +608,7 @@ void jpeg_save(std::vector<libcamera::Span<uint8_t>> const &mem, unsigned int w,
 
 		if (fwrite(exif_header, sizeof(exif_header), 1, fp) != 1 || fputc((exif_len + thumb_len + 2) >> 8, fp) == EOF ||
 			fputc((exif_len + thumb_len + 2) & 0xff, fp) == EOF || fwrite(exif_buffer, exif_len, 1, fp) != 1 ||
-			fwrite(thumb_buffer, thumb_len, 1, fp) != 1 ||
+			(thumb_len && fwrite(thumb_buffer, thumb_len, 1, fp) != 1) ||
 			fwrite(jpeg_buffer + exif_image_offset, jpeg_len - exif_image_offset, 1, fp) != 1)
 			throw std::runtime_error("failed to write file - output probably corrupt");
 
