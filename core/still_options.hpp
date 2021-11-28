@@ -36,7 +36,7 @@ struct StillOptions : public Options
 			("signal,s", value<bool>(&signal)->default_value(false)->implicit_value(true),
 			 "Perform capture when signal received")
 			("thumb", value<std::string>(&thumb)->default_value("320:240:70"),
-			 "Set thumbnail parameters as width:height:quality")
+			 "Set thumbnail parameters as width:height:quality, or none")
 			("encoding,e", value<std::string>(&encoding)->default_value("jpg"),
 			 "Set the desired output encoding, either jpg, png, rgb, bmp or yuv420")
 			("raw,r", value<bool>(&raw)->default_value(false)->implicit_value(true),
@@ -70,7 +70,9 @@ struct StillOptions : public Options
 			return false;
 		if ((keypress || signal) && timelapse)
 			throw std::runtime_error("keypress/signal and timelapse options are mutually exclusive");
-		if (sscanf(thumb.c_str(), "%u:%u:%u", &thumb_width, &thumb_height, &thumb_quality) != 3)
+		if (strcasecmp(thumb.c_str(), "none") == 0)
+			thumb_quality = 0;
+		else if (sscanf(thumb.c_str(), "%u:%u:%u", &thumb_width, &thumb_height, &thumb_quality) != 3)
 			throw std::runtime_error("bad thumbnail parameters " + thumb);
 		if (strcasecmp(encoding.c_str(), "jpg") == 0)
 			encoding = "jpg";
