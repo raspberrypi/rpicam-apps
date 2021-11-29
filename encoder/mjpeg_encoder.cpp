@@ -19,7 +19,7 @@ typedef unsigned long jpeg_mem_len_t;
 #endif
 
 MjpegEncoder::MjpegEncoder(VideoOptions const *options)
-	: Encoder(options), abort_(false), index_(0)
+	: Encoder(options), abortEncode_(false), abortOutput_(false), index_(0)
 {
 	output_thread_ = std::thread(&MjpegEncoder::outputThread, this);
 	for (int i = 0; i < NUM_ENC_THREADS; i++)
@@ -30,9 +30,10 @@ MjpegEncoder::MjpegEncoder(VideoOptions const *options)
 
 MjpegEncoder::~MjpegEncoder()
 {
-	abort_ = true;
+	abortEncode_ = true;
 	for (int i = 0; i < NUM_ENC_THREADS; i++)
 		encode_thread_[i].join();
+	abortOutput_ = true;
 	output_thread_.join();
 	if (options_->verbose)
 		std::cerr << "MjpegEncoder closed" << std::endl;
@@ -110,7 +111,7 @@ void MjpegEncoder::encodeThread(int num)
 			while (true)
 			{
 				using namespace std::chrono_literals;
-				if (abort_)
+				if (abortEncode_ && encode_queue_.empty())
 				{
 					if (frames && options_->verbose)
 						std::cerr << "Encode " << frames << " frames, average time "
@@ -160,12 +161,18 @@ void MjpegEncoder::outputThread()
 			while (true)
 			{
 				using namespace std::chrono_literals;
-				if (abort_)
-					return;
 				// We look for the thread that's completed the frame we want next.
 				// If we don't find it, we wait.
+				//
+				// Must also check for an abort signal, and if set, all queues must
+				// be empty. This is done first to ensure all frame callbacks have
+				// had a chance to run.
+				bool abort = abortOutput_ ? true : false;
 				for (auto &q : output_queue_)
 				{
+					if (abort && !q.empty())
+						abort = false;
+
 					if (!q.empty() && q.front().index == index)
 					{
 						item = q.front();
@@ -173,6 +180,9 @@ void MjpegEncoder::outputThread()
 						goto got_item;
 					}
 				}
+				if (abort)
+					return;
+
 				output_cond_var_.wait_for(lock, 200ms);
 			}
 		}
