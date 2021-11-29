@@ -19,7 +19,7 @@ typedef unsigned long jpeg_mem_len_t;
 #endif
 
 MjpegEncoder::MjpegEncoder(VideoOptions const *options)
-	: Encoder(options), abort_(false), index_(0)
+	: Encoder(options), abortEncode_(false), abortOutput_(false), index_(0)
 {
 	output_thread_ = std::thread(&MjpegEncoder::outputThread, this);
 	for (int i = 0; i < NUM_ENC_THREADS; i++)
@@ -30,9 +30,10 @@ MjpegEncoder::MjpegEncoder(VideoOptions const *options)
 
 MjpegEncoder::~MjpegEncoder()
 {
-	abort_ = true;
+	abortEncode_ = true;
 	for (int i = 0; i < NUM_ENC_THREADS; i++)
 		encode_thread_[i].join();
+	abortOutput_ = true;
 	output_thread_.join();
 	if (options_->verbose)
 		std::cerr << "MjpegEncoder closed" << std::endl;
@@ -70,40 +71,20 @@ void MjpegEncoder::encodeJPEG(struct jpeg_compress_struct &cinfo, EncodeItem &it
 	uint8_t *Y = (uint8_t *)item.mem;
 	uint8_t *U = (uint8_t *)Y + item.stride * item.height;
 	uint8_t *V = (uint8_t *)U + stride2 * (item.height / 2);
+	uint8_t *Y_max = U - item.stride;
+	uint8_t *U_max = V - stride2;
+	uint8_t *V_max = U_max + stride2 * (item.height / 2);
 
 	JSAMPROW y_rows[16];
 	JSAMPROW u_rows[8];
 	JSAMPROW v_rows[8];
 
-	unsigned int height_align = item.height & ~15;
-	while (cinfo.next_scanline < height_align)
+	for (uint8_t *Y_row = Y, *U_row = U, *V_row = V; cinfo.next_scanline < item.height;)
 	{
-		uint8_t *Y_row = Y + cinfo.next_scanline * item.stride;
 		for (int i = 0; i < 16; i++, Y_row += item.stride)
-			y_rows[i] = Y_row;
-		uint8_t *U_row = U + (cinfo.next_scanline / 2) * stride2;
-		uint8_t *V_row = V + (cinfo.next_scanline / 2) * stride2;
+			y_rows[i] = std::min(Y_row, Y_max);
 		for (int i = 0; i < 8; i++, U_row += stride2, V_row += stride2)
-			u_rows[i] = U_row, v_rows[i] = V_row;
-
-		JSAMPARRAY rows[] = { y_rows, u_rows, v_rows };
-		jpeg_write_raw_data(&cinfo, rows, 16);
-	}
-	if (cinfo.next_scanline < item.height)
-	{
-		// Raw data has to be written in blocks of 16 rows, so rows beyond the highest
-		// multiple of 16 have to be copied to a 16-row sized buffer and then added.
-		std::vector<uint8_t> y_pixels(16 * item.stride);
-		std::vector<uint8_t> u_pixels(8 * stride2);
-		std::vector<uint8_t> v_pixels(8 * stride2);
-		memcpy(&y_pixels[0], Y + height_align * item.stride, (item.height & 15) * item.stride);
-		memcpy(&u_pixels[1], U + height_align / 2 * stride2, (item.height & 15) / 2 * stride2);
-		memcpy(&v_pixels[1], V + height_align / 2 * stride2, (item.height & 15) / 2 * stride2);
-
-		for (int i = 0; i < 16; i++)
-			y_rows[i] = &y_pixels[i * item.stride];
-		for (int i = 0; i < 8; i++)
-			u_rows[i] = &u_pixels[i * stride2], v_rows[i] = &v_pixels[i * stride2];
+			u_rows[i] = std::min(U_row, U_max), v_rows[i] = std::min(V_row, V_max);
 
 		JSAMPARRAY rows[] = { y_rows, u_rows, v_rows };
 		jpeg_write_raw_data(&cinfo, rows, 16);
@@ -130,7 +111,7 @@ void MjpegEncoder::encodeThread(int num)
 			while (true)
 			{
 				using namespace std::chrono_literals;
-				if (abort_)
+				if (abortEncode_ && encode_queue_.empty())
 				{
 					if (frames && options_->verbose)
 						std::cerr << "Encode " << frames << " frames, average time "
@@ -180,12 +161,18 @@ void MjpegEncoder::outputThread()
 			while (true)
 			{
 				using namespace std::chrono_literals;
-				if (abort_)
-					return;
 				// We look for the thread that's completed the frame we want next.
 				// If we don't find it, we wait.
+				//
+				// Must also check for an abort signal, and if set, all queues must
+				// be empty. This is done first to ensure all frame callbacks have
+				// had a chance to run.
+				bool abort = abortOutput_ ? true : false;
 				for (auto &q : output_queue_)
 				{
+					if (abort && !q.empty())
+						abort = false;
+
 					if (!q.empty() && q.front().index == index)
 					{
 						item = q.front();
@@ -193,6 +180,9 @@ void MjpegEncoder::outputThread()
 						goto got_item;
 					}
 				}
+				if (abort)
+					return;
+
 				output_cond_var_.wait_for(lock, 200ms);
 			}
 		}

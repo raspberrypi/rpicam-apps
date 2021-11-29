@@ -5,6 +5,7 @@
  * post_processing_stage.hpp - Post processing stage base class definition.
  */
 
+#include <chrono>
 #include <map>
 #include <string>
 
@@ -13,14 +14,14 @@
 
 #include <boost/property_tree/json_parser.hpp>
 #include <boost/property_tree/ptree.hpp>
-#include <chrono>
+
+#include "core/completed_request.hpp"
 
 namespace libcamera
 {
 struct StreamConfiguration;
 }
 
-struct CompletedRequest;
 class LibcameraApp;
 
 using StreamConfiguration = libcamera::StreamConfiguration;
@@ -43,7 +44,7 @@ public:
 	virtual void Start();
 
 	// Return true if this request is to be dropped.
-	virtual bool Process(CompletedRequest &completed_request) = 0;
+	virtual bool Process(CompletedRequestPtr &completed_request) = 0;
 
 	virtual void Stop();
 

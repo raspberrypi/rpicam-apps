@@ -59,7 +59,7 @@ public:
 
 	void Configure() override;
 
-	bool Process(CompletedRequest &completed_request) override;
+	bool Process(CompletedRequestPtr &completed_request) override;
 
 private:
 	void drawFeatures(cv::Mat &img, std::vector<Point> locations, std::vector<float> confidences);
@@ -85,13 +85,13 @@ void PlotPoseCvStage::Read(boost::property_tree::ptree const &params)
 	confidence_threshold_ = params.get<float>("confidence_threshold", -1.0);
 }
 
-bool PlotPoseCvStage::Process(CompletedRequest &completed_request)
+bool PlotPoseCvStage::Process(CompletedRequestPtr &completed_request)
 {
 	if (!stream_)
 		return false;
 
 	unsigned int w, h, stride;
-	libcamera::Span<uint8_t> buffer = app_->Mmap(completed_request.buffers[stream_])[0];
+	libcamera::Span<uint8_t> buffer = app_->Mmap(completed_request->buffers[stream_])[0];
 	uint32_t *ptr = (uint32_t *)buffer.data();
 	app_->StreamDimensions(stream_, &w, &h, &stride);
 
@@ -100,8 +100,8 @@ bool PlotPoseCvStage::Process(CompletedRequest &completed_request)
 	std::vector<Point> cv_locations;
 	std::vector<float> confidences;
 
-	completed_request.post_process_metadata.Get("pose_estimation.locations", lib_locations);
-	completed_request.post_process_metadata.Get("pose_estimation.confidences", confidences);
+	completed_request->post_process_metadata.Get("pose_estimation.locations", lib_locations);
+	completed_request->post_process_metadata.Get("pose_estimation.confidences", confidences);
 
 	if (!confidences.empty() && !lib_locations.empty())
 	{

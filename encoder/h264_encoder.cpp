@@ -27,7 +27,7 @@ static int xioctl(int fd, unsigned long ctl, void *arg)
 	return ret;
 }
 
-H264Encoder::H264Encoder(VideoOptions const *options) : Encoder(options), abort_(false)
+H264Encoder::H264Encoder(VideoOptions const *options) : Encoder(options), abortPoll_(false), abortOutput_(false)
 {
 	// First open the encoder device. Maybe we should double-check its "caps".
 
@@ -185,9 +185,10 @@ H264Encoder::H264Encoder(VideoOptions const *options) : Encoder(options), abort_
 
 H264Encoder::~H264Encoder()
 {
-	abort_ = true;
-	output_thread_.join();
+	abortPoll_ = true;
 	poll_thread_.join();
+	abortOutput_ = true;
+	output_thread_.join();
 	if (options_->verbose)
 		std::cerr << "H264Encoder closed" << std::endl;
 	// Other stuff will mostly get hoovered up with the process quits.
@@ -229,8 +230,11 @@ void H264Encoder::pollThread()
 	{
 		pollfd p = { fd_, POLLIN, 0 };
 		int ret = poll(&p, 1, 200);
-		if (abort_)
-			break;
+		{
+			std::lock_guard<std::mutex> lock(input_buffers_available_mutex_);
+			if (abortPoll_ && input_buffers_available_.size() == NUM_OUTPUT_BUFFERS)
+				break;
+		}
 		if (ret == -1)
 		{
 			if (errno == EINTR)
@@ -294,6 +298,11 @@ void H264Encoder::outputThread()
 			while (true)
 			{
 				using namespace std::chrono_literals;
+				// Must check the abort first, to allow items in the output
+				// queue to have a callback.
+				if (abortOutput_ && output_queue_.empty())
+					return;
+
 				if (!output_queue_.empty())
 				{
 					item = output_queue_.front();
@@ -302,8 +311,6 @@ void H264Encoder::outputThread()
 				}
 				else
 					output_cond_var_.wait_for(lock, 200ms);
-				if (abort_)
-					return;
 			}
 		}
 

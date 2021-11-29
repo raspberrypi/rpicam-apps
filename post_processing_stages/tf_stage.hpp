@@ -52,7 +52,7 @@ public:
 
 	void Configure() override;
 
-	bool Process(CompletedRequest &completed_request) override;
+	bool Process(CompletedRequestPtr &completed_request) override;
 
 	void Stop() override;
 
@@ -76,7 +76,7 @@ protected:
 	// Here we run synchronously again and so should not take too long. The results
 	// produced by interpretOutputs can be used now, for example as metadata to attach
 	// to the image, or even drawn onto the image itself.
-	virtual void applyResults(CompletedRequest &completed_request) {}
+	virtual void applyResults(CompletedRequestPtr &completed_request) {}
 
 	std::unique_ptr<TfConfig> config_;
 

@@ -21,8 +21,7 @@ static void event_loop(LibcameraApp &app)
 	app.OpenCamera();
 	app.ConfigureViewfinder();
 	app.StartCamera();
-	// When the preview window is done with a set of buffers, queue them back to libcamera.
-	app.SetPreviewDoneCallback(std::bind(&LibcameraApp::QueueRequest, &app, _1));
+
 	auto start_time = std::chrono::high_resolution_clock::now();
 
 	for (unsigned int count = 0; ; count++)
@@ -39,7 +38,7 @@ static void event_loop(LibcameraApp &app)
 		if (options->timeout && now - start_time > std::chrono::milliseconds(options->timeout))
 			return;
 
-		CompletedRequest &completed_request = std::get<CompletedRequest>(msg.payload);
+		CompletedRequestPtr &completed_request = std::get<CompletedRequestPtr>(msg.payload);
 		app.ShowPreview(completed_request, app.ViewfinderStream());
 	}
 }

@@ -29,7 +29,7 @@ public:
 
 	void Configure() override;
 
-	bool Process(CompletedRequest &completed_request) override;
+	bool Process(CompletedRequestPtr &completed_request) override;
 
 private:
 	Stream *stream_;
@@ -55,11 +55,11 @@ void SobelCvStage::Configure()
 		throw std::runtime_error("SobelCvStage: only YUV420 format supported");
 }
 
-bool SobelCvStage::Process(CompletedRequest &completed_request)
+bool SobelCvStage::Process(CompletedRequestPtr &completed_request)
 {
 	unsigned int w, h, stride;
 	app_->StreamDimensions(stream_, &w, &h, &stride);
-	libcamera::Span<uint8_t> buffer = app_->Mmap(completed_request.buffers[stream_])[0];
+	libcamera::Span<uint8_t> buffer = app_->Mmap(completed_request->buffers[stream_])[0];
 	uint8_t *ptr = (uint8_t *)buffer.data();
 
 	//Everything beyond this point is image processing...

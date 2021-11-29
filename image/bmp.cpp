@@ -46,7 +46,7 @@ void bmp_save(std::vector<libcamera::Span<uint8_t>> const &mem, unsigned int w, 
 	if (pixel_format != libcamera::formats::RGB888)
 		throw std::runtime_error("pixel format for bmp should be RGB");
 
-	FILE *fp = fopen(filename.c_str(), "wb");
+	FILE *fp = filename == "-" ? stdout : fopen(filename.c_str(), "wb");
 
 	if (fp == NULL)
 		throw std::runtime_error("failed to open file " + filename);
@@ -79,11 +79,12 @@ void bmp_save(std::vector<libcamera::Span<uint8_t>> const &mem, unsigned int w, 
 		if (options->verbose)
 			std::cerr << "Wrote " << file_header.filesize << " bytes to BMP file" << std::endl;
 
-		fclose(fp);
+		if (fp != stdout)
+			fclose(fp);
 	}
 	catch (std::exception const &e)
 	{
-		if (fp)
+		if (fp && fp != stdout)
 			fclose(fp);
 		throw;
 	}

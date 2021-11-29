@@ -21,7 +21,7 @@ void png_save(std::vector<libcamera::Span<uint8_t>> const &mem, unsigned int w, 
 	if (pixel_format != libcamera::formats::BGR888)
 		throw std::runtime_error("pixel format for png should be BGR");
 
-	FILE *fp = fopen(filename.c_str(), "wb");
+	FILE *fp = filename == "-" ? stdout : fopen(filename.c_str(), "wb");
 	png_structp png_ptr = NULL;
 	png_infop info_ptr = NULL;
 
@@ -68,13 +68,14 @@ void png_save(std::vector<libcamera::Span<uint8_t>> const &mem, unsigned int w, 
 		// Free and close everything and we're done.
 		png_free(png_ptr, row_ptrs);
 		png_destroy_write_struct(&png_ptr, &info_ptr);
-		fclose(fp);
+		if (fp != stdout)
+			fclose(fp);
 	}
 	catch (std::exception const &e)
 	{
 		if (png_ptr)
 			png_destroy_write_struct(&png_ptr, &info_ptr);
-		if (fp)
+		if (fp && fp != stdout)
 			fclose(fp);
 		throw;
 	}

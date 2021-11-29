@@ -37,7 +37,8 @@ private:
 	// re-use.
 	void outputThread();
 
-	bool abort_;
+	bool abortEncode_;
+	bool abortOutput_;
 	uint64_t index_;
 
 	struct EncodeItem

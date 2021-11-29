@@ -15,6 +15,8 @@
 #include "core/libcamera_app.hpp"
 #include "core/still_options.hpp"
 
+#include "image/image.hpp"
+
 using namespace std::placeholders;
 using libcamera::Stream;
 
@@ -26,31 +28,12 @@ public:
 	StillOptions *GetOptions() const { return static_cast<StillOptions *>(options_.get()); }
 };
 
-// In jpeg.cpp:
-void jpeg_save(std::vector<libcamera::Span<uint8_t>> const &mem, unsigned int w, unsigned int h, unsigned int stride,
-			   libcamera::PixelFormat const &pixel_format, libcamera::ControlList const &metadata,
-			   std::string const &filename, std::string const &cam_name, StillOptions const *options);
-
-// In yuv.cpp:
-void yuv_save(std::vector<libcamera::Span<uint8_t>> const &mem, unsigned int w, unsigned int h, unsigned int stride,
-			  libcamera::PixelFormat const &pixel_format, std::string const &filename, StillOptions const *options);
-
-// In dng.cpp:
-void dng_save(std::vector<libcamera::Span<uint8_t>> const &mem, unsigned int w, unsigned int h, unsigned int stride,
-			  libcamera::PixelFormat const &pixel_format, libcamera::ControlList const &metadata,
-			  std::string const &filename, std::string const &cam_name, StillOptions const *options);
-
-// In png.cpp:
-void png_save(std::vector<libcamera::Span<uint8_t>> const &mem, unsigned int w, unsigned int h, unsigned int stride,
-			  libcamera::PixelFormat const &pixel_format, std::string const &filename, StillOptions const *options);
-
-// In bmp.cpp:
-void bmp_save(std::vector<libcamera::Span<uint8_t>> const &mem, unsigned int w, unsigned int h, unsigned int stride,
-			  libcamera::PixelFormat const &pixel_format, std::string const &filename, StillOptions const *options);
-
 static std::string generate_filename(StillOptions const *options)
 {
 	char filename[128];
+	std::string folder = options->output; // sometimes "output" is used as a folder name
+	if (!folder.empty() && folder.back() != '/')
+		folder += "/";
 	if (options->datetime)
 	{
 		std::time_t raw_time;
@@ -58,10 +41,11 @@ static std::string generate_filename(StillOptions const *options)
 		char time_string[32];
 		std::tm *time_info = std::localtime(&raw_time);
 		std::strftime(time_string, sizeof(time_string), "%m%d%H%M%S", time_info);
-		snprintf(filename, sizeof(filename), "%s.%s", time_string, options->encoding.c_str());
+		snprintf(filename, sizeof(filename), "%s%s.%s", folder.c_str(), time_string, options->encoding.c_str());
 	}
 	else if (options->timestamp)
-		snprintf(filename, sizeof(filename), "%u.%s", (unsigned)time(NULL), options->encoding.c_str());
+		snprintf(filename, sizeof(filename), "%s%u.%s", folder.c_str(), (unsigned)time(NULL),
+				 options->encoding.c_str());
 	else
 		snprintf(filename, sizeof(filename), options->output.c_str(), options->framestart);
 	filename[sizeof(filename) - 1] = 0;
@@ -86,17 +70,18 @@ static void update_latest_link(std::string const &filename, StillOptions const *
 	}
 }
 
-static void save_image(LibcameraStillApp &app, CompletedRequest &payload, Stream *stream, std::string const &filename)
+static void save_image(LibcameraStillApp &app, CompletedRequestPtr &payload, Stream *stream,
+					   std::string const &filename)
 {
 	StillOptions const *options = app.GetOptions();
 	unsigned int w, h, stride;
 	app.StreamDimensions(stream, &w, &h, &stride);
 	libcamera::PixelFormat const &pixel_format = stream->configuration().pixelFormat;
-	const std::vector<libcamera::Span<uint8_t>> mem = app.Mmap(payload.buffers[stream]);
+	const std::vector<libcamera::Span<uint8_t>> mem = app.Mmap(payload->buffers[stream]);
 	if (stream == app.RawStream())
-		dng_save(mem, w, h, stride, pixel_format, payload.metadata, filename, app.CameraId(), options);
+		dng_save(mem, w, h, stride, pixel_format, payload->metadata, filename, app.CameraId(), options);
 	else if (options->encoding == "jpg")
-		jpeg_save(mem, w, h, stride, pixel_format, payload.metadata, filename, app.CameraId(), options);
+		jpeg_save(mem, w, h, stride, pixel_format, payload->metadata, filename, app.CameraId(), options);
 	else if (options->encoding == "png")
 		png_save(mem, w, h, stride, pixel_format, filename, options);
 	else if (options->encoding == "bmp")
@@ -107,7 +92,7 @@ static void save_image(LibcameraStillApp &app, CompletedRequest &payload, Stream
 		std::cerr << "Saved image " << w << " x " << h << " to file " << filename << std::endl;
 }
 
-static void save_images(LibcameraStillApp &app, CompletedRequest &payload)
+static void save_images(LibcameraStillApp &app, CompletedRequestPtr &payload)
 {
 	StillOptions *options = app.GetOptions();
 	std::string filename = generate_filename(options);
@@ -149,6 +134,7 @@ static int get_key_or_signal(StillOptions const *options, pollfd p[1])
 			key = '\n';
 		else if (signal_received == SIGUSR2)
 			key = 'x';
+		signal_received = 0;
 	}
 	return key;
 }
@@ -174,7 +160,6 @@ static void event_loop(LibcameraStillApp &app)
 	else
 		app.ConfigureViewfinder();
 	app.StartCamera();
-	app.SetPreviewDoneCallback(std::bind(&LibcameraApp::QueueRequest, &app, _1));
 	auto start_time = std::chrono::high_resolution_clock::now();
 	auto timelapse_time = start_time;
 
@@ -226,7 +211,7 @@ static void event_loop(LibcameraStillApp &app)
 			}
 			else
 			{
-				CompletedRequest &completed_request = std::get<CompletedRequest>(msg.payload);
+				CompletedRequestPtr &completed_request = std::get<CompletedRequestPtr>(msg.payload);
 				app.ShowPreview(completed_request, app.ViewfinderStream());
 			}
 		}
@@ -236,8 +221,8 @@ static void event_loop(LibcameraStillApp &app)
 		{
 			app.StopCamera();
 			std::cerr << "Still capture image received" << std::endl;
-			save_images(app, std::get<CompletedRequest>(msg.payload));
-			if (options->timelapse)
+			save_images(app, std::get<CompletedRequestPtr>(msg.payload));
+			if (options->timelapse || options->signal || options->keypress)
 			{
 				app.Teardown();
 				app.ConfigureViewfinder();
