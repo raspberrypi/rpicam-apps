@@ -37,6 +37,28 @@ static void check_camera_stack()
 	exit(-1);
 }
 
+static libcamera::PixelFormat mode_to_pixel_format(Mode const &mode)
+{
+	// The saving grace here is that we can ignore the Bayer order and return anything -
+	// our pipeline handler will give us back the order that works, whilst respecting the
+	// bit depth and packing. We may get a "stream adjusted" message, which we can ignore.
+
+	static std::vector<std::pair<Mode, libcamera::PixelFormat>> table = {
+		{ Mode(0, 0, 8, false), libcamera::formats::SBGGR8 },
+		{ Mode(0, 0, 8, true), libcamera::formats::SBGGR8 },
+		{ Mode(0, 0, 10, false), libcamera::formats::SBGGR10 },
+		{ Mode(0, 0, 10, true), libcamera::formats::SBGGR10_CSI2P },
+		{ Mode(0, 0, 12, false), libcamera::formats::SBGGR12 },
+		{ Mode(0, 0, 12, true), libcamera::formats::SBGGR12_CSI2P },
+	};
+
+	auto it = std::find_if(table.begin(), table.end(), [&mode] (auto &m) { return mode.bit_depth == m.first.bit_depth && mode.packed == m.first.packed; });
+	if (it != table.end())
+		return it->second;
+
+	return libcamera::formats::SBGGR12_CSI2P;
+}
+
 LibcameraApp::LibcameraApp(std::unique_ptr<Options> opts)
 	: options_(std::move(opts)), preview_thread_(&LibcameraApp::previewThread, this), controls_(controls::controls),
 	  post_processor_(this)
@@ -128,10 +150,17 @@ void LibcameraApp::ConfigureViewfinder()
 	if (options_->verbose)
 		std::cerr << "Configuring viewfinder..." << std::endl;
 
+	int lores_stream_num = 0, raw_stream_num = 0;
 	bool have_lores_stream = options_->lores_width && options_->lores_height;
+	bool have_raw_stream = options_->viewfinder_mode.bit_depth;
+
 	StreamRoles stream_roles = { StreamRole::Viewfinder };
+	int stream_num = 1;
 	if (have_lores_stream)
-		stream_roles.push_back(StreamRole::Viewfinder);
+		stream_roles.push_back(StreamRole::Viewfinder), lores_stream_num = stream_num++;
+	if (have_raw_stream)
+		stream_roles.push_back(StreamRole::Raw), raw_stream_num = stream_num++;
+
 	configuration_ = camera_->generateConfiguration(stream_roles);
 	if (!configuration_)
 		throw std::runtime_error("failed to generate viewfinder configuration");
@@ -174,9 +203,16 @@ void LibcameraApp::ConfigureViewfinder()
 		lores_size.alignDownTo(2, 2);
 		if (lores_size.width > size.width || lores_size.height > size.height)
 			throw std::runtime_error("Low res image larger than viewfinder");
-		configuration_->at(1).pixelFormat = libcamera::formats::YUV420;
-		configuration_->at(1).size = lores_size;
-		configuration_->at(1).bufferCount = configuration_->at(0).bufferCount;
+		configuration_->at(lores_stream_num).pixelFormat = libcamera::formats::YUV420;
+		configuration_->at(lores_stream_num).size = lores_size;
+		configuration_->at(lores_stream_num).bufferCount = configuration_->at(0).bufferCount;
+	}
+
+	if (have_raw_stream)
+	{
+		configuration_->at(raw_stream_num).size = options_->viewfinder_mode.Size();
+		configuration_->at(raw_stream_num).pixelFormat = mode_to_pixel_format(options_->viewfinder_mode);
+		configuration_->at(raw_stream_num).bufferCount = configuration_->at(0).bufferCount;
 	}
 
 	configuration_->transform = options_->transform;
@@ -188,7 +224,9 @@ void LibcameraApp::ConfigureViewfinder()
 
 	streams_["viewfinder"] = configuration_->at(0).stream();
 	if (have_lores_stream)
-		streams_["lores"] = configuration_->at(1).stream();
+		streams_["lores"] = configuration_->at(lores_stream_num).stream();
+	if (have_raw_stream)
+		streams_["raw"] = configuration_->at(raw_stream_num).stream();
 
 	post_processor_.Configure();
 
@@ -202,7 +240,7 @@ void LibcameraApp::ConfigureStill(unsigned int flags)
 		std::cerr << "Configuring still capture..." << std::endl;
 
 	// Will add a raw capture stream once that works properly.
-	bool have_raw_stream = flags & FLAG_STILL_RAW;
+	bool have_raw_stream = (flags & FLAG_STILL_RAW) || options_->mode.bit_depth;
 	StreamRoles stream_roles;
 	if (have_raw_stream)
 		stream_roles = { StreamRole::StillCapture, StreamRole::Raw };
@@ -231,10 +269,15 @@ void LibcameraApp::ConfigureStill(unsigned int flags)
 
 	post_processor_.AdjustConfig("still", &configuration_->at(0));
 
-	if (have_raw_stream && !options_->rawfull)
+	if (options_->mode.bit_depth)
 	{
-		configuration_->at(1).size.width = configuration_->at(0).size.width;
-		configuration_->at(1).size.height = configuration_->at(0).size.height;
+		configuration_->at(1).size = options_->mode.Size();
+		configuration_->at(1).pixelFormat = mode_to_pixel_format(options_->mode);
+		configuration_->at(1).bufferCount = configuration_->at(0).bufferCount;
+	}
+	else if (have_raw_stream && !options_->rawfull)
+	{
+		configuration_->at(1).size = configuration_->at(0).size;
 		configuration_->at(1).bufferCount = configuration_->at(0).bufferCount;
 	}
 
@@ -256,7 +299,7 @@ void LibcameraApp::ConfigureVideo(unsigned int flags)
 	if (options_->verbose)
 		std::cerr << "Configuring video..." << std::endl;
 
-	bool have_raw_stream = flags & FLAG_VIDEO_RAW;
+	bool have_raw_stream = (flags & FLAG_VIDEO_RAW) || options_->mode.bit_depth;
 	bool have_lores_stream = options_->lores_width && options_->lores_height;
 	StreamRoles stream_roles = { StreamRole::VideoRecording };
 	int lores_index = 1;
@@ -284,11 +327,13 @@ void LibcameraApp::ConfigureVideo(unsigned int flags)
 
 	if (have_raw_stream)
 	{
-		if (!options_->rawfull)
+		if (options_->mode.bit_depth)
 		{
-			configuration_->at(1).size.width = configuration_->at(0).size.width;
-			configuration_->at(1).size.height = configuration_->at(0).size.height;
+			configuration_->at(1).size = options_->mode.Size();
+			configuration_->at(1).pixelFormat = mode_to_pixel_format(options_->mode);
 		}
+		else if (!options_->rawfull)
+			configuration_->at(1).size = configuration_->at(0).size;
 		configuration_->at(1).bufferCount = configuration_->at(0).bufferCount;
 	}
 	if (have_lores_stream)

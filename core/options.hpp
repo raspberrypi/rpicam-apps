@@ -20,6 +20,19 @@
 
 #include "core/version.hpp"
 
+struct Mode
+{
+	Mode() : Mode(0, 0, 0, false) {}
+	Mode(unsigned int w, unsigned int h, unsigned int b, bool p) : width(w), height(h), bit_depth(b), packed(p) {}
+	Mode(std::string const &mode_string);
+	unsigned int width;
+	unsigned int height;
+	unsigned int bit_depth;
+	bool packed;
+	libcamera::Size Size() const { return libcamera::Size(width, height); }
+	std::string ToString() const;
+};
+
 struct Options
 {
 	Options() : options_("Valid options are", 120, 80)
@@ -111,6 +124,10 @@ struct Options
 			 "Width of low resolution frames (use 0 to omit low resolution stream")
 			("lores-height", value<unsigned int>(&lores_height)->default_value(0),
 			 "Height of low resolution frames (use 0 to omit low resolution stream")
+			("mode", value<std::string>(&mode_string),
+			 "Camera mode as W:H:bit-depth:packing, where packing is P (packed) or U (unpacked)")
+			("viewfinder-mode", value<std::string>(&viewfinder_mode_string),
+			 "Camera mode for preview as W:H:bit-depth:packing, where packing is P (packed) or U (unpacked)")
 			;
 	}
 
@@ -162,6 +179,10 @@ struct Options
 	unsigned int lores_width;
 	unsigned int lores_height;
 	unsigned int camera;
+	std::string mode_string;
+	Mode mode;
+	std::string viewfinder_mode_string;
+	Mode viewfinder_mode;
 
 	virtual bool Parse(int argc, char *argv[]);
 	virtual void Print() const;
