@@ -39,7 +39,7 @@ public:
 
 	void Configure() override;
 
-	bool Process(CompletedRequest &completed_request) override;
+	bool Process(CompletedRequestPtr &completed_request) override;
 
 private:
 	// In the Config, dimensions are given as fractions of the lores image size.
@@ -125,15 +125,15 @@ void MotionDetectStage::Configure()
 	motion_detected_ = false;
 }
 
-bool MotionDetectStage::Process(CompletedRequest &completed_request)
+bool MotionDetectStage::Process(CompletedRequestPtr &completed_request)
 {
 	if (!stream_)
 		return false;
 
-	if (config_.frame_period && completed_request.sequence % config_.frame_period)
+	if (config_.frame_period && completed_request->sequence % config_.frame_period)
 		return false;
 
-	libcamera::Span<uint8_t> buffer = app_->Mmap(completed_request.buffers[stream_])[0];
+	libcamera::Span<uint8_t> buffer = app_->Mmap(completed_request->buffers[stream_])[0];
 	uint8_t *image = buffer.data();
 
 	// We need to protect access to first_time_, previous_frame_ and motion_detected_.
@@ -150,7 +150,7 @@ bool MotionDetectStage::Process(CompletedRequest &completed_request)
 				*(old_value_ptr++) = *new_value_ptr;
 		}
 
-		completed_request.post_process_metadata.Set("motion_detect.result", motion_detected_);
+		completed_request->post_process_metadata.Set("motion_detect.result", motion_detected_);
 
 		return false;
 	}
@@ -178,7 +178,7 @@ bool MotionDetectStage::Process(CompletedRequest &completed_request)
 		std::cerr << "Motion " << (motion_detected ? "detected" : "stopped") << std::endl;
 
 	motion_detected_ = motion_detected;
-	completed_request.post_process_metadata.Set("motion_detect.result", motion_detected);
+	completed_request->post_process_metadata.Set("motion_detect.result", motion_detected);
 
 	return false;
 }

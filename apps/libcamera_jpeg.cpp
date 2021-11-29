@@ -10,6 +10,8 @@
 #include "core/libcamera_app.hpp"
 #include "core/still_options.hpp"
 
+#include "image/image.hpp"
+
 using namespace std::placeholders;
 using libcamera::Stream;
 
@@ -27,11 +29,6 @@ public:
 	}
 };
 
-// In jpeg.cpp:
-void jpeg_save(std::vector<libcamera::Span<uint8_t>> const &mem, unsigned int w, unsigned int h, unsigned int stride,
-			   libcamera::PixelFormat const &pixel_format, libcamera::ControlList const &metadata,
-			   std::string const &filename, std::string const &cam_name, StillOptions const *options);
-
 // The main even loop for the application.
 
 static void event_loop(LibcameraJpegApp &app)
@@ -40,7 +37,6 @@ static void event_loop(LibcameraJpegApp &app)
 	app.OpenCamera();
 	app.ConfigureViewfinder();
 	app.StartCamera();
-	app.SetPreviewDoneCallback(std::bind(&LibcameraApp::QueueRequest, &app, _1));
 	auto start_time = std::chrono::high_resolution_clock::now();
 
 	for (unsigned int count = 0; ; count++)
@@ -65,7 +61,7 @@ static void event_loop(LibcameraJpegApp &app)
 			}
 			else
 			{
-				CompletedRequest &completed_request = std::get<CompletedRequest>(msg.payload);
+				CompletedRequestPtr &completed_request = std::get<CompletedRequestPtr>(msg.payload);
 				app.ShowPreview(completed_request, app.ViewfinderStream());
 			}
 		}
@@ -78,9 +74,9 @@ static void event_loop(LibcameraJpegApp &app)
 			unsigned int w, h, stride;
 			Stream *stream = app.StillStream();
 			app.StreamDimensions(stream, &w, &h, &stride);
-			CompletedRequest &payload = std::get<CompletedRequest>(msg.payload);
-			const std::vector<libcamera::Span<uint8_t>> mem = app.Mmap(payload.buffers[stream]);
-			jpeg_save(mem, w, h, stride, stream->configuration().pixelFormat, payload.metadata, options->output,
+			CompletedRequestPtr &payload = std::get<CompletedRequestPtr>(msg.payload);
+			const std::vector<libcamera::Span<uint8_t>> mem = app.Mmap(payload->buffers[stream]);
+			jpeg_save(mem, w, h, stride, stream->configuration().pixelFormat, payload->metadata, options->output,
 					  app.CameraId(), options);
 			return;
 		}

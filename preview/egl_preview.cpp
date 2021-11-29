@@ -12,6 +12,8 @@
 
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
+// X11 #defines Status in its headers, which is not nice!!
+#undef Status
 
 #include <epoxy/egl.h>
 #include <epoxy/gl.h>

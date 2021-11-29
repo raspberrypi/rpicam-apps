@@ -29,7 +29,6 @@ static void event_loop(LibcameraRaw &app)
 {
 	VideoOptions const *options = app.GetOptions();
 	std::unique_ptr<Output> output = std::unique_ptr<Output>(Output::Create(options));
-	app.SetEncodeBufferDoneCallback(std::bind(&LibcameraRaw::QueueRequest, &app, _1));
 	app.SetEncodeOutputReadyCallback(std::bind(&Output::OutputReady, output.get(), _1, _2, _3, _4));
 	app.StartEncoder();
 
@@ -61,7 +60,7 @@ static void event_loop(LibcameraRaw &app)
 			return;
 		}
 
-		app.EncodeBuffer(std::get<CompletedRequest>(msg.payload), app.RawStream());
+		app.EncodeBuffer(std::get<CompletedRequestPtr>(msg.payload), app.RawStream());
 	}
 }
 

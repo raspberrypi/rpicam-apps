@@ -32,7 +32,7 @@ public:
 
 	void Configure() override;
 
-	bool Process(CompletedRequest &completed_request) override;
+	bool Process(CompletedRequestPtr &completed_request) override;
 
 private:
 	Stream *stream_;
@@ -78,14 +78,14 @@ void AnnotateCvStage::Configure()
 	adjusted_thickness_ = std::max(thickness_ * width_ / 700, 1u);
 }
 
-bool AnnotateCvStage::Process(CompletedRequest &completed_request)
+bool AnnotateCvStage::Process(CompletedRequestPtr &completed_request)
 {
-	libcamera::Span<uint8_t> buffer = app_->Mmap(completed_request.buffers[stream_])[0];
-	FrameInfo info(completed_request.metadata);
-	info.sequence = completed_request.sequence;
+	libcamera::Span<uint8_t> buffer = app_->Mmap(completed_request->buffers[stream_])[0];
+	FrameInfo info(completed_request->metadata);
+	info.sequence = completed_request->sequence;
 
 	// Other post-processing stages can supply metadata to update the text.
-	completed_request.post_process_metadata.Get("annotate.text", text_);
+	completed_request->post_process_metadata.Get("annotate.text", text_);
 	std::string text = info.ToString(text_);
 
 	uint8_t *ptr = (uint8_t *)buffer.data();

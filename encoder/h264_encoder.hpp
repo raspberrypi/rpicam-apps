@@ -41,7 +41,8 @@ private:
 	// re-use.
 	void outputThread();
 
-	bool abort_;
+	bool abortPoll_;
+	bool abortOutput_;
 	int fd_;
 	struct BufferDescription
 	{
