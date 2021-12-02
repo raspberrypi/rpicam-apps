@@ -19,42 +19,49 @@ import subprocess
 import sys
 from timeit import default_timer as timer
 
+
 class TestFailure(Exception):
     def __init__(self, message):
         self.message = message
         super().__init__(self.message)
 
+
 def check_exists(file, preamble):
     if not os.path.isfile(file):
         raise TestFailure(preamble + ": " + file + " not found")
 
-def clean_dir(dir, exts = ('.jpg', '.png', '.bmp', '.dng', '.h264', '.mjpeg', '.raw', 'log.txt')):
+
+def clean_dir(dir, exts=('.jpg', '.png', '.bmp', '.dng', '.h264', '.mjpeg', '.raw', 'log.txt')):
     for file in os.listdir(dir):
         if file.endswith(exts):
             os.remove(os.path.join(dir, file))
 
+
 def run_executable(args, logfile):
     start_time = timer()
     with open(logfile, 'w') as logfile:
-        p = subprocess.Popen(args, stdout = logfile, stderr = subprocess.STDOUT)
+        p = subprocess.Popen(args, stdout=logfile, stderr=subprocess.STDOUT)
         p.communicate()
     time_taken = timer() - start_time
     return p.returncode, time_taken
+
 
 def check_retcode(retcode, preamble):
     if retcode:
         raise TestFailure(preamble + " failed, return code " + str(retcode))
 
+
 def check_time(time_taken, low, high, preamble):
     if time_taken < low or time_taken > high:
         raise TestFailure(preamble + " failed, time taken " + str(time_taken) + " seconds")
+
 
 def check_jpeg(file, preamble):
     # I haven't found a Python exif library that actually reads all the multiple image
     # tags (pyexiv2 does, but only runs on 64-bit systems... I mean, really??).
     # So we'll just use exiftool if it appears to be installed.
     try:
-        p = subprocess.Popen(['exiftool', file], stdout = subprocess.PIPE, stderr = subprocess.PIPE)
+        p = subprocess.Popen(['exiftool', file], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         stdout = p.communicate()[0].decode('utf-8')
     except FileNotFoundError as e:
         print("WARNING:", preamble, "- exiftool not found")
@@ -101,6 +108,7 @@ def test_hello(exe_dir, output_dir):
     check_time(time_taken, 1.8, 6, "test_hello: flips test")
 
     print("libcamera-hello tests passed")
+
 
 def check_size(file, limit, presamble):
     if os.path.getsize(file) < limit:
@@ -163,11 +171,12 @@ def test_still(exe_dir, output_dir):
                raise("test_still: timelapse test, unexpected output file")
 
     print("libcamera-still tests passed")
-    
+
+
 def check_jpeg_shutter(file, shutter_string, iso_string, preamble):
     # Verify that the expected shutter_string and iso_string are in the exif.
     try:
-        p = subprocess.Popen(['exiftool', file], stdout = subprocess.PIPE, stderr = subprocess.PIPE)
+        p = subprocess.Popen(['exiftool', file], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         stdout = p.communicate()[0].decode('utf-8').split('\n')
     except FileNotFoundError as e:
         print("WARNING:", preamble, "- exiftool not found")
@@ -226,6 +235,7 @@ def test_jpeg(exe_dir, output_dir):
     check_jpeg_shutter(output_shutter, '1/50', '100', "test_jpeg: shutter test")
 
     print("libcamera-jpeg tests passed")
+
 
 def check_timestamps(file, preamble):
     try:
@@ -292,7 +302,7 @@ def test_vid(exe_dir, output_dir):
     check_retcode(retcode, "test_vid: circular test")
     check_time(time_taken, 2, 6, "test_vid: circular test")
     check_size(output_circular, 1024, "test_vid: circular test")
-    
+
     # "pause test". Should be no output file if we start 'paused'.
     print("    pause test")
     retcode, time_taken = run_executable([executable, '-t', '2000', '--inline',
@@ -435,6 +445,7 @@ def test_all(apps, exe_dir, output_dir, json_dir):
         sys.exit(1)
 
     return
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description = 'libcamera-apps automated tests')

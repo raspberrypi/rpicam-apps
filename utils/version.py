@@ -10,6 +10,7 @@ from string import hexdigits
 
 digits = 12
 
+
 def generate_version():
     try:
         if len(sys.argv) == 1:
@@ -45,6 +46,7 @@ def generate_version():
 
     finally:
         print(f'{commit} {datetime.now().strftime("%d-%m-%Y (%H:%M:%S)")}', end="")
+
 
 if __name__ == "__main__":
     generate_version()
