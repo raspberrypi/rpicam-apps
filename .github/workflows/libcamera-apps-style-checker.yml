@@ -15,4 +15,4 @@ jobs:
         clean: true
 
     - name: Check style
-      run: ./checkstyle.py $(git log --format=%P -1 | awk '{print $1 ".." $2}')
+      run: ${{github.workspace}}/utils/checkstyle.py $(git log --format=%P -1 | awk '{print $1 ".." $2}')
