@@ -49,8 +49,8 @@ struct VideoOptions : public Options
 			 "Create a new output file every time recording is paused and then resumed")
 			("segment", value<uint32_t>(&segment)->default_value(0),
 			 "Break the recording into files of approximately this many milliseconds")
-			("circular", value<bool>(&circular)->default_value(false)->implicit_value(true),
-			 "Write output to a circular buffer which is saved on exit")
+			("circular", value<size_t>(&circular)->default_value(0)->implicit_value(4),
+			 "Write output to a circular buffer of the given size (in MB) which is saved on exit")
 			("frames", value<unsigned int>(&frames)->default_value(0),
 			 "Run for the exact number of frames specified. This will override any timeout set.")
 			;
@@ -71,7 +71,7 @@ struct VideoOptions : public Options
 	bool pause;
 	bool split;
 	uint32_t segment;
-	bool circular;
+	size_t circular;
 	uint32_t frames;
 
 	virtual bool Parse(int argc, char *argv[]) override

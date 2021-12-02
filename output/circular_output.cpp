@@ -7,8 +7,6 @@
 
 #include "circular_output.hpp"
 
-static constexpr int CIRCULAR_BUFFER_SIZE = 1 << 22; // 4MB, we could consider this more carefully...
-
 // We're going to align the frames within the buffer to friendly byte boundaries
 static constexpr int ALIGN = 16; // power of 2, please
 
@@ -20,7 +18,8 @@ struct Header
 };
 static_assert(sizeof(Header) % ALIGN == 0, "Header should have aligned size");
 
-CircularOutput::CircularOutput(VideoOptions const *options) : Output(options), cb_(CIRCULAR_BUFFER_SIZE)
+// Size of buffer (options->circular) is given in megabytes.
+CircularOutput::CircularOutput(VideoOptions const *options) : Output(options), cb_(options->circular<<20)
 {
 	// Open this now, so that we can get any complaints out of the way
 	fp_ = fopen(options_->output.c_str(), "w");
