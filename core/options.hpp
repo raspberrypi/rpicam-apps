@@ -38,6 +38,7 @@ struct Options
 	Options() : options_("Valid options are", 120, 80)
 	{
 		using namespace boost::program_options;
+		// clang-format off
 		options_.add_options()
 			("help,h", value<bool>(&help)->default_value(false)->implicit_value(true),
 			 "Print this help message")
@@ -129,6 +130,7 @@ struct Options
 			("viewfinder-mode", value<std::string>(&viewfinder_mode_string),
 			 "Camera mode for preview as W:H:bit-depth:packing, where packing is P (packed) or U (unpacked)")
 			;
+		// clang-format on
 	}
 
 	virtual ~Options() {}
