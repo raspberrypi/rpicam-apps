@@ -20,6 +20,7 @@ struct VideoOptions : public Options
 		using namespace boost::program_options;
 		// Generally we shall use zero or empty values to avoid over-writing the
 		// codec's default behaviour.
+		// clang-format off
 		options_.add_options()
 			("bitrate,b", value<uint32_t>(&bitrate)->default_value(0),
 			 "Set the bitrate for encoding, in bits/second (h264 only)")
@@ -54,6 +55,7 @@ struct VideoOptions : public Options
 			("frames", value<unsigned int>(&frames)->default_value(0),
 			 "Run for the exact number of frames specified. This will override any timeout set.")
 			;
+		// clang-format on
 	}
 
 	uint32_t bitrate;
