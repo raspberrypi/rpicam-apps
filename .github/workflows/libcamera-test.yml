@@ -135,7 +135,7 @@ jobs:
       run: ldd ${{github.workspace}}/build/libcamera-hello | grep libcamera
 
     - name: Test
-      run: ${{github.workspace}}/test.py --exe-dir ${{github.workspace}}/build --output-dir ${{github.workspace}}/test_output --json-dir ${{github.workspace}}/assets
+      run: ${{github.workspace}}/utils/test.py --exe-dir ${{github.workspace}}/build --output-dir ${{github.workspace}}/test_output --json-dir ${{github.workspace}}/assets
       timeout-minutes: 5
 
     - name: Save dmesg output
