@@ -92,6 +92,7 @@ if __name__ == '__main__':
         reports.append(title)
 
         hwinfo = Report('Hardware information', file)
+        hwinfo.add_cmd('hostname')
         hwinfo.add_cmd('cat /proc/cpuinfo')
         reports.append(hwinfo)
 
@@ -110,6 +111,7 @@ if __name__ == '__main__':
         mem = Report('Memory', file)
         mem.add_cmd('cat /proc/meminfo')
         mem.add_cmd('sudo cat /sys/kernel/debug/dma_buf/bufinfo')
+        mem.add_cmd('sudo cat /sys/kernel/debug/vcsm-cma/state')
         reports.append(mem)
 
         media = Report('Media Devices', file)
