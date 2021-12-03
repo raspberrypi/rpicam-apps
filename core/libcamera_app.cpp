@@ -239,13 +239,9 @@ void LibcameraApp::ConfigureStill(unsigned int flags)
 	if (options_->verbose)
 		std::cerr << "Configuring still capture..." << std::endl;
 
-	// Will add a raw capture stream once that works properly.
-	bool have_raw_stream = (flags & FLAG_STILL_RAW) || options_->mode.bit_depth;
-	StreamRoles stream_roles;
-	if (have_raw_stream)
-		stream_roles = { StreamRole::StillCapture, StreamRole::Raw };
-	else
-		stream_roles = { StreamRole::StillCapture };
+	// Always request a raw stream as this forces the full resolution capture mode.
+	// (options_->mode can override the choice of camera mode, however.)
+	StreamRoles stream_roles = { StreamRole::StillCapture, StreamRole::Raw };
 	configuration_ = camera_->generateConfiguration(stream_roles);
 	if (!configuration_)
 		throw std::runtime_error("failed to generate still capture configuration");
@@ -273,20 +269,14 @@ void LibcameraApp::ConfigureStill(unsigned int flags)
 	{
 		configuration_->at(1).size = options_->mode.Size();
 		configuration_->at(1).pixelFormat = mode_to_pixel_format(options_->mode);
-		configuration_->at(1).bufferCount = configuration_->at(0).bufferCount;
 	}
-	else if (have_raw_stream && !options_->rawfull)
-	{
-		configuration_->at(1).size = configuration_->at(0).size;
-		configuration_->at(1).bufferCount = configuration_->at(0).bufferCount;
-	}
+	configuration_->at(1).bufferCount = configuration_->at(0).bufferCount;
 
 	configureDenoise(options_->denoise == "auto" ? "cdn_hq" : options_->denoise);
 	setupCapture();
 
 	streams_["still"] = configuration_->at(0).stream();
-	if (have_raw_stream)
-		streams_["raw"] = configuration_->at(1).stream();
+	streams_["raw"] = configuration_->at(1).stream();
 
 	post_processor_.Configure();
 
