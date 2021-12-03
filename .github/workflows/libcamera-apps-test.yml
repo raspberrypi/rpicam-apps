@@ -109,12 +109,8 @@ jobs:
       run: ldd ${{github.workspace}}/build/libcamera-hello | grep libcamera
 
     - name: Test
-      run: ${{github.workspace}}/utils/test.py --exe-dir ${{github.workspace}}/build --output-dir ${{github.workspace}}/test_output --json-dir ${{github.workspace}}/assets
-      timeout-minutes: 5
-
-    - name: Save dmesg output
-      if: ${{failure()}}
-      run: dmesg > ${{github.workspace}}/test_output/dmesg.txt
+      run: ${{github.workspace}}/utils/camera-bug-report -o ${{github.workspace}}/test_output/bug.txt -t 300 -c "${{github.workspace}}/utils/test.py --exe-dir ${{github.workspace}}/build --output-dir ${{github.workspace}}/test_output --json-dir ${{github.workspace}}/assets"
+      timeout-minutes: 8 # Must be larger than the camera-bug-report timeout.
 
     - name: Upload test output
       if: ${{ failure() }}
