@@ -83,6 +83,9 @@ if __name__ == '__main__':
 
     # This is the app the user is actually running.
     app = args.c.split(" ")[0] if args.c else None
+    # Can we identify the app?  If not, use libcamera-hello for version checks.
+    if not any([s in app for s in ['libcamera-still', 'libcamera-vid', 'libcamera-hello', 'libcamera-raw', 'libcamera-jpeg']]):
+        app = 'libcamera-hello'
 
     reports = []
     with open(args.o, 'wt') as file:
@@ -121,7 +124,7 @@ if __name__ == '__main__':
 
         # Get the camera list with the same program specified in the run command
         cam = Report('Cameras', file)
-        cam.add_cmd(f'{"libcamera-hello" if not app else app} --list-cameras')
+        cam.add_cmd(f'{app} --list-cameras')
         reports.append(cam)
 
         # Get the version with the same program specified in the run command
@@ -129,11 +132,11 @@ if __name__ == '__main__':
         ver.add_cmd('uname -a')
         ver.add_cmd('cat /etc/os-release')
         ver.add_cmd('vcgencmd version')
-        ver.add_cmd(f'{"libcamera-hello" if not app else app} --version')
+        ver.add_cmd(f'{app} --version')
         reports.append(ver)
 
         # Run the actual application before executing the reports!
-        if app:
+        if args.c:
             cmd_out = run_prog(args.c, args.t)
 
             # Report for the command output
