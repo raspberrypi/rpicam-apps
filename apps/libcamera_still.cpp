@@ -104,6 +104,8 @@ static void save_images(LibcameraStillApp &app, CompletedRequestPtr &payload)
 		save_image(app, payload, app.RawStream(), filename);
 	}
 	options->framestart++;
+	if (options->wrap)
+		options->framestart %= options->wrap;
 }
 
 // Some keypress/signal handling.
