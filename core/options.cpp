@@ -82,15 +82,34 @@ bool Options::Parse(int argc, char *argv[])
 		{
 			unsigned int idx = 0;
 			std::cerr << "Available cameras" << std::endl
-						<< "-----------------" << std::endl;
+					  << "-----------------" << std::endl;
 			for (auto const &cam : cameras)
 			{
 				std::cerr << idx++ << " : " << cam->properties().get(libcamera::properties::Model);
 				if (cam->properties().contains(properties::PixelArrayActiveAreas))
 					std::cerr << " ["
-								<< cam->properties().get(properties::PixelArrayActiveAreas)[0].size().toString()
-								<< "]";
-				std::cerr  << " (" << cam->id() << ")" << std::endl;
+							  << cam->properties().get(properties::PixelArrayActiveAreas)[0].size().toString()
+							  << "]";
+				std::cerr << " (" << cam->id() << ")" << std::endl;
+
+				std::unique_ptr<CameraConfiguration> config = cam->generateConfiguration({libcamera::StreamRole::Raw});
+				if (!config)
+					throw std::runtime_error("failed to generate capture configuration");
+				const StreamFormats &formats = config->at(0).formats();
+
+				if (!formats.pixelformats().size())
+					continue;
+
+				std::cerr << "    Modes: ";
+				unsigned int i = 0;
+				for (const auto &pix : formats.pixelformats())
+				{
+					if (i++) std::cerr << "           ";
+					std::cerr << "'" << pix.toString() << "' : ";
+					for (const auto &size : formats.sizes(pix))
+						std::cerr << size.toString() << " ";
+					std::cerr << std::endl;
+				}
 			}
 		}
 		else
