@@ -145,6 +145,7 @@ H264Encoder::H264Encoder(VideoOptions const *options) : Encoder(options), abortP
 		throw std::runtime_error("request for capture buffers failed");
 	if (options->verbose)
 		std::cerr << "Got " << reqbufs.count << " capture buffers" << std::endl;
+	num_capture_buffers_ = reqbufs.count;
 
 	for (unsigned int i = 0; i < reqbufs.count; i++)
 	{
@@ -189,9 +190,37 @@ H264Encoder::~H264Encoder()
 	poll_thread_.join();
 	abortOutput_ = true;
 	output_thread_.join();
+
+	// Turn off streaming on both the output and capture queues, and "free" the
+	// buffers that we requested. The capture ones need to be "munmapped" first.
+
+	v4l2_buf_type type = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE;
+	if (xioctl(fd_, VIDIOC_STREAMOFF, &type) < 0)
+		std::cerr << "Failed to stop output streaming" << std::endl;
+	type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
+	if (xioctl(fd_, VIDIOC_STREAMOFF, &type) < 0)
+		std::cerr << "Failed to stop capture streaming" << std::endl;
+
+	v4l2_requestbuffers reqbufs = {};
+	reqbufs.count = 0;
+	reqbufs.type = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE;
+	reqbufs.memory = V4L2_MEMORY_DMABUF;
+	if (xioctl(fd_, VIDIOC_REQBUFS, &reqbufs) < 0)
+		std::cerr << "Request to free output buffers failed" << std::endl;
+
+	for (int i = 0; i < num_capture_buffers_; i++)
+		if (munmap(buffers_[i].mem, buffers_[i].size) < 0)
+			std::cerr << "Failed to unmap buffer" << std::endl;
+	reqbufs = {};
+	reqbufs.count = 0;
+	reqbufs.type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
+	reqbufs.memory = V4L2_MEMORY_MMAP;
+	if (xioctl(fd_, VIDIOC_REQBUFS, &reqbufs) < 0)
+		std::cerr << "Request to free capture buffers failed" << std::endl;
+
+	close(fd_);
 	if (options_->verbose)
 		std::cerr << "H264Encoder closed" << std::endl;
-	// Other stuff will mostly get hoovered up with the process quits.
 }
 
 void H264Encoder::EncodeBuffer(int fd, size_t size, void *mem, unsigned int width, unsigned int height,

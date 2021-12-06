@@ -50,6 +50,7 @@ private:
 		size_t size;
 	};
 	BufferDescription buffers_[NUM_CAPTURE_BUFFERS];
+	int num_capture_buffers_;
 	std::thread poll_thread_;
 	std::mutex input_buffers_available_mutex_;
 	std::queue<int> input_buffers_available_;
