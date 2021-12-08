@@ -175,6 +175,8 @@ private:
 	void queueRequest(CompletedRequest *completed_request);
 	void requestComplete(Request *request);
 	void previewDoneCallback(int fd);
+	void startPreview();
+	void stopPreview();
 	void previewThread();
 	void configureDenoise(const std::string &denoise_mode);
 
