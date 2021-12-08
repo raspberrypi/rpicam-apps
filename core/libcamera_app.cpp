@@ -60,8 +60,7 @@ static libcamera::PixelFormat mode_to_pixel_format(Mode const &mode)
 }
 
 LibcameraApp::LibcameraApp(std::unique_ptr<Options> opts)
-	: options_(std::move(opts)), preview_thread_(&LibcameraApp::previewThread, this), controls_(controls::controls),
-	  post_processor_(this)
+	: options_(std::move(opts)), controls_(controls::controls), post_processor_(this)
 {
 	check_camera_stack();
 
@@ -71,12 +70,6 @@ LibcameraApp::LibcameraApp(std::unique_ptr<Options> opts)
 
 LibcameraApp::~LibcameraApp()
 {
-	{
-		std::lock_guard<std::mutex> lock(preview_item_mutex_);
-		preview_abort_ = true;
-		preview_cond_var_.notify_one();
-	}
-	preview_thread_.join();
 	if (options_->verbose && !options_->help)
 		std::cerr << "Closing Libcamera application"
 				  << "(frames displayed " << preview_frames_displayed_ << ", dropped " << preview_frames_dropped_ << ")"
@@ -356,6 +349,8 @@ void LibcameraApp::ConfigureVideo(unsigned int flags)
 
 void LibcameraApp::Teardown()
 {
+	stopPreview();
+
 	post_processor_.Teardown();
 
 	if (options_->verbose && !options_->help)
@@ -685,6 +680,8 @@ void LibcameraApp::setupCapture()
 	if (options_->verbose)
 		std::cerr << "Buffers allocated and mapped" << std::endl;
 
+	startPreview();
+
 	// The requests will be made when StartCamera() is called.
 }
 
@@ -752,6 +749,24 @@ void LibcameraApp::previewDoneCallback(int fd)
 	if (it == preview_completed_requests_.end())
 		throw std::runtime_error("previewDoneCallback: missing fd " + std::to_string(fd));
 	preview_completed_requests_.erase(it); // drop shared_ptr reference
+}
+
+void LibcameraApp::startPreview()
+{
+	preview_thread_ = std::thread(&LibcameraApp::previewThread, this);
+}
+
+void LibcameraApp::stopPreview()
+{
+	if (!preview_thread_.joinable()) // in case never started
+		return;
+
+	{
+		std::lock_guard<std::mutex> lock(preview_item_mutex_);
+		preview_abort_ = true;
+		preview_cond_var_.notify_one();
+	}
+	preview_thread_.join();
 }
 
 void LibcameraApp::previewThread()
