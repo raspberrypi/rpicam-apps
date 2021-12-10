@@ -17,7 +17,7 @@
 class H264Encoder : public Encoder
 {
 public:
-	H264Encoder(VideoOptions const *options);
+	H264Encoder(VideoOptions const *options, StreamInfo const &info);
 	~H264Encoder();
 	// Encode the given DMABUF.
 	void EncodeBuffer(int fd, size_t size, void *mem, StreamInfo const &info, int64_t timestamp_us) override;

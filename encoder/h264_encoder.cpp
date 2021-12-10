@@ -27,7 +27,8 @@ static int xioctl(int fd, unsigned long ctl, void *arg)
 	return ret;
 }
 
-H264Encoder::H264Encoder(VideoOptions const *options) : Encoder(options), abortPoll_(false), abortOutput_(false)
+H264Encoder::H264Encoder(VideoOptions const *options, StreamInfo const &info)
+	: Encoder(options), abortPoll_(false), abortOutput_(false)
 {
 	// First open the encoder device. Maybe we should double-check its "caps".
 
@@ -95,9 +96,12 @@ H264Encoder::H264Encoder(VideoOptions const *options) : Encoder(options), abortP
 
 	v4l2_format fmt = {};
 	fmt.type = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE;
-	fmt.fmt.pix_mp.width = options->width;
-	fmt.fmt.pix_mp.height = options->height;
+	fmt.fmt.pix_mp.width = info.width;
+	fmt.fmt.pix_mp.height = info.height;
+	// We assume YUV420 here, but it would be nice if we could do something
+	// like info.pixel_format.toV4L2Fourcc();
 	fmt.fmt.pix_mp.pixelformat = V4L2_PIX_FMT_YUV420;
+	fmt.fmt.pix_mp.plane_fmt[0].bytesperline = info.stride;
 	fmt.fmt.pix_mp.field = V4L2_FIELD_ANY;
 	// libcamera currently has no means to request the right colour space, hence:
 	fmt.fmt.pix_mp.colorspace = V4L2_COLORSPACE_JPEG;

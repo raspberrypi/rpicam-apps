@@ -6,7 +6,9 @@
  */
 
 #include "core/libcamera_app.hpp"
+#include "core/stream_info.hpp"
 #include "core/video_options.hpp"
+
 #include "encoder/encoder.hpp"
 
 typedef std::function<void(void *, size_t, int64_t, bool)> EncodeOutputReadyCallback;
@@ -47,7 +49,14 @@ public:
 	void StopEncoder() { encoder_.reset(); }
 
 protected:
-	virtual void createEncoder() { encoder_ = std::unique_ptr<Encoder>(Encoder::Create(GetOptions())); }
+	virtual void createEncoder()
+	{
+		StreamInfo info;
+		VideoStream(&info);
+		if (!info.width || !info.height || !info.stride)
+			throw std::runtime_error("video steam is not configured");
+		encoder_ = std::unique_ptr<Encoder>(Encoder::Create(GetOptions(), info));
+	}
 	std::unique_ptr<Encoder> encoder_;
 
 private:

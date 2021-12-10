@@ -18,7 +18,7 @@ typedef std::function<void(void *, size_t, int64_t, bool)> OutputReadyCallback;
 class Encoder
 {
 public:
-	static Encoder *Create(VideoOptions const *options);
+	static Encoder *Create(VideoOptions const *options, StreamInfo const &info);
 
 	Encoder(VideoOptions const *options) : options_(options) {}
 	virtual ~Encoder() {}
