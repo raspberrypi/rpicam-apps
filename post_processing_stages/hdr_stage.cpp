@@ -26,6 +26,7 @@
 
 #include "core/libcamera_app.hpp"
 #include "core/still_options.hpp"
+#include "core/stream_info.hpp"
 
 #include "image/image.hpp"
 
@@ -390,7 +391,7 @@ public:
 
 private:
 	Stream *stream_;
-	unsigned width_, height_, stride_;
+	StreamInfo info_;
 	HdrConfig config_;
 	unsigned int frame_num_;
 	std::mutex mutex_;
@@ -448,7 +449,7 @@ void HdrStage::AdjustConfig(std::string const &use_case, StreamConfiguration *co
 
 void HdrStage::Configure()
 {
-	stream_ = app_->StillStream(&width_, &height_, &stride_);
+	stream_ = app_->StillStream(&info_);
 	if (!stream_)
 		return;
 	if (stream_->configuration().pixelFormat != libcamera::formats::YUV420)
@@ -456,9 +457,9 @@ void HdrStage::Configure()
 
 	// Allocate and initialise the big accumulator image.
 	frame_num_ = 0;
-	acc_ = HdrImage(width_, height_, width_ * height_ * 3 / 2);
+	acc_ = HdrImage(info_.width, info_.height, info_.width * info_.height * 3 / 2);
 	acc_.Clear();
-	lp_ = HdrImage(width_, height_, width_ * height_);
+	lp_ = HdrImage(info_.width, info_.height, info_.width * info_.height);
 }
 
 bool HdrStage::Process(CompletedRequestPtr &completed_request)
@@ -479,7 +480,7 @@ bool HdrStage::Process(CompletedRequestPtr &completed_request)
 
 	// Accumulate frame.
 	std::cerr << "Accumulating frame " << frame_num_ << std::endl;
-	acc_.Accumulate(image, stride_);
+	acc_.Accumulate(image, info_.stride);
 
 	// Optionally save individual JPEGs of each of the constituent images. Obviously this
 	// will rather slow down the accumulation process.
@@ -490,8 +491,8 @@ bool HdrStage::Process(CompletedRequestPtr &completed_request)
 		filename[sizeof(filename) - 1] = 0;
 		StillOptions const *options = dynamic_cast<StillOptions *>(app_->GetOptions());
 		if (options)
-			jpeg_save(buffers, width_, height_, stride_, libcamera::formats::YUV420, completed_request->metadata,
-					  filename, app_->CameraId(), options);
+			jpeg_save(buffers, info_.width, info_.height, info_.stride, libcamera::formats::YUV420,
+					  completed_request->metadata, filename, app_->CameraId(), options);
 		else
 			std::cerr << "No still options - unable to save JPEG" << std::endl;
 	}
@@ -509,7 +510,7 @@ bool HdrStage::Process(CompletedRequestPtr &completed_request)
 	lp_ = acc_.LpFilter(config_.lp_filter);
 	acc_.Tonemap(lp_, config_);
 
-	acc_.Extract(image, stride_);
+	acc_.Extract(image, info_.stride);
 	std::cerr << "HDR done!" << std::endl;
 
 	return false;

@@ -61,16 +61,15 @@ bool ObjectDetectDrawCvStage::Process(CompletedRequestPtr &completed_request)
 	if (!stream_)
 		return false;
 
-	unsigned int w, h, stride;
 	libcamera::Span<uint8_t> buffer = app_->Mmap(completed_request->buffers[stream_])[0];
 	uint32_t *ptr = (uint32_t *)buffer.data();
-	app_->StreamDimensions(stream_, &w, &h, &stride);
+	StreamInfo info = app_->GetStreamInfo(stream_);
 
 	std::vector<Detection> detections;
 
 	completed_request->post_process_metadata.Get("object_detect.results", detections);
 
-	Mat image(h, w, CV_8U, ptr, stride);
+	Mat image(info.height, info.width, CV_8U, ptr, info.stride);
 	Scalar colour = Scalar(255, 255, 255);
 	int font = FONT_HERSHEY_SIMPLEX;
 

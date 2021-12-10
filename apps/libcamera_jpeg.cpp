@@ -71,13 +71,12 @@ static void event_loop(LibcameraJpegApp &app)
 			app.StopCamera();
 			std::cerr << "Still capture image received" << std::endl;
 
-			unsigned int w, h, stride;
 			Stream *stream = app.StillStream();
-			app.StreamDimensions(stream, &w, &h, &stride);
+			StreamInfo info = app.GetStreamInfo(stream);
 			CompletedRequestPtr &payload = std::get<CompletedRequestPtr>(msg.payload);
 			const std::vector<libcamera::Span<uint8_t>> mem = app.Mmap(payload->buffers[stream]);
-			jpeg_save(mem, w, h, stride, stream->configuration().pixelFormat, payload->metadata, options->output,
-					  app.CameraId(), options);
+			jpeg_save(mem, info.width, info.height, info.stride, stream->configuration().pixelFormat,
+					  payload->metadata, options->output, app.CameraId(), options);
 			return;
 		}
 	}

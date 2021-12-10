@@ -41,29 +41,28 @@ void PostProcessingStage::Teardown()
 {
 }
 
-std::vector<uint8_t> PostProcessingStage::Yuv420ToRgb(const uint8_t *src, int src_w, int src_h, int src_stride,
-													  int dst_w, int dst_h, int dst_stride)
+std::vector<uint8_t> PostProcessingStage::Yuv420ToRgb(const uint8_t *src, StreamInfo &src_info, StreamInfo &dst_info)
 {
-	std::vector<uint8_t> output(dst_h * dst_stride);
+	std::vector<uint8_t> output(dst_info.height * dst_info.stride);
 
-	assert(src_w >= dst_w && src_h >= dst_h);
-	int off_x = ((src_w - dst_w) / 2) & ~1, off_y = ((src_h - dst_h) / 2) & ~1;
-	int src_Y_size = src_h * src_stride, src_U_size = (src_h / 2) * (src_stride / 2);
+	assert(src_info.width >= dst_info.width && src_info.height >= dst_info.height);
+	int off_x = ((src_info.width - dst_info.width) / 2) & ~1, off_y = ((src_info.height - dst_info.height) / 2) & ~1;
+	int src_Y_size = src_info.height * src_info.stride, src_U_size = (src_info.height / 2) * (src_info.stride / 2);
 
 	// We're going to process 4x2 pixel blocks, as far as alignment allows.
-	int dst_h_aligned = dst_h & ~1, dst_w_aligned = dst_w & ~3;
+	unsigned int dst_h_aligned = dst_info.height & ~1, dst_w_aligned = dst_info.width & ~3;
 
-	int y = 0;
+	unsigned int y = 0;
 	for (; y < dst_h_aligned; y += 2)
 	{
-		const uint8_t *src_Y0 = src + (y + off_y) * src_stride + off_x;
-		const uint8_t *src_U = src + src_Y_size + ((y + off_y) / 2) * (src_stride / 2) + off_x / 2;
+		const uint8_t *src_Y0 = src + (y + off_y) * src_info.stride + off_x;
+		const uint8_t *src_U = src + src_Y_size + ((y + off_y) / 2) * (src_info.stride / 2) + off_x / 2;
 		const uint8_t *src_V = src_U + src_U_size;
-		const uint8_t *src_Y1 = src_Y0 + src_stride;
-		uint8_t *dst0 = &output[y * dst_stride];
-		uint8_t *dst1 = dst0 + dst_stride;
+		const uint8_t *src_Y1 = src_Y0 + src_info.stride;
+		uint8_t *dst0 = &output[y * dst_info.stride];
+		uint8_t *dst1 = dst0 + dst_info.stride;
 
-		int x = 0;
+		unsigned int x = 0;
 		for (; x < dst_w_aligned; x += 4)
 		{
 			int Y0 = *(src_Y0++);
@@ -172,7 +171,7 @@ std::vector<uint8_t> PostProcessingStage::Yuv420ToRgb(const uint8_t *src, int sr
 			*(dst1++) = B7;
 		}
 		// Straggling pixel columns - we must still do both rows.
-		for (; x < dst_w; x++)
+		for (; x < dst_info.width; x++)
 		{
 			int Y0 = *(src_Y0++);
 			int U0 = *(src_U);
@@ -209,15 +208,15 @@ std::vector<uint8_t> PostProcessingStage::Yuv420ToRgb(const uint8_t *src, int sr
 		}
 	}
 	// Any straggling final row is done with extreme steam power.
-	for (; y < dst_h; y++)
+	for (; y < dst_info.height; y++)
 	{
-		const uint8_t *src_Y0 = src + (y + off_y) * src_stride + off_x;
-		const uint8_t *src_U = src + src_Y_size + ((y + off_y) / 2) * (src_stride / 2) + off_x / 2;
+		const uint8_t *src_Y0 = src + (y + off_y) * src_info.stride + off_x;
+		const uint8_t *src_U = src + src_Y_size + ((y + off_y) / 2) * (src_info.stride / 2) + off_x / 2;
 		const uint8_t *src_V = src_U + src_U_size;
-		uint8_t *dst0 = &output[y * dst_stride];
+		uint8_t *dst0 = &output[y * dst_info.stride];
 
-		int x = 0;
-		for (; x < dst_w; x++)
+		unsigned int x = 0;
+		for (; x < dst_info.width; x++)
 		{
 			int Y0 = *(src_Y0++);
 			int U0 = *(src_U);

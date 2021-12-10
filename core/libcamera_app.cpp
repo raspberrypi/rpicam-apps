@@ -551,39 +551,39 @@ void LibcameraApp::PostMessage(MsgType &t, MsgPayload &p)
 	msg_queue_.Post(Msg(t, std::move(p)));
 }
 
-libcamera::Stream *LibcameraApp::GetStream(std::string const &name, unsigned int *w, unsigned int *h,
-										   unsigned int *stride) const
+libcamera::Stream *LibcameraApp::GetStream(std::string const &name, StreamInfo *info) const
 {
 	auto it = streams_.find(name);
 	if (it == streams_.end())
 		return nullptr;
-	StreamDimensions(it->second, w, h, stride);
+	if (info)
+		*info = GetStreamInfo(it->second);
 	return it->second;
 }
 
-libcamera::Stream *LibcameraApp::ViewfinderStream(unsigned int *w, unsigned int *h, unsigned int *stride) const
+libcamera::Stream *LibcameraApp::ViewfinderStream(StreamInfo *info) const
 {
-	return GetStream("viewfinder", w, h, stride);
+	return GetStream("viewfinder", info);
 }
 
-libcamera::Stream *LibcameraApp::StillStream(unsigned int *w, unsigned int *h, unsigned int *stride) const
+libcamera::Stream *LibcameraApp::StillStream(StreamInfo *info) const
 {
-	return GetStream("still", w, h, stride);
+	return GetStream("still", info);
 }
 
-libcamera::Stream *LibcameraApp::RawStream(unsigned int *w, unsigned int *h, unsigned int *stride) const
+libcamera::Stream *LibcameraApp::RawStream(StreamInfo *info) const
 {
-	return GetStream("raw", w, h, stride);
+	return GetStream("raw", info);
 }
 
-libcamera::Stream *LibcameraApp::VideoStream(unsigned int *w, unsigned int *h, unsigned int *stride) const
+libcamera::Stream *LibcameraApp::VideoStream(StreamInfo *info) const
 {
-	return GetStream("video", w, h, stride);
+	return GetStream("video", info);
 }
 
-libcamera::Stream *LibcameraApp::LoresStream(unsigned int *w, unsigned int *h, unsigned int *stride) const
+libcamera::Stream *LibcameraApp::LoresStream(StreamInfo *info) const
 {
-	return GetStream("lores", w, h, stride);
+	return GetStream("lores", info);
 }
 
 libcamera::Stream *LibcameraApp::GetMainStream() const
@@ -621,15 +621,14 @@ void LibcameraApp::SetControls(ControlList &controls)
 	controls_ = std::move(controls);
 }
 
-void LibcameraApp::StreamDimensions(Stream const *stream, unsigned int *w, unsigned int *h, unsigned int *stride) const
+StreamInfo LibcameraApp::GetStreamInfo(Stream const *stream) const
 {
 	StreamConfiguration const &cfg = stream->configuration();
-	if (w)
-		*w = cfg.size.width;
-	if (h)
-		*h = cfg.size.height;
-	if (stride)
-		*stride = cfg.stride;
+	StreamInfo info;
+	info.width = cfg.size.width;
+	info.height = cfg.size.height;
+	info.stride = cfg.stride;
+	return info;
 }
 
 void LibcameraApp::setupCapture()
@@ -788,8 +787,7 @@ void LibcameraApp::previewThread()
 		if (item.stream->configuration().pixelFormat != libcamera::formats::YUV420)
 			throw std::runtime_error("Preview windows only support YUV420");
 
-		unsigned int w, h, stride;
-		StreamDimensions(item.stream, &w, &h, &stride);
+		StreamInfo info = GetStreamInfo(item.stream);
 		FrameBuffer *buffer = item.completed_request->buffers[item.stream];
 		libcamera::Span span = Mmap(buffer)[0];
 
@@ -811,7 +809,7 @@ void LibcameraApp::previewThread()
 			msg_queue_.Post(Msg(MsgType::Quit));
 		}
 		preview_frames_displayed_++;
-		preview_->Show(fd, span, w, h, stride);
+		preview_->Show(fd, span, info.width, info.height, info.stride);
 		if (!options_->info_text.empty())
 		{
 			std::string s = frame_info.ToString(options_->info_text);

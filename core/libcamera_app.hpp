@@ -30,6 +30,7 @@
 
 #include "core/completed_request.hpp"
 #include "core/post_processor.hpp"
+#include "core/stream_info.hpp"
 
 struct Options;
 class Preview;
@@ -104,14 +105,12 @@ public:
 	Msg Wait();
 	void PostMessage(MsgType &t, MsgPayload &p);
 
-	Stream *GetStream(std::string const &name, unsigned int *w = nullptr, unsigned int *h = nullptr,
-					  unsigned int *stride = nullptr) const;
-	Stream *ViewfinderStream(unsigned int *w = nullptr, unsigned int *h = nullptr,
-							 unsigned int *stride = nullptr) const;
-	Stream *StillStream(unsigned int *w = nullptr, unsigned int *h = nullptr, unsigned int *stride = nullptr) const;
-	Stream *RawStream(unsigned int *w = nullptr, unsigned int *h = nullptr, unsigned int *stride = nullptr) const;
-	Stream *VideoStream(unsigned int *w = nullptr, unsigned int *h = nullptr, unsigned int *stride = nullptr) const;
-	Stream *LoresStream(unsigned int *w = nullptr, unsigned int *h = nullptr, unsigned int *stride = nullptr) const;
+	Stream *GetStream(std::string const &name, StreamInfo *info = nullptr) const;
+	Stream *ViewfinderStream(StreamInfo *info = nullptr) const;
+	Stream *StillStream(StreamInfo *info = nullptr) const;
+	Stream *RawStream(StreamInfo *info = nullptr) const;
+	Stream *VideoStream(StreamInfo *info = nullptr) const;
+	Stream *LoresStream(StreamInfo *info = nullptr) const;
 	Stream *GetMainStream() const;
 
 	std::vector<libcamera::Span<uint8_t>> Mmap(FrameBuffer *buffer) const;
@@ -119,7 +118,7 @@ public:
 	void ShowPreview(CompletedRequestPtr &completed_request, Stream *stream);
 
 	void SetControls(ControlList &controls);
-	void StreamDimensions(Stream const *stream, unsigned int *w, unsigned int *h, unsigned int *stride) const;
+	StreamInfo GetStreamInfo(Stream const *stream) const;
 
 protected:
 	std::unique_ptr<Options> options_;

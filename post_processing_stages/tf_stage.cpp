@@ -4,7 +4,6 @@
  *
  * tf_stage.hpp - base class for TensorFlowLite stages
  */
-
 #include "tf_stage.hpp"
 
 TfStage::TfStage(LibcameraApp *app, int tf_w, int tf_h) : PostProcessingStage(app), tf_w_(tf_w), tf_h_(tf_h)
@@ -63,14 +62,14 @@ void TfStage::initialise()
 
 void TfStage::Configure()
 {
-	lores_w_ = lores_h_ = lores_stride_ = 0;
 	lores_stream_ = app_->LoresStream();
 	if (lores_stream_)
 	{
-		app_->StreamDimensions(lores_stream_, &lores_w_, &lores_h_, &lores_stride_);
+		lores_info_ = app_->GetStreamInfo(lores_stream_);
 		if (config_->verbose)
-			std::cerr << "TfStage: Low resolution stream is " << lores_w_ << "x" << lores_h_ << std::endl;
-		if (tf_w_ > lores_w_ || tf_h_ > lores_h_)
+			std::cerr << "TfStage: Low resolution stream is " << lores_info_.width << "x"
+					  << lores_info_.height << std::endl;
+		if (tf_w_ > lores_info_.width || tf_h_ > lores_info_.height)
 		{
 			std::cerr << "TfStage: WARNING: Low resolution image too small" << std::endl;
 			lores_stream_ = nullptr;
@@ -79,13 +78,13 @@ void TfStage::Configure()
 	else if (config_->verbose)
 		std::cerr << "TfStage: no low resolution stream" << std::endl;
 
-	main_w_ = main_h_ = main_stride_ = 0;
 	main_stream_ = app_->GetMainStream();
 	if (main_stream_)
 	{
-		app_->StreamDimensions(main_stream_, &main_w_, &main_h_, &main_stride_);
+		main_stream_info_ = app_->GetStreamInfo(main_stream_);
 		if (config_->verbose)
-			std::cerr << "TfStage: Main stream is " << main_w_ << "x" << main_h_ << std::endl;
+			std::cerr << "TfStage: Main stream is " << main_stream_info_.width << "x"
+					  << main_stream_info_.height << std::endl;
 	}
 	else if (config_->verbose)
 		std::cerr << "TfStage: No main stream" << std::endl;
@@ -129,8 +128,9 @@ bool TfStage::Process(CompletedRequestPtr &completed_request)
 void TfStage::runInference()
 {
 	int input = interpreter_->inputs()[0];
-	std::vector<uint8_t> rgb_image =
-		Yuv420ToRgb(lores_copy_.data(), lores_w_, lores_h_, lores_stride_, tf_w_, tf_h_, tf_w_ * 3);
+	StreamInfo tf_info;
+	tf_info.width = tf_w_, tf_info.height = tf_h_, tf_info.stride = tf_w_ * 3;
+	std::vector<uint8_t> rgb_image = Yuv420ToRgb(lores_copy_.data(), lores_info_, tf_info);
 
 	if (interpreter_->tensor(input)->type == kTfLiteUInt8)
 	{

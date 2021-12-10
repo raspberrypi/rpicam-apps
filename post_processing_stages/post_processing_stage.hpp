@@ -16,6 +16,7 @@
 #include <boost/property_tree/ptree.hpp>
 
 #include "core/completed_request.hpp"
+#include "core/stream_info.hpp"
 
 namespace libcamera
 {
@@ -54,8 +55,7 @@ public:
 
 	// Convert YUV420 image to RGB. We crop from the centre of the image if the src
 	// image is larger than the destination.
-	static std::vector<uint8_t> Yuv420ToRgb(const uint8_t *src, int src_w, int src_h, int src_stride, int dst_w,
-											int dst_h, int dst_stride);
+	static std::vector<uint8_t> Yuv420ToRgb(const uint8_t *src, StreamInfo &src_info, StreamInfo &dst_info);
 
 protected:
 	// Helper to calculate the execution time of any callable object and return it in as a std::chrono::duration.

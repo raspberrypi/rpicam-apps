@@ -91,33 +91,33 @@ void MotionDetectStage::Read(boost::property_tree::ptree const &params)
 
 void MotionDetectStage::Configure()
 {
-	unsigned lores_width, lores_height;
-	stream_ = app_->LoresStream(&lores_width, &lores_height, &lores_stride_);
+	StreamInfo info;
+	stream_ = app_->LoresStream(&info);
 	if (!stream_)
 		return;
 
 	config_.hskip = std::max(config_.hskip, 1);
 	config_.vskip = std::max(config_.vskip, 1);
-	lores_width /= config_.hskip;
-	lores_height /= config_.vskip;
-	lores_stride_ *= config_.vskip;
+	info.width /= config_.hskip;
+	info.height /= config_.vskip;
+	lores_stride_ = info.stride * config_.vskip;
 
 	// Turn fractions of the lores image into actual pixel numbers. Store them as if in
 	// an image subsampled by hskip and vskip.
-	roi_x_ = config_.roi_x * lores_width;
-	roi_y_ = config_.roi_y * lores_height;
-	roi_width_ = config_.roi_width * lores_width;
-	roi_height_ = config_.roi_height * lores_height;
+	roi_x_ = config_.roi_x * info.width;
+	roi_y_ = config_.roi_y * info.height;
+	roi_width_ = config_.roi_width * info.width;
+	roi_height_ = config_.roi_height * info.height;
 	region_threshold_ = config_.region_threshold * roi_width_ * roi_height_;
 
-	roi_x_ = std::clamp(roi_x_, 0u, lores_width);
-	roi_y_ = std::clamp(roi_y_, 0u, lores_height);
-	roi_width_ = std::clamp(roi_width_, 0u, lores_width - roi_x_);
-	roi_height_ = std::clamp(roi_height_, 0u, lores_height - roi_y_);
+	roi_x_ = std::clamp(roi_x_, 0u, info.width);
+	roi_y_ = std::clamp(roi_y_, 0u, info.height);
+	roi_width_ = std::clamp(roi_width_, 0u, info.width - roi_x_);
+	roi_height_ = std::clamp(roi_height_, 0u, info.height - roi_y_);
 	region_threshold_ = std::clamp(region_threshold_, 0u, roi_width_ * roi_height_);
 
 	if (config_.verbose)
-		std::cerr << "Lores: " << lores_width << "x" << lores_height << " roi: (" << roi_x_ << "," << roi_y_ << ") "
+		std::cerr << "Lores: " << info.width << "x" << info.height << " roi: (" << roi_x_ << "," << roi_y_ << ") "
 				  << roi_width_ << "x" << roi_height_ << " threshold: " << region_threshold_ << std::endl;
 
 	previous_frame_.resize(roi_width_ * roi_height_);
