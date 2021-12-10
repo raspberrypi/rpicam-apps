@@ -39,11 +39,10 @@ MjpegEncoder::~MjpegEncoder()
 		std::cerr << "MjpegEncoder closed" << std::endl;
 }
 
-void MjpegEncoder::EncodeBuffer(int fd, size_t size, void *mem, unsigned int width, unsigned int height,
-								unsigned int stride, int64_t timestamp_us)
+void MjpegEncoder::EncodeBuffer(int fd, size_t size, void *mem, StreamInfo const &info, int64_t timestamp_us)
 {
 	std::lock_guard<std::mutex> lock(encode_mutex_);
-	EncodeItem item = { mem, width, height, stride, timestamp_us, index_++ };
+	EncodeItem item = { mem, info, timestamp_us, index_++ };
 	encode_queue_.push(item);
 	encode_cond_var_.notify_all();
 }
@@ -52,8 +51,8 @@ void MjpegEncoder::encodeJPEG(struct jpeg_compress_struct &cinfo, EncodeItem &it
 							  size_t &buffer_len)
 {
 	// Copied from YUV420_to_JPEG_fast in jpeg.cpp.
-	cinfo.image_width = item.width;
-	cinfo.image_height = item.height;
+	cinfo.image_width = item.info.width;
+	cinfo.image_height = item.info.height;
 	cinfo.input_components = 3;
 	cinfo.in_color_space = JCS_YCbCr;
 	cinfo.restart_interval = 0;
@@ -67,21 +66,21 @@ void MjpegEncoder::encodeJPEG(struct jpeg_compress_struct &cinfo, EncodeItem &it
 	jpeg_mem_dest(&cinfo, &encoded_buffer, &jpeg_mem_len);
 	jpeg_start_compress(&cinfo, TRUE);
 
-	int stride2 = item.stride / 2;
+	int stride2 = item.info.stride / 2;
 	uint8_t *Y = (uint8_t *)item.mem;
-	uint8_t *U = (uint8_t *)Y + item.stride * item.height;
-	uint8_t *V = (uint8_t *)U + stride2 * (item.height / 2);
-	uint8_t *Y_max = U - item.stride;
+	uint8_t *U = (uint8_t *)Y + item.info.stride * item.info.height;
+	uint8_t *V = (uint8_t *)U + stride2 * (item.info.height / 2);
+	uint8_t *Y_max = U - item.info.stride;
 	uint8_t *U_max = V - stride2;
-	uint8_t *V_max = U_max + stride2 * (item.height / 2);
+	uint8_t *V_max = U_max + stride2 * (item.info.height / 2);
 
 	JSAMPROW y_rows[16];
 	JSAMPROW u_rows[8];
 	JSAMPROW v_rows[8];
 
-	for (uint8_t *Y_row = Y, *U_row = U, *V_row = V; cinfo.next_scanline < item.height;)
+	for (uint8_t *Y_row = Y, *U_row = U, *V_row = V; cinfo.next_scanline < item.info.height;)
 	{
-		for (int i = 0; i < 16; i++, Y_row += item.stride)
+		for (int i = 0; i < 16; i++, Y_row += item.info.stride)
 			y_rows[i] = std::min(Y_row, Y_max);
 		for (int i = 0; i < 8; i++, U_row += stride2, V_row += stride2)
 			u_rows[i] = std::min(U_row, U_max), v_rows[i] = std::min(V_row, V_max);

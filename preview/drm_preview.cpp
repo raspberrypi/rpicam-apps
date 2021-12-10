@@ -22,7 +22,7 @@ public:
 	~DrmPreview();
 	// Display the buffer. You get given the fd back in the BufferDoneCallback
 	// once its available for re-use.
-	virtual void Show(int fd, libcamera::Span<uint8_t> span, int width, int height, int stride) override;
+	virtual void Show(int fd, libcamera::Span<uint8_t> span, StreamInfo const &info) override;
 	// Reset the preview window, clearing the current buffers and being ready to
 	// show new ones.
 	virtual void Reset() override;
@@ -39,13 +39,11 @@ private:
 		Buffer() : fd(-1) {}
 		int fd;
 		size_t size;
-		int width;
-		int height;
-		int stride;
+		StreamInfo info;
 		uint32_t bo_handle;
 		unsigned int fb_handle;
 	};
-	void makeBuffer(int fd, size_t size, unsigned int width, unsigned int height, unsigned int stride, Buffer &buffer);
+	void makeBuffer(int fd, size_t size, StreamInfo const &info, Buffer &buffer);
 	void findCrtc();
 	void findPlane();
 	int drmfd_;
@@ -269,41 +267,39 @@ DrmPreview::~DrmPreview()
 	close(drmfd_);
 }
 
-void DrmPreview::makeBuffer(int fd, size_t size, unsigned int width, unsigned int height, unsigned int stride,
-							Buffer &buffer)
+void DrmPreview::makeBuffer(int fd, size_t size, StreamInfo const &info, Buffer &buffer)
 {
 	buffer.fd = fd;
 	buffer.size = size;
-	buffer.width = width;
-	buffer.height = height;
-	buffer.stride = stride;
+	buffer.info = info;
 
 	if (drmPrimeFDToHandle(drmfd_, fd, &buffer.bo_handle))
 		throw std::runtime_error("drmPrimeFDToHandle failed for fd " + std::to_string(fd));
 
-	uint32_t offsets[4] = { 0, stride * height, stride * height + (stride / 2) * (height / 2) };
-	uint32_t pitches[4] = { stride, stride / 2, stride / 2 };
+	uint32_t offsets[4] =
+		{ 0, info.stride * info.height, info.stride * info.height + (info.stride / 2) * (info.height / 2) };
+	uint32_t pitches[4] = { info.stride, info.stride / 2, info.stride / 2 };
 	uint32_t bo_handles[4] = { buffer.bo_handle, buffer.bo_handle, buffer.bo_handle };
 
-	if (drmModeAddFB2(drmfd_, width, height, out_fourcc_, bo_handles, pitches, offsets, &buffer.fb_handle, 0))
+	if (drmModeAddFB2(drmfd_, info.width, info.height, out_fourcc_, bo_handles, pitches, offsets, &buffer.fb_handle, 0))
 		throw std::runtime_error("drmModeAddFB2 failed: " + std::string(ERRSTR));
 }
 
-void DrmPreview::Show(int fd, libcamera::Span<uint8_t> span, int width, int height, int stride)
+void DrmPreview::Show(int fd, libcamera::Span<uint8_t> span, StreamInfo const &info)
 {
 	Buffer &buffer = buffers_[fd];
 	if (buffer.fd == -1)
-		makeBuffer(fd, span.size(), width, height, stride, buffer);
+		makeBuffer(fd, span.size(), info, buffer);
 
 	unsigned int x_off = 0, y_off = 0;
 	unsigned int w = width_, h = height_;
-	if (width * height_ > width_ * height)
-		h = width_ * height / width, y_off = (height_ - h) / 2;
+	if (info.width * height_ > width_ * info.height)
+		h = width_ * info.height / info.width, y_off = (height_ - h) / 2;
 	else
-		w = height_ * width / height, x_off = (width_ - w) / 2;
+		w = height_ * info.width / info.height, x_off = (width_ - w) / 2;
 
 	if (drmModeSetPlane(drmfd_, planeId_, crtcId_, buffer.fb_handle, 0, x_off + x_, y_off + y_, w, h, 0, 0,
-						buffer.width << 16, buffer.height << 16))
+						buffer.info.width << 16, buffer.info.height << 16))
 		throw std::runtime_error("drmModeSetPlane failed: " + std::string(ERRSTR));
 	if (last_fd_ >= 0)
 		done_callback_(last_fd_);

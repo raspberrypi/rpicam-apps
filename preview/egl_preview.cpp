@@ -30,7 +30,7 @@ public:
 	virtual void SetInfoText(const std::string &text) override;
 	// Display the buffer. You get given the fd back in the BufferDoneCallback
 	// once its available for re-use.
-	virtual void Show(int fd, libcamera::Span<uint8_t> span, int width, int height, int stride) override;
+	virtual void Show(int fd, libcamera::Span<uint8_t> span, StreamInfo const &info) override;
 	// Reset the preview window, clearing the current buffers and being ready to
 	// show new ones.
 	virtual void Reset() override;
@@ -49,13 +49,11 @@ private:
 		Buffer() : fd(-1) {}
 		int fd;
 		size_t size;
-		int width;
-		int height;
-		int stride;
+		StreamInfo info;
 		GLuint texture;
 	};
 	void makeWindow(char const *name);
-	void makeBuffer(int fd, size_t size, int width, int height, int stride, Buffer &buffer);
+	void makeBuffer(int fd, size_t size, StreamInfo const &info, Buffer &buffer);
 	::Display *display_;
 	EGLDisplay egl_display_;
 	Window window_;
@@ -338,36 +336,34 @@ void EglPreview::makeWindow(char const *name)
 	eglMakeCurrent(egl_display_, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
 }
 
-void EglPreview::makeBuffer(int fd, size_t size, int width, int height, int stride, Buffer &buffer)
+void EglPreview::makeBuffer(int fd, size_t size, StreamInfo const &info, Buffer &buffer)
 {
 	if (first_time_)
 	{
 		// This stuff has to be delayed until we know we're in the thread doing the display.
 		if (!eglMakeCurrent(egl_display_, egl_surface_, egl_surface_, egl_context_))
 			throw std::runtime_error("eglMakeCurrent failed");
-		gl_setup(width, height, width_, height_);
+		gl_setup(info.width, info.height, width_, height_);
 		first_time_ = false;
 	}
 
 	buffer.fd = fd;
 	buffer.size = size;
-	buffer.width = width;
-	buffer.height = height;
-	buffer.stride = stride;
+	buffer.info = info;
 
 	EGLint attribs[] = {
-		EGL_WIDTH, width,
-		EGL_HEIGHT, height,
+		EGL_WIDTH, static_cast<EGLint>(info.width),
+		EGL_HEIGHT, static_cast<EGLint>(info.height),
 		EGL_LINUX_DRM_FOURCC_EXT, DRM_FORMAT_YUV420,
 		EGL_DMA_BUF_PLANE0_FD_EXT, fd,
 		EGL_DMA_BUF_PLANE0_OFFSET_EXT, 0,
-		EGL_DMA_BUF_PLANE0_PITCH_EXT, stride,
+		EGL_DMA_BUF_PLANE0_PITCH_EXT, static_cast<EGLint>(info.stride),
 		EGL_DMA_BUF_PLANE1_FD_EXT, fd,
-		EGL_DMA_BUF_PLANE1_OFFSET_EXT, stride * height,
-		EGL_DMA_BUF_PLANE1_PITCH_EXT, stride / 2,
+		EGL_DMA_BUF_PLANE1_OFFSET_EXT, static_cast<EGLint>(info.stride * info.height),
+		EGL_DMA_BUF_PLANE1_PITCH_EXT, static_cast<EGLint>(info.stride / 2),
 		EGL_DMA_BUF_PLANE2_FD_EXT, fd,
-		EGL_DMA_BUF_PLANE2_OFFSET_EXT, stride * height + (stride / 2) * (height / 2),
-		EGL_DMA_BUF_PLANE2_PITCH_EXT, stride / 2,
+		EGL_DMA_BUF_PLANE2_OFFSET_EXT, static_cast<EGLint>(info.stride * info.height + (info.stride / 2) * (info.height / 2)),
+		EGL_DMA_BUF_PLANE2_PITCH_EXT, static_cast<EGLint>(info.stride / 2),
 		EGL_NONE
 	};
 
@@ -390,11 +386,11 @@ void EglPreview::SetInfoText(const std::string &text)
 		XStoreName(display_, window_, text.c_str());
 }
 
-void EglPreview::Show(int fd, libcamera::Span<uint8_t> span, int width, int height, int stride)
+void EglPreview::Show(int fd, libcamera::Span<uint8_t> span, StreamInfo const &info)
 {
 	Buffer &buffer = buffers_[fd];
 	if (buffer.fd == -1)
-		makeBuffer(fd, span.size(), width, height, stride, buffer);
+		makeBuffer(fd, span.size(), info, buffer);
 
 	glClearColor(0, 0, 0, 0);
 	glClear(GL_COLOR_BUFFER_BIT);

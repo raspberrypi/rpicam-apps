@@ -79,33 +79,33 @@ public:
 		thread_.join();
 	}
 	void SetInfoText(const std::string &text) override { main_window_->setWindowTitle(QString::fromStdString(text)); }
-	virtual void Show(int fd, libcamera::Span<uint8_t> span, int width, int height, int stride) override
+	virtual void Show(int fd, libcamera::Span<uint8_t> span, StreamInfo const &info) override
 	{
 		// Cache the x sampling locations for speed. This is a quick nearest neighbour resize.
-		if (last_image_width_ != width)
+		if (last_image_width_ != info.width)
 		{
-			last_image_width_ = width;
+			last_image_width_ = info.width;
 			x_locations_.resize(window_width_);
-			for (int i = 0; i < window_width_; i++)
-				x_locations_[i] = (i * (width - 1) + (window_width_ - 1) / 2) / (window_width_ - 1);
+			for (unsigned int i = 0; i < window_width_; i++)
+				x_locations_[i] = (i * (info.width - 1) + (window_width_ - 1) / 2) / (window_width_ - 1);
 		}
 
 		uint8_t *Y_start = span.data();
-		uint8_t *U_start = Y_start + stride * height;
-		int uv_size = (stride / 2) * (height / 2);
+		uint8_t *U_start = Y_start + info.stride * info.height;
+		int uv_size = (info.stride / 2) * (info.height / 2);
 		uint8_t *dest = pane_->image.bits();
 
 		// Possibly this should be locked in case a repaint is happening? In practice the risk
 		// is only that there might be some tearing, so I don't think we worry. We could speed
 		// it up by getting the ISP to supply RGB, but I'm not sure I want to handle that extra
 		// possibility in our main application code, so we'll put up with the slow conversion.
-		for (int y = 0; y < window_height_; y++)
+		for (unsigned int y = 0; y < window_height_; y++)
 		{
-			int row = (y * (height - 1) + (window_height_ - 1) / 2) / (window_height_ - 1);
-			uint8_t *Y_row = Y_start + row * stride;
-			uint8_t *U_row = U_start + (row / 2) * (stride / 2);
+			int row = (y * (info.height - 1) + (window_height_ - 1) / 2) / (window_height_ - 1);
+			uint8_t *Y_row = Y_start + row * info.stride;
+			uint8_t *U_row = U_start + (row / 2) * (info.stride / 2);
 			uint8_t *V_row = U_row + uv_size;
-			for (int x = 0; x < window_width_;)
+			for (unsigned int x = 0; x < window_width_;)
 			{
 				int y_off0 = x_locations_[x++];
 				int y_off1 = x_locations_[x++];
@@ -176,8 +176,8 @@ private:
 	MyWidget *pane_ = nullptr;
 	std::thread thread_;
 	std::vector<uint16_t> x_locations_;
-	int last_image_width_ = 0;
-	int window_width_, window_height_;
+	unsigned int last_image_width_ = 0;
+	unsigned int window_width_, window_height_;
 	std::mutex mutex_;
 	std::condition_variable cond_var_;
 };
