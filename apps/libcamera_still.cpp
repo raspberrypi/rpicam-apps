@@ -75,20 +75,17 @@ static void save_image(LibcameraStillApp &app, CompletedRequestPtr &payload, Str
 {
 	StillOptions const *options = app.GetOptions();
 	StreamInfo info = app.GetStreamInfo(stream);
-	libcamera::PixelFormat const &pixel_format = stream->configuration().pixelFormat;
 	const std::vector<libcamera::Span<uint8_t>> mem = app.Mmap(payload->buffers[stream]);
 	if (stream == app.RawStream())
-		dng_save(mem, info.width, info.height, info.stride, pixel_format, payload->metadata, filename,
-				 app.CameraId(), options);
+		dng_save(mem, info, payload->metadata, filename, app.CameraId(), options);
 	else if (options->encoding == "jpg")
-		jpeg_save(mem, info.width, info.height, info.stride, pixel_format, payload->metadata, filename,
-				  app.CameraId(), options);
+		jpeg_save(mem, info, payload->metadata, filename, app.CameraId(), options);
 	else if (options->encoding == "png")
-		png_save(mem, info.width, info.height, info.stride, pixel_format, filename, options);
+		png_save(mem, info, filename, options);
 	else if (options->encoding == "bmp")
-		bmp_save(mem, info.width, info.height, info.stride, pixel_format, filename, options);
+		bmp_save(mem, info, filename, options);
 	else
-		yuv_save(mem, info.width, info.height, info.stride, pixel_format, filename, options);
+		yuv_save(mem, info, filename, options);
 	if (options->verbose)
 		std::cerr << "Saved image " << info.width << " x " << info.height << " to file " << filename << std::endl;
 }

@@ -16,12 +16,12 @@
 
 #include <libcamera/control_ids.h>
 #include <libcamera/formats.h>
-#include <libcamera/pixel_format.h>
 
 #include <jpeglib.h>
 #include <libexif/exif-data.h>
 
 #include "core/still_options.hpp"
+#include "core/stream_info.hpp"
 
 #if JPEG_LIB_VERSION_MAJOR > 9 || (JPEG_LIB_VERSION_MAJOR == 9 && JPEG_LIB_VERSION_MINOR >= 4)
 typedef size_t jpeg_mem_len_t;
@@ -250,8 +250,8 @@ void exif_read_tag(ExifData *exif, char const *str)
 	}
 }
 
-static void YUYV_to_JPEG(const uint8_t *input, const unsigned int input_width, const unsigned int input_height,
-						 const unsigned int stride, const unsigned int output_width, const unsigned int output_height,
+static void YUYV_to_JPEG(const uint8_t *input, StreamInfo const &info,
+						 const unsigned int output_width, const unsigned int output_height,
 						 const int quality, const unsigned int restart, uint8_t *&jpeg_buffer, jpeg_mem_len_t &jpeg_len)
 {
 	struct jpeg_compress_struct cinfo;
@@ -282,7 +282,7 @@ static void YUYV_to_JPEG(const uint8_t *input, const unsigned int input_width, c
 	std::vector<unsigned int> h_offset(output_width3);
 	for (unsigned int i = 0, k = 0; i < output_width; i++)
 	{
-		unsigned int off = (i * input_width) / output_width * 2;
+		unsigned int off = (i * info.width) / output_width * 2;
 		unsigned int off_align = off & ~3;
 		h_offset[k++] = off;
 		h_offset[k++] = off_align + 1;
@@ -290,7 +290,7 @@ static void YUYV_to_JPEG(const uint8_t *input, const unsigned int input_width, c
 	}
 	while (cinfo.next_scanline < output_height)
 	{
-		unsigned int offset = ((cinfo.next_scanline * input_height) / output_height) * stride;
+		unsigned int offset = ((cinfo.next_scanline * info.height) / output_height) * info.stride;
 		for (unsigned int k = 0; k < output_width3; k += 3)
 		{
 			tmp_row[k] = input[offset + h_offset[k]];
@@ -304,8 +304,8 @@ static void YUYV_to_JPEG(const uint8_t *input, const unsigned int input_width, c
 	jpeg_destroy_compress(&cinfo);
 }
 
-static void YUV420_to_JPEG_fast(const uint8_t *input, const unsigned int width, const unsigned int height,
-								const unsigned int stride, const int quality, const unsigned int restart,
+static void YUV420_to_JPEG_fast(const uint8_t *input, StreamInfo const &info,
+								const int quality, const unsigned int restart,
 								uint8_t *&jpeg_buffer, jpeg_mem_len_t &jpeg_len)
 {
 	struct jpeg_compress_struct cinfo;
@@ -314,8 +314,8 @@ static void YUV420_to_JPEG_fast(const uint8_t *input, const unsigned int width, 
 	cinfo.err = jpeg_std_error(&jerr);
 	jpeg_create_compress(&cinfo);
 
-	cinfo.image_width = width;
-	cinfo.image_height = height;
+	cinfo.image_width = info.width;
+	cinfo.image_height = info.height;
 	cinfo.input_components = 3;
 	cinfo.in_color_space = JCS_YCbCr;
 	cinfo.restart_interval = restart;
@@ -328,21 +328,21 @@ static void YUV420_to_JPEG_fast(const uint8_t *input, const unsigned int width, 
 	jpeg_mem_dest(&cinfo, &jpeg_buffer, &jpeg_len);
 	jpeg_start_compress(&cinfo, TRUE);
 
-	int stride2 = stride / 2;
+	int stride2 = info.stride / 2;
 	uint8_t *Y = (uint8_t *)input;
-	uint8_t *U = (uint8_t *)Y + stride * height;
-	uint8_t *V = (uint8_t *)U + stride2 * (height / 2);
-	uint8_t *Y_max = U - stride;
+	uint8_t *U = (uint8_t *)Y + info.stride * info.height;
+	uint8_t *V = (uint8_t *)U + stride2 * (info.height / 2);
+	uint8_t *Y_max = U - info.stride;
 	uint8_t *U_max = V - stride2;
-	uint8_t *V_max = U_max + stride2 * (height / 2);
+	uint8_t *V_max = U_max + stride2 * (info.height / 2);
 
 	JSAMPROW y_rows[16];
 	JSAMPROW u_rows[8];
 	JSAMPROW v_rows[8];
 
-	for (uint8_t *Y_row = Y, *U_row = U, *V_row = V; cinfo.next_scanline < height;)
+	for (uint8_t *Y_row = Y, *U_row = U, *V_row = V; cinfo.next_scanline < info.height;)
 	{
-		for (int i = 0; i < 16; i++, Y_row += stride)
+		for (int i = 0; i < 16; i++, Y_row += info.stride)
 			y_rows[i] = std::min(Y_row, Y_max);
 		for (int i = 0; i < 8; i++, U_row += stride2, V_row += stride2)
 			u_rows[i] = std::min(U_row, U_max), v_rows[i] = std::min(V_row, V_max);
@@ -355,14 +355,14 @@ static void YUV420_to_JPEG_fast(const uint8_t *input, const unsigned int width, 
 	jpeg_destroy_compress(&cinfo);
 }
 
-static void YUV420_to_JPEG(const uint8_t *input, const unsigned int input_width, const unsigned int input_height,
-						   const unsigned int stride, const unsigned int output_width, const unsigned int output_height,
+static void YUV420_to_JPEG(const uint8_t *input, StreamInfo const &info,
+						   const unsigned int output_width, const unsigned int output_height,
 						   const int quality, const unsigned int restart, uint8_t *&jpeg_buffer,
 						   jpeg_mem_len_t &jpeg_len)
 {
-	if (input_width == output_width && input_height == output_height)
+	if (info.width == output_width && info.height == output_height)
 	{
-		YUV420_to_JPEG_fast(input, input_width, input_height, stride, quality, restart, jpeg_buffer, jpeg_len);
+		YUV420_to_JPEG_fast(input, info, quality, restart, jpeg_buffer, jpeg_len);
 		return;
 	}
 
@@ -391,22 +391,22 @@ static void YUV420_to_JPEG(const uint8_t *input, const unsigned int input_width,
 	jrow[0] = &tmp_row[0];
 
 	const uint8_t *Y = input;
-	const uint8_t *U = Y + stride * input_height;
-	const uint8_t *V = U + (stride / 2) * (input_height / 2);
+	const uint8_t *U = Y + info.stride * info.height;
+	const uint8_t *V = U + (info.stride / 2) * (info.height / 2);
 
 	// Pre-calculate the horizontal offsets to speed up the main loop.
 	std::vector<unsigned int> h_offset(output_width3);
 	for (unsigned int i = 0, k = 0; i < output_width; i++)
 	{
-		unsigned int off = (i * input_width) / output_width;
+		unsigned int off = (i * info.width) / output_width;
 		h_offset[k++] = off;
 		h_offset[k++] = off / 2;
 		h_offset[k++] = off / 2;
 	}
 	while (cinfo.next_scanline < output_height)
 	{
-		unsigned int offset = ((cinfo.next_scanline * input_height) / output_height) * stride;
-		unsigned int offset_uv = (((cinfo.next_scanline / 2) * input_height) / output_height) * (stride / 2);
+		unsigned int offset = ((cinfo.next_scanline * info.height) / output_height) * info.stride;
+		unsigned int offset_uv = (((cinfo.next_scanline / 2) * info.height) / output_height) * (info.stride / 2);
 		for (unsigned int k = 0; k < output_width3; k += 3)
 		{
 			tmp_row[k] = Y[offset + h_offset[k]];
@@ -420,22 +420,22 @@ static void YUV420_to_JPEG(const uint8_t *input, const unsigned int input_width,
 	jpeg_destroy_compress(&cinfo);
 }
 
-static void YUV_to_JPEG(PixelFormat const &pixel_format, const uint8_t *input, const int input_width,
-						const int input_height, const int stride, const int output_width, const int output_height,
-						const int quality, const unsigned int restart, uint8_t *&jpeg_buffer, jpeg_mem_len_t &jpeg_len)
+static void YUV_to_JPEG(const uint8_t *input, StreamInfo const &info,
+						const int output_width, const int output_height, const int quality,
+						const unsigned int restart, uint8_t *&jpeg_buffer, jpeg_mem_len_t &jpeg_len)
 {
-	if (pixel_format == libcamera::formats::YUYV)
-		YUYV_to_JPEG(input, input_width, input_height, stride, output_width, output_height, quality, restart,
+	if (info.pixel_format == libcamera::formats::YUYV)
+		YUYV_to_JPEG(input, info, output_width, output_height, quality, restart,
 					 jpeg_buffer, jpeg_len);
-	else if (pixel_format == libcamera::formats::YUV420)
-		YUV420_to_JPEG(input, input_width, input_height, stride, output_width, output_height, quality, restart,
+	else if (info.pixel_format == libcamera::formats::YUV420)
+		YUV420_to_JPEG(input, info, output_width, output_height, quality, restart,
 					   jpeg_buffer, jpeg_len);
 	else
 		throw std::runtime_error("unsupported YUV format in JPEG encode");
 }
 
-static void create_exif_data(PixelFormat const &pixel_format, std::vector<libcamera::Span<uint8_t>> const &mem, int w,
-							 int h, int stride, ControlList const &metadata, std::string const &cam_name,
+static void create_exif_data(std::vector<libcamera::Span<uint8_t>> const &mem,
+							 StreamInfo const &info, ControlList const &metadata, std::string const &cam_name,
 							 StillOptions const *options, uint8_t *&exif_buffer, unsigned int &exif_len,
 							 uint8_t *&thumb_buffer, jpeg_mem_len_t &thumb_len)
 {
@@ -528,7 +528,7 @@ static void create_exif_data(PixelFormat const &pixel_format, std::vector<libcam
 			int q = options->thumb_quality;
 			for (; q > 0; q -= 5)
 			{
-				YUV_to_JPEG(pixel_format, (uint8_t *)(mem[0].data()), w, h, stride, options->thumb_width,
+				YUV_to_JPEG((uint8_t *)(mem[0].data()), info, options->thumb_width,
 							options->thumb_height, q, 0, thumb_buffer, thumb_len);
 				if (thumb_len < 60000) // entire EXIF data must be < 65536, so this should be safe
 					break;
@@ -565,8 +565,8 @@ static void create_exif_data(PixelFormat const &pixel_format, std::vector<libcam
 	}
 }
 
-void jpeg_save(std::vector<libcamera::Span<uint8_t>> const &mem, unsigned int w, unsigned int h, unsigned int stride,
-			   PixelFormat const &pixel_format, ControlList const &metadata, std::string const &filename,
+void jpeg_save(std::vector<libcamera::Span<uint8_t>> const &mem, StreamInfo const &info,
+			   ControlList const &metadata, std::string const &filename,
 			   std::string const &cam_name, StillOptions const *options)
 {
 	FILE *fp = nullptr;
@@ -576,7 +576,7 @@ void jpeg_save(std::vector<libcamera::Span<uint8_t>> const &mem, unsigned int w,
 
 	try
 	{
-		if ((w & 1) || (h & 1))
+		if ((info.width & 1) || (info.height & 1))
 			throw std::runtime_error("both width and height must be even");
 		if (mem.size() != 1)
 			throw std::runtime_error("only single plane YUV supported");
@@ -585,15 +585,15 @@ void jpeg_save(std::vector<libcamera::Span<uint8_t>> const &mem, unsigned int w,
 
 		jpeg_mem_len_t thumb_len = 0; // stays zero if no thumbnail
 		unsigned int exif_len;
-		create_exif_data(pixel_format, mem, w, h, stride, metadata, cam_name, options, exif_buffer, exif_len,
+		create_exif_data(mem, info, metadata, cam_name, options, exif_buffer, exif_len,
 						 thumb_buffer, thumb_len);
 
 		// Make the full size JPEG (could probably be more efficient if we had
 		// YUV422 or YUV420 planar format).
 
 		jpeg_mem_len_t jpeg_len;
-		YUV_to_JPEG(pixel_format, (uint8_t *)(mem[0].data()), w, h, stride, w, h, options->quality, options->restart,
-					jpeg_buffer, jpeg_len);
+		YUV_to_JPEG((uint8_t *)(mem[0].data()), info, info.width, info.height, options->quality,
+					options->restart, jpeg_buffer, jpeg_len);
 		if (options->verbose)
 			std::cerr << "JPEG size is " << jpeg_len << std::endl;
 

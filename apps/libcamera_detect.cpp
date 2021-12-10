@@ -105,8 +105,7 @@ static void event_loop(LibcameraDetectApp &app)
 			filename[sizeof(filename) - 1] = 0;
 			options->framestart++;
 			std::cerr << "Save image " << filename << std::endl;
-			jpeg_save(mem, info.width, info.height, info.stride, stream->configuration().pixelFormat, completed_request->metadata,
-					  std::string(filename), app.CameraId(), options);
+			jpeg_save(mem, info, completed_request->metadata, std::string(filename), app.CameraId(), options);
 
 			// Restart camera in preview mode.
 			app.Teardown();

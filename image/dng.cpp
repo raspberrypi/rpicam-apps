@@ -9,11 +9,11 @@
 
 #include <libcamera/control_ids.h>
 #include <libcamera/formats.h>
-#include <libcamera/pixel_format.h>
 
 #include <tiffio.h>
 
 #include "core/still_options.hpp"
+#include "core/stream_info.hpp"
 
 using namespace libcamera;
 
@@ -41,10 +41,10 @@ static const std::map<PixelFormat, BayerFormat> bayer_formats =
 	{ formats::SGBRG12_CSI2P, { "GBRG-12", 12, TIFF_GBRG } },
 };
 
-static void unpack_10bit(uint8_t *src, unsigned int w, unsigned int h, unsigned int stride, uint16_t *dest)
+static void unpack_10bit(uint8_t *src, StreamInfo const &info, uint16_t *dest)
 {
-	unsigned int w_align = w & ~3;
-	for (unsigned int y = 0; y < h; y++, src += stride)
+	unsigned int w_align = info.width & ~3;
+	for (unsigned int y = 0; y < info.height; y++, src += info.stride)
 	{
 		uint8_t *ptr = src;
 		unsigned int x;
@@ -55,15 +55,15 @@ static void unpack_10bit(uint8_t *src, unsigned int w, unsigned int h, unsigned 
 			*dest++ = (ptr[2] << 2) | ((ptr[4] >> 4) & 3);
 			*dest++ = (ptr[3] << 2) | ((ptr[4] >> 6) & 3);
 		}
-		for (; x < w; x++)
+		for (; x < info.width; x++)
 			*dest++ = (ptr[x & 3] << 2) | ((ptr[4] >> ((x & 3) << 1)) & 3);
 	}
 }
 
-static void unpack_12bit(uint8_t *src, unsigned int w, unsigned int h, unsigned int stride, uint16_t *dest)
+static void unpack_12bit(uint8_t *src, StreamInfo const &info, uint16_t *dest)
 {
-	unsigned int w_align = w & ~1;
-	for (unsigned int y = 0; y < h; y++, src += stride)
+	unsigned int w_align = info.width & ~1;
+	for (unsigned int y = 0; y < info.height; y++, src += info.stride)
 	{
 		uint8_t *ptr = src;
 		unsigned int x;
@@ -72,7 +72,7 @@ static void unpack_12bit(uint8_t *src, unsigned int w, unsigned int h, unsigned 
 			*dest++ = (ptr[0] << 4) | ((ptr[2] >> 0) & 15);
 			*dest++ = (ptr[1] << 4) | ((ptr[2] >> 4) & 15);
 		}
-		if (x < w)
+		if (x < info.width)
 			*dest++ = (ptr[x & 1] << 4) | ((ptr[2] >> ((x & 1) << 2)) & 15);
 	}
 }
@@ -126,23 +126,23 @@ Matrix(float m0, float m1, float m2,
 	}
 };
 
-void dng_save(std::vector<libcamera::Span<uint8_t>> const &mem, unsigned int w, unsigned int h, unsigned int stride,
-			  PixelFormat const &pixel_format, ControlList const &metadata, std::string const &filename,
+void dng_save(std::vector<libcamera::Span<uint8_t>> const &mem, StreamInfo const &info,
+			  ControlList const &metadata, std::string const &filename,
 			  std::string const &cam_name, StillOptions const *options)
 {
 	// Check the Bayer format and unpack it to u16.
 
-	auto it = bayer_formats.find(pixel_format);
+	auto it = bayer_formats.find(info.pixel_format);
 	if (it == bayer_formats.end())
 		throw std::runtime_error("unsupported Bayer format");
 	BayerFormat const &bayer_format = it->second;
 	std::cerr << "Bayer format is " << bayer_format.name << "\n";
 
-	std::vector<uint16_t> buf(w * h);
+	std::vector<uint16_t> buf(info.width * info.height);
 	if (bayer_format.bits == 10)
-		unpack_10bit((uint8_t *)mem[0].data(), w, h, stride, &buf[0]);
+		unpack_10bit((uint8_t *)mem[0].data(), info, &buf[0]);
 	else if (bayer_format.bits == 12)
-		unpack_12bit((uint8_t *)mem[0].data(), w, h, stride, &buf[0]);
+		unpack_12bit((uint8_t *)mem[0].data(), info, &buf[0]);
 	else
 		throw std::runtime_error("unsupported bit depth " + std::to_string(bayer_format.bits));
 
@@ -233,8 +233,8 @@ void dng_save(std::vector<libcamera::Span<uint8_t>> const &mem, unsigned int w, 
 		// This is just the thumbnail, but put it first to help software that only
 		// reads the first IFD.
 		TIFFSetField(tif, TIFFTAG_SUBFILETYPE, 1);
-		TIFFSetField(tif, TIFFTAG_IMAGEWIDTH, w >> 4);
-		TIFFSetField(tif, TIFFTAG_IMAGELENGTH, h >> 4);
+		TIFFSetField(tif, TIFFTAG_IMAGEWIDTH, info.width >> 4);
+		TIFFSetField(tif, TIFFTAG_IMAGELENGTH, info.height >> 4);
 		TIFFSetField(tif, TIFFTAG_BITSPERSAMPLE, 8);
 		TIFFSetField(tif, TIFFTAG_COMPRESSION, COMPRESSION_NONE);
 		TIFFSetField(tif, TIFFTAG_PHOTOMETRIC, PHOTOMETRIC_RGB);
@@ -254,14 +254,14 @@ void dng_save(std::vector<libcamera::Span<uint8_t>> const &mem, unsigned int w, 
 		TIFFSetField(tif, TIFFTAG_EXIFIFD, offset_exififd);
 
 		// Make a small greyscale thumbnail, just to give some clue what's in here.
-		std::vector<uint8_t> thumb_buf((w >> 4) * 3);
+		std::vector<uint8_t> thumb_buf((info.width >> 4) * 3);
 
-		for (unsigned int y = 0; y < (h >> 4); y++)
+		for (unsigned int y = 0; y < (info.height >> 4); y++)
 		{
-			for (unsigned int x = 0; x < (w >> 4); x++)
+			for (unsigned int x = 0; x < (info.width >> 4); x++)
 			{
-				unsigned int off = (y * w + x) << 4;
-				int grey = buf[off] + buf[off + 1] + buf[off + w] + buf[off + w + 1];
+				unsigned int off = (y * info.width + x) << 4;
+				int grey = buf[off] + buf[off + 1] + buf[off + info.width] + buf[off + info.width + 1];
 				grey = white * sqrt(grey / (double)white); // fake "gamma"
 				thumb_buf[3 * x] = thumb_buf[3 * x + 1] = thumb_buf[3 * x + 2] = grey >> (bayer_format.bits - 6);
 			}
@@ -273,8 +273,8 @@ void dng_save(std::vector<libcamera::Span<uint8_t>> const &mem, unsigned int w, 
 
 		// The main image (actually tends to show up as "sub-image 1").
 		TIFFSetField(tif, TIFFTAG_SUBFILETYPE, 0);
-		TIFFSetField(tif, TIFFTAG_IMAGEWIDTH, w);
-		TIFFSetField(tif, TIFFTAG_IMAGELENGTH, h);
+		TIFFSetField(tif, TIFFTAG_IMAGEWIDTH, info.width);
+		TIFFSetField(tif, TIFFTAG_IMAGELENGTH, info.height);
 		TIFFSetField(tif, TIFFTAG_BITSPERSAMPLE, 16);
 		TIFFSetField(tif, TIFFTAG_PHOTOMETRIC, PHOTOMETRIC_CFA);
 		TIFFSetField(tif, TIFFTAG_SAMPLESPERPIXEL, 1);
@@ -290,9 +290,9 @@ void dng_save(std::vector<libcamera::Span<uint8_t>> const &mem, unsigned int w, 
 		TIFFSetField(tif, TIFFTAG_BLACKLEVELREPEATDIM, &black_level_repeat_dim);
 		TIFFSetField(tif, TIFFTAG_BLACKLEVEL, 4, &black_levels);
 
-		for (unsigned int y = 0; y < h; y++)
+		for (unsigned int y = 0; y < info.height; y++)
 		{
-			if (TIFFWriteScanline(tif, &buf[w * y], y, 0) != 1)
+			if (TIFFWriteScanline(tif, &buf[info.width * y], y, 0) != 1)
 				throw std::runtime_error("error writing DNG image data");
 		}
 

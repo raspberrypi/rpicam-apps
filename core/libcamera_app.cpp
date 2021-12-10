@@ -628,6 +628,7 @@ StreamInfo LibcameraApp::GetStreamInfo(Stream const *stream) const
 	info.width = cfg.size.width;
 	info.height = cfg.size.height;
 	info.stride = cfg.stride;
+	info.pixel_format = stream->configuration().pixelFormat;
 	return info;
 }
 
@@ -809,7 +810,7 @@ void LibcameraApp::previewThread()
 			msg_queue_.Post(Msg(MsgType::Quit));
 		}
 		preview_frames_displayed_++;
-		preview_->Show(fd, span, info.width, info.height, info.stride);
+		preview_->Show(fd, span, info);
 		if (!options_->info_text.empty())
 		{
 			std::string s = frame_info.ToString(options_->info_text);
