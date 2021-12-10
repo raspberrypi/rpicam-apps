@@ -19,6 +19,7 @@
 #include "tensorflow/lite/kernels/register.h"
 
 #include "core/libcamera_app.hpp"
+#include "core/stream_info.hpp"
 
 #include "post_processing_stages/post_processing_stage.hpp"
 
@@ -85,11 +86,11 @@ protected:
 
 	// We run TFLite on the low resolution image, details of which are here.
 	libcamera::Stream *lores_stream_;
-	unsigned int lores_w_, lores_h_, lores_stride_;
+	StreamInfo lores_info_;
 
 	// The stage may or may not make use of the larger or "main" image stream.
 	libcamera::Stream *main_stream_;
-	unsigned int main_w_, main_h_, main_stride_;
+	StreamInfo main_stream_info_;
 
 	std::unique_ptr<tflite::FlatBufferModel> model_;
 	std::unique_ptr<tflite::Interpreter> interpreter_;

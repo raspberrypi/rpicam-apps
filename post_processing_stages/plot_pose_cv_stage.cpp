@@ -90,10 +90,9 @@ bool PlotPoseCvStage::Process(CompletedRequestPtr &completed_request)
 	if (!stream_)
 		return false;
 
-	unsigned int w, h, stride;
 	libcamera::Span<uint8_t> buffer = app_->Mmap(completed_request->buffers[stream_])[0];
 	uint32_t *ptr = (uint32_t *)buffer.data();
-	app_->StreamDimensions(stream_, &w, &h, &stride);
+	StreamInfo info = app_->GetStreamInfo(stream_);
 
 	std::vector<cv::Rect> rects;
 	std::vector<libcamera::Point> lib_locations;
@@ -105,7 +104,7 @@ bool PlotPoseCvStage::Process(CompletedRequestPtr &completed_request)
 
 	if (!confidences.empty() && !lib_locations.empty())
 	{
-		Mat image(h, w, CV_8U, ptr, stride);
+		Mat image(info.height, info.width, CV_8U, ptr, info.stride);
 		for (libcamera::Point lib_location : lib_locations)
 		{
 			Point cv_location;

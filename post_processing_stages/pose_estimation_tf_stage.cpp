@@ -96,8 +96,8 @@ void PoseEstimationTfStage::interpretOutputs()
 		libcamera::Point location_coord;
 		int x = heats_[i].x, y = heats_[i].y, j = (FEATURE_SIZE * 2) * (HEATMAP_DIMS * y + x) + i;
 
-		location_coord.y = (y * main_h_) / (HEATMAP_DIMS - 1) + offsets[j];
-		location_coord.x = (x * main_w_) / (HEATMAP_DIMS - 1) + offsets[j + FEATURE_SIZE];
+		location_coord.y = (y * main_stream_info_.height) / (HEATMAP_DIMS - 1) + offsets[j];
+		location_coord.x = (x * main_stream_info_.width) / (HEATMAP_DIMS - 1) + offsets[j + FEATURE_SIZE];
 
 		locations_.push_back(location_coord);
 	}

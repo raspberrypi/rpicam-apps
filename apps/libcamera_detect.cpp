@@ -95,8 +95,8 @@ static void event_loop(LibcameraDetectApp &app)
 			app.StopCamera();
 			last_capture_frame = completed_request->sequence;
 
-			unsigned int w, h, stride;
-			libcamera::Stream *stream = app.StillStream(&w, &h, &stride);
+			StreamInfo info;
+			libcamera::Stream *stream = app.StillStream(&info);
 			const std::vector<libcamera::Span<uint8_t>> mem = app.Mmap(completed_request->buffers[stream]);
 
 			// Make a filename for the output and save it.
@@ -105,7 +105,7 @@ static void event_loop(LibcameraDetectApp &app)
 			filename[sizeof(filename) - 1] = 0;
 			options->framestart++;
 			std::cerr << "Save image " << filename << std::endl;
-			jpeg_save(mem, w, h, stride, stream->configuration().pixelFormat, completed_request->metadata,
+			jpeg_save(mem, info.width, info.height, info.stride, stream->configuration().pixelFormat, completed_request->metadata,
 					  std::string(filename), app.CameraId(), options);
 
 			// Restart camera in preview mode.

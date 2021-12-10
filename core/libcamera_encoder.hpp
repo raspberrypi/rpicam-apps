@@ -30,8 +30,7 @@ public:
 	void EncodeBuffer(CompletedRequestPtr &completed_request, Stream *stream)
 	{
 		assert(encoder_);
-		unsigned int w, h, stride;
-		StreamDimensions(stream, &w, &h, &stride);
+		StreamInfo info = GetStreamInfo(stream);
 		FrameBuffer *buffer = completed_request->buffers[stream];
 		libcamera::Span span = Mmap(buffer)[0];
 		void *mem = span.data();
@@ -42,7 +41,8 @@ public:
 			std::lock_guard<std::mutex> lock(encode_buffer_queue_mutex_);
 			encode_buffer_queue_.push(completed_request); // creates a new reference
 		}
-		encoder_->EncodeBuffer(buffer->planes()[0].fd.get(), span.size(), mem, w, h, stride, timestamp_ns / 1000);
+		encoder_->EncodeBuffer(buffer->planes()[0].fd.get(), span.size(), mem, info.width, info.height, info.stride,
+							   timestamp_ns / 1000);
 	}
 	VideoOptions *GetOptions() const { return static_cast<VideoOptions *>(options_.get()); }
 	void StopEncoder() { encoder_.reset(); }
