@@ -8,19 +8,23 @@
 #include <map>
 #include <string>
 
-#include <libdrm/drm_fourcc.h>
-
-#include <X11/Xlib.h>
-#include <X11/Xutil.h>
-// X11 #defines Status in its headers, which is not nice!!
-#undef Status
-
-#include <epoxy/egl.h>
-#include <epoxy/gl.h>
+// Include libcamera stuff before X11, as X11 #defines both Status and None
+// which upsets the libcamera headers.
 
 #include "core/options.hpp"
 
 #include "preview.hpp"
+
+#include <libdrm/drm_fourcc.h>
+
+#include <X11/Xlib.h>
+#include <X11/Xutil.h>
+// We don't use Status below, so we could consider #undefining it here.
+// We do use None, so if we had to #undefine it we could replace it by zero
+// in what follows below.
+
+#include <epoxy/egl.h>
+#include <epoxy/gl.h>
 
 class EglPreview : public Preview
 {
