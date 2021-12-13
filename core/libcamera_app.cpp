@@ -478,9 +478,6 @@ void LibcameraApp::StopCamera()
 
 	msg_queue_.Clear();
 
-	if (preview_)
-		preview_->Reset();
-
 	while (!free_requests_.empty())
 		free_requests_.pop();
 
@@ -753,6 +750,7 @@ void LibcameraApp::previewDoneCallback(int fd)
 
 void LibcameraApp::startPreview()
 {
+	preview_abort_ = false;
 	preview_thread_ = std::thread(&LibcameraApp::previewThread, this);
 }
 
@@ -778,7 +776,10 @@ void LibcameraApp::previewThread()
 		{
 			std::unique_lock<std::mutex> lock(preview_item_mutex_);
 			if (preview_abort_)
+			{
+				preview_->Reset();
 				return;
+			}
 			else if (preview_item_.stream)
 				item = std::move(preview_item_); // re-use existing shared_ptr reference
 			else

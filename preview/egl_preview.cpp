@@ -413,6 +413,8 @@ void EglPreview::Reset()
 		glDeleteTextures(1, &it.second.texture);
 	buffers_.clear();
 	last_fd_ = -1;
+	eglMakeCurrent(egl_display_, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
+	first_time_ = true;
 }
 
 bool EglPreview::Quit()
