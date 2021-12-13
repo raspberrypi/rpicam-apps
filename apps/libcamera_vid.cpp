@@ -45,6 +45,7 @@ static int get_key_or_signal(VideoOptions const *options, pollfd p[1])
 			key = '\n';
 		else if (signal_received == SIGUSR2)
 			key = 'x';
+		signal_received = 0;
 	}
 	return key;
 }
