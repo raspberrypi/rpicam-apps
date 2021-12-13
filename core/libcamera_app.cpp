@@ -254,6 +254,7 @@ void LibcameraApp::ConfigureStill(unsigned int flags)
 		configuration_->at(0).size.width = options_->width;
 	if (options_->height)
 		configuration_->at(0).size.height = options_->height;
+	configuration_->at(0).colorSpace = libcamera::ColorSpace::Jpeg;
 	configuration_->transform = options_->transform;
 
 	post_processor_.AdjustConfig("still", &configuration_->at(0));
@@ -298,12 +299,17 @@ void LibcameraApp::ConfigureVideo(unsigned int flags)
 		throw std::runtime_error("failed to generate video configuration");
 
 	// Now we get to override any of the default settings from the options_->
-	configuration_->at(0).pixelFormat = libcamera::formats::YUV420;
-	configuration_->at(0).bufferCount = 6; // 6 buffers is better than 4
+	StreamConfiguration &cfg = configuration_->at(0);
+	cfg.pixelFormat = libcamera::formats::YUV420;
+	cfg.bufferCount = 6; // 6 buffers is better than 4
 	if (options_->width)
-		configuration_->at(0).size.width = options_->width;
+		cfg.size.width = options_->width;
 	if (options_->height)
-		configuration_->at(0).size.height = options_->height;
+		cfg.size.height = options_->height;
+	if (cfg.size.width >= 1280 || cfg.size.height >= 720)
+		cfg.colorSpace = libcamera::ColorSpace::Rec709;
+	else
+		cfg.colorSpace = libcamera::ColorSpace::Smpte170m;
 	configuration_->transform = options_->transform;
 
 	post_processor_.AdjustConfig("video", &configuration_->at(0));
@@ -613,6 +619,7 @@ StreamInfo LibcameraApp::GetStreamInfo(Stream const *stream) const
 	info.height = cfg.size.height;
 	info.stride = cfg.stride;
 	info.pixel_format = stream->configuration().pixelFormat;
+	info.colour_space = stream->configuration().colorSpace;
 	return info;
 }
 
