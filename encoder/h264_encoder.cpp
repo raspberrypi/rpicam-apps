@@ -27,6 +27,17 @@ static int xioctl(int fd, unsigned long ctl, void *arg)
 	return ret;
 }
 
+static int get_v4l2_colorspace(std::optional<libcamera::ColorSpace> const &cs)
+{
+	if (cs == libcamera::ColorSpace::Rec709)
+		return V4L2_COLORSPACE_REC709;
+	else if (cs == libcamera::ColorSpace::Smpte170m)
+		return V4L2_COLORSPACE_SMPTE170M;
+
+	std::cerr << "H264: surprising colour space: " << libcamera::ColorSpace::toString(cs) << std::endl;
+	return V4L2_COLORSPACE_SMPTE170M;
+}
+
 H264Encoder::H264Encoder(VideoOptions const *options, StreamInfo const &info)
 	: Encoder(options), abortPoll_(false), abortOutput_(false)
 {
@@ -103,8 +114,7 @@ H264Encoder::H264Encoder(VideoOptions const *options, StreamInfo const &info)
 	fmt.fmt.pix_mp.pixelformat = V4L2_PIX_FMT_YUV420;
 	fmt.fmt.pix_mp.plane_fmt[0].bytesperline = info.stride;
 	fmt.fmt.pix_mp.field = V4L2_FIELD_ANY;
-	// libcamera currently has no means to request the right colour space, hence:
-	fmt.fmt.pix_mp.colorspace = V4L2_COLORSPACE_JPEG;
+	fmt.fmt.pix_mp.colorspace = get_v4l2_colorspace(info.colour_space);
 	fmt.fmt.pix_mp.num_planes = 1;
 	if (xioctl(fd_, VIDIOC_S_FMT, &fmt) < 0)
 		throw std::runtime_error("failed to set output format");
