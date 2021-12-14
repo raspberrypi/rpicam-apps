@@ -95,6 +95,23 @@ public:
 		int uv_size = (info.stride / 2) * (info.height / 2);
 		uint8_t *dest = pane_->image.bits();
 
+		// Choose the right matrix to convert YUV back to RGB.
+		static const float YUV2RGB[3][9] = {
+			{ 1.0,   0.0, 1.402, 1.0,   -0.344, -0.714, 1.0,   1.772, 0.0 }, // JPEG
+			{ 1.164, 0.0, 1.596, 1.164, -0.392, -0.813, 1.164, 2.017, 0.0 }, // SMPTE170M
+			{ 1.164, 0.0, 1.793, 1.164, -0.213, -0.533, 1.164, 2.112, 0.0 }, // Rec709
+		};
+		const float *M = YUV2RGB[0];
+		if (info.colour_space == libcamera::ColorSpace::Jpeg)
+			M = YUV2RGB[0];
+		else if (info.colour_space == libcamera::ColorSpace::Smpte170m)
+			M = YUV2RGB[1];
+		else if (info.colour_space == libcamera::ColorSpace::Rec709)
+			M = YUV2RGB[2];
+		else
+			std::cerr << "QtPreview: unexpected colour space " << libcamera::ColorSpace::toString(info.colour_space)
+					  << std::endl;
+
 		// Possibly this should be locked in case a repaint is happening? In practice the risk
 		// is only that there might be some tearing, so I don't think we worry. We could speed
 		// it up by getting the ISP to supply RGB, but I'm not sure I want to handle that extra
@@ -121,13 +138,12 @@ public:
 				V0 -= 128;
 				U1 -= 128;
 				V1 -= 128;
-				// What colour space? For the purposes of a preview, we're not too bothered.
-				int R0 = Y0 + 1.402 * V0;
-				int G0 = Y0 - 0.345 * U0 - 0.714 * V0;
-				int B0 = Y0 + 1.771 * U0;
-				int R1 = Y1 + 1.402 * V1;
-				int G1 = Y1 - 0.345 * U1 - 0.714 * V1;
-				int B1 = Y1 + 1.771 * U1;
+				int R0 = M[0] * Y0 + M[2] * V0;
+				int G0 = M[3] * Y0 + M[4] * U0 + M[5] * V0;
+				int B0 = M[6] * Y0 + M[7] * U0;
+				int R1 = M[0] * Y1 + M[2] * V1;
+				int G1 = M[3] * Y1 + M[4] * U1 + M[5] * V1;
+				int B1 = M[6] * Y1 + M[7] * U1;
 				*(dest++) = std::clamp(R0, 0, 255);
 				*(dest++) = std::clamp(G0, 0, 255);
 				*(dest++) = std::clamp(B0, 0, 255);

@@ -340,6 +340,21 @@ void EglPreview::makeWindow(char const *name)
 	eglMakeCurrent(egl_display_, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
 }
 
+static void get_colour_space_info(std::optional<libcamera::ColorSpace> const &cs, EGLint &encoding, EGLint &range)
+{
+	encoding = EGL_ITU_REC601_EXT;
+	range = EGL_YUV_NARROW_RANGE_EXT;
+
+	if (cs == libcamera::ColorSpace::Jpeg)
+		range = EGL_YUV_FULL_RANGE_EXT;
+	else if (cs == libcamera::ColorSpace::Smpte170m)
+		/* all good */;
+	else if (cs == libcamera::ColorSpace::Rec709)
+		encoding = EGL_ITU_REC709_EXT;
+	else
+		std::cerr << "EglPreview: unexpected colour space " << libcamera::ColorSpace::toString(cs) << std::endl;
+}
+
 void EglPreview::makeBuffer(int fd, size_t size, StreamInfo const &info, Buffer &buffer)
 {
 	if (first_time_)
@@ -355,6 +370,9 @@ void EglPreview::makeBuffer(int fd, size_t size, StreamInfo const &info, Buffer 
 	buffer.size = size;
 	buffer.info = info;
 
+	EGLint encoding, range;
+	get_colour_space_info(info.colour_space, encoding, range);
+
 	EGLint attribs[] = {
 		EGL_WIDTH, static_cast<EGLint>(info.width),
 		EGL_HEIGHT, static_cast<EGLint>(info.height),
@@ -368,6 +386,8 @@ void EglPreview::makeBuffer(int fd, size_t size, StreamInfo const &info, Buffer 
 		EGL_DMA_BUF_PLANE2_FD_EXT, fd,
 		EGL_DMA_BUF_PLANE2_OFFSET_EXT, static_cast<EGLint>(info.stride * info.height + (info.stride / 2) * (info.height / 2)),
 		EGL_DMA_BUF_PLANE2_PITCH_EXT, static_cast<EGLint>(info.stride / 2),
+		EGL_YUV_COLOR_SPACE_HINT_EXT, encoding,
+		EGL_SAMPLE_RANGE_HINT_EXT, range,
 		EGL_NONE
 	};
 
