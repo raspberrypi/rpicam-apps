@@ -62,6 +62,7 @@ private:
 	int last_fd_;
 	unsigned int max_image_width_;
 	unsigned int max_image_height_;
+	bool first_time_;
 };
 
 #define ERRSTR strerror(errno)
@@ -210,6 +211,7 @@ void DrmPreview::findPlane()
 			}
 
 			planeId_ = plane->plane_id;
+
 			drmModeFreePlane(plane);
 			break;
 		}
@@ -223,7 +225,7 @@ void DrmPreview::findPlane()
 	drmModeFreePlaneResources(planes);
 }
 
-DrmPreview::DrmPreview(Options const *options) : Preview(options), last_fd_(-1)
+DrmPreview::DrmPreview(Options const *options) : Preview(options), last_fd_(-1), first_time_(true)
 {
 	drmfd_ = drmOpen("vc4", NULL);
 	if (drmfd_ < 0)
@@ -267,8 +269,93 @@ DrmPreview::~DrmPreview()
 	close(drmfd_);
 }
 
+// DRM doesn't seem to have userspace definitions of its enums, but the properties
+// contain enum-name-to-value tables. So the code below ends up using strings and
+// searching for name matches. I suppose it works...
+
+static void get_colour_space_info(std::optional<libcamera::ColorSpace> const &cs, char const *&encoding,
+								  char const *&range)
+{
+	static char const encoding_601[] = "601", encoding_709[] = "709";
+	static char const range_limited[] = "limited", range_full[] = "full";
+	encoding = encoding_601;
+	range = range_limited;
+
+	if (cs == libcamera::ColorSpace::Jpeg)
+		range = range_full;
+	else if (cs == libcamera::ColorSpace::Smpte170m)
+		/* all good */;
+	else if (cs == libcamera::ColorSpace::Rec709)
+		encoding = encoding_709;
+	else
+		std::cerr << "DrmPreview: unexpected colour space " << libcamera::ColorSpace::toString(cs) << std::endl;
+}
+
+static int drm_set_property(int fd, int plane_id, char const *name, char const *val)
+{
+	drmModeObjectPropertiesPtr properties = nullptr;
+	drmModePropertyPtr prop = nullptr;
+	int ret = -1;
+	properties = drmModeObjectGetProperties(fd, plane_id, DRM_MODE_OBJECT_PLANE);
+
+	for (unsigned int i = 0; i < properties->count_props; i++)
+	{
+		int prop_id = properties->props[i];
+		prop = drmModeGetProperty(fd, prop_id);
+		if (!prop)
+			continue;
+
+		if (!drm_property_type_is(prop, DRM_MODE_PROP_ENUM) || !strstr(prop->name, name))
+		{
+			drmModeFreeProperty(prop);
+			prop = nullptr;
+			continue;
+		}
+
+		// We have found the right property from its name, now search the enum table
+		// for the numerical value that corresponds to the value name that we have.
+		for (int j = 0; j < prop->count_enums; j++)
+		{
+			if (!strstr(prop->enums[j].name, val))
+				continue;
+
+			ret = drmModeObjectSetProperty(fd, plane_id, DRM_MODE_OBJECT_PLANE, prop_id, prop->enums[j].value);
+			if (ret < 0)
+				std::cerr << "DrmPreview: failed to set value " << val << " for property " << name << std::endl;
+			goto done;
+		}
+
+		std::cerr << "DrmPreview: failed to find value " << val << " for property " << name << std::endl;
+		goto done;
+	}
+
+	std::cerr << "DrmPreview: failed to find property " << name << std::endl;
+done:
+	if (prop)
+		drmModeFreeProperty(prop);
+	if (properties)
+		drmModeFreeObjectProperties(properties);
+	return ret;
+}
+
+static void setup_colour_space(int fd, int plane_id, std::optional<libcamera::ColorSpace> const &cs)
+{
+	char const *encoding, *range;
+	get_colour_space_info(cs, encoding, range);
+
+	drm_set_property(fd, plane_id, "COLOR_ENCODING", encoding);
+	drm_set_property(fd, plane_id, "COLOR_RANGE", range);
+}
+
 void DrmPreview::makeBuffer(int fd, size_t size, StreamInfo const &info, Buffer &buffer)
 {
+	if (first_time_)
+	{
+		first_time_ = false;
+
+		setup_colour_space(drmfd_, planeId_, info.colour_space);
+	}
+
 	buffer.fd = fd;
 	buffer.size = size;
 	buffer.info = info;
@@ -312,6 +399,7 @@ void DrmPreview::Reset()
 		drmModeRmFB(drmfd_, it.second.fb_handle);
 	buffers_.clear();
 	last_fd_ = -1;
+	first_time_ = true;
 }
 
 Preview *make_drm_preview(Options const *options)
