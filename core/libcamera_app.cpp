@@ -306,7 +306,9 @@ void LibcameraApp::ConfigureVideo(unsigned int flags)
 		cfg.size.width = options_->width;
 	if (options_->height)
 		cfg.size.height = options_->height;
-	if (cfg.size.width >= 1280 || cfg.size.height >= 720)
+	if (flags & FLAG_VIDEO_JPEG_COLOURSPACE)
+		cfg.colorSpace = libcamera::ColorSpace::Jpeg;
+	else if (cfg.size.width >= 1280 || cfg.size.height >= 720)
 		cfg.colorSpace = libcamera::ColorSpace::Rec709;
 	else
 		cfg.colorSpace = libcamera::ColorSpace::Smpte170m;
