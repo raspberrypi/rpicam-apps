@@ -84,6 +84,7 @@ public:
 
 	static constexpr unsigned int FLAG_VIDEO_NONE = 0;
 	static constexpr unsigned int FLAG_VIDEO_RAW = 1; // request raw image stream
+	static constexpr unsigned int FLAG_VIDEO_JPEG_COLOURSPACE = 2; // force JPEG colour space
 
 	LibcameraApp(std::unique_ptr<Options> const opts = nullptr);
 	virtual ~LibcameraApp();
