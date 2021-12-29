@@ -187,10 +187,9 @@ private:
 	std::map<std::string, Stream *> streams_;
 	FrameBufferAllocator *allocator_ = nullptr;
 	std::map<Stream *, std::queue<FrameBuffer *>> frame_buffers_;
-	std::mutex free_requests_mutex_;
-	std::queue<Request *> free_requests_;
 	std::vector<std::unique_ptr<Request>> requests_;
-	std::set<CompletedRequest *> known_completed_requests_;
+	std::mutex completed_requests_mutex_;
+	std::set<CompletedRequest *> completed_requests_;
 	bool camera_started_ = false;
 	std::mutex camera_stop_mutex_;
 	MessageQueue<Msg> msg_queue_;
