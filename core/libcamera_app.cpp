@@ -474,12 +474,9 @@ void LibcameraApp::StopCamera()
 
 	// An application might be holding a CompletedRequest, so queueRequest will get
 	// called to delete it later, but we need to know not to try and re-queue it.
-	known_completed_requests_.clear();
+	completed_requests_.clear();
 
 	msg_queue_.Clear();
-
-	while (!free_requests_.empty())
-		free_requests_.pop();
 
 	requests_.clear();
 
@@ -498,7 +495,9 @@ void LibcameraApp::queueRequest(CompletedRequest *completed_request)
 {
 	BufferMap buffers(std::move(completed_request->buffers));
 
+	Request *request = completed_request->request;
 	delete completed_request;
+	assert(request);
 
 	// This function may run asynchronously so needs protection from the
 	// camera stopping at the same time.
@@ -508,24 +507,12 @@ void LibcameraApp::queueRequest(CompletedRequest *completed_request)
 
 	// An application could be holding a CompletedRequest while it stops and re-starts
 	// the camera, after which we don't want to queue another request now.
-	auto it = known_completed_requests_.find(completed_request);
-	if (it == known_completed_requests_.end())
-		return;
-	known_completed_requests_.erase(it);
-
-	Request *request = nullptr;
 	{
-		std::lock_guard<std::mutex> lock(free_requests_mutex_);
-		if (!free_requests_.empty())
-		{
-			request = free_requests_.front();
-			free_requests_.pop();
-		}
-	}
-	if (!request)
-	{
-		std::cerr << "WARNING: could not make request!" << std::endl;
-		return;
+		std::lock_guard<std::mutex> lock(completed_requests_mutex_);
+		auto it = completed_requests_.find(completed_request);
+		if (it == completed_requests_.end())
+			return;
+		completed_requests_.erase(it);
 	}
 
 	for (auto const &p : buffers)
@@ -719,13 +706,11 @@ void LibcameraApp::requestComplete(Request *request)
 	if (request->status() == Request::RequestCancelled)
 		return;
 
-	CompletedRequest *r = new CompletedRequest(sequence_++, request->buffers(), request->metadata());
+	CompletedRequest *r = new CompletedRequest(sequence_++, request);
 	CompletedRequestPtr payload(r, [this](CompletedRequest *cr) { this->queueRequest(cr); });
-	known_completed_requests_.insert(r);
 	{
-		request->reuse();
-		std::lock_guard<std::mutex> lock(free_requests_mutex_);
-		free_requests_.push(request);
+		std::lock_guard<std::mutex> lock(completed_requests_mutex_);
+		completed_requests_.insert(r);
 	}
 
 	// We calculate the instantaneous framerate in case anyone wants it.
