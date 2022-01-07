@@ -1,3 +1,9 @@
+libcamera-apps (0~git20220105+b9a6923-1) bullseye; urgency=medium
+
+  * New upstream version 0~git20220105+b9a6923
+
+ -- Serge Schneider <serge@raspberrypi.com>  Fri, 07 Jan 2022 11:15:07 +0000
+
 libcamera-apps (0~git20211129+2e083a9-1) bullseye; urgency=medium
 
   * New upstream version 0~git20211129+2e083a9
