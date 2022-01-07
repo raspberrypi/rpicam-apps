@@ -6,6 +6,41 @@
  */
 #include "core/options.hpp"
 
+Mode::Mode(std::string const &mode_string)
+{
+	if (mode_string.empty())
+		bit_depth = 0;
+	else
+	{
+		char p;
+		int n = sscanf(mode_string.c_str(), "%u:%u:%u:%c", &width, &height, &bit_depth, &p);
+		if (n < 2)
+			throw std::runtime_error("Invalid mode");
+		else if (n == 2)
+			bit_depth = 12, packed = true;
+		else if (n == 3)
+			packed = true;
+		else if (toupper(p) == 'P')
+			packed = true;
+		else if (toupper(p) == 'U')
+			packed = false;
+		else
+			throw std::runtime_error("Packing indicator should be P or U");
+	}
+}
+
+std::string Mode::ToString() const
+{
+	if (bit_depth == 0)
+		return "unspecified";
+	else
+	{
+		std::stringstream ss;
+		ss << width << ":" << height << ":" << bit_depth << ":" << (packed ? "P" : "U");
+		return ss.str();
+	}
+}
+
 bool Options::Parse(int argc, char *argv[])
 {
 	using namespace boost::program_options;
@@ -47,15 +82,34 @@ bool Options::Parse(int argc, char *argv[])
 		{
 			unsigned int idx = 0;
 			std::cerr << "Available cameras" << std::endl
-						<< "-----------------" << std::endl;
+					  << "-----------------" << std::endl;
 			for (auto const &cam : cameras)
 			{
 				std::cerr << idx++ << " : " << cam->properties().get(libcamera::properties::Model);
 				if (cam->properties().contains(properties::PixelArrayActiveAreas))
 					std::cerr << " ["
-								<< cam->properties().get(properties::PixelArrayActiveAreas)[0].size().toString()
-								<< "]";
-				std::cerr  << " (" << cam->id() << ")" << std::endl;
+							  << cam->properties().get(properties::PixelArrayActiveAreas)[0].size().toString()
+							  << "]";
+				std::cerr << " (" << cam->id() << ")" << std::endl;
+
+				std::unique_ptr<CameraConfiguration> config = cam->generateConfiguration({libcamera::StreamRole::Raw});
+				if (!config)
+					throw std::runtime_error("failed to generate capture configuration");
+				const StreamFormats &formats = config->at(0).formats();
+
+				if (!formats.pixelformats().size())
+					continue;
+
+				std::cerr << "    Modes: ";
+				unsigned int i = 0;
+				for (const auto &pix : formats.pixelformats())
+				{
+					if (i++) std::cerr << "           ";
+					std::cerr << "'" << pix.toString() << "' : ";
+					for (const auto &size : formats.sizes(pix))
+						std::cerr << size.toString() << " ";
+					std::cerr << std::endl;
+				}
 			}
 		}
 		else
@@ -132,6 +186,9 @@ bool Options::Parse(int argc, char *argv[])
 	if (tuning_file != "-")
 		setenv("LIBCAMERA_RPI_TUNING_FILE", tuning_file.c_str(), 1);
 
+	mode = Mode(mode_string);
+	viewfinder_mode = Mode(viewfinder_mode_string);
+
 	return true;
 }
 
@@ -186,4 +243,7 @@ void Options::Print() const
 	std::cerr << "    tuning-file: " << (tuning_file == "-" ? "(libcamera)" : tuning_file) << std::endl;
 	std::cerr << "    lores-width: " << lores_width << std::endl;
 	std::cerr << "    lores-height: " << lores_height << std::endl;
+
+	std::cerr << "    mode: " << mode.ToString() << std::endl;
+	std::cerr << "    viewfinder-mode: " << viewfinder_mode.ToString() << std::endl;
 }

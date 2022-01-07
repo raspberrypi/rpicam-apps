@@ -6,15 +6,16 @@
  */
 
 #include <libcamera/formats.h>
-#include <libcamera/pixel_format.h>
 
 #include "core/still_options.hpp"
+#include "core/stream_info.hpp"
 
-static void yuv420_save(std::vector<libcamera::Span<uint8_t>> const &mem, unsigned int w, unsigned int h,
-						unsigned int stride, std::string const &filename, StillOptions const *options)
+static void yuv420_save(std::vector<libcamera::Span<uint8_t>> const &mem, StreamInfo const &info,
+						std::string const &filename, StillOptions const *options)
 {
 	if (options->encoding == "yuv420")
 	{
+		unsigned w = info.width, h = info.height, stride = info.stride;
 		if ((w & 1) || (h & 1))
 			throw std::runtime_error("both width and height must be even");
 		if (mem.size() != 1)
@@ -54,12 +55,12 @@ static void yuv420_save(std::vector<libcamera::Span<uint8_t>> const &mem, unsign
 		throw std::runtime_error("output format " + options->encoding + " not supported");
 }
 
-static void yuyv_save(std::vector<libcamera::Span<uint8_t>> const &mem, unsigned int w, unsigned int h,
-					  unsigned int stride, std::string const &filename, StillOptions const *options)
+static void yuyv_save(std::vector<libcamera::Span<uint8_t>> const &mem, StreamInfo const &info,
+					  std::string const &filename, StillOptions const *options)
 {
 	if (options->encoding == "yuv420")
 	{
-		if ((w & 1) || (h & 1))
+		if ((info.width & 1) || (info.height & 1))
 			throw std::runtime_error("both width and height must be even");
 		FILE *fp = fopen(filename.c_str(), "w");
 		if (!fp)
@@ -68,29 +69,29 @@ static void yuyv_save(std::vector<libcamera::Span<uint8_t>> const &mem, unsigned
 		{
 			// We could doubtless do this much quicker. Though starting with
 			// YUV420 planar buffer would have been nice.
-			std::vector<uint8_t> row(w);
+			std::vector<uint8_t> row(info.width);
 			uint8_t *ptr = (uint8_t *)mem[0].data();
-			for (unsigned int j = 0; j < h; j++, ptr += stride)
+			for (unsigned int j = 0; j < info.height; j++, ptr += info.stride)
 			{
-				for (unsigned int i = 0; i < w; i++)
+				for (unsigned int i = 0; i < info.width; i++)
 					row[i] = ptr[i << 1];
-				if (fwrite(&row[0], w, 1, fp) != 1)
+				if (fwrite(&row[0], info.width, 1, fp) != 1)
 					throw std::runtime_error("failed to write file " + filename);
 			}
 			ptr = (uint8_t *)mem[0].data();
-			for (unsigned int j = 0; j < h; j += 2, ptr += 2 * stride)
+			for (unsigned int j = 0; j < info.height; j += 2, ptr += 2 * info.stride)
 			{
-				for (unsigned int i = 0; i < w / 2; i++)
+				for (unsigned int i = 0; i < info.width / 2; i++)
 					row[i] = ptr[(i << 2) + 1];
-				if (fwrite(&row[0], w / 2, 1, fp) != 1)
+				if (fwrite(&row[0], info.width / 2, 1, fp) != 1)
 					throw std::runtime_error("failed to write file " + filename);
 			}
 			ptr = (uint8_t *)mem[0].data();
-			for (unsigned int j = 0; j < h; j += 2, ptr += 2 * stride)
+			for (unsigned int j = 0; j < info.height; j += 2, ptr += 2 * info.stride)
 			{
-				for (unsigned int i = 0; i < w / 2; i++)
+				for (unsigned int i = 0; i < info.width / 2; i++)
 					row[i] = ptr[(i << 2) + 3];
-				if (fwrite(&row[0], w / 2, 1, fp) != 1)
+				if (fwrite(&row[0], info.width / 2, 1, fp) != 1)
 					throw std::runtime_error("failed to write file " + filename);
 			}
 			fclose(fp);
@@ -105,8 +106,8 @@ static void yuyv_save(std::vector<libcamera::Span<uint8_t>> const &mem, unsigned
 		throw std::runtime_error("output format " + options->encoding + " not supported");
 }
 
-static void rgb_save(std::vector<libcamera::Span<uint8_t>> const &mem, unsigned int w, unsigned int h,
-					 unsigned int stride, std::string const &filename, StillOptions const *options)
+static void rgb_save(std::vector<libcamera::Span<uint8_t>> const &mem, StreamInfo const &info,
+					 std::string const &filename, StillOptions const *options)
 {
 	if (options->encoding != "rgb")
 		throw std::runtime_error("encoding should be set to rgb");
@@ -116,9 +117,9 @@ static void rgb_save(std::vector<libcamera::Span<uint8_t>> const &mem, unsigned 
 	try
 	{
 		uint8_t *ptr = (uint8_t *)mem[0].data();
-		for (unsigned int j = 0; j < h; j++, ptr += stride)
+		for (unsigned int j = 0; j < info.height; j++, ptr += info.stride)
 		{
-			if (fwrite(ptr, 3 * w, 1, fp) != 1)
+			if (fwrite(ptr, 3 * info.width, 1, fp) != 1)
 				throw std::runtime_error("failed to write file " + filename);
 		}
 		fclose(fp);
@@ -130,15 +131,15 @@ static void rgb_save(std::vector<libcamera::Span<uint8_t>> const &mem, unsigned 
 	}
 }
 
-void yuv_save(std::vector<libcamera::Span<uint8_t>> const &mem, unsigned int w, unsigned int h, unsigned int stride,
-			  libcamera::PixelFormat const &pixel_format, std::string const &filename, StillOptions const *options)
+void yuv_save(std::vector<libcamera::Span<uint8_t>> const &mem, StreamInfo const &info,
+			  std::string const &filename, StillOptions const *options)
 {
-	if (pixel_format == libcamera::formats::YUYV)
-		yuyv_save(mem, w, h, stride, filename, options);
-	else if (pixel_format == libcamera::formats::YUV420)
-		yuv420_save(mem, w, h, stride, filename, options);
-	else if (pixel_format == libcamera::formats::BGR888 || pixel_format == libcamera::formats::RGB888)
-		rgb_save(mem, w, h, stride, filename, options);
+	if (info.pixel_format == libcamera::formats::YUYV)
+		yuyv_save(mem, info, filename, options);
+	else if (info.pixel_format == libcamera::formats::YUV420)
+		yuv420_save(mem, info, filename, options);
+	else if (info.pixel_format == libcamera::formats::BGR888 || info.pixel_format == libcamera::formats::RGB888)
+		rgb_save(mem, info, filename, options);
 	else
 		throw std::runtime_error("unrecognised YUV/RGB save format");
 }

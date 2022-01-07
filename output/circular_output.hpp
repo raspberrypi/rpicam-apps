@@ -14,9 +14,9 @@
 class CircularBuffer
 {
 public:
-	CircularBuffer(unsigned int size) : size_(size), buf_(size), rptr_(0), wptr_(0) {}
+	CircularBuffer(size_t size) : size_(size), buf_(size), rptr_(0), wptr_(0) {}
 	bool Empty() const { return rptr_ == wptr_; }
-	unsigned int Available() const { return (size_ - wptr_ + rptr_) % size_ - 1; }
+	size_t Available() const { return (size_ - wptr_ + rptr_) % size_ - 1; }
 	void Skip(unsigned int n) { rptr_ = (rptr_ + n) % size_; }
 	// The dst function allows bytes read to go straight to memory or a file etc.
 	void Read(std::function<void(void *src, unsigned int n)> dst, unsigned int n)
@@ -45,9 +45,9 @@ public:
 	}
 
 private:
-	const unsigned int size_;
+	const size_t size_;
 	std::vector<uint8_t> buf_;
-	unsigned int rptr_, wptr_;
+	size_t rptr_, wptr_;
 };
 
 // Write frames to a circular buffer, and dump them to disk when we quit.

@@ -79,33 +79,50 @@ public:
 		thread_.join();
 	}
 	void SetInfoText(const std::string &text) override { main_window_->setWindowTitle(QString::fromStdString(text)); }
-	virtual void Show(int fd, libcamera::Span<uint8_t> span, int width, int height, int stride) override
+	virtual void Show(int fd, libcamera::Span<uint8_t> span, StreamInfo const &info) override
 	{
 		// Cache the x sampling locations for speed. This is a quick nearest neighbour resize.
-		if (last_image_width_ != width)
+		if (last_image_width_ != info.width)
 		{
-			last_image_width_ = width;
+			last_image_width_ = info.width;
 			x_locations_.resize(window_width_);
-			for (int i = 0; i < window_width_; i++)
-				x_locations_[i] = (i * (width - 1) + (window_width_ - 1) / 2) / (window_width_ - 1);
+			for (unsigned int i = 0; i < window_width_; i++)
+				x_locations_[i] = (i * (info.width - 1) + (window_width_ - 1) / 2) / (window_width_ - 1);
 		}
 
 		uint8_t *Y_start = span.data();
-		uint8_t *U_start = Y_start + stride * height;
-		int uv_size = (stride / 2) * (height / 2);
+		uint8_t *U_start = Y_start + info.stride * info.height;
+		int uv_size = (info.stride / 2) * (info.height / 2);
 		uint8_t *dest = pane_->image.bits();
+
+		// Choose the right matrix to convert YUV back to RGB.
+		static const float YUV2RGB[3][9] = {
+			{ 1.0,   0.0, 1.402, 1.0,   -0.344, -0.714, 1.0,   1.772, 0.0 }, // JPEG
+			{ 1.164, 0.0, 1.596, 1.164, -0.392, -0.813, 1.164, 2.017, 0.0 }, // SMPTE170M
+			{ 1.164, 0.0, 1.793, 1.164, -0.213, -0.533, 1.164, 2.112, 0.0 }, // Rec709
+		};
+		const float *M = YUV2RGB[0];
+		if (info.colour_space == libcamera::ColorSpace::Jpeg)
+			M = YUV2RGB[0];
+		else if (info.colour_space == libcamera::ColorSpace::Smpte170m)
+			M = YUV2RGB[1];
+		else if (info.colour_space == libcamera::ColorSpace::Rec709)
+			M = YUV2RGB[2];
+		else
+			std::cerr << "QtPreview: unexpected colour space " << libcamera::ColorSpace::toString(info.colour_space)
+					  << std::endl;
 
 		// Possibly this should be locked in case a repaint is happening? In practice the risk
 		// is only that there might be some tearing, so I don't think we worry. We could speed
 		// it up by getting the ISP to supply RGB, but I'm not sure I want to handle that extra
 		// possibility in our main application code, so we'll put up with the slow conversion.
-		for (int y = 0; y < window_height_; y++)
+		for (unsigned int y = 0; y < window_height_; y++)
 		{
-			int row = (y * (height - 1) + (window_height_ - 1) / 2) / (window_height_ - 1);
-			uint8_t *Y_row = Y_start + row * stride;
-			uint8_t *U_row = U_start + (row / 2) * (stride / 2);
+			int row = (y * (info.height - 1) + (window_height_ - 1) / 2) / (window_height_ - 1);
+			uint8_t *Y_row = Y_start + row * info.stride;
+			uint8_t *U_row = U_start + (row / 2) * (info.stride / 2);
 			uint8_t *V_row = U_row + uv_size;
-			for (int x = 0; x < window_width_;)
+			for (unsigned int x = 0; x < window_width_;)
 			{
 				int y_off0 = x_locations_[x++];
 				int y_off1 = x_locations_[x++];
@@ -121,13 +138,12 @@ public:
 				V0 -= 128;
 				U1 -= 128;
 				V1 -= 128;
-				// What colour space? For the purposes of a preview, we're not too bothered.
-				int R0 = Y0 + 1.402 * V0;
-				int G0 = Y0 - 0.345 * U0 - 0.714 * V0;
-				int B0 = Y0 + 1.771 * U0;
-				int R1 = Y1 + 1.402 * V1;
-				int G1 = Y1 - 0.345 * U1 - 0.714 * V1;
-				int B1 = Y1 + 1.771 * U1;
+				int R0 = M[0] * Y0 + M[2] * V0;
+				int G0 = M[3] * Y0 + M[4] * U0 + M[5] * V0;
+				int B0 = M[6] * Y0 + M[7] * U0;
+				int R1 = M[0] * Y1 + M[2] * V1;
+				int G1 = M[3] * Y1 + M[4] * U1 + M[5] * V1;
+				int B1 = M[6] * Y1 + M[7] * U1;
 				*(dest++) = std::clamp(R0, 0, 255);
 				*(dest++) = std::clamp(G0, 0, 255);
 				*(dest++) = std::clamp(B0, 0, 255);
@@ -176,8 +192,8 @@ private:
 	MyWidget *pane_ = nullptr;
 	std::thread thread_;
 	std::vector<uint16_t> x_locations_;
-	int last_image_width_ = 0;
-	int window_width_, window_height_;
+	unsigned int last_image_width_ = 0;
+	unsigned int window_width_, window_height_;
 	std::mutex mutex_;
 	std::condition_variable cond_var_;
 };

@@ -5,7 +5,7 @@ if (EXISTS ${SOURCE_DIR}/version.gen)
     file(READ ${SOURCE_DIR}/version.gen SHA)
 endif()
 
-execute_process(COMMAND ${SOURCE_DIR}/core/version.py ${SHA}
+execute_process(COMMAND ${SOURCE_DIR}/utils/version.py ${SHA}
                 WORKING_DIRECTORY ${SOURCE_DIR}
                 OUTPUT_VARIABLE VER)
 

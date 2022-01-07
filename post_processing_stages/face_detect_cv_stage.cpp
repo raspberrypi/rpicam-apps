@@ -46,9 +46,9 @@ private:
 	void drawFeatures(cv::Mat &img);
 
 	Stream *stream_;
-	unsigned int width_, height_, stride_;
+	StreamInfo low_res_info_;
 	Stream *full_stream_;
-	unsigned int full_width_, full_height_, full_stride_;
+	StreamInfo full_stream_info_;
 	std::unique_ptr<std::future<void>> future_ptr_;
 	std::mutex face_mutex_;
 	std::mutex future_ptr_mutex_;
@@ -98,14 +98,14 @@ void FaceDetectCvStage::Configure()
 	if (!stream_)
 		throw std::runtime_error("FaceDetectCvStage: no low resolution stream");
 	// (the lo res stream can only be YUV420)
-	app_->StreamDimensions(stream_, &width_, &height_, &stride_);
+	low_res_info_ = app_->GetStreamInfo(stream_);
 
 	// We also expect there to be a "full resolution" stream which defines the output coordinate
 	// system, and we can optionally draw the faces there too.
 	full_stream_ = app_->GetMainStream();
 	if (!full_stream_)
 		throw std::runtime_error("FaceDetectCvStage: no full resolution stream available");
-	app_->StreamDimensions(full_stream_, &full_width_, &full_height_, &full_stride_);
+	full_stream_info_ = app_->GetStreamInfo(full_stream_);
 	if (draw_features_ && full_stream_->configuration().pixelFormat != libcamera::formats::YUV420)
 		throw std::runtime_error("FaceDetectCvStage: drawing only supported for YUV420 images");
 }
@@ -122,7 +122,7 @@ bool FaceDetectCvStage::Process(CompletedRequestPtr &completed_request)
 		{
 			libcamera::Span<uint8_t> buffer = app_->Mmap(completed_request->buffers[stream_])[0];
 			uint8_t *ptr = (uint8_t *)buffer.data();
-			Mat image(height_, width_, CV_8U, ptr, stride_);
+			Mat image(low_res_info_.height, low_res_info_.width, CV_8U, ptr, low_res_info_.stride);
 			image_ = image.clone();
 
 			future_ptr_ = std::make_unique<std::future<void>>();
@@ -141,7 +141,7 @@ bool FaceDetectCvStage::Process(CompletedRequestPtr &completed_request)
 	{
 		libcamera::Span<uint8_t> buffer = app_->Mmap(completed_request->buffers[full_stream_])[0];
 		uint8_t *ptr = (uint8_t *)buffer.data();
-		Mat image(full_height_, full_width_, CV_8U, ptr, full_stride_);
+		Mat image(full_stream_info_.height, full_stream_info_.width, CV_8U, ptr, full_stream_info_.stride);
 		drawFeatures(image);
 	}
 
@@ -157,8 +157,8 @@ void FaceDetectCvStage::detectFeatures(CascadeClassifier &cascade)
 							 Size(min_size_, min_size_), Size(max_size_, max_size_));
 
 	// Scale faces back to the size and location in the full res image.
-	double scale_x = full_width_ / (double)width_;
-	double scale_y = full_height_ / (double)height_;
+	double scale_x = full_stream_info_.width / (double)low_res_info_.width;
+	double scale_y = full_stream_info_.height / (double)low_res_info_.height;
 	for (auto &face : temp_faces)
 	{
 		face.x *= scale_x;

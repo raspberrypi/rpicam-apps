@@ -57,21 +57,20 @@ void SobelCvStage::Configure()
 
 bool SobelCvStage::Process(CompletedRequestPtr &completed_request)
 {
-	unsigned int w, h, stride;
-	app_->StreamDimensions(stream_, &w, &h, &stride);
+	StreamInfo info = app_->GetStreamInfo(stream_);
 	libcamera::Span<uint8_t> buffer = app_->Mmap(completed_request->buffers[stream_])[0];
 	uint8_t *ptr = (uint8_t *)buffer.data();
 
 	//Everything beyond this point is image processing...
 
 	uint8_t value = 128;
-	int num = (stride * h) / 2;
-	Mat src = Mat(h, w, CV_8U, ptr, stride);
+	int num = (info.stride * info.height) / 2;
+	Mat src = Mat(info.height, info.width, CV_8U, ptr, info.stride);
 	int scale = 1;
 	int delta = 0;
 	int ddepth = CV_16S;
 
-	memset(ptr + stride * h, value, num);
+	memset(ptr + info.stride * info.height, value, num);
 
 	// Remove noise by blurring with a Gaussian filter ( kernal size = 3 )
 	GaussianBlur(src, src, Size(3, 3), 0, 0, BORDER_DEFAULT);

@@ -27,7 +27,19 @@ static int xioctl(int fd, unsigned long ctl, void *arg)
 	return ret;
 }
 
-H264Encoder::H264Encoder(VideoOptions const *options) : Encoder(options), abortPoll_(false), abortOutput_(false)
+static int get_v4l2_colorspace(std::optional<libcamera::ColorSpace> const &cs)
+{
+	if (cs == libcamera::ColorSpace::Rec709)
+		return V4L2_COLORSPACE_REC709;
+	else if (cs == libcamera::ColorSpace::Smpte170m)
+		return V4L2_COLORSPACE_SMPTE170M;
+
+	std::cerr << "H264: surprising colour space: " << libcamera::ColorSpace::toString(cs) << std::endl;
+	return V4L2_COLORSPACE_SMPTE170M;
+}
+
+H264Encoder::H264Encoder(VideoOptions const *options, StreamInfo const &info)
+	: Encoder(options), abortPoll_(false), abortOutput_(false)
 {
 	// First open the encoder device. Maybe we should double-check its "caps".
 
@@ -95,12 +107,14 @@ H264Encoder::H264Encoder(VideoOptions const *options) : Encoder(options), abortP
 
 	v4l2_format fmt = {};
 	fmt.type = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE;
-	fmt.fmt.pix_mp.width = options->width;
-	fmt.fmt.pix_mp.height = options->height;
+	fmt.fmt.pix_mp.width = info.width;
+	fmt.fmt.pix_mp.height = info.height;
+	// We assume YUV420 here, but it would be nice if we could do something
+	// like info.pixel_format.toV4L2Fourcc();
 	fmt.fmt.pix_mp.pixelformat = V4L2_PIX_FMT_YUV420;
+	fmt.fmt.pix_mp.plane_fmt[0].bytesperline = info.stride;
 	fmt.fmt.pix_mp.field = V4L2_FIELD_ANY;
-	// libcamera currently has no means to request the right colour space, hence:
-	fmt.fmt.pix_mp.colorspace = V4L2_COLORSPACE_JPEG;
+	fmt.fmt.pix_mp.colorspace = get_v4l2_colorspace(info.colour_space);
 	fmt.fmt.pix_mp.num_planes = 1;
 	if (xioctl(fd_, VIDIOC_S_FMT, &fmt) < 0)
 		throw std::runtime_error("failed to set output format");
@@ -145,6 +159,7 @@ H264Encoder::H264Encoder(VideoOptions const *options) : Encoder(options), abortP
 		throw std::runtime_error("request for capture buffers failed");
 	if (options->verbose)
 		std::cerr << "Got " << reqbufs.count << " capture buffers" << std::endl;
+	num_capture_buffers_ = reqbufs.count;
 
 	for (unsigned int i = 0; i < reqbufs.count; i++)
 	{
@@ -189,13 +204,40 @@ H264Encoder::~H264Encoder()
 	poll_thread_.join();
 	abortOutput_ = true;
 	output_thread_.join();
+
+	// Turn off streaming on both the output and capture queues, and "free" the
+	// buffers that we requested. The capture ones need to be "munmapped" first.
+
+	v4l2_buf_type type = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE;
+	if (xioctl(fd_, VIDIOC_STREAMOFF, &type) < 0)
+		std::cerr << "Failed to stop output streaming" << std::endl;
+	type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
+	if (xioctl(fd_, VIDIOC_STREAMOFF, &type) < 0)
+		std::cerr << "Failed to stop capture streaming" << std::endl;
+
+	v4l2_requestbuffers reqbufs = {};
+	reqbufs.count = 0;
+	reqbufs.type = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE;
+	reqbufs.memory = V4L2_MEMORY_DMABUF;
+	if (xioctl(fd_, VIDIOC_REQBUFS, &reqbufs) < 0)
+		std::cerr << "Request to free output buffers failed" << std::endl;
+
+	for (int i = 0; i < num_capture_buffers_; i++)
+		if (munmap(buffers_[i].mem, buffers_[i].size) < 0)
+			std::cerr << "Failed to unmap buffer" << std::endl;
+	reqbufs = {};
+	reqbufs.count = 0;
+	reqbufs.type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
+	reqbufs.memory = V4L2_MEMORY_MMAP;
+	if (xioctl(fd_, VIDIOC_REQBUFS, &reqbufs) < 0)
+		std::cerr << "Request to free capture buffers failed" << std::endl;
+
+	close(fd_);
 	if (options_->verbose)
 		std::cerr << "H264Encoder closed" << std::endl;
-	// Other stuff will mostly get hoovered up with the process quits.
 }
 
-void H264Encoder::EncodeBuffer(int fd, size_t size, void *mem, unsigned int width, unsigned int height,
-							   unsigned int stride, int64_t timestamp_us)
+void H264Encoder::EncodeBuffer(int fd, size_t size, void *mem, StreamInfo const &info, int64_t timestamp_us)
 {
 	int index;
 	{
