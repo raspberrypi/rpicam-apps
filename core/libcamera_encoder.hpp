@@ -6,7 +6,9 @@
  */
 
 #include "core/libcamera_app.hpp"
+#include "core/stream_info.hpp"
 #include "core/video_options.hpp"
+
 #include "encoder/encoder.hpp"
 
 typedef std::function<void(void *, size_t, int64_t, bool)> EncodeOutputReadyCallback;
@@ -30,8 +32,7 @@ public:
 	void EncodeBuffer(CompletedRequestPtr &completed_request, Stream *stream)
 	{
 		assert(encoder_);
-		unsigned int w, h, stride;
-		StreamDimensions(stream, &w, &h, &stride);
+		StreamInfo info = GetStreamInfo(stream);
 		FrameBuffer *buffer = completed_request->buffers[stream];
 		libcamera::Span span = Mmap(buffer)[0];
 		void *mem = span.data();
@@ -42,13 +43,20 @@ public:
 			std::lock_guard<std::mutex> lock(encode_buffer_queue_mutex_);
 			encode_buffer_queue_.push(completed_request); // creates a new reference
 		}
-		encoder_->EncodeBuffer(buffer->planes()[0].fd.fd(), span.size(), mem, w, h, stride, timestamp_ns / 1000);
+		encoder_->EncodeBuffer(buffer->planes()[0].fd.get(), span.size(), mem, info, timestamp_ns / 1000);
 	}
 	VideoOptions *GetOptions() const { return static_cast<VideoOptions *>(options_.get()); }
 	void StopEncoder() { encoder_.reset(); }
 
 protected:
-	virtual void createEncoder() { encoder_ = std::unique_ptr<Encoder>(Encoder::Create(GetOptions())); }
+	virtual void createEncoder()
+	{
+		StreamInfo info;
+		VideoStream(&info);
+		if (!info.width || !info.height || !info.stride)
+			throw std::runtime_error("video steam is not configured");
+		encoder_ = std::unique_ptr<Encoder>(Encoder::Create(GetOptions(), info));
+	}
 	std::unique_ptr<Encoder> encoder_;
 
 private:

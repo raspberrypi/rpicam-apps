@@ -36,7 +36,7 @@ public:
 
 private:
 	Stream *stream_;
-	unsigned int width_, height_, stride_;
+	StreamInfo info_;
 	std::string text_;
 	int fg_;
 	int bg_;
@@ -69,13 +69,13 @@ void AnnotateCvStage::Configure()
 	stream_ = app_->GetMainStream();
 	if (!stream_ || stream_->configuration().pixelFormat != libcamera::formats::YUV420)
 		throw std::runtime_error("AnnotateCvStage: only YUV420 format supported");
-	app_->StreamDimensions(stream_, &width_, &height_, &stride_);
+	info_ = app_->GetStreamInfo(stream_);
 
 	// Adjust the scale and thickness according to the image size, so that the relative
 	// size is preserved across different camera modes. Note that the thickness can get
 	// rather harshly quantised, not much we can do about that.
-	adjusted_scale_ = scale_ * width_ / 1200;
-	adjusted_thickness_ = std::max(thickness_ * width_ / 700, 1u);
+	adjusted_scale_ = scale_ * info_.width / 1200;
+	adjusted_thickness_ = std::max(thickness_ * info_.width / 700, 1u);
 }
 
 bool AnnotateCvStage::Process(CompletedRequestPtr &completed_request)
@@ -89,14 +89,14 @@ bool AnnotateCvStage::Process(CompletedRequestPtr &completed_request)
 	std::string text = info.ToString(text_);
 
 	uint8_t *ptr = (uint8_t *)buffer.data();
-	Mat im(height_, width_, CV_8U, ptr, stride_);
+	Mat im(info_.height, info_.width, CV_8U, ptr, info_.stride);
 	int font = FONT_HERSHEY_SIMPLEX;
 
 	int baseline = 0;
 	Size size = getTextSize(text, font, adjusted_scale_, adjusted_thickness_, &baseline);
 
 	// Can't find a handy "draw rectangle with alpha" function...
-	for (int y = 0; y < size.height + baseline; y++, ptr += stride_)
+	for (int y = 0; y < size.height + baseline; y++, ptr += info_.stride)
 	{
 		for (int x = 0; x < size.width; x++)
 			ptr[x] = bg_ * alpha_ + (1 - alpha_) * ptr[x];

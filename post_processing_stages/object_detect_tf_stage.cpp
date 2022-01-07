@@ -126,14 +126,14 @@ void ObjectDetectTfStage::interpretOutputs()
 		int w = std::clamp<int>(WIDTH * boxes[i * 4 + 3] - x, 0, WIDTH);
 		// The network is fed a crop from the lores (if that was too large), so the coords
 		// in the full lores image are:
-		y += (lores_h_ - HEIGHT) / 2;
-		x += (lores_w_ - WIDTH) / 2;
+		y += (lores_info_.height - HEIGHT) / 2;
+		x += (lores_info_.width - WIDTH) / 2;
 		// The lores is a pure scaling of the main image (squishing if the aspect ratios
 		// don't match), so:
-		y = y * main_h_ / lores_h_;
-		x = x * main_w_ / lores_w_;
-		h = h * main_h_ / lores_h_;
-		w = w * main_w_ / lores_w_;
+		y = y * main_stream_info_.height / lores_info_.height;
+		x = x * main_stream_info_.width / lores_info_.width;
+		h = h * main_stream_info_.height / lores_info_.height;
+		w = w * main_stream_info_.width / lores_info_.width;
 
 		int c = classes[i];
 		Detection detection(c, labels_[c], scores[i], x, y, w, h);

@@ -22,8 +22,7 @@ public:
 	MjpegEncoder(VideoOptions const *options);
 	~MjpegEncoder();
 	// Encode the given buffer.
-	void EncodeBuffer(int fd, size_t size, void *mem, unsigned int width, unsigned int height, unsigned int stride,
-					  int64_t timestamp_us) override;
+	void EncodeBuffer(int fd, size_t size, void *mem, StreamInfo const &info, int64_t timestamp_us) override;
 
 private:
 	// How many threads to use. Whichever thread is idle will pick up the next frame.
@@ -44,9 +43,7 @@ private:
 	struct EncodeItem
 	{
 		void *mem;
-		unsigned int width;
-		unsigned int height;
-		unsigned int stride;
+		StreamInfo info;
 		int64_t timestamp_us;
 		uint64_t index;
 	};

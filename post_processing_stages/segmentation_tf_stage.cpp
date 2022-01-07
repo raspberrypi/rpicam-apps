@@ -92,27 +92,27 @@ void SegmentationTfStage::applyResults(CompletedRequestPtr &completed_request)
 		return;
 
 	libcamera::Span<uint8_t> buffer = app_->Mmap(completed_request->buffers[main_stream_])[0];
-	int y_offset = main_h_ - HEIGHT;
-	int x_offset = main_w_ - WIDTH;
+	int y_offset = main_stream_info_.height - HEIGHT;
+	int x_offset = main_stream_info_.width - WIDTH;
 	int scale = 255 / labels_.size();
 
 	for (int y = 0; y < HEIGHT; y++)
 	{
 		uint8_t *src = &segmentation_[y * WIDTH];
-		uint8_t *dst = buffer.data() + (y + y_offset) * main_stride_ + x_offset;
+		uint8_t *dst = buffer.data() + (y + y_offset) * main_stream_info_.stride + x_offset;
 		for (int x = 0; x < WIDTH; x++)
 			*(dst++) = scale * *(src++);
 	}
 
 	// Also make it greyscale.
-	uint8_t *U_start = buffer.data() + main_h_ * main_stride_;
-	int UV_size = (main_h_ / 2) * (main_stride_ / 2);
+	uint8_t *U_start = buffer.data() + main_stream_info_.height * main_stream_info_.stride;
+	int UV_size = (main_stream_info_.height / 2) * (main_stream_info_.stride / 2);
 	y_offset /= 2;
 	x_offset /= 2;
 
 	for (int y = 0; y < HEIGHT / 2; y++)
 	{
-		uint8_t *dst = U_start + (y + y_offset) * (main_stride_ / 2) + x_offset;
+		uint8_t *dst = U_start + (y + y_offset) * (main_stream_info_.stride / 2) + x_offset;
 		memset(dst, 128, WIDTH / 2);
 		memset(dst + UV_size, 128, WIDTH / 2);
 	}

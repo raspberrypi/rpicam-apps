@@ -30,6 +30,7 @@
 
 #include "core/completed_request.hpp"
 #include "core/post_processor.hpp"
+#include "core/stream_info.hpp"
 
 struct Options;
 class Preview;
@@ -83,6 +84,7 @@ public:
 
 	static constexpr unsigned int FLAG_VIDEO_NONE = 0;
 	static constexpr unsigned int FLAG_VIDEO_RAW = 1; // request raw image stream
+	static constexpr unsigned int FLAG_VIDEO_JPEG_COLOURSPACE = 2; // force JPEG colour space
 
 	LibcameraApp(std::unique_ptr<Options> const opts = nullptr);
 	virtual ~LibcameraApp();
@@ -104,14 +106,12 @@ public:
 	Msg Wait();
 	void PostMessage(MsgType &t, MsgPayload &p);
 
-	Stream *GetStream(std::string const &name, unsigned int *w = nullptr, unsigned int *h = nullptr,
-					  unsigned int *stride = nullptr) const;
-	Stream *ViewfinderStream(unsigned int *w = nullptr, unsigned int *h = nullptr,
-							 unsigned int *stride = nullptr) const;
-	Stream *StillStream(unsigned int *w = nullptr, unsigned int *h = nullptr, unsigned int *stride = nullptr) const;
-	Stream *RawStream(unsigned int *w = nullptr, unsigned int *h = nullptr, unsigned int *stride = nullptr) const;
-	Stream *VideoStream(unsigned int *w = nullptr, unsigned int *h = nullptr, unsigned int *stride = nullptr) const;
-	Stream *LoresStream(unsigned int *w = nullptr, unsigned int *h = nullptr, unsigned int *stride = nullptr) const;
+	Stream *GetStream(std::string const &name, StreamInfo *info = nullptr) const;
+	Stream *ViewfinderStream(StreamInfo *info = nullptr) const;
+	Stream *StillStream(StreamInfo *info = nullptr) const;
+	Stream *RawStream(StreamInfo *info = nullptr) const;
+	Stream *VideoStream(StreamInfo *info = nullptr) const;
+	Stream *LoresStream(StreamInfo *info = nullptr) const;
 	Stream *GetMainStream() const;
 
 	std::vector<libcamera::Span<uint8_t>> Mmap(FrameBuffer *buffer) const;
@@ -119,7 +119,7 @@ public:
 	void ShowPreview(CompletedRequestPtr &completed_request, Stream *stream);
 
 	void SetControls(ControlList &controls);
-	void StreamDimensions(Stream const *stream, unsigned int *w, unsigned int *h, unsigned int *stride) const;
+	StreamInfo GetStreamInfo(Stream const *stream) const;
 
 protected:
 	std::unique_ptr<Options> options_;
@@ -175,6 +175,8 @@ private:
 	void queueRequest(CompletedRequest *completed_request);
 	void requestComplete(Request *request);
 	void previewDoneCallback(int fd);
+	void startPreview();
+	void stopPreview();
 	void previewThread();
 	void configureDenoise(const std::string &denoise_mode);
 
@@ -186,10 +188,9 @@ private:
 	std::map<std::string, Stream *> streams_;
 	FrameBufferAllocator *allocator_ = nullptr;
 	std::map<Stream *, std::queue<FrameBuffer *>> frame_buffers_;
-	std::mutex free_requests_mutex_;
-	std::queue<Request *> free_requests_;
 	std::vector<std::unique_ptr<Request>> requests_;
-	std::set<CompletedRequest *> known_completed_requests_;
+	std::mutex completed_requests_mutex_;
+	std::set<CompletedRequest *> completed_requests_;
 	bool camera_started_ = false;
 	std::mutex camera_stop_mutex_;
 	MessageQueue<Msg> msg_queue_;

@@ -48,6 +48,10 @@ NetOutput::NetOutput(VideoOptions const *options) : Output(options)
 			server_saddr.sin_addr.s_addr = INADDR_ANY;
 			server_saddr.sin_port = htons(port);
 
+			int enable = 1;
+			if (setsockopt(listen_fd, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(enable)) < 0)
+				throw std::runtime_error("failed to setsockopt listen socket");
+
 			if (bind(listen_fd, (struct sockaddr *)&server_saddr, sizeof(server_saddr)) < 0)
 				throw std::runtime_error("failed to bind listen socket");
 			listen(listen_fd, 1);

@@ -16,6 +16,7 @@ struct StillOptions : public Options
 	StillOptions() : Options()
 	{
 		using namespace boost::program_options;
+		// clang-format off
 		options_.add_options()
 			("quality,q", value<int>(&quality)->default_value(93),
 			 "Set the JPEG quality parameter")
@@ -46,6 +47,7 @@ struct StillOptions : public Options
 			("immediate", value<bool>(&immediate)->default_value(false)->implicit_value(true),
 			 "Perform first capture immediately, with no preview phase")
 			;
+		// clang-format on
 	}
 
 	int quality;
