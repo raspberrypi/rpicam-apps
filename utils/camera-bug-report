@@ -82,10 +82,12 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     # This is the app the user is actually running.
-    app = args.c.split(" ")[0] if args.c else None
-    # Can we identify the app?  If not, use libcamera-hello for version checks.
-    if not any([s in app for s in ['libcamera-still', 'libcamera-vid', 'libcamera-hello', 'libcamera-raw', 'libcamera-jpeg']]):
-        app = 'libcamera-hello'
+    app = 'libcamera-hello'
+    if args.c:
+        app = args.c.split(" ")[0]
+        # Can we identify the app?  If not, use libcamera-hello for version checks.
+        if not any([s in app for s in ['libcamera-still', 'libcamera-vid', 'libcamera-hello', 'libcamera-raw', 'libcamera-jpeg']]):
+            app = 'libcamera-hello'
 
     reports = []
     with open(args.o, 'wt') as file:
