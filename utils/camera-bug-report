@@ -78,7 +78,8 @@ if __name__ == '__main__':
     parser.add_argument('-o', help='Report filename', type=str, default='bug-report.txt')
     parser.add_argument('-t', help='Timeout (seconds) for the command to run. A value of 0 \
                                     disables the timeout.', type=float, default=0)
-    parser.add_argument('-c', help='Command to run, e.g. -c "libcamera-still -t 1000 -o test.jpg"', type=str)
+    parser.add_argument('-c', help='Command to run, e.g. -c "libcamera-still -t 1000 -o test.jpg"', type=str,
+                        required=True)
     args = parser.parse_args()
 
     # This is the app the user is actually running.
