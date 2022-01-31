@@ -48,7 +48,7 @@ def run_prog(cmd, t):
     out = []
     try:
         start = time.time()
-        p = subprocess.Popen(cmd, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        p = subprocess.Popen(cmd, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, errors='ignore')
         poll = select.poll()
         poll.register(p.stdout, select.POLLIN)
 
