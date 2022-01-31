@@ -20,16 +20,22 @@ Preview *make_preview(Options const *options)
 		return make_null_preview(options);
 #if QT_PRESENT
 	else if (options->qt_preview)
-		return make_qt_preview(options);
+	{
+		Preview *p = make_qt_preview(options);
+		if (p)
+			std::cerr << "Made QT preview window" << std::endl;
+		return p;
+	}
 #endif
 	else
 	{
 		try
 		{
 #if LIBEGL_PRESENT
-			return make_egl_preview(options);
-			if (options->verbose)
+			Preview *p = make_egl_preview(options);
+			if (p)
 				std::cerr << "Made X/EGL preview window" << std::endl;
+			return p;
 #else
 			throw std::runtime_error("egl libraries unavailable.");
 #endif
@@ -39,9 +45,10 @@ Preview *make_preview(Options const *options)
 			try
 			{
 #if LIBDRM_PRESENT
-				return make_drm_preview(options);
-				if (options->verbose)
+				Preview *p = make_drm_preview(options);
+				if (p)
 					std::cerr << "Made DRM preview window" << std::endl;
+				return p;
 #else
 				throw std::runtime_error("drm libraries unavailable.");
 #endif
