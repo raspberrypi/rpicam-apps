@@ -153,7 +153,7 @@ bool Options::Parse(int argc, char *argv[])
 		{ { "normal", libcamera::controls::ExposureNormal },
 			{ "sport", libcamera::controls::ExposureShort },
 			{ "short", libcamera::controls::ExposureShort },
-			// long mode?
+			{ "long", libcamera::controls::ExposureLong },
 			{ "custom", libcamera::controls::ExposureCustom } };
 	if (exposure_table.count(exposure) == 0)
 		throw std::runtime_error("Invalid exposure mode:" + exposure);
