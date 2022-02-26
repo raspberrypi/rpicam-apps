@@ -441,13 +441,13 @@ void LibcameraApp::StartCamera()
 	if (!controls_.contains(controls::Sharpness))
 		controls_.set(controls::Sharpness, options_->sharpness);
 
-	post_processor_.Start();
-
 	if (camera_->start(&controls_))
 		throw std::runtime_error("failed to start camera");
 	controls_.clear();
 	camera_started_ = true;
 	last_timestamp_ = 0;
+
+	post_processor_.Start();
 
 	camera_->requestCompleted.connect(this, &LibcameraApp::requestComplete);
 
