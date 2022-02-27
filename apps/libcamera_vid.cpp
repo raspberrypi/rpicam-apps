@@ -96,6 +96,8 @@ static void event_loop(LibcameraEncoder &app)
 		bool frameout = options->frames && count >= options->frames;
 		if (timeout || frameout || key == 'x' || key == 'X')
 		{
+			if (timeout)
+				std::cerr << "Halting: reached timeout of " << options->timeout << " milliseconds.\n";
 			app.StopCamera(); // stop complains if encoder very slow to close
 			app.StopEncoder();
 			return;
