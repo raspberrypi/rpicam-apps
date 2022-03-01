@@ -20,7 +20,11 @@ project(libcamera-jpeg)
 add_executable(libcamera-jpeg libcamera_jpeg.cpp)
 target_link_libraries(libcamera-jpeg libcamera_app images)
 
-set(EXECUTABLES libcamera-still libcamera-vid libcamera-hello libcamera-raw libcamera-jpeg)
+project(libcamera-wizcam)
+add_executable(libcamera-wizcam libcamera_wizcam.cpp)
+target_link_libraries(libcamera-wizcam libcamera_app images)
+
+set(EXECUTABLES libcamera-still libcamera-vid libcamera-hello libcamera-raw libcamera-jpeg libcamera-wizcam)
 
 if (ENABLE_TFLITE)
     project(libcamera-detect)

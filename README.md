@@ -15,3 +15,16 @@ Status
 ------
 
 [![ToT libcamera build/run test](https://github.com/raspberrypi/libcamera-apps/actions/workflows/libcamera-test.yml/badge.svg)](https://github.com/raspberrypi/libcamera-apps/actions/workflows/libcamera-test.yml)
+
+
+## Building from source
+
+```
+sudo apt install -y cmake libboost-program-options-dev libdrm-dev libexif-dev
+mkdir build
+cd build
+cmake .. -DENABLE_DRM=1 -DENABLE_X11=1 -DENABLE_QT=1 -DENABLE_OPENCV=0 -DENABLE_TFLITE=0
+make -j4  # use -j1 on Pi 3 or earlier devices
+sudo make install
+sudo ldconfig # this is only necessary on the first build
+```
