@@ -37,7 +37,7 @@ static void event_loop(LibcameraRaw &app)
 	app.StartCamera();
 	auto start_time = std::chrono::high_resolution_clock::now();
 
-	for (unsigned int count = 0; ; count++)
+	for (unsigned int count = 0;; count++)
 	{
 		LibcameraRaw::Msg msg = app.Wait();
 
@@ -85,5 +85,6 @@ int main(int argc, char *argv[])
 		std::cerr << "ERROR: *** " << e.what() << " ***" << std::endl;
 		return -1;
 	}
+	std::cerr << "Exiting peacefully" << std::endl;
 	return 0;
 }
