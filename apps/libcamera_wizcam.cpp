@@ -2,77 +2,65 @@
 /*
  * Copyright (C) 2020, Raspberry Pi (Trading) Ltd.
  *
- * libcamera_jpeg.cpp - minimal libcamera jpeg capture app.
+ * libcamera_raw.cpp - libcamera raw video record app.
  */
 
 #include <chrono>
 
-#include "core/libcamera_app.hpp"
-#include "core/still_options.hpp"
-
-#include "image/image.hpp"
+#include "core/libcamera_encoder.hpp"
+#include "encoder/null_encoder.hpp"
+#include "output/output.hpp"
 
 using namespace std::placeholders;
-using libcamera::Stream;
 
-class LibcameraJpegApp : public LibcameraApp
+class LibcameraRaw : public LibcameraEncoder
 {
 public:
-	LibcameraJpegApp() : LibcameraApp(std::make_unique<StillOptions>()) {}
+	LibcameraRaw() : LibcameraEncoder() {}
 
-	StillOptions *GetOptions() const { return static_cast<StillOptions *>(options_.get()); }
+protected:
+	// Force the use of "null" encoder.
+	void createEncoder() { encoder_ = std::unique_ptr<Encoder>(new NullEncoder(GetOptions())); }
 };
 
 // The main even loop for the application.
 
-static void event_loop(LibcameraJpegApp &app)
+static void event_loop(LibcameraRaw &app)
 {
-	StillOptions const *options = app.GetOptions();
+	VideoOptions const *options = app.GetOptions();
+	std::unique_ptr<Output> output = std::unique_ptr<Output>(Output::Create(options));
+	app.SetEncodeOutputReadyCallback(std::bind(&Output::OutputReady, output.get(), _1, _2, _3, _4));
+
 	app.OpenCamera();
-	app.ConfigureViewfinder();
+	app.ConfigureVideo(LibcameraRaw::FLAG_VIDEO_RAW);
+	app.StartEncoder();
 	app.StartCamera();
 	auto start_time = std::chrono::high_resolution_clock::now();
 
-	for (unsigned int count = 0;; count++)
+	for (unsigned int count = 0; ; count++)
 	{
-		LibcameraApp::Msg msg = app.Wait();
-		if (msg.type == LibcameraApp::MsgType::Quit)
-			return;
-		else if (msg.type != LibcameraApp::MsgType::RequestComplete)
-			throw std::runtime_error("unrecognised message!");
+		LibcameraRaw::Msg msg = app.Wait();
 
-		// In viewfinder mode, simply run until the timeout. When that happens, switch to
-		// capture mode.
-		if (app.ViewfinderStream())
+		if (msg.type != LibcameraRaw::MsgType::RequestComplete)
+			throw std::runtime_error("unrecognised message!");
+		if (count == 0)
 		{
-			auto now = std::chrono::high_resolution_clock::now();
-			if (options->timeout && now - start_time > std::chrono::milliseconds(options->timeout))
-			{
-				app.StopCamera();
-				app.Teardown();
-				app.ConfigureStill();
-				app.StartCamera();
-			}
-			else
-			{
-				CompletedRequestPtr &completed_request = std::get<CompletedRequestPtr>(msg.payload);
-				app.ShowPreview(completed_request, app.ViewfinderStream());
-			}
+			libcamera::StreamConfiguration const &cfg = app.RawStream()->configuration();
+			std::cerr << "Raw stream: " << cfg.size.width << "x" << cfg.size.height << " stride " << cfg.stride
+					  << " format " << cfg.pixelFormat.toString() << std::endl;
 		}
-		// In still capture mode, save a jpeg and quit.
-		else if (app.StillStream())
+
+		if (options->verbose)
+			std::cerr << "Viewfinder frame " << count << std::endl;
+		auto now = std::chrono::high_resolution_clock::now();
+		if (options->timeout && now - start_time > std::chrono::milliseconds(options->timeout))
 		{
 			app.StopCamera();
-			std::cerr << "Still capture image received" << std::endl;
-			std::cerr << "TEEEEEST" << std::endl;
-
-			Stream *stream = app.StillStream();
-			StreamInfo info = app.GetStreamInfo(stream);
-			CompletedRequestPtr &payload = std::get<CompletedRequestPtr>(msg.payload);
-			const std::vector<libcamera::Span<uint8_t>> mem = app.Mmap(payload->buffers[stream]);
-			jpeg_save(mem, info, payload->metadata, options->output, app.CameraId(), options);
+			app.StopEncoder();
 			return;
 		}
+
+		app.EncodeBuffer(std::get<CompletedRequestPtr>(msg.payload), app.RawStream());
 	}
 }
 
@@ -80,14 +68,14 @@ int main(int argc, char *argv[])
 {
 	try
 	{
-		LibcameraJpegApp app;
-		StillOptions *options = app.GetOptions();
+		LibcameraRaw app;
+		VideoOptions *options = app.GetOptions();
 		if (options->Parse(argc, argv))
 		{
+			options->denoise = "cdn_off";
+			options->nopreview = true;
 			if (options->verbose)
 				options->Print();
-			if (options->output.empty())
-				throw std::runtime_error("output file name required");
 
 			event_loop(app);
 		}

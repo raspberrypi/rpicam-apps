@@ -22,7 +22,7 @@ target_link_libraries(libcamera-jpeg libcamera_app images)
 
 project(libcamera-wizcam)
 add_executable(libcamera-wizcam libcamera_wizcam.cpp)
-target_link_libraries(libcamera-wizcam libcamera_app images)
+target_link_libraries(libcamera-wizcam libcamera_app encoders outputs)
 
 set(EXECUTABLES libcamera-still libcamera-vid libcamera-hello libcamera-raw libcamera-jpeg libcamera-wizcam)
 
