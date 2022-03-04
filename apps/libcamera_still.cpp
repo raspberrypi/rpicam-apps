@@ -162,6 +162,8 @@ static void event_loop(LibcameraStillApp &app)
 	app.StartCamera();
 	auto start_time = std::chrono::high_resolution_clock::now();
 	auto timelapse_time = start_time;
+	int timelapse_frames = 0;
+	constexpr int TIMELAPSE_MIN_FRAMES = 6; // at least this many preview frames between captures
 
 	// Monitoring for keypresses and signals.
 	signal(SIGUSR1, default_signal_handler);
@@ -187,11 +189,13 @@ static void event_loop(LibcameraStillApp &app)
 		{
 			if (options->verbose)
 				std::cerr << "Viewfinder frame " << count << std::endl;
+			timelapse_frames++;
 
 			bool timed_out = options->timeout && now - start_time > std::chrono::milliseconds(options->timeout);
 			bool keypressed = key == '\n';
 			bool timelapse_timed_out = options->timelapse &&
-									   now - timelapse_time > std::chrono::milliseconds(options->timelapse);
+									   now - timelapse_time > std::chrono::milliseconds(options->timelapse) &&
+									   timelapse_frames >= TIMELAPSE_MIN_FRAMES;
 
 			if (timed_out || keypressed || timelapse_timed_out)
 			{
@@ -222,6 +226,7 @@ static void event_loop(LibcameraStillApp &app)
 			app.StopCamera();
 			std::cerr << "Still capture image received" << std::endl;
 			save_images(app, std::get<CompletedRequestPtr>(msg.payload));
+			timelapse_frames = 0;
 			if (options->timelapse || options->signal || options->keypress)
 			{
 				app.Teardown();
