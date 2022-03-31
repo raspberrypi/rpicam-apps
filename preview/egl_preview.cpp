@@ -326,7 +326,7 @@ void EglPreview::makeWindow(char const *name)
 	wm_delete_window_ = XInternAtom(display_, "WM_DELETE_WINDOW", False);
 	XSetWMProtocols(display_, window_, &wm_delete_window_, 1);
 
-	egl_surface_ = eglCreateWindowSurface(egl_display_, config, window_, NULL);
+	egl_surface_ = eglCreateWindowSurface(egl_display_, config, reinterpret_cast<EGLNativeWindowType>(window_), NULL);
 	if (!egl_surface_)
 		throw std::runtime_error("eglCreateWindowSurface failed");
 
