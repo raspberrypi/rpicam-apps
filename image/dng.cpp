@@ -304,6 +304,14 @@ void dng_save(std::vector<libcamera::Span<uint8_t>> const &mem, StreamInfo const
 		// Create a separate IFD just for the EXIF tags. Why we couldn't simply have
 		// DNG tags for these, which would have made life so much easier, I have no idea.
 		TIFFCreateEXIFDirectory(tif);
+
+		time_t t;
+		time(&t);
+		struct tm *time_info = localtime(&t);
+		char time_str[32];
+		strftime(time_str, 32, "%Y:%m:%d %H:%M:%S", time_info);
+		TIFFSetField(tif, EXIFTAG_DATETIMEORIGINAL, time_str);
+
 		TIFFSetField(tif, EXIFTAG_ISOSPEEDRATINGS, 1, &iso);
 		TIFFSetField(tif, EXIFTAG_EXPOSURETIME, exp_time);
 
