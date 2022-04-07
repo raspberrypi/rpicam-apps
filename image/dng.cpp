@@ -325,6 +325,14 @@ void dng_save(std::vector<libcamera::Span<uint8_t>> const &mem, StreamInfo const
 		TIFFSetField(tif, TIFFTAG_EXIFIFD, offset_exififd);
 		TIFFWriteDirectory(tif);
 
+		// For reasons unknown, the last sub-IFD that we make seems to reappear at the
+		// end of the file as IDF1, and some tools (exiftool for example) are prone to
+		// complain about it. As far as I can see the code above is doing the correct
+		// things, and I can't find any references to this problem anywhere. So frankly
+		// I have no idea what is happening - please let us know if you do. Anyway,
+		// this bodge appears to make the problem go away...
+		TIFFUnlinkDirectory(tif, 2);
+
 		TIFFClose(tif);
 	}
 	catch (std::exception const &e)
