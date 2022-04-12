@@ -38,7 +38,9 @@ public:
 		void *mem = span.data();
 		if (!buffer || !mem)
 			throw std::runtime_error("no buffer to encode");
-		int64_t timestamp_ns = buffer->metadata().timestamp;
+		int64_t timestamp_ns = completed_request->metadata.contains(controls::SensorTimestamp)
+								? completed_request->metadata.get(controls::SensorTimestamp)
+								: buffer->metadata().timestamp;
 		{
 			std::lock_guard<std::mutex> lock(encode_buffer_queue_mutex_);
 			encode_buffer_queue_.push(completed_request); // creates a new reference

@@ -729,7 +729,11 @@ void LibcameraApp::requestComplete(Request *request)
 	}
 
 	// We calculate the instantaneous framerate in case anyone wants it.
-	uint64_t timestamp = payload->buffers.begin()->second->metadata().timestamp;
+	// Use the sensor timestamp if possible as it ought to be less glitchy than
+	// the buffer timestamps.
+	uint64_t timestamp = payload->metadata.contains(controls::SensorTimestamp)
+							? payload->metadata.get(controls::SensorTimestamp)
+							: payload->buffers.begin()->second->metadata().timestamp;
 	if (last_timestamp_ == 0 || last_timestamp_ == timestamp)
 		payload->framerate = 0;
 	else
