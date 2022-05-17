@@ -129,6 +129,8 @@ struct Options
 			 "Camera mode as W:H:bit-depth:packing, where packing is P (packed) or U (unpacked)")
 			("viewfinder-mode", value<std::string>(&viewfinder_mode_string),
 			 "Camera mode for preview as W:H:bit-depth:packing, where packing is P (packed) or U (unpacked)")
+			("autofocus", value<bool>(&autofocus)->default_value(false)->implicit_value(true),
+			 "Flush output data as soon as possible")
 			;
 		// clang-format on
 	}
@@ -166,6 +168,7 @@ struct Options
 	float awb_gain_r;
 	float awb_gain_b;
 	bool flush;
+	bool autofocus;
 	unsigned int wrap;
 	float brightness;
 	float contrast;
