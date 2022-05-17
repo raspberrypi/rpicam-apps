@@ -184,7 +184,8 @@ static void event_loop(LibcameraStillApp &app)
 			return;
 
 		// Key for autofocus
-		if (key == 'f' || key == 'F') {
+		if (key == 'f' || key == 'F') 
+		{
 			libcamera::ControlList controls;
 			controls.set(libcamera::controls::draft::AfTrigger, libcamera::controls::draft::AfTriggerStart);
 			app.SetControls(controls);
