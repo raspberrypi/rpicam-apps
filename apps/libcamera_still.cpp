@@ -183,6 +183,13 @@ static void event_loop(LibcameraStillApp &app)
 		if (key == 'x' || key == 'X')
 			return;
 
+		// Key for autofocus
+		if (key == 'f' || key == 'F') {
+			libcamera::ControlList controls;
+			controls.set(libcamera::controls::draft::AfTrigger, libcamera::controls::draft::AfTriggerStart);
+			app.SetControls(controls);
+		}
+		
 		// In viewfinder mode, simply run until the timeout. When that happens, switch to
 		// capture mode if an output was requested.
 		if (app.ViewfinderStream())
