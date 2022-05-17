@@ -446,7 +446,9 @@ void LibcameraApp::StartCamera()
 		controls_.set(controls::Saturation, options_->saturation);
 	if (!controls_.contains(controls::Sharpness))
 		controls_.set(controls::Sharpness, options_->sharpness);
-
+	if (!controls_.contains(libcamera::controls::draft::AfTrigger) && options_->autofocus)
+		controls_.set(libcamera::controls::draft::AfTrigger, libcamera::controls::draft::AfTriggerStart);
+	
 	if (camera_->start(&controls_))
 		throw std::runtime_error("failed to start camera");
 	controls_.clear();
