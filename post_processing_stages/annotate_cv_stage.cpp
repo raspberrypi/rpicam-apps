@@ -7,6 +7,8 @@
 
 // The text string can include the % directives supported by FrameInfo.
 
+#include <time.h>
+
 #include <libcamera/stream.h>
 
 #include "core/frame_info.hpp"
@@ -87,6 +89,11 @@ bool AnnotateCvStage::Process(CompletedRequestPtr &completed_request)
 	// Other post-processing stages can supply metadata to update the text.
 	completed_request->post_process_metadata.Get("annotate.text", text_);
 	std::string text = info.ToString(text_);
+	char text_with_date[256];
+	time_t t = time(NULL);
+	tm *tm_ptr = localtime(&t);
+	if (strftime(text_with_date, sizeof(text_with_date), text.c_str(), tm_ptr) != 0)
+		text = std::string(text_with_date);
 
 	uint8_t *ptr = (uint8_t *)buffer.data();
 	Mat im(info_.height, info_.width, CV_8U, ptr, info_.stride);
