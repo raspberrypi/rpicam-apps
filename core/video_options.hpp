@@ -65,7 +65,7 @@ struct VideoOptions : public Options
 			 "To list available formats, run  the \"ffmpeg -formats\" command.")
 			("libav-audio", value<bool>(&libav_audio)->default_value(false)->implicit_value(true),
 			 "Records an audio stream together with the video.")
-			("audio_codec", value<std::string>(&audio_codec)->default_value("aac"),
+			("audio-codec", value<std::string>(&audio_codec)->default_value("aac"),
 			 "Sets the libav audio codec to use.\n"
 			 "To list available codecs, run  the \"ffmpeg -codecs\" command.")
 			("audio-device", value<std::string>(&audio_device)->default_value("default"),
