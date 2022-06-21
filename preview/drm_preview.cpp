@@ -396,7 +396,16 @@ void DrmPreview::Show(int fd, libcamera::Span<uint8_t> span, StreamInfo const &i
 void DrmPreview::Reset()
 {
 	for (auto &it : buffers_)
+	{
 		drmModeRmFB(drmfd_, it.second.fb_handle);
+		// Apparently a "bo_handle" is a "gem" thing, and it needs closing. It feels like there
+		// ought be an API to match "drmPrimeFDToHandle" for this, but I can only find an ioctl.
+		drm_gem_close gem_close = {};
+		gem_close.handle = it.second.bo_handle;
+		if (drmIoctl(drmfd_, DRM_IOCTL_GEM_CLOSE, &gem_close) < 0)
+			// I have no idea what this would mean, so complain and try to carry on...
+			std::cerr << "DRM_IOCTL_GEM_CLOSE failed" << std::endl;
+	}
 	buffers_.clear();
 	last_fd_ = -1;
 	first_time_ = true;
