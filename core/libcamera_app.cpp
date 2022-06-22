@@ -646,6 +646,13 @@ void LibcameraApp::setupCapture()
 	if (options_->verbose)
 		std::cerr << "Camera streams configured" << std::endl;
 
+	if (options_->verbose)
+	{
+		std::cerr << "Available controls:" << std::endl;
+		for (auto const &[id, info] : camera_->controls())
+			std::cerr << "    " << id->name() << " : " << info.toString() << std::endl;
+	}
+
 	// Next allocate all the buffers we need, mmap them and store them on a free list.
 
 	allocator_ = new FrameBufferAllocator(camera_);
