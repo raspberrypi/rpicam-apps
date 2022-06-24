@@ -106,6 +106,23 @@ static void save_images(LibcameraStillApp &app, CompletedRequestPtr &payload)
 		options->framestart %= options->wrap;
 }
 
+static void save_metadata(const std::string &filename, const libcamera::ControlList &metadata)
+{
+	const libcamera::ControlIdMap *id_map = metadata.idMap();
+	std::streambuf *buf = std::cout.rdbuf();
+	std::ofstream of;
+
+	if (filename.compare("-"))
+	{
+		of.open(filename, std::ios::out);
+		buf = of.rdbuf();
+	}
+
+	std::ostream out(buf);
+	for (auto const &[id, val] : metadata)
+		out << id_map->at(id)->name() << "=" << val.toString() << std::endl;
+}
+
 // Some keypress/signal handling.
 
 static int signal_received;
@@ -226,6 +243,8 @@ static void event_loop(LibcameraStillApp &app)
 			app.StopCamera();
 			std::cerr << "Still capture image received" << std::endl;
 			save_images(app, std::get<CompletedRequestPtr>(msg.payload));
+			if (!options->metadata.empty())
+				save_metadata(options->metadata, std::get<CompletedRequestPtr>(msg.payload)->metadata);
 			timelapse_frames = 0;
 			if (options->timelapse || options->signal || options->keypress)
 			{
