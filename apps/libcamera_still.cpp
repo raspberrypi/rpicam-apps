@@ -4,7 +4,7 @@
  *
  * libcamera_still.cpp - libcamera stills capture app.
  */
-
+#include <chrono>
 #include <poll.h>
 #include <signal.h>
 #include <sys/signalfd.h>
@@ -17,6 +17,7 @@
 
 #include "image/image.hpp"
 
+using namespace std::chrono_literals;
 using namespace std::placeholders;
 using libcamera::Stream;
 
@@ -172,8 +173,25 @@ static void event_loop(LibcameraStillApp &app)
 		still_flags |= LibcameraApp::FLAG_STILL_RAW;
 
 	app.OpenCamera();
+
+	// Monitoring for keypresses and signals.
+	signal(SIGUSR1, default_signal_handler);
+	signal(SIGUSR2, default_signal_handler);
+	pollfd p[1] = { { STDIN_FILENO, POLLIN, 0 } };
+
 	if (options->immediate)
+	{
 		app.ConfigureStill(still_flags);
+		while (keypress)
+		{
+			int key = get_key_or_signal(options, p);
+			if (key == 'x' || key == 'X')
+				return;
+			else if (key == '\n')
+				break;
+			std::this_thread::sleep_for(10ms);
+		}
+	}
 	else
 		app.ConfigureViewfinder();
 	app.StartCamera();
@@ -181,11 +199,6 @@ static void event_loop(LibcameraStillApp &app)
 	auto timelapse_time = start_time;
 	int timelapse_frames = 0;
 	constexpr int TIMELAPSE_MIN_FRAMES = 6; // at least this many preview frames between captures
-
-	// Monitoring for keypresses and signals.
-	signal(SIGUSR1, default_signal_handler);
-	signal(SIGUSR2, default_signal_handler);
-	pollfd p[1] = { { STDIN_FILENO, POLLIN, 0 } };
 
 	for (unsigned int count = 0; ; count++)
 	{
@@ -246,7 +259,7 @@ static void event_loop(LibcameraStillApp &app)
 			if (!options->metadata.empty())
 				save_metadata(options->metadata, std::get<CompletedRequestPtr>(msg.payload)->metadata);
 			timelapse_frames = 0;
-			if (options->timelapse || options->signal || options->keypress)
+			if (!options->immediate && (options->timelapse || options->signal || options->keypress))
 			{
 				app.Teardown();
 				app.ConfigureViewfinder();
