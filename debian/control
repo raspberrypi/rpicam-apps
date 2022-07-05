@@ -16,7 +16,11 @@ Build-Depends: debhelper (>= 11),
  libpng-dev,
  libtiff-dev,
  libx11-dev,
- qtbase5-dev
+ qtbase5-dev,
+ libavcodec-dev,
+ libavdevice-dev,
+ libavformat-dev,
+ libswresample-dev
 Standards-Version: 4.1.3
 Homepage: https://github.com/raspberrypi/libcamera-apps/
 
