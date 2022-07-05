@@ -16,7 +16,7 @@ class CircularBuffer
 public:
 	CircularBuffer(size_t size) : size_(size), buf_(size), rptr_(0), wptr_(0) {}
 	bool Empty() const { return rptr_ == wptr_; }
-	size_t Available() const { return (size_ - wptr_ + rptr_) % size_ - 1; }
+	size_t Available() const { return wptr_ == rptr_ ? size_ - 1 : (size_ - wptr_ + rptr_) % size_ - 1; }
 	void Skip(unsigned int n) { rptr_ = (rptr_ + n) % size_; }
 	// The dst function allows bytes read to go straight to memory or a file etc.
 	void Read(std::function<void(void *src, unsigned int n)> dst, unsigned int n)

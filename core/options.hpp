@@ -84,7 +84,7 @@ struct Options
 			("rotation", value<int>(&rotation_)->default_value(0), "Request an image rotation, 0 or 180")
 			("roi", value<std::string>(&roi)->default_value("0,0,0,0"), "Set region of interest (digital zoom) e.g. 0.25,0.25,0.5,0.5")
 			("shutter", value<float>(&shutter)->default_value(0),
-			 "Set a fixed shutter speed")
+			 "Set a fixed shutter speed in microseconds")
 			("analoggain", value<float>(&gain)->default_value(0),
 			 "Set a fixed gain value (synonym for 'gain' option)")
 			("gain", value<float>(&gain),

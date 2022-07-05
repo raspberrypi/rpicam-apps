@@ -465,6 +465,10 @@ static void create_exif_data(std::vector<libcamera::Span<uint8_t>> const &mem,
 		time_info = std::localtime(&raw_time);
 		std::strftime(time_string, sizeof(time_string), "%Y:%m:%d %H:%M:%S", time_info);
 		exif_set_string(entry, time_string);
+		entry = exif_create_tag(exif, EXIF_IFD_EXIF, EXIF_TAG_DATE_TIME_ORIGINAL);
+		exif_set_string(entry, time_string);
+		entry = exif_create_tag(exif, EXIF_IFD_EXIF, EXIF_TAG_DATE_TIME_DIGITIZED);
+		exif_set_string(entry, time_string);
 
 		// Now add some tags filled in from the image metadata.
 		if (metadata.contains(libcamera::controls::ExposureTime))
