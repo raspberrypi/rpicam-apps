@@ -98,12 +98,18 @@ void LibcameraApp::OpenCamera()
 	if (ret)
 		throw std::runtime_error("camera manager failed to start, code " + std::to_string(-ret));
 
-	if (camera_manager_->cameras().size() == 0)
+	std::vector<std::shared_ptr<libcamera::Camera>> cameras = camera_manager_->cameras();
+	// Do not show USB webcams as these are not supported in libcamera-apps!
+	auto rem = std::remove_if(cameras.begin(), cameras.end(),
+							  [](auto &cam) { return cam->id().find("/usb") != std::string::npos; });
+	cameras.erase(rem, cameras.end());
+
+	if (cameras.size() == 0)
 		throw std::runtime_error("no cameras available");
-	if (options_->camera >= camera_manager_->cameras().size())
+	if (options_->camera >= cameras.size())
 		throw std::runtime_error("selected camera is not available");
 
-	std::string const &cam_id = camera_manager_->cameras()[options_->camera]->id();
+	std::string const &cam_id = cameras[options_->camera]->id();
 	camera_ = camera_manager_->get(cam_id);
 	if (!camera_)
 		throw std::runtime_error("failed to find camera " + cam_id);
@@ -640,6 +646,13 @@ void LibcameraApp::setupCapture()
 	if (options_->verbose)
 		std::cerr << "Camera streams configured" << std::endl;
 
+	if (options_->verbose)
+	{
+		std::cerr << "Available controls:" << std::endl;
+		for (auto const &[id, info] : camera_->controls())
+			std::cerr << "    " << id->name() << " : " << info.toString() << std::endl;
+	}
+
 	// Next allocate all the buffers we need, mmap them and store them on a free list.
 
 	allocator_ = new FrameBufferAllocator(camera_);
@@ -723,7 +736,11 @@ void LibcameraApp::requestComplete(Request *request)
 	}
 
 	// We calculate the instantaneous framerate in case anyone wants it.
-	uint64_t timestamp = payload->buffers.begin()->second->metadata().timestamp;
+	// Use the sensor timestamp if possible as it ought to be less glitchy than
+	// the buffer timestamps.
+	uint64_t timestamp = payload->metadata.contains(controls::SensorTimestamp)
+							? payload->metadata.get(controls::SensorTimestamp)
+							: payload->buffers.begin()->second->metadata().timestamp;
 	if (last_timestamp_ == 0 || last_timestamp_ == timestamp)
 		payload->framerate = 0;
 	else

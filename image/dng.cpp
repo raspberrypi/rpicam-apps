@@ -304,6 +304,14 @@ void dng_save(std::vector<libcamera::Span<uint8_t>> const &mem, StreamInfo const
 		// Create a separate IFD just for the EXIF tags. Why we couldn't simply have
 		// DNG tags for these, which would have made life so much easier, I have no idea.
 		TIFFCreateEXIFDirectory(tif);
+
+		time_t t;
+		time(&t);
+		struct tm *time_info = localtime(&t);
+		char time_str[32];
+		strftime(time_str, 32, "%Y:%m:%d %H:%M:%S", time_info);
+		TIFFSetField(tif, EXIFTAG_DATETIMEORIGINAL, time_str);
+
 		TIFFSetField(tif, EXIFTAG_ISOSPEEDRATINGS, 1, &iso);
 		TIFFSetField(tif, EXIFTAG_EXPOSURETIME, exp_time);
 
@@ -316,6 +324,14 @@ void dng_save(std::vector<libcamera::Span<uint8_t>> const &mem, StreamInfo const
 		TIFFSetField(tif, TIFFTAG_SUBIFD, 1, &offset_subifd);
 		TIFFSetField(tif, TIFFTAG_EXIFIFD, offset_exififd);
 		TIFFWriteDirectory(tif);
+
+		// For reasons unknown, the last sub-IFD that we make seems to reappear at the
+		// end of the file as IDF1, and some tools (exiftool for example) are prone to
+		// complain about it. As far as I can see the code above is doing the correct
+		// things, and I can't find any references to this problem anywhere. So frankly
+		// I have no idea what is happening - please let us know if you do. Anyway,
+		// this bodge appears to make the problem go away...
+		TIFFUnlinkDirectory(tif, 2);
 
 		TIFFClose(tif);
 	}
