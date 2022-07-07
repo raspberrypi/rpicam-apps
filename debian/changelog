@@ -1,3 +1,10 @@
+libcamera-apps (0~git20220707+35266e8-1) bullseye; urgency=medium
+
+  * New upstream version 0~git20220707+35266e8
+  * Build libcamera-apps-lite without libav support
+
+ -- Serge Schneider <serge@raspberrypi.com>  Thu, 07 Jul 2022 18:47:37 +0100
+
 libcamera-apps (0~git20220630+765bb46-2) bullseye; urgency=medium
 
   * Add new build dependencies:
