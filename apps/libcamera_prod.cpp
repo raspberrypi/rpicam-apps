@@ -173,9 +173,11 @@ static void event_loop(LibcameraProd &app)
 	{
 		LibcameraProd::Msg msg = app.Wait();
 		CompletedRequestPtr req = std::get<CompletedRequestPtr>(msg.payload);
-
+		if (msg.type == LibcameraEncoder::MsgType::Quit)
+			return;
 		if (msg.type != LibcameraProd::MsgType::RequestComplete)
 			throw std::runtime_error("unrecognised message!");
+
 		if (count == 0)
 		{
 			libcamera::StreamConfiguration const &cfg = app.RawStream()->configuration();
@@ -257,6 +259,8 @@ static void event_loop(LibcameraProd &app)
 					throw std::runtime_error("cannot set focus!");
 			}
 		}
+
+		app.ShowPreview(req, app.VideoStream());
 	}
 }
 
@@ -269,7 +273,6 @@ int main(int argc, char *argv[])
 		if (options->Parse(argc, argv))
 		{
 			options->denoise = "cdn_off";
-			options->nopreview = true;
 
 			if (options->dust_test)
 			{
