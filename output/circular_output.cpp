@@ -55,6 +55,10 @@ CircularOutput::~CircularOutput()
 			cb_.Read([fp](void *src, int n) { fwrite(src, 1, n, fp); }, header.length);
 			cb_.Skip((ALIGN - header.length) & (ALIGN - 1));
 			total += header.length;
+			if (fp_timestamps_)
+			{
+				Output::timestampReady(header.timestamp);
+			}
 			frames++;
 		}
 		else
@@ -86,4 +90,9 @@ void CircularOutput::outputBuffer(void *mem, size_t size, int64_t timestamp_us, 
 	cb_.Write(&header, sizeof(header));
 	cb_.Write(mem, size);
 	cb_.Pad(pad);
+}
+
+void CircularOutput::timestampReady(int64_t timestamp)
+{
+	// Don't want to save every timestamp as we go along, only outputs them at the end
 }
