@@ -31,7 +31,7 @@ void FileOutput::outputBuffer(void *mem, size_t size, int64_t timestamp_us, uint
 		openFile(timestamp_us);
 	}
 
-	if (options_->verbose)
+	if (options_->verbose >= 2)
 		std::cerr << "FileOutput: output buffer " << mem << " size " << size << "\n";
 	if (fp_ && size)
 	{
@@ -60,7 +60,7 @@ void FileOutput::openFile(int64_t timestamp_us)
 		fp_ = fopen(filename, "w");
 		if (!fp_)
 			throw std::runtime_error("failed to open output file " + std::string(filename));
-		if (options_->verbose)
+		if (options_->verbose >= 2)
 			std::cerr << "FileOutput: opened output file " << filename << std::endl;
 
 		file_start_time_ms_ = timestamp_us / 1000;

@@ -202,7 +202,7 @@ LibAvEncoder::LibAvEncoder(VideoOptions const *options, StreamInfo const &info)
 {
 	avdevice_register_all();
 
-	if (options->verbose)
+	if (options->verbose >= 2)
 		av_log_set_level(AV_LOG_VERBOSE);
 
 	initVideoCodec(options, info);
@@ -215,7 +215,7 @@ LibAvEncoder::LibAvEncoder(VideoOptions const *options, StreamInfo const &info)
 
 	av_dump_format(out_fmt_ctx_, 0, options_->output.c_str(), 1);
 
-	if (options->verbose)
+	if (options->verbose >= 2)
 		std::cerr << "libav: codec init completed" << std::endl;
 
 	video_thread_ = std::thread(&LibAvEncoder::videoThread, this);
@@ -245,7 +245,7 @@ LibAvEncoder::~LibAvEncoder()
 		avcodec_free_context(&codec_ctx_[AudioOut]);
 	}
 
-	if (options_->verbose)
+	if (options_->verbose >= 2)
 		std::cerr << "libav: codec closed" << std::endl;
 }
 

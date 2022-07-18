@@ -82,7 +82,7 @@ void DrmPreview::findCrtc()
 
 	if (!conId_)
 	{
-		if (options_->verbose)
+		if (options_->verbose >= 2)
 			std::cerr << "No connector ID specified.  Choosing default from list:" << std::endl;
 
 		for (i = 0; i < res->count_connectors; i++)
@@ -112,7 +112,7 @@ void DrmPreview::findCrtc()
 				screen_height_ = crtc->height;
 			}
 
-			if (options_->verbose)
+			if (options_->verbose >= 2)
 				std::cerr << "Connector " << con->connector_id << " (crtc " << (crtc ? crtc->crtc_id : 0) << "): type "
 						  << con->connector_type << ", " << (crtc ? crtc->width : 0) << "x" << (crtc ? crtc->height : 0)
 						  << (conId_ == (int)con->connector_id ? " (chosen)" : "") << std::endl;

@@ -69,7 +69,8 @@ static void event_loop(LibcameraJpegApp &app)
 		else if (app.StillStream())
 		{
 			app.StopCamera();
-			std::cerr << "Still capture image received" << std::endl;
+			if (options->verbose >= 1)
+				std::cerr << "Still capture image received" << std::endl;
 
 			Stream *stream = app.StillStream();
 			StreamInfo info = app.GetStreamInfo(stream);
@@ -89,7 +90,7 @@ int main(int argc, char *argv[])
 		StillOptions *options = app.GetOptions();
 		if (options->Parse(argc, argv))
 		{
-			if (options->verbose)
+			if (options->verbose >= 2)
 				options->Print();
 			if (options->output.empty())
 				throw std::runtime_error("output file name required");

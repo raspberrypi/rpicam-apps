@@ -47,7 +47,7 @@ H264Encoder::H264Encoder(VideoOptions const *options, StreamInfo const &info)
 	fd_ = open(device_name, O_RDWR, 0);
 	if (fd_ < 0)
 		throw std::runtime_error("failed to open V4L2 H264 encoder");
-	if (options->verbose)
+	if (options->verbose >= 2)
 		std::cerr << "Opened H264Encoder on " << device_name << " as fd " << fd_ << std::endl;
 
 	// Apply any options->
@@ -143,7 +143,7 @@ H264Encoder::H264Encoder(VideoOptions const *options, StreamInfo const &info)
 	reqbufs.memory = V4L2_MEMORY_DMABUF;
 	if (xioctl(fd_, VIDIOC_REQBUFS, &reqbufs) < 0)
 		throw std::runtime_error("request for output buffers failed");
-	if (options->verbose)
+	if (options->verbose >= 2)
 		std::cerr << "Got " << reqbufs.count << " output buffers" << std::endl;
 
 	// We have to maintain a list of the buffers we can use when our caller gives
@@ -157,7 +157,7 @@ H264Encoder::H264Encoder(VideoOptions const *options, StreamInfo const &info)
 	reqbufs.memory = V4L2_MEMORY_MMAP;
 	if (xioctl(fd_, VIDIOC_REQBUFS, &reqbufs) < 0)
 		throw std::runtime_error("request for capture buffers failed");
-	if (options->verbose)
+	if (options->verbose >= 2)
 		std::cerr << "Got " << reqbufs.count << " capture buffers" << std::endl;
 	num_capture_buffers_ = reqbufs.count;
 
@@ -191,7 +191,7 @@ H264Encoder::H264Encoder(VideoOptions const *options, StreamInfo const &info)
 	type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
 	if (xioctl(fd_, VIDIOC_STREAMON, &type) < 0)
 		throw std::runtime_error("failed to start capture streaming");
-	if (options->verbose)
+	if (options->verbose >= 2)
 		std::cerr << "Codec streaming started" << std::endl;
 
 	output_thread_ = std::thread(&H264Encoder::outputThread, this);
@@ -233,7 +233,7 @@ H264Encoder::~H264Encoder()
 		std::cerr << "Request to free capture buffers failed" << std::endl;
 
 	close(fd_);
-	if (options_->verbose)
+	if (options_->verbose >= 2)
 		std::cerr << "H264Encoder closed" << std::endl;
 }
 

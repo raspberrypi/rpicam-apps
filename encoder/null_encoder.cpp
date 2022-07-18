@@ -13,7 +13,7 @@
 
 NullEncoder::NullEncoder(VideoOptions const *options) : Encoder(options), abort_(false)
 {
-	if (options->verbose)
+	if (options->verbose >= 2)
 		std::cerr << "Opened NullEncoder" << std::endl;
 	output_thread_ = std::thread(&NullEncoder::outputThread, this);
 }

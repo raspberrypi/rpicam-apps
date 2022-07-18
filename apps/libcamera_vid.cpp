@@ -88,7 +88,7 @@ static void event_loop(LibcameraEncoder &app)
 		if (key == '\n')
 			output->Signal();
 
-		if (options->verbose)
+		if (options->verbose >= 2)
 			std::cerr << "Viewfinder frame " << count << std::endl;
 		auto now = std::chrono::high_resolution_clock::now();
 		bool timeout = !options->frames && options->timeout &&
@@ -117,7 +117,7 @@ int main(int argc, char *argv[])
 		VideoOptions *options = app.GetOptions();
 		if (options->Parse(argc, argv))
 		{
-			if (options->verbose)
+			if (options->verbose >= 2)
 				options->Print();
 
 			event_loop(app);

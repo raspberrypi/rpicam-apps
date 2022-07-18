@@ -123,7 +123,7 @@ int main(int argc, char *argv[])
 		DetectOptions *options = app.GetOptions();
 		if (options->Parse(argc, argv))
 		{
-			if (options->verbose)
+			if (options->verbose >= 2)
 				options->Print();
 			if (options->output.empty())
 				throw std::runtime_error("output file name required");

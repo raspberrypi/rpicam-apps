@@ -70,7 +70,7 @@ public:
 		std::unique_lock lock(mutex_);
 		while (!pane_)
 			cond_var_.wait(lock);
-		if (options->verbose)
+		if (options->verbose >= 2)
 			std::cerr << "Made Qt preview" << std::endl;
 	}
 	~QtPreview()

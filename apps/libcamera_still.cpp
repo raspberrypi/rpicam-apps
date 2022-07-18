@@ -65,7 +65,7 @@ static void update_latest_link(std::string const &filename, StillOptions const *
 		{
 			if (symlink(filename.c_str(), options->latest.c_str()))
 				std::cerr << "WARNING: failed to create latest link " << options->latest << std::endl;
-			else if (options->verbose)
+			else if (options->verbose >= 2)
 				std::cerr << "Link " << options->latest << " created" << std::endl;
 		}
 	}
@@ -87,7 +87,7 @@ static void save_image(LibcameraStillApp &app, CompletedRequestPtr &payload, Str
 		bmp_save(mem, info, filename, options);
 	else
 		yuv_save(mem, info, filename, options);
-	if (options->verbose)
+	if (options->verbose >= 2)
 		std::cerr << "Saved image " << info.width << " x " << info.height << " to file " << filename << std::endl;
 }
 
@@ -217,7 +217,7 @@ static void event_loop(LibcameraStillApp &app)
 		// capture mode if an output was requested.
 		if (app.ViewfinderStream())
 		{
-			if (options->verbose)
+			if (options->verbose >= 2)
 				std::cerr << "Viewfinder frame " << count << std::endl;
 			timelapse_frames++;
 
@@ -254,7 +254,8 @@ static void event_loop(LibcameraStillApp &app)
 		else if (app.StillStream())
 		{
 			app.StopCamera();
-			std::cerr << "Still capture image received" << std::endl;
+			if (options->verbose >= 1)
+				std::cerr << "Still capture image received" << std::endl;
 			save_images(app, std::get<CompletedRequestPtr>(msg.payload));
 			if (!options->metadata.empty())
 				save_metadata(options->metadata, std::get<CompletedRequestPtr>(msg.payload)->metadata);
@@ -279,7 +280,7 @@ int main(int argc, char *argv[])
 		StillOptions *options = app.GetOptions();
 		if (options->Parse(argc, argv))
 		{
-			if (options->verbose)
+			if (options->verbose >= 2)
 				options->Print();
 
 			event_loop(app);
