@@ -205,7 +205,7 @@ void dng_save(std::vector<libcamera::Span<uint8_t>> const &mem, StreamInfo const
 				   0.0193339, 0.1191920, 0.9503041);
 	Matrix CAM_XYZ = (RGB2XYZ * CCM * WB_GAINS).Inv();
 
-	if (options->verbose)
+	if (options->verbose >= 2)
 	{
 		std::cerr << "Black levels " << black_levels[0] << " " << black_levels[1] << " " << black_levels[2] << " "
 				  << black_levels[3] << ", exposure time " << exp_time * 1e6 << "us, ISO " << iso << std::endl;

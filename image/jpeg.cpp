@@ -475,7 +475,7 @@ static void create_exif_data(std::vector<libcamera::Span<uint8_t>> const &mem,
 		{
 			entry = exif_create_tag(exif, EXIF_IFD_EXIF, EXIF_TAG_EXPOSURE_TIME);
 			int32_t exposure_time = metadata.get(libcamera::controls::ExposureTime);
-			if (options->verbose)
+			if (options->verbose >= 2)
 				std::cerr << "Exposure time: " << exposure_time << std::endl;
 			ExifRational exposure = { (ExifLong)exposure_time, 1000000 };
 			exif_set_rational(entry->data, exif_byte_order, exposure);
@@ -487,7 +487,7 @@ static void create_exif_data(std::vector<libcamera::Span<uint8_t>> const &mem,
 			if (metadata.contains(libcamera::controls::DigitalGain))
 				dg = metadata.get(libcamera::controls::DigitalGain);
 			gain = ag * dg;
-			if (options->verbose)
+			if (options->verbose >= 2)
 				std::cerr << "Ag " << ag << " Dg " << dg << " Total " << gain << std::endl;
 			exif_set_short(entry->data, exif_byte_order, 100 * gain);
 		}
@@ -495,7 +495,7 @@ static void create_exif_data(std::vector<libcamera::Span<uint8_t>> const &mem,
 		// Command-line supplied tags.
 		for (auto &exif_item : options->exif)
 		{
-			if (options->verbose)
+			if (options->verbose >= 2)
 				std::cerr << "Processing EXIF item: " << exif_item << std::endl;
 			exif_read_tag(exif, exif_item.c_str());
 		}
@@ -505,7 +505,7 @@ static void create_exif_data(std::vector<libcamera::Span<uint8_t>> const &mem,
 			// Add some tags for the thumbnail. We put in dummy values for the thumbnail
 			// offset/length to occupy the right amount of space, and fill them in later.
 
-			if (options->verbose)
+			if (options->verbose >= 2)
 				std::cerr << "Thumbnail dimensions are " << options->thumb_width << " x " << options->thumb_height
 						  << std::endl;
 			entry = exif_create_tag(exif, EXIF_IFD_1, EXIF_TAG_IMAGE_WIDTH);
@@ -539,7 +539,7 @@ static void create_exif_data(std::vector<libcamera::Span<uint8_t>> const &mem,
 				free(thumb_buffer);
 				thumb_buffer = nullptr;
 			}
-			if (options->verbose)
+			if (options->verbose >= 2)
 				std::cerr << "Thumbnail size " << thumb_len << std::endl;
 			if (q <= 0)
 				throw std::runtime_error("failed to make acceptable thumbnail");
@@ -598,7 +598,7 @@ void jpeg_save(std::vector<libcamera::Span<uint8_t>> const &mem, StreamInfo cons
 		jpeg_mem_len_t jpeg_len;
 		YUV_to_JPEG((uint8_t *)(mem[0].data()), info, info.width, info.height, options->quality,
 					options->restart, jpeg_buffer, jpeg_len);
-		if (options->verbose)
+		if (options->verbose >= 2)
 			std::cerr << "JPEG size is " << jpeg_len << std::endl;
 
 		// Write everything out.
@@ -607,7 +607,7 @@ void jpeg_save(std::vector<libcamera::Span<uint8_t>> const &mem, StreamInfo cons
 		if (!fp)
 			throw std::runtime_error("failed to open file " + options->output);
 
-		if (options->verbose)
+		if (options->verbose >= 2)
 			std::cerr << "EXIF data len " << exif_len << std::endl;
 
 		if (fwrite(exif_header, sizeof(exif_header), 1, fp) != 1 || fputc((exif_len + thumb_len + 2) >> 8, fp) == EOF ||

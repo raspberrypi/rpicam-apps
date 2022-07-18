@@ -48,8 +48,8 @@ struct Options
 			 "Lists the available cameras attached to the system.")
 			("camera", value<unsigned int>(&camera)->default_value(0),
 			 "Chooses the camera to use. To list the available indexes, use the --list-cameras option.")
-			("verbose,v", value<bool>(&verbose)->default_value(false)->implicit_value(true),
-			 "Output extra debug and diagnostics")
+			("verbose,v", value<unsigned int>(&verbose)->default_value(1)->implicit_value(2),
+			 "Set verbosity level. Level 0 is no output, 1 is default, 2 is verbose.")
 			("config,c", value<std::string>(&config_file)->implicit_value("config.txt"),
 			 "Read the options from a file. If no filename is specified, default to config.txt. "
 			 "In case of duplicate options, the ones provided on the command line will be used. "
@@ -138,7 +138,7 @@ struct Options
 	bool help;
 	bool version;
 	bool list_cameras;
-	bool verbose;
+	unsigned int verbose;
 	uint64_t timeout; // in ms
 	std::string config_file;
 	std::string output;

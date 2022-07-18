@@ -50,7 +50,7 @@ static void event_loop(LibcameraRaw &app)
 					  << " format " << cfg.pixelFormat.toString() << std::endl;
 		}
 
-		if (options->verbose)
+		if (options->verbose >= 2)
 			std::cerr << "Viewfinder frame " << count << std::endl;
 		auto now = std::chrono::high_resolution_clock::now();
 		if (options->timeout && now - start_time > std::chrono::milliseconds(options->timeout))
@@ -74,7 +74,7 @@ int main(int argc, char *argv[])
 		{
 			options->denoise = "cdn_off";
 			options->nopreview = true;
-			if (options->verbose)
+			if (options->verbose >= 2)
 				options->Print();
 
 			event_loop(app);

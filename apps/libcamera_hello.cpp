@@ -32,7 +32,7 @@ static void event_loop(LibcameraApp &app)
 		else if (msg.type != LibcameraApp::MsgType::RequestComplete)
 			throw std::runtime_error("unrecognised message!");
 
-		if (options->verbose)
+		if (options->verbose >= 2)
 			std::cerr << "Viewfinder frame " << count << std::endl;
 		auto now = std::chrono::high_resolution_clock::now();
 		if (options->timeout && now - start_time > std::chrono::milliseconds(options->timeout))
@@ -51,7 +51,7 @@ int main(int argc, char *argv[])
 		Options *options = app.GetOptions();
 		if (options->Parse(argc, argv))
 		{
-			if (options->verbose)
+			if (options->verbose >= 2)
 				options->Print();
 
 			event_loop(app);
