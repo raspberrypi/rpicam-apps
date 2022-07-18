@@ -26,6 +26,7 @@
 #include <libcamera/controls.h>
 #include <libcamera/formats.h>
 #include <libcamera/framebuffer_allocator.h>
+#include <libcamera/logging.h>
 #include <libcamera/property_ids.h>
 
 #include "core/completed_request.hpp"
