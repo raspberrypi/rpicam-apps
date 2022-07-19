@@ -470,22 +470,22 @@ static void create_exif_data(std::vector<libcamera::Span<uint8_t>> const &mem,
 		exif_set_string(entry, time_string);
 
 		// Now add some tags filled in from the image metadata.
-		if (metadata.contains(libcamera::controls::ExposureTime))
+		auto exposure_time = metadata.get(libcamera::controls::ExposureTime);
+		if (exposure_time)
 		{
 			entry = exif_create_tag(exif, EXIF_IFD_EXIF, EXIF_TAG_EXPOSURE_TIME);
-			int32_t exposure_time = metadata.get(libcamera::controls::ExposureTime);
-			LOG(2, "Exposure time: " << exposure_time);
-			ExifRational exposure = { (ExifLong)exposure_time, 1000000 };
+			LOG(2, "Exposure time: " << *exposure_time);
+			ExifRational exposure = { (ExifLong)*exposure_time, 1000000 };
 			exif_set_rational(entry->data, exif_byte_order, exposure);
 		}
-		if (metadata.contains(libcamera::controls::AnalogueGain))
+		auto ag = metadata.get(libcamera::controls::AnalogueGain);
+		if (ag)
 		{
 			entry = exif_create_tag(exif, EXIF_IFD_EXIF, EXIF_TAG_ISO_SPEED_RATINGS);
-			float ag = metadata.get(libcamera::controls::AnalogueGain), dg = 1.0, gain;
-			if (metadata.contains(libcamera::controls::DigitalGain))
-				dg = metadata.get(libcamera::controls::DigitalGain);
-			gain = ag * dg;
-			LOG(2, "Ag " << ag << " Dg " << dg << " Total " << gain);
+			auto dg = metadata.get(libcamera::controls::DigitalGain);
+			float gain;
+			gain = *ag * (dg ? *dg : 1.0);
+			LOG(2, "Ag " << *ag << " Dg " << *dg << " Total " << gain);
 			exif_set_short(entry->data, exif_byte_order, 100 * gain);
 		}
 

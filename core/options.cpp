@@ -106,11 +106,10 @@ bool Options::Parse(int argc, char *argv[])
 			for (auto const &cam : cameras)
 			{
 				cam->acquire();
-				std::cerr << idx++ << " : " << cam->properties().get(libcamera::properties::Model);
-				if (cam->properties().contains(properties::PixelArrayActiveAreas))
-					std::cerr << " ["
-							  << cam->properties().get(properties::PixelArrayActiveAreas)[0].size().toString()
-							  << "]";
+				std::cerr << idx++ << " : " << *cam->properties().get(libcamera::properties::Model);
+				auto area = cam->properties().get(properties::PixelArrayActiveAreas);
+				if (area)
+					std::cerr << " [" << (*area)[0].size().toString() << "]";
 				std::cerr << " (" << cam->id() << ")" << std::endl;
 
 				std::unique_ptr<CameraConfiguration> config = cam->generateConfiguration({libcamera::StreamRole::Raw});
@@ -142,7 +141,7 @@ bool Options::Parse(int argc, char *argv[])
 						auto crop_ctrl = cam->properties().get(properties::ScalerCropMaximum);
 						double fps = 1e6 / fd_ctrl->second.min().get<int64_t>();
 						std::cerr << std::fixed << std::setprecision(2) << "["
-								  << fps << " fps - " << crop_ctrl.toString() << " crop" << "]";
+								  << fps << " fps - " << crop_ctrl->toString() << " crop" << "]";
 						if (--num)
 						{
 							std::cerr << std::endl;

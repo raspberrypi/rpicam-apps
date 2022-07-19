@@ -164,14 +164,15 @@ void LibcameraApp::ConfigureViewfinder()
 		throw std::runtime_error("failed to generate viewfinder configuration");
 
 	Size size(1280, 960);
+	auto area = camera_->properties().get(properties::PixelArrayActiveAreas);
 	if (options_->viewfinder_width && options_->viewfinder_height)
 		size = Size(options_->viewfinder_width, options_->viewfinder_height);
-	else if (camera_->properties().contains(properties::PixelArrayActiveAreas))
+	else if (area)
 	{
 		// The idea here is that most sensors will have a 2x2 binned mode that
 		// we can pick up. If it doesn't, well, you can always specify the size
 		// you want exactly with the viewfinder_width/height options_->
-		size = camera_->properties().get(properties::PixelArrayActiveAreas)[0].size() / 2;
+		size = (*area)[0].size() / 2;
 		// If width and height were given, we might be switching to capture
 		// afterwards - so try to match the field of view.
 		if (options_->width && options_->height)
@@ -388,9 +389,9 @@ void LibcameraApp::StartCamera()
 
 	// Build a list of initial controls that we must set in the camera before starting it.
 	// We don't overwrite anything the application may have set before calling us.
-	if (!controls_.contains(controls::ScalerCrop) && options_->roi_width != 0 && options_->roi_height != 0)
+	if (!controls_.get(controls::ScalerCrop) && options_->roi_width != 0 && options_->roi_height != 0)
 	{
-		Rectangle sensor_area = camera_->properties().get(properties::ScalerCropMaximum);
+		Rectangle sensor_area = *camera_->properties().get(properties::ScalerCropMaximum);
 		int x = options_->roi_x * sensor_area.width;
 		int y = options_->roi_y * sensor_area.height;
 		int w = options_->roi_width * sensor_area.width;
@@ -404,7 +405,7 @@ void LibcameraApp::StartCamera()
 	// Framerate is a bit weird. If it was set programmatically, we go with that, but
 	// otherwise it applies only to preview/video modes. For stills capture we set it
 	// as long as possible so that we get whatever the exposure profile wants.
-	if (!controls_.contains(controls::FrameDurationLimits))
+	if (!controls_.get(controls::FrameDurationLimits))
 	{
 		if (StillStream())
 			controls_.set(controls::FrameDurationLimits, { INT64_C(100), INT64_C(1000000000) });
@@ -415,27 +416,27 @@ void LibcameraApp::StartCamera()
 		}
 	}
 
-	if (!controls_.contains(controls::ExposureTime) && options_->shutter)
+	if (!controls_.get(controls::ExposureTime) && options_->shutter)
 		controls_.set(controls::ExposureTime, options_->shutter);
-	if (!controls_.contains(controls::AnalogueGain) && options_->gain)
+	if (!controls_.get(controls::AnalogueGain) && options_->gain)
 		controls_.set(controls::AnalogueGain, options_->gain);
-	if (!controls_.contains(controls::AeMeteringMode))
+	if (!controls_.get(controls::AeMeteringMode))
 		controls_.set(controls::AeMeteringMode, options_->metering_index);
-	if (!controls_.contains(controls::AeExposureMode))
+	if (!controls_.get(controls::AeExposureMode))
 		controls_.set(controls::AeExposureMode, options_->exposure_index);
-	if (!controls_.contains(controls::ExposureValue))
+	if (!controls_.get(controls::ExposureValue))
 		controls_.set(controls::ExposureValue, options_->ev);
-	if (!controls_.contains(controls::AwbMode))
+	if (!controls_.get(controls::AwbMode))
 		controls_.set(controls::AwbMode, options_->awb_index);
-	if (!controls_.contains(controls::ColourGains) && options_->awb_gain_r && options_->awb_gain_b)
+	if (!controls_.get(controls::ColourGains) && options_->awb_gain_r && options_->awb_gain_b)
 		controls_.set(controls::ColourGains, { options_->awb_gain_r, options_->awb_gain_b });
-	if (!controls_.contains(controls::Brightness))
+	if (!controls_.get(controls::Brightness))
 		controls_.set(controls::Brightness, options_->brightness);
-	if (!controls_.contains(controls::Contrast))
+	if (!controls_.get(controls::Contrast))
 		controls_.set(controls::Contrast, options_->contrast);
-	if (!controls_.contains(controls::Saturation))
+	if (!controls_.get(controls::Saturation))
 		controls_.set(controls::Saturation, options_->saturation);
-	if (!controls_.contains(controls::Sharpness))
+	if (!controls_.get(controls::Sharpness))
 		controls_.set(controls::Sharpness, options_->sharpness);
 
 	if (camera_->start(&controls_))
@@ -722,9 +723,8 @@ void LibcameraApp::requestComplete(Request *request)
 	// We calculate the instantaneous framerate in case anyone wants it.
 	// Use the sensor timestamp if possible as it ought to be less glitchy than
 	// the buffer timestamps.
-	uint64_t timestamp = payload->metadata.contains(controls::SensorTimestamp)
-							? payload->metadata.get(controls::SensorTimestamp)
-							: payload->buffers.begin()->second->metadata().timestamp;
+	auto ts = payload->metadata.get(controls::SensorTimestamp);
+	uint64_t timestamp = ts ? *ts : payload->buffers.begin()->second->metadata().timestamp;
 	if (last_timestamp_ == 0 || last_timestamp_ == timestamp)
 		payload->framerate = 0;
 	else
