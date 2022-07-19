@@ -68,9 +68,6 @@ LibcameraApp::LibcameraApp(std::unique_ptr<Options> opts)
 
 	if (!options_)
 		options_ = std::make_unique<Options>();
-
-	if (options_->verbose == 0)
-		libcamera::logSetTarget(libcamera::LoggingTargetNone);
 }
 
 LibcameraApp::~LibcameraApp()
