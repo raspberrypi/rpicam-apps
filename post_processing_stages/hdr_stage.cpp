@@ -479,7 +479,7 @@ bool HdrStage::Process(CompletedRequestPtr &completed_request)
 	uint8_t *image = buffer.data();
 
 	// Accumulate frame.
-	std::cerr << "Accumulating frame " << frame_num_ << std::endl;
+	LOG(1, "Accumulating frame " << frame_num_);
 	acc_.Accumulate(image, info_.stride);
 
 	// Optionally save individual JPEGs of each of the constituent images. Obviously this
@@ -493,7 +493,7 @@ bool HdrStage::Process(CompletedRequestPtr &completed_request)
 		if (options)
 			jpeg_save(buffers, info_, completed_request->metadata, filename, app_->CameraId(), options);
 		else
-			std::cerr << "No still options - unable to save JPEG" << std::endl;
+			LOG(1, "No still options - unable to save JPEG");
 	}
 
 	// Now we'll drop this frame unless it's the last one that we need, at which point
@@ -503,14 +503,14 @@ bool HdrStage::Process(CompletedRequestPtr &completed_request)
 		return true;
 
 	// Do HDR processing.
-	std::cerr << "Doing HDR processing..." << std::endl;
+	LOG(1, "Doing HDR processing...");
 	acc_.Scale(16.0 / config_.num_frames);
 
 	lp_ = acc_.LpFilter(config_.lp_filter);
 	acc_.Tonemap(lp_, config_);
 
 	acc_.Extract(image, info_.stride);
-	std::cerr << "HDR done!" << std::endl;
+	LOG(1, "HDR done!");
 
 	return false;
 }

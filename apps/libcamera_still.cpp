@@ -60,13 +60,13 @@ static void update_latest_link(std::string const &filename, StillOptions const *
 	{
 		struct stat buf;
 		if (stat(options->latest.c_str(), &buf) == 0 && unlink(options->latest.c_str()))
-			std::cerr << "WARNING: could not delete latest link " << options->latest << std::endl;
+			LOG_ERROR("WARNING: could not delete latest link " << options->latest);
 		else
 		{
 			if (symlink(filename.c_str(), options->latest.c_str()))
-				std::cerr << "WARNING: failed to create latest link " << options->latest << std::endl;
-			else if (options->verbose >= 2)
-				std::cerr << "Link " << options->latest << " created" << std::endl;
+				LOG_ERROR("WARNING: failed to create latest link " << options->latest);
+			else
+				LOG(2, "Link " << options->latest << " created");
 		}
 	}
 }
@@ -87,8 +87,7 @@ static void save_image(LibcameraStillApp &app, CompletedRequestPtr &payload, Str
 		bmp_save(mem, info, filename, options);
 	else
 		yuv_save(mem, info, filename, options);
-	if (options->verbose >= 2)
-		std::cerr << "Saved image " << info.width << " x " << info.height << " to file " << filename << std::endl;
+	LOG(2, "Saved image " << info.width << " x " << info.height << " to file " << filename);
 }
 
 static void save_images(LibcameraStillApp &app, CompletedRequestPtr &payload)
@@ -130,7 +129,7 @@ static int signal_received;
 static void default_signal_handler(int signal_number)
 {
 	signal_received = signal_number;
-	std::cerr << "Received signal " << signal_number << std::endl;
+	LOG(1, "Received signal " << signal_number);
 }
 static int get_key_or_signal(StillOptions const *options, pollfd p[1])
 {
@@ -217,8 +216,7 @@ static void event_loop(LibcameraStillApp &app)
 		// capture mode if an output was requested.
 		if (app.ViewfinderStream())
 		{
-			if (options->verbose >= 2)
-				std::cerr << "Viewfinder frame " << count << std::endl;
+			LOG(2, "Viewfinder frame " << count);
 			timelapse_frames++;
 
 			bool timed_out = options->timeout && now - start_time > std::chrono::milliseconds(options->timeout);
@@ -254,8 +252,7 @@ static void event_loop(LibcameraStillApp &app)
 		else if (app.StillStream())
 		{
 			app.StopCamera();
-			if (options->verbose >= 1)
-				std::cerr << "Still capture image received" << std::endl;
+			LOG(1, "Still capture image received");
 			save_images(app, std::get<CompletedRequestPtr>(msg.payload));
 			if (!options->metadata.empty())
 				save_metadata(options->metadata, std::get<CompletedRequestPtr>(msg.payload)->metadata);
@@ -288,7 +285,7 @@ int main(int argc, char *argv[])
 	}
 	catch (std::exception const &e)
 	{
-		std::cerr << "ERROR: *** " << e.what() << " ***" << std::endl;
+		LOG_ERROR("ERROR: *** " << e.what() << " ***");
 		return -1;
 	}
 	return 0;

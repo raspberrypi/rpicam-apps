@@ -17,6 +17,8 @@
 
 #include <linux/videodev2.h>
 
+unsigned int LibcameraApp::verbosity = 2;
+
 // If we definitely appear to be running the old camera stack, complain and give up.
 // Everything else, Pi or not, we let through.
 
@@ -73,10 +75,10 @@ LibcameraApp::LibcameraApp(std::unique_ptr<Options> opts)
 
 LibcameraApp::~LibcameraApp()
 {
-	if ((options_->verbose >= 2) && !options_->help)
-		std::cerr << "Closing Libcamera application"
-				  << "(frames displayed " << preview_frames_displayed_ << ", dropped " << preview_frames_dropped_ << ")"
-				  << std::endl;
+	if (!options_->help)
+		LOG(2, "Closing Libcamera application"
+				   << "(frames displayed " << preview_frames_displayed_ << ", dropped " << preview_frames_dropped_
+				   << ")");
 	StopCamera();
 	Teardown();
 	CloseCamera();
@@ -93,8 +95,7 @@ void LibcameraApp::OpenCamera()
 	preview_ = std::unique_ptr<Preview>(make_preview(options_.get()));
 	preview_->SetDoneCallback(std::bind(&LibcameraApp::previewDoneCallback, this, std::placeholders::_1));
 
-	if (options_->verbose >= 2)
-		std::cerr << "Opening camera..." << std::endl;
+	LOG(2, "Opening camera...");
 
 	camera_manager_ = std::make_unique<CameraManager>();
 	int ret = camera_manager_->start();
@@ -121,8 +122,7 @@ void LibcameraApp::OpenCamera()
 		throw std::runtime_error("failed to acquire camera " + cam_id);
 	camera_acquired_ = true;
 
-	if (options_->verbose >= 2)
-		std::cerr << "Acquired camera " << cam_id << std::endl;
+	LOG(2, "Acquired camera " << cam_id);
 
 	if (!options_->post_process_file.empty())
 		post_processor_.Read(options_->post_process_file);
@@ -143,14 +143,13 @@ void LibcameraApp::CloseCamera()
 
 	camera_manager_.reset();
 
-	if ((options_->verbose >= 2) && !options_->help)
-		std::cerr << "Camera closed" << std::endl;
+	if (!options_->help)
+		LOG(2, "Camera closed");
 }
 
 void LibcameraApp::ConfigureViewfinder()
 {
-	if (options_->verbose >= 2)
-		std::cerr << "Configuring viewfinder..." << std::endl;
+	LOG(2, "Configuring viewfinder...");
 
 	int lores_stream_num = 0, raw_stream_num = 0;
 	bool have_lores_stream = options_->lores_width && options_->lores_height;
@@ -181,8 +180,7 @@ void LibcameraApp::ConfigureViewfinder()
 		if (options_->width && options_->height)
 			size = size.boundedToAspectRatio(Size(options_->width, options_->height));
 		size.alignDownTo(2, 2); // YUV420 will want to be even
-		if (options_->verbose >= 2)
-			std::cerr << "Viewfinder size chosen is " << size.toString() << std::endl;
+		LOG(2, "Viewfinder size chosen is " << size.toString());
 	}
 
 	// Finally trim the image size to the largest that the preview can handle.
@@ -191,8 +189,7 @@ void LibcameraApp::ConfigureViewfinder()
 	if (max_size.width && max_size.height)
 	{
 		size.boundTo(max_size.boundedToAspectRatio(size)).alignDownTo(2, 2);
-		if (options_->verbose >= 2)
-			std::cerr << "Final viewfinder size is " << size.toString() << std::endl;
+		LOG(2, "Final viewfinder size is " << size.toString());
 	}
 
 	// Now we get to override any of the default settings from the options_->
@@ -232,14 +229,12 @@ void LibcameraApp::ConfigureViewfinder()
 
 	post_processor_.Configure();
 
-	if (options_->verbose >= 2)
-		std::cerr << "Viewfinder setup complete" << std::endl;
+	LOG(2, "Viewfinder setup complete");
 }
 
 void LibcameraApp::ConfigureStill(unsigned int flags)
 {
-	if (options_->verbose >= 2)
-		std::cerr << "Configuring still capture..." << std::endl;
+	LOG(2, "Configuring still capture...");
 
 	// Always request a raw stream as this forces the full resolution capture mode.
 	// (options_->mode can override the choice of camera mode, however.)
@@ -283,14 +278,12 @@ void LibcameraApp::ConfigureStill(unsigned int flags)
 
 	post_processor_.Configure();
 
-	if (options_->verbose >= 2)
-		std::cerr << "Still capture setup complete" << std::endl;
+	LOG(2, "Still capture setup complete");
 }
 
 void LibcameraApp::ConfigureVideo(unsigned int flags)
 {
-	if (options_->verbose >= 2)
-		std::cerr << "Configuring video..." << std::endl;
+	LOG(2, "Configuring video...");
 
 	bool have_raw_stream = (flags & FLAG_VIDEO_RAW) || options_->mode.bit_depth;
 	bool have_lores_stream = options_->lores_width && options_->lores_height;
@@ -360,8 +353,7 @@ void LibcameraApp::ConfigureVideo(unsigned int flags)
 
 	post_processor_.Configure();
 
-	if (options_->verbose >= 2)
-		std::cerr << "Video setup complete" << std::endl;
+	LOG(2, "Video setup complete");
 }
 
 void LibcameraApp::Teardown()
@@ -370,8 +362,8 @@ void LibcameraApp::Teardown()
 
 	post_processor_.Teardown();
 
-	if ((options_->verbose >= 2) && !options_->help)
-		std::cerr << "Tearing down requests, buffers and configuration" << std::endl;
+	if (!options_->help)
+		LOG(2, "Tearing down requests, buffers and configuration");
 
 	for (auto &iter : mapped_buffers_)
 	{
@@ -408,8 +400,7 @@ void LibcameraApp::StartCamera()
 		int h = options_->roi_height * sensor_area.height;
 		Rectangle crop(x, y, w, h);
 		crop.translateBy(sensor_area.topLeft());
-		if (options_->verbose >= 2)
-			std::cerr << "Using crop " << crop.toString() << std::endl;
+		LOG(2, "Using crop " << crop.toString());
 		controls_.set(controls::ScalerCrop, crop);
 	}
 
@@ -466,8 +457,7 @@ void LibcameraApp::StartCamera()
 			throw std::runtime_error("Failed to queue request");
 	}
 
-	if (options_->verbose >= 2)
-		std::cerr << "Camera started!" << std::endl;
+	LOG(2, "Camera started!");
 }
 
 void LibcameraApp::StopCamera()
@@ -499,8 +489,8 @@ void LibcameraApp::StopCamera()
 
 	controls_.clear(); // no need for mutex here
 
-	if ((options_->verbose >= 2) && !options_->help)
-		std::cerr << "Camera stopped!" << std::endl;
+	if (!options_->help)
+		LOG(2, "Camera stopped!");
 }
 
 LibcameraApp::Msg LibcameraApp::Wait()
@@ -642,19 +632,15 @@ void LibcameraApp::setupCapture()
 	if (validation == CameraConfiguration::Invalid)
 		throw std::runtime_error("failed to valid stream configurations");
 	else if (validation == CameraConfiguration::Adjusted)
-		std::cerr << "Stream configuration adjusted" << std::endl;
+		LOG(1, "Stream configuration adjusted");
 
 	if (camera_->configure(configuration_.get()) < 0)
 		throw std::runtime_error("failed to configure streams");
-	if (options_->verbose >= 2)
-		std::cerr << "Camera streams configured" << std::endl;
+	LOG(2, "Camera streams configured");
 
-	if (options_->verbose >= 2)
-	{
-		std::cerr << "Available controls:" << std::endl;
-		for (auto const &[id, info] : camera_->controls())
-			std::cerr << "    " << id->name() << " : " << info.toString() << std::endl;
-	}
+	LOG(2, "Available controls:");
+	for (auto const &[id, info] : camera_->controls())
+		LOG(2, "    " << id->name() << " : " << info.toString());
 
 	// Next allocate all the buffers we need, mmap them and store them on a free list.
 
@@ -686,8 +672,7 @@ void LibcameraApp::setupCapture()
 			frame_buffers_[stream].push(buffer.get());
 		}
 	}
-	if (options_->verbose >= 2)
-		std::cerr << "Buffers allocated and mapped" << std::endl;
+	LOG(2, "Buffers allocated and mapped");
 
 	startPreview();
 
@@ -706,8 +691,7 @@ void LibcameraApp::makeRequests()
 			{
 				if (free_buffers[stream].empty())
 				{
-					if (options_->verbose >= 2)
-						std::cerr << "Requests created" << std::endl;
+					LOG(2, "Requests created");
 					return;
 				}
 				std::unique_ptr<Request> request = camera_->createRequest();
@@ -821,8 +805,7 @@ void LibcameraApp::previewThread()
 		}
 		if (preview_->Quit())
 		{
-			if (options_->verbose >= 2)
-				std::cerr << "Preview window has quit" << std::endl;
+			LOG(2, "Preview window has quit");
 			msg_queue_.Post(Msg(MsgType::Quit));
 		}
 		preview_frames_displayed_++;

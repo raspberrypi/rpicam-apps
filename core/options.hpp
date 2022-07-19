@@ -18,6 +18,7 @@
 #include <libcamera/property_ids.h>
 #include <libcamera/transform.h>
 
+#include "core/logging.hpp"
 #include "core/version.hpp"
 
 struct Mode
