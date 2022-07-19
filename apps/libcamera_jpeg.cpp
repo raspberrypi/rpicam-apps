@@ -69,8 +69,7 @@ static void event_loop(LibcameraJpegApp &app)
 		else if (app.StillStream())
 		{
 			app.StopCamera();
-			if (options->verbose >= 1)
-				std::cerr << "Still capture image received" << std::endl;
+			LOG(1, "Still capture image received");
 
 			Stream *stream = app.StillStream();
 			StreamInfo info = app.GetStreamInfo(stream);
@@ -100,7 +99,7 @@ int main(int argc, char *argv[])
 	}
 	catch (std::exception const &e)
 	{
-		std::cerr << "ERROR: *** " << e.what() << " ***" << std::endl;
+		LOG_ERROR("ERROR: *** " << e.what() << " ***");
 		return -1;
 	}
 	return 0;

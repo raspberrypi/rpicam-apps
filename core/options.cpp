@@ -63,6 +63,9 @@ bool Options::Parse(int argc, char *argv[])
 		notify(vm);
 	}
 
+	// Set the verbosity
+	LibcameraApp::verbosity = verbose;
+
 	if (help)
 	{
 		std::cerr << options_;

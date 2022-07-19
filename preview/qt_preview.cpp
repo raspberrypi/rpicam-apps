@@ -70,8 +70,7 @@ public:
 		std::unique_lock lock(mutex_);
 		while (!pane_)
 			cond_var_.wait(lock);
-		if (options->verbose >= 2)
-			std::cerr << "Made Qt preview" << std::endl;
+		LOG(2, "Made Qt preview");
 	}
 	~QtPreview()
 	{
@@ -109,8 +108,7 @@ public:
 		else if (info.colour_space == libcamera::ColorSpace::Rec709)
 			M = YUV2RGB[2];
 		else
-			std::cerr << "QtPreview: unexpected colour space " << libcamera::ColorSpace::toString(info.colour_space)
-					  << std::endl;
+			LOG(1, "QtPreview: unexpected colour space " << libcamera::ColorSpace::toString(info.colour_space));
 
 		// Possibly this should be locked in case a repaint is happening? In practice the risk
 		// is only that there might be some tearing, so I don't think we worry. We could speed

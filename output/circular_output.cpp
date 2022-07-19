@@ -65,7 +65,7 @@ CircularOutput::~CircularOutput()
 			cb_.Skip((header.length + ALIGN - 1) & ~(ALIGN - 1));
 	}
 	fclose(fp_);
-	std::cerr << "Wrote " << total << " bytes (" << frames << " frames)" << std::endl;
+	LOG(1, "Wrote " << total << " bytes (" << frames << " frames)");
 }
 
 void CircularOutput::outputBuffer(void *mem, size_t size, int64_t timestamp_us, uint32_t flags)

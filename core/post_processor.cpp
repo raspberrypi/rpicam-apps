@@ -32,12 +32,12 @@ void PostProcessor::Read(std::string const &filename)
 		PostProcessingStage *stage = createPostProcessingStage(key_and_value.first.c_str());
 		if (stage)
 		{
-			std::cerr << "Reading post processing stage \"" << key_and_value.first << "\"" << std::endl;
+			LOG(1, "Reading post processing stage \"" << key_and_value.first << "\"");
 			stage->Read(key_and_value.second);
 			stages_.push_back(StagePtr(stage));
 		}
 		else
-			std::cerr << "No post processing stage found for \"" << key_and_value.first << "\"" << std::endl;
+			LOG(1, "No post processing stage found for \"" << key_and_value.first << "\"");
 	}
 }
 

@@ -122,6 +122,9 @@ public:
 	void SetControls(ControlList &controls);
 	StreamInfo GetStreamInfo(Stream const *stream) const;
 
+	static unsigned int verbosity;
+	static unsigned int GetVerbosity() { return verbosity; }
+
 protected:
 	std::unique_ptr<Options> options_;
 
