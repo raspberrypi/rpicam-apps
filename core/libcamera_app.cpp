@@ -171,7 +171,7 @@ void LibcameraApp::ConfigureViewfinder()
 		// The idea here is that most sensors will have a 2x2 binned mode that
 		// we can pick up. If it doesn't, well, you can always specify the size
 		// you want exactly with the viewfinder_width/height options_->
-		size = camera_->properties().get(properties::PixelArrayActiveAreas)[0].size() / 2;
+		size = (*camera_->properties().get(properties::PixelArrayActiveAreas))[0].size() / 2;
 		// If width and height were given, we might be switching to capture
 		// afterwards - so try to match the field of view.
 		if (options_->width && options_->height)
@@ -390,7 +390,7 @@ void LibcameraApp::StartCamera()
 	// We don't overwrite anything the application may have set before calling us.
 	if (!controls_.contains(controls::ScalerCrop) && options_->roi_width != 0 && options_->roi_height != 0)
 	{
-		Rectangle sensor_area = camera_->properties().get(properties::ScalerCropMaximum);
+		Rectangle sensor_area = *camera_->properties().get(properties::ScalerCropMaximum);
 		int x = options_->roi_x * sensor_area.width;
 		int y = options_->roi_y * sensor_area.height;
 		int w = options_->roi_width * sensor_area.width;
@@ -722,9 +722,8 @@ void LibcameraApp::requestComplete(Request *request)
 	// We calculate the instantaneous framerate in case anyone wants it.
 	// Use the sensor timestamp if possible as it ought to be less glitchy than
 	// the buffer timestamps.
-	uint64_t timestamp = payload->metadata.contains(controls::SensorTimestamp)
-							? payload->metadata.get(controls::SensorTimestamp)
-							: payload->buffers.begin()->second->metadata().timestamp;
+	auto ts = payload->metadata.get(controls::SensorTimestamp);
+	uint64_t timestamp = ts ? *ts : payload->buffers.begin()->second->metadata().timestamp;
 	if (last_timestamp_ == 0 || last_timestamp_ == timestamp)
 		payload->framerate = 0;
 	else
