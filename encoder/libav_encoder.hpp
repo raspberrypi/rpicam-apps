@@ -50,7 +50,6 @@ private:
 	std::atomic<bool> output_ready_;
 	bool abort_video_;
 	bool abort_audio_;
-	int fd_;
 	uint64_t video_start_ts_;
 	uint64_t audio_start_ts_;
 
