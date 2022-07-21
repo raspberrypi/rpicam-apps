@@ -155,6 +155,7 @@ static void event_loop(LibcameraProd &app)
 	ProdOptions const *options = static_cast <ProdOptions *>(app.GetOptions());
 	std::unique_ptr<Output> output = std::unique_ptr<Output>(Output::Create((VideoOptions *) options));
 	std::map<unsigned int, float> foms;
+	CompletedRequestPtr req;
 
 	app.OpenCamera();
 	app.ConfigureVideo(LibcameraProd::FLAG_VIDEO_RAW);
@@ -172,9 +173,10 @@ static void event_loop(LibcameraProd &app)
 	for (unsigned int count = 0;; count++)
 	{
 		LibcameraProd::Msg msg = app.Wait();
-		CompletedRequestPtr req = std::get<CompletedRequestPtr>(msg.payload);
+
+		req = std::get<CompletedRequestPtr>(msg.payload);
 		if (msg.type == LibcameraEncoder::MsgType::Quit)
-			return;
+			break;
 		if (msg.type != LibcameraProd::MsgType::RequestComplete)
 			throw std::runtime_error("unrecognised message!");
 
@@ -192,46 +194,7 @@ static void event_loop(LibcameraProd &app)
 					   (now - start_time > std::chrono::milliseconds(options->timeout));
 		bool frameout = options->frames && count >= options->frames;
 		if (timeout || frameout)
-		{
-			app.StopCamera();
-			return;
-		}
-
-		if (options->dust_test)
-		{
-			StreamInfo info;
-			libcamera::Stream *raw = app.RawStream(&info);
-
-			libcamera::FrameBuffer *buffer = req->buffers[raw];
-			libcamera::Span span = app.Mmap(buffer)[0];
-			void *mem = span.data();
-
-			if (!buffer || !mem)
-				throw std::runtime_error("Invalid RAW buffer");
-
-			auto it = bayer_formats.find(info.pixel_format);
-			if (it == bayer_formats.end())
-				throw std::runtime_error("Unsupported Bayer format");
-			unsigned int shift = 16 - it->second;
-
-			uint32_t lo = 0, hi = 0;
-			for (unsigned int y = 0; y < info.height; y++)
-			{
-				uint16_t *s = (uint16_t *)mem + y * info.stride / 2;
-				for (unsigned int x = 0; x < info.width; s++, x++)
-				{
-					unsigned int p = *s << shift;
-					if (p > options->lo_threshold)
-						lo++;
-					if (p > options->hi_threshold)
-						hi++;
-				}
-			}
-
-			std::cout << info.width * info.height << " total samples" << std::endl;
-			std::cout << lo << " samples above threshold of " << options->lo_threshold << std::endl;
-			std::cout << hi << " samples above threshold of " << options->hi_threshold << std::endl;
-		}
+			break;
 
 		if (options->focus_test)
 		{
@@ -262,6 +225,44 @@ static void event_loop(LibcameraProd &app)
 
 		app.ShowPreview(req, app.VideoStream());
 	}
+
+	if (options->dust_test && req)
+	{
+		StreamInfo info;
+		libcamera::Stream *raw = app.RawStream(&info);
+
+		libcamera::FrameBuffer *buffer = req->buffers[raw];
+		libcamera::Span span = app.Mmap(buffer)[0];
+		void *mem = span.data();
+
+		if (!buffer || !mem)
+			throw std::runtime_error("Invalid RAW buffer");
+
+		auto it = bayer_formats.find(info.pixel_format);
+		if (it == bayer_formats.end())
+			throw std::runtime_error("Unsupported Bayer format");
+		unsigned int shift = 16 - it->second;
+
+		uint32_t lo = 0, hi = 0;
+		for (unsigned int y = 0; y < info.height; y++)
+		{
+			uint16_t *s = (uint16_t *)mem + y * info.stride / 2;
+			for (unsigned int x = 0; x < info.width; s++, x++)
+			{
+				unsigned int p = *s << shift;
+				if (p > options->lo_threshold)
+					lo++;
+				if (p > options->hi_threshold)
+					hi++;
+			}
+		}
+
+		std::cout << info.width * info.height << " total samples" << std::endl;
+		std::cout << lo << " samples above threshold of " << options->lo_threshold << std::endl;
+		std::cout << hi << " samples above threshold of " << options->hi_threshold << std::endl;
+	}
+
+	app.StopCamera();
 }
 
 int main(int argc, char *argv[])
