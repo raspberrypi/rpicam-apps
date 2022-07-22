@@ -189,7 +189,7 @@ void exif_read_tag(ExifData *exif, char const *str)
 	ExifTag tag = exif_tag_from_name(tag_name);
 	if (tag == 0)
 	{
-		std::cerr << "WARNING: no EXIF tag " << tag_name << " found - ignoring" << std::endl;
+		LOG_ERROR("WARNING: no EXIF tag " << tag_name << " found - ignoring");
 		return;
 	}
 
@@ -200,7 +200,7 @@ void exif_read_tag(ExifData *exif, char const *str)
 		throw std::runtime_error("failed to create entry for EXIF tag " + tag_string + ", please try without this tag");
 	if (entry->format == 0)
 	{
-		std::cerr << "WARNING: format for EXIF tag " << tag_name << " unknown - ignoring" << std::endl;
+		LOG_ERROR("WARNING: format for EXIF tag " << tag_name << " unknown - ignoring");
 		return;
 	}
 	if (entry->format == EXIF_FORMAT_UNDEFINED)
@@ -213,8 +213,7 @@ void exif_read_tag(ExifData *exif, char const *str)
 		}
 		else
 		{
-			std::cerr << "WARNING: libexif format for tag " << tag_name << " undefined - treating as ASCII"
-					  << std::endl;
+			LOG_ERROR("WARNING: libexif format for tag " << tag_name << " undefined - treating as ASCII");
 			entry->format = EXIF_FORMAT_ASCII;
 		}
 	}
@@ -465,34 +464,35 @@ static void create_exif_data(std::vector<libcamera::Span<uint8_t>> const &mem,
 		time_info = std::localtime(&raw_time);
 		std::strftime(time_string, sizeof(time_string), "%Y:%m:%d %H:%M:%S", time_info);
 		exif_set_string(entry, time_string);
+		entry = exif_create_tag(exif, EXIF_IFD_EXIF, EXIF_TAG_DATE_TIME_ORIGINAL);
+		exif_set_string(entry, time_string);
+		entry = exif_create_tag(exif, EXIF_IFD_EXIF, EXIF_TAG_DATE_TIME_DIGITIZED);
+		exif_set_string(entry, time_string);
 
 		// Now add some tags filled in from the image metadata.
-		if (metadata.contains(libcamera::controls::ExposureTime))
+		auto exposure_time = metadata.get(libcamera::controls::ExposureTime);
+		if (exposure_time)
 		{
 			entry = exif_create_tag(exif, EXIF_IFD_EXIF, EXIF_TAG_EXPOSURE_TIME);
-			int32_t exposure_time = metadata.get(libcamera::controls::ExposureTime);
-			if (options->verbose)
-				std::cerr << "Exposure time: " << exposure_time << std::endl;
-			ExifRational exposure = { (ExifLong)exposure_time, 1000000 };
+			LOG(2, "Exposure time: " << *exposure_time);
+			ExifRational exposure = { (ExifLong)*exposure_time, 1000000 };
 			exif_set_rational(entry->data, exif_byte_order, exposure);
 		}
-		if (metadata.contains(libcamera::controls::AnalogueGain))
+		auto ag = metadata.get(libcamera::controls::AnalogueGain);
+		if (ag)
 		{
 			entry = exif_create_tag(exif, EXIF_IFD_EXIF, EXIF_TAG_ISO_SPEED_RATINGS);
-			float ag = metadata.get(libcamera::controls::AnalogueGain), dg = 1.0, gain;
-			if (metadata.contains(libcamera::controls::DigitalGain))
-				dg = metadata.get(libcamera::controls::DigitalGain);
-			gain = ag * dg;
-			if (options->verbose)
-				std::cerr << "Ag " << ag << " Dg " << dg << " Total " << gain << std::endl;
+			auto dg = metadata.get(libcamera::controls::DigitalGain);
+			float gain;
+			gain = *ag * (dg ? *dg : 1.0);
+			LOG(2, "Ag " << *ag << " Dg " << *dg << " Total " << gain);
 			exif_set_short(entry->data, exif_byte_order, 100 * gain);
 		}
 
 		// Command-line supplied tags.
 		for (auto &exif_item : options->exif)
 		{
-			if (options->verbose)
-				std::cerr << "Processing EXIF item: " << exif_item << std::endl;
+			LOG(2, "Processing EXIF item: " << exif_item);
 			exif_read_tag(exif, exif_item.c_str());
 		}
 
@@ -501,9 +501,7 @@ static void create_exif_data(std::vector<libcamera::Span<uint8_t>> const &mem,
 			// Add some tags for the thumbnail. We put in dummy values for the thumbnail
 			// offset/length to occupy the right amount of space, and fill them in later.
 
-			if (options->verbose)
-				std::cerr << "Thumbnail dimensions are " << options->thumb_width << " x " << options->thumb_height
-						  << std::endl;
+			LOG(2, "Thumbnail dimensions are " << options->thumb_width << " x " << options->thumb_height);
 			entry = exif_create_tag(exif, EXIF_IFD_1, EXIF_TAG_IMAGE_WIDTH);
 			exif_set_short(entry->data, exif_byte_order, options->thumb_width);
 			entry = exif_create_tag(exif, EXIF_IFD_1, EXIF_TAG_IMAGE_LENGTH);
@@ -535,8 +533,7 @@ static void create_exif_data(std::vector<libcamera::Span<uint8_t>> const &mem,
 				free(thumb_buffer);
 				thumb_buffer = nullptr;
 			}
-			if (options->verbose)
-				std::cerr << "Thumbnail size " << thumb_len << std::endl;
+			LOG(2, "Thumbnail size " << thumb_len);
 			if (q <= 0)
 				throw std::runtime_error("failed to make acceptable thumbnail");
 
@@ -594,8 +591,7 @@ void jpeg_save(std::vector<libcamera::Span<uint8_t>> const &mem, StreamInfo cons
 		jpeg_mem_len_t jpeg_len;
 		YUV_to_JPEG((uint8_t *)(mem[0].data()), info, info.width, info.height, options->quality,
 					options->restart, jpeg_buffer, jpeg_len);
-		if (options->verbose)
-			std::cerr << "JPEG size is " << jpeg_len << std::endl;
+		LOG(2, "JPEG size is " << jpeg_len);
 
 		// Write everything out.
 
@@ -603,8 +599,7 @@ void jpeg_save(std::vector<libcamera::Span<uint8_t>> const &mem, StreamInfo cons
 		if (!fp)
 			throw std::runtime_error("failed to open file " + options->output);
 
-		if (options->verbose)
-			std::cerr << "EXIF data len " << exif_len << std::endl;
+		LOG(2, "EXIF data len " << exif_len);
 
 		if (fwrite(exif_header, sizeof(exif_header), 1, fp) != 1 || fputc((exif_len + thumb_len + 2) >> 8, fp) == EOF ||
 			fputc((exif_len + thumb_len + 2) & 0xff, fp) == EOF || fwrite(exif_buffer, exif_len, 1, fp) != 1 ||

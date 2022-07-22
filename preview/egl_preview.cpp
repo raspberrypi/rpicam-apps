@@ -326,7 +326,7 @@ void EglPreview::makeWindow(char const *name)
 	wm_delete_window_ = XInternAtom(display_, "WM_DELETE_WINDOW", False);
 	XSetWMProtocols(display_, window_, &wm_delete_window_, 1);
 
-	egl_surface_ = eglCreateWindowSurface(egl_display_, config, window_, NULL);
+	egl_surface_ = eglCreateWindowSurface(egl_display_, config, reinterpret_cast<EGLNativeWindowType>(window_), NULL);
 	if (!egl_surface_)
 		throw std::runtime_error("eglCreateWindowSurface failed");
 
@@ -352,7 +352,7 @@ static void get_colour_space_info(std::optional<libcamera::ColorSpace> const &cs
 	else if (cs == libcamera::ColorSpace::Rec709)
 		encoding = EGL_ITU_REC709_EXT;
 	else
-		std::cerr << "EglPreview: unexpected colour space " << libcamera::ColorSpace::toString(cs) << std::endl;
+		LOG(1, "EglPreview: unexpected colour space " << libcamera::ColorSpace::toString(cs));
 }
 
 void EglPreview::makeBuffer(int fd, size_t size, StreamInfo const &info, Buffer &buffer)

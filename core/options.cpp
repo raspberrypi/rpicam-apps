@@ -4,6 +4,12 @@
  *
  * options.cpp - common program options helpers
  */
+#include <algorithm>
+#include <iomanip>
+#include <iostream>
+
+#include <libcamera/logging.h>
+
 #include "core/options.hpp"
 
 Mode::Mode(std::string const &mode_string)
@@ -57,6 +63,12 @@ bool Options::Parse(int argc, char *argv[])
 		notify(vm);
 	}
 
+	// Set the verbosity
+	LibcameraApp::verbosity = verbose;
+
+	if (verbose == 0)
+		libcamera::logSetTarget(libcamera::LoggingTargetNone);
+
 	if (help)
 	{
 		std::cerr << options_;
@@ -72,12 +84,20 @@ bool Options::Parse(int argc, char *argv[])
 
 	if (list_cameras)
 	{
+		// Disable any libcamera logging for this bit.
+		logSetTarget(LoggingTargetNone);
+
 		std::unique_ptr<CameraManager> cm = std::make_unique<CameraManager>();
 		int ret = cm->start();
 		if (ret)
 			throw std::runtime_error("camera manager failed to start, code " + std::to_string(-ret));
 
 		std::vector<std::shared_ptr<libcamera::Camera>> cameras = cm->cameras();
+		// Do not show USB webcams as these are not supported in libcamera-apps!
+		auto rem = std::remove_if(cameras.begin(), cameras.end(),
+								  [](auto &cam) { return cam->id().find("/usb") != std::string::npos; });
+		cameras.erase(rem, cameras.end());
+
 		if (cameras.size() != 0)
 		{
 			unsigned int idx = 0;
@@ -85,11 +105,11 @@ bool Options::Parse(int argc, char *argv[])
 					  << "-----------------" << std::endl;
 			for (auto const &cam : cameras)
 			{
-				std::cerr << idx++ << " : " << cam->properties().get(libcamera::properties::Model);
-				if (cam->properties().contains(properties::PixelArrayActiveAreas))
-					std::cerr << " ["
-							  << cam->properties().get(properties::PixelArrayActiveAreas)[0].size().toString()
-							  << "]";
+				cam->acquire();
+				std::cerr << idx++ << " : " << *cam->properties().get(libcamera::properties::Model);
+				auto area = cam->properties().get(properties::PixelArrayActiveAreas);
+				if (area)
+					std::cerr << " [" << (*area)[0].size().toString() << "]";
 				std::cerr << " (" << cam->id() << ")" << std::endl;
 
 				std::unique_ptr<CameraConfiguration> config = cam->generateConfiguration({libcamera::StreamRole::Raw});
@@ -105,11 +125,33 @@ bool Options::Parse(int argc, char *argv[])
 				for (const auto &pix : formats.pixelformats())
 				{
 					if (i++) std::cerr << "           ";
-					std::cerr << "'" << pix.toString() << "' : ";
+					std::string mode("'" + pix.toString() + "' : ");
+					std::cerr << mode;
+					unsigned int num = formats.sizes(pix).size();
 					for (const auto &size : formats.sizes(pix))
+					{
 						std::cerr << size.toString() << " ";
+
+						config->at(0).size = size;
+						config->at(0).pixelFormat = pix;
+						config->validate();
+						cam->configure(config.get());
+
+						auto fd_ctrl = cam->controls().find(&controls::FrameDurationLimits);
+						auto crop_ctrl = cam->properties().get(properties::ScalerCropMaximum);
+						double fps = 1e6 / fd_ctrl->second.min().get<int64_t>();
+						std::cerr << std::fixed << std::setprecision(2) << "["
+								  << fps << " fps - " << crop_ctrl->toString() << " crop" << "]";
+						if (--num)
+						{
+							std::cerr << std::endl;
+							for (std::size_t s = 0; s < mode.length() + 11; std::cerr << " ", s++);
+						}
+					}
 					std::cerr << std::endl;
 				}
+
+				cam->release();
 			}
 		}
 		else

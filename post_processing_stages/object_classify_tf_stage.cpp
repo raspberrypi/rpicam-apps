@@ -134,8 +134,8 @@ void ObjectClassifyTfStage::interpretOutputs()
 	if (config_->verbose)
 	{
 		for (const auto &result : output_results_)
-			std::cerr << result.first << " : " << std::to_string(result.second) << std::endl;
-		std::cerr << std::endl;
+			LOG(1, result.first << " : " << std::to_string(result.second));
+		LOG(1, "");
 	}
 }
 

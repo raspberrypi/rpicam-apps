@@ -4,7 +4,7 @@
  *
  * libcamera_still.cpp - libcamera stills capture app.
  */
-
+#include <chrono>
 #include <poll.h>
 #include <signal.h>
 #include <sys/signalfd.h>
@@ -17,6 +17,7 @@
 
 #include "image/image.hpp"
 
+using namespace std::chrono_literals;
 using namespace std::placeholders;
 using libcamera::Stream;
 
@@ -59,13 +60,13 @@ static void update_latest_link(std::string const &filename, StillOptions const *
 	{
 		struct stat buf;
 		if (stat(options->latest.c_str(), &buf) == 0 && unlink(options->latest.c_str()))
-			std::cerr << "WARNING: could not delete latest link " << options->latest << std::endl;
+			LOG_ERROR("WARNING: could not delete latest link " << options->latest);
 		else
 		{
 			if (symlink(filename.c_str(), options->latest.c_str()))
-				std::cerr << "WARNING: failed to create latest link " << options->latest << std::endl;
-			else if (options->verbose)
-				std::cerr << "Link " << options->latest << " created" << std::endl;
+				LOG_ERROR("WARNING: failed to create latest link " << options->latest);
+			else
+				LOG(2, "Link " << options->latest << " created");
 		}
 	}
 }
@@ -86,8 +87,7 @@ static void save_image(LibcameraStillApp &app, CompletedRequestPtr &payload, Str
 		bmp_save(mem, info, filename, options);
 	else
 		yuv_save(mem, info, filename, options);
-	if (options->verbose)
-		std::cerr << "Saved image " << info.width << " x " << info.height << " to file " << filename << std::endl;
+	LOG(2, "Saved image " << info.width << " x " << info.height << " to file " << filename);
 }
 
 static void save_images(LibcameraStillApp &app, CompletedRequestPtr &payload)
@@ -106,13 +106,30 @@ static void save_images(LibcameraStillApp &app, CompletedRequestPtr &payload)
 		options->framestart %= options->wrap;
 }
 
+static void save_metadata(const std::string &filename, const libcamera::ControlList &metadata)
+{
+	const libcamera::ControlIdMap *id_map = metadata.idMap();
+	std::streambuf *buf = std::cout.rdbuf();
+	std::ofstream of;
+
+	if (filename.compare("-"))
+	{
+		of.open(filename, std::ios::out);
+		buf = of.rdbuf();
+	}
+
+	std::ostream out(buf);
+	for (auto const &[id, val] : metadata)
+		out << id_map->at(id)->name() << "=" << val.toString() << std::endl;
+}
+
 // Some keypress/signal handling.
 
 static int signal_received;
 static void default_signal_handler(int signal_number)
 {
 	signal_received = signal_number;
-	std::cerr << "Received signal " << signal_number << std::endl;
+	LOG(1, "Received signal " << signal_number);
 }
 static int get_key_or_signal(StillOptions const *options, pollfd p[1])
 {
@@ -155,8 +172,25 @@ static void event_loop(LibcameraStillApp &app)
 		still_flags |= LibcameraApp::FLAG_STILL_RAW;
 
 	app.OpenCamera();
+
+	// Monitoring for keypresses and signals.
+	signal(SIGUSR1, default_signal_handler);
+	signal(SIGUSR2, default_signal_handler);
+	pollfd p[1] = { { STDIN_FILENO, POLLIN, 0 } };
+
 	if (options->immediate)
+	{
 		app.ConfigureStill(still_flags);
+		while (keypress)
+		{
+			int key = get_key_or_signal(options, p);
+			if (key == 'x' || key == 'X')
+				return;
+			else if (key == '\n')
+				break;
+			std::this_thread::sleep_for(10ms);
+		}
+	}
 	else
 		app.ConfigureViewfinder();
 	app.StartCamera();
@@ -164,11 +198,6 @@ static void event_loop(LibcameraStillApp &app)
 	auto timelapse_time = start_time;
 	int timelapse_frames = 0;
 	constexpr int TIMELAPSE_MIN_FRAMES = 6; // at least this many preview frames between captures
-
-	// Monitoring for keypresses and signals.
-	signal(SIGUSR1, default_signal_handler);
-	signal(SIGUSR2, default_signal_handler);
-	pollfd p[1] = { { STDIN_FILENO, POLLIN, 0 } };
 
 	for (unsigned int count = 0; ; count++)
 	{
@@ -187,8 +216,7 @@ static void event_loop(LibcameraStillApp &app)
 		// capture mode if an output was requested.
 		if (app.ViewfinderStream())
 		{
-			if (options->verbose)
-				std::cerr << "Viewfinder frame " << count << std::endl;
+			LOG(2, "Viewfinder frame " << count);
 			timelapse_frames++;
 
 			bool timed_out = options->timeout && now - start_time > std::chrono::milliseconds(options->timeout);
@@ -224,10 +252,12 @@ static void event_loop(LibcameraStillApp &app)
 		else if (app.StillStream())
 		{
 			app.StopCamera();
-			std::cerr << "Still capture image received" << std::endl;
+			LOG(1, "Still capture image received");
 			save_images(app, std::get<CompletedRequestPtr>(msg.payload));
+			if (!options->metadata.empty())
+				save_metadata(options->metadata, std::get<CompletedRequestPtr>(msg.payload)->metadata);
 			timelapse_frames = 0;
-			if (options->timelapse || options->signal || options->keypress)
+			if (!options->immediate && (options->timelapse || options->signal || options->keypress))
 			{
 				app.Teardown();
 				app.ConfigureViewfinder();
@@ -247,7 +277,7 @@ int main(int argc, char *argv[])
 		StillOptions *options = app.GetOptions();
 		if (options->Parse(argc, argv))
 		{
-			if (options->verbose)
+			if (options->verbose >= 2)
 				options->Print();
 
 			event_loop(app);
@@ -255,7 +285,7 @@ int main(int argc, char *argv[])
 	}
 	catch (std::exception const &e)
 	{
-		std::cerr << "ERROR: *** " << e.what() << " ***" << std::endl;
+		LOG_ERROR("ERROR: *** " << e.what() << " ***");
 		return -1;
 	}
 	return 0;

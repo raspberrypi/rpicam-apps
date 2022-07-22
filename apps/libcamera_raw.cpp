@@ -46,12 +46,11 @@ static void event_loop(LibcameraRaw &app)
 		if (count == 0)
 		{
 			libcamera::StreamConfiguration const &cfg = app.RawStream()->configuration();
-			std::cerr << "Raw stream: " << cfg.size.width << "x" << cfg.size.height << " stride " << cfg.stride
-					  << " format " << cfg.pixelFormat.toString() << std::endl;
+			LOG(1, "Raw stream: " << cfg.size.width << "x" << cfg.size.height << " stride " << cfg.stride << " format "
+								  << cfg.pixelFormat.toString());
 		}
 
-		if (options->verbose)
-			std::cerr << "Viewfinder frame " << count << std::endl;
+		LOG(2, "Viewfinder frame " << count);
 		auto now = std::chrono::high_resolution_clock::now();
 		if (options->timeout && now - start_time > std::chrono::milliseconds(options->timeout))
 		{
@@ -74,7 +73,7 @@ int main(int argc, char *argv[])
 		{
 			options->denoise = "cdn_off";
 			options->nopreview = true;
-			if (options->verbose)
+			if (options->verbose >= 2)
 				options->Print();
 
 			event_loop(app);
@@ -82,7 +81,7 @@ int main(int argc, char *argv[])
 	}
 	catch (std::exception const &e)
 	{
-		std::cerr << "ERROR: *** " << e.what() << " ***" << std::endl;
+		LOG_ERROR("ERROR: *** " << e.what() << " ***");
 		return -1;
 	}
 	std::cerr << "Exiting peacefully" << std::endl;

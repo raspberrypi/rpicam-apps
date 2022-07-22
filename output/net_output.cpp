@@ -56,13 +56,11 @@ NetOutput::NetOutput(VideoOptions const *options) : Output(options)
 				throw std::runtime_error("failed to bind listen socket");
 			listen(listen_fd, 1);
 
-			if (options->verbose)
-				std::cerr << "Waiting for client to connect..." << std::endl;
+			LOG(2, "Waiting for client to connect...");
 			fd_ = accept(listen_fd, (struct sockaddr *)&saddr_, &sockaddr_in_size_);
 			if (fd_ < 0)
 				throw std::runtime_error("accept socket failed");
-			if (options->verbose)
-				std::cerr << "Client connection accepted" << std::endl;
+			LOG(2, "Client connection accepted");
 
 			close(listen_fd);
 		}
@@ -79,12 +77,10 @@ NetOutput::NetOutput(VideoOptions const *options) : Output(options)
 			if (fd_ < 0)
 				throw std::runtime_error("unable to open client socket");
 
-			if (options->verbose)
-				std::cerr << "Connecting to server..." << std::endl;
+			LOG(2, "Connecting to server...");
 			if (connect(fd_, (struct sockaddr *)&saddr_, sizeof(sockaddr_in)) < 0)
 				throw std::runtime_error("connect to server failed");
-			if (options->verbose)
-				std::cerr << "Connected" << std::endl;
+			LOG(2, "Connected");
 		}
 
 		saddr_ptr_ = NULL; // sendto doesn't want these for tcp
@@ -104,8 +100,7 @@ constexpr size_t MAX_UDP_SIZE = 65507;
 
 void NetOutput::outputBuffer(void *mem, size_t size, int64_t /*timestamp_us*/, uint32_t /*flags*/)
 {
-	if (options_->verbose)
-		std::cerr << "NetOutput: output buffer " << mem << " size " << size << "\n";
+	LOG(2, "NetOutput: output buffer " << mem << " size " << size);
 	size_t max_size = saddr_ptr_ ? MAX_UDP_SIZE : size;
 	for (uint8_t *ptr = (uint8_t *)mem; size;)
 	{

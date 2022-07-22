@@ -77,8 +77,7 @@ void bmp_save(std::vector<libcamera::Span<uint8_t>> const &mem, StreamInfo const
 				throw std::runtime_error("failed to write BMP file, row " + std::to_string(i));
 		}
 
-		if (options->verbose)
-			std::cerr << "Wrote " << file_header.filesize << " bytes to BMP file" << std::endl;
+		LOG(2, "Wrote " << file_header.filesize << " bytes to BMP file");
 
 		if (fp != stdout)
 			fclose(fp);

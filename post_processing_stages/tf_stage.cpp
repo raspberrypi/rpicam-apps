@@ -31,7 +31,7 @@ void TfStage::initialise()
 	model_ = tflite::FlatBufferModel::BuildFromFile(config_->model_file.c_str());
 	if (!model_)
 		throw std::runtime_error("TfStage: Failed to load model");
-	std::cerr << "TfStage: Loaded model " << config_->model_file << std::endl;
+	LOG(1, "TfStage: Loaded model " << config_->model_file);
 
 	tflite::ops::builtin::BuiltinOpResolver resolver;
 	tflite::InterpreterBuilder(*model_, resolver)(&interpreter_);
@@ -67,27 +67,25 @@ void TfStage::Configure()
 	{
 		lores_info_ = app_->GetStreamInfo(lores_stream_);
 		if (config_->verbose)
-			std::cerr << "TfStage: Low resolution stream is " << lores_info_.width << "x"
-					  << lores_info_.height << std::endl;
+			LOG(1, "TfStage: Low resolution stream is " << lores_info_.width << "x" << lores_info_.height);
 		if (tf_w_ > lores_info_.width || tf_h_ > lores_info_.height)
 		{
-			std::cerr << "TfStage: WARNING: Low resolution image too small" << std::endl;
+			LOG_ERROR("TfStage: WARNING: Low resolution image too small");
 			lores_stream_ = nullptr;
 		}
 	}
 	else if (config_->verbose)
-		std::cerr << "TfStage: no low resolution stream" << std::endl;
+		LOG(1, "TfStage: no low resolution stream");
 
 	main_stream_ = app_->GetMainStream();
 	if (main_stream_)
 	{
 		main_stream_info_ = app_->GetStreamInfo(main_stream_);
 		if (config_->verbose)
-			std::cerr << "TfStage: Main stream is " << main_stream_info_.width << "x"
-					  << main_stream_info_.height << std::endl;
+			LOG(1, "TfStage: Main stream is " << main_stream_info_.width << "x" << main_stream_info_.height);
 	}
 	else if (config_->verbose)
-		std::cerr << "TfStage: No main stream" << std::endl;
+		LOG(1, "TfStage: No main stream");
 
 	checkConfiguration();
 }
@@ -114,7 +112,7 @@ bool TfStage::Process(CompletedRequestPtr &completed_request)
 				auto time_taken = ExecutionTime<std::micro>(&TfStage::runInference, this).count();
 
 				if (config_->verbose)
-					std::cerr << "TfStage: Inference time: " << time_taken << " ms" << std::endl;
+					LOG(1, "TfStage: Inference time: " << time_taken << " ms");
 			});
 		}
 	}
