@@ -6,10 +6,12 @@
  */
 #pragma once
 
-#include <libmemcached/memcached.hpp>
-
 #include "output.hpp"
+#include <libmemcached/memcached.hpp>
+#include <sw/redis++/redis++.h>
+
 using namespace std;
+using namespace sw::redis;
 
 class MemcachedOutput : public Output
 {

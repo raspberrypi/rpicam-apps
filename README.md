@@ -36,8 +36,20 @@ sudo ldconfig # this is only necessary on the first build
 ```
 
 
-## Memcached output
+## Memcached
+
+This works currently only with memcached unix sockets installations and redis
+
 
 ```
-libcamera-raw -t 1000 -o mem:// --width 640 --height 480
+./install.sh
+```
+
+Afterwards you can use the -o flag with mem:// to write raw image bytes to memcached and stream the keys in redis
+
+
+## Memcached output flag
+
+```
+libcamera-raw --width 640 --height 400 ---n -v --framerate 120 -o mem://
 ```
