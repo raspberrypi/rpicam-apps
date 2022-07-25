@@ -1,5 +1,6 @@
 sudo apt-get update
 sudo apt-get install libhiredis-dev
+git clone https://github.com/sewenew/redis-plus-plus
 cd redis-plus-plus
 mkdir build
 cd build
