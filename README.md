@@ -17,6 +17,12 @@ Status
 [![ToT libcamera build/run test](https://github.com/raspberrypi/libcamera-apps/actions/workflows/libcamera-test.yml/badge.svg)](https://github.com/raspberrypi/libcamera-apps/actions/workflows/libcamera-test.yml)
 
 
+## Pre
+
+```
+sudo apt install libmemcached-dev
+```
+
 ## Building from source
 
 ```
@@ -27,4 +33,11 @@ cmake .. -DENABLE_DRM=1 -DENABLE_X11=1 -DENABLE_QT=1 -DENABLE_OPENCV=0 -DENABLE_
 make -j4  # use -j1 on Pi 3 or earlier devices
 sudo make install
 sudo ldconfig # this is only necessary on the first build
+```
+
+
+## Memcached output
+
+```
+libcamera-raw -t 1000 -o mem:// --width 640 --height 480
 ```

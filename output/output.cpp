@@ -55,9 +55,7 @@ void Output::OutputReady(void *mem, size_t size, int64_t timestamp_us, bool keyf
 	if (flags & FLAG_RESTART)
 		time_offset_ = timestamp_us - last_timestamp_;
 	last_timestamp_ = timestamp_us - time_offset_;
-
 	outputBuffer(mem, size, last_timestamp_, flags);
-	std::cout << "outputBuffer done\n";
 
 	// Save timestamps to a file, if that was requested.
 	if (fp_timestamps_)
