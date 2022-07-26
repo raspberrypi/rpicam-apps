@@ -500,25 +500,31 @@ void LibcameraApp::queueRequest(CompletedRequest *completed_request)
 {
 	BufferMap buffers(std::move(completed_request->buffers));
 
+	// This function may run asynchronously so needs protection from the
+	// camera stopping at the same time.
+	std::lock_guard<std::mutex> stop_lock(camera_stop_mutex_);
+
+	// An application could be holding a CompletedRequest while it stops and re-starts
+	// the camera, after which we don't want to queue another request now.
+	bool request_found;
+	{
+		std::lock_guard<std::mutex> lock(completed_requests_mutex_);
+		auto it = completed_requests_.find(completed_request);
+		if (it != completed_requests_.end())
+		{
+			request_found = true;
+			completed_requests_.erase(it);
+		}
+		else
+			request_found = false;
+	}
+
 	Request *request = completed_request->request;
 	delete completed_request;
 	assert(request);
 
-	// This function may run asynchronously so needs protection from the
-	// camera stopping at the same time.
-	std::lock_guard<std::mutex> stop_lock(camera_stop_mutex_);
-	if (!camera_started_)
+	if (!camera_started_ || !request_found)
 		return;
-
-	// An application could be holding a CompletedRequest while it stops and re-starts
-	// the camera, after which we don't want to queue another request now.
-	{
-		std::lock_guard<std::mutex> lock(completed_requests_mutex_);
-		auto it = completed_requests_.find(completed_request);
-		if (it == completed_requests_.end())
-			return;
-		completed_requests_.erase(it);
-	}
 
 	for (auto const &p : buffers)
 	{
