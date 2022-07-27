@@ -71,14 +71,14 @@ bool Options::Parse(int argc, char *argv[])
 
 	if (help)
 	{
-		std::cerr << options_;
+		std::cout << options_;
 		return false;
 	}
 
 	if (version)
 	{
-		std::cerr << "libcamera-apps build: " << LibcameraAppsVersion() << std::endl;
-		std::cerr << "libcamera build: " << libcamera::CameraManager::version() << std::endl;
+		std::cout << "libcamera-apps build: " << LibcameraAppsVersion() << std::endl;
+		std::cout << "libcamera build: " << libcamera::CameraManager::version() << std::endl;
 		return false;
 	}
 
@@ -101,16 +101,16 @@ bool Options::Parse(int argc, char *argv[])
 		if (cameras.size() != 0)
 		{
 			unsigned int idx = 0;
-			std::cerr << "Available cameras" << std::endl
+			std::cout << "Available cameras" << std::endl
 					  << "-----------------" << std::endl;
 			for (auto const &cam : cameras)
 			{
 				cam->acquire();
-				std::cerr << idx++ << " : " << *cam->properties().get(libcamera::properties::Model);
+				std::cout << idx++ << " : " << *cam->properties().get(libcamera::properties::Model);
 				auto area = cam->properties().get(properties::PixelArrayActiveAreas);
 				if (area)
-					std::cerr << " [" << (*area)[0].size().toString() << "]";
-				std::cerr << " (" << cam->id() << ")" << std::endl;
+					std::cout << " [" << (*area)[0].size().toString() << "]";
+				std::cout << " (" << cam->id() << ")" << std::endl;
 
 				std::unique_ptr<CameraConfiguration> config = cam->generateConfiguration({libcamera::StreamRole::Raw});
 				if (!config)
@@ -120,17 +120,17 @@ bool Options::Parse(int argc, char *argv[])
 				if (!formats.pixelformats().size())
 					continue;
 
-				std::cerr << "    Modes: ";
+				std::cout << "    Modes: ";
 				unsigned int i = 0;
 				for (const auto &pix : formats.pixelformats())
 				{
-					if (i++) std::cerr << "           ";
+					if (i++) std::cout << "           ";
 					std::string mode("'" + pix.toString() + "' : ");
-					std::cerr << mode;
+					std::cout << mode;
 					unsigned int num = formats.sizes(pix).size();
 					for (const auto &size : formats.sizes(pix))
 					{
-						std::cerr << size.toString() << " ";
+						std::cout << size.toString() << " ";
 
 						config->at(0).size = size;
 						config->at(0).pixelFormat = pix;
@@ -140,22 +140,22 @@ bool Options::Parse(int argc, char *argv[])
 						auto fd_ctrl = cam->controls().find(&controls::FrameDurationLimits);
 						auto crop_ctrl = cam->properties().get(properties::ScalerCropMaximum);
 						double fps = 1e6 / fd_ctrl->second.min().get<int64_t>();
-						std::cerr << std::fixed << std::setprecision(2) << "["
+						std::cout << std::fixed << std::setprecision(2) << "["
 								  << fps << " fps - " << crop_ctrl->toString() << " crop" << "]";
 						if (--num)
 						{
-							std::cerr << std::endl;
-							for (std::size_t s = 0; s < mode.length() + 11; std::cerr << " ", s++);
+							std::cout << std::endl;
+							for (std::size_t s = 0; s < mode.length() + 11; std::cout << " ", s++);
 						}
 					}
-					std::cerr << std::endl;
+					std::cout << std::endl;
 				}
 
 				cam->release();
 			}
 		}
 		else
-			std::cerr << "No cameras available!" << std::endl;
+			std::cout << "No cameras available!" << std::endl;
 
 		cameras.clear();
 		cm->stop();
