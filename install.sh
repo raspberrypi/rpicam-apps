@@ -13,6 +13,7 @@ sudo apt install memcached
 sudo apt install libmemcached-tools
 mv ./memcached.conf /etc/memcached.conf
 sudo systemctl start memcached
-sudo chmod 777 /var/run/memcached
+sudo chown -R memcache:pi /var/run/memcached
+sudo chmod 2750 /var/run/memcached
 sudo ldconfig
 ./build.sh
