@@ -129,7 +129,11 @@ void LibAvEncoder::initVideoCodec(VideoOptions const *options, StreamInfo const 
 
 void LibAvEncoder::initAudioInCodec(VideoOptions const *options, StreamInfo const &info)
 {
+#if LIBAVUTIL_VERSION_MAJOR < 58
 	AVInputFormat *input_fmt = (AVInputFormat *)av_find_input_format("pulse");
+#else
+	const AVInputFormat *input_fmt = (AVInputFormat *)av_find_input_format("pulse");
+#endif
 
 	assert(in_fmt_ctx_ == nullptr);
 	int ret = avformat_open_input(&in_fmt_ctx_, options->audio_device.c_str(), input_fmt, nullptr);

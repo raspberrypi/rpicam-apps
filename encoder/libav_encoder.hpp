@@ -22,6 +22,7 @@ extern "C"
 #include "libavutil/hwcontext.h"
 #include "libavutil/hwcontext_drm.h"
 #include "libavutil/timestamp.h"
+#include "libavutil/version.h"
 #include "libswresample/swresample.h"
 }
 
@@ -67,4 +68,3 @@ private:
 	AVFormatContext *in_fmt_ctx_;
 	AVFormatContext *out_fmt_ctx_;
 };
-
