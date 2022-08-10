@@ -408,11 +408,13 @@ void LibcameraApp::StartCamera()
 	if (!controls_.get(controls::FrameDurationLimits))
 	{
 		if (StillStream())
-			controls_.set(controls::FrameDurationLimits, { INT64_C(100), INT64_C(1000000000) });
+			controls_.set(controls::FrameDurationLimits,
+						  libcamera::Span<const int64_t, 2>({ INT64_C(100), INT64_C(1000000000) }));
 		else if (options_->framerate > 0)
 		{
 			int64_t frame_time = 1000000 / options_->framerate; // in us
-			controls_.set(controls::FrameDurationLimits, { frame_time, frame_time });
+			controls_.set(controls::FrameDurationLimits,
+						  libcamera::Span<const int64_t, 2>({ frame_time, frame_time }));
 		}
 	}
 
@@ -429,7 +431,8 @@ void LibcameraApp::StartCamera()
 	if (!controls_.get(controls::AwbMode))
 		controls_.set(controls::AwbMode, options_->awb_index);
 	if (!controls_.get(controls::ColourGains) && options_->awb_gain_r && options_->awb_gain_b)
-		controls_.set(controls::ColourGains, { options_->awb_gain_r, options_->awb_gain_b });
+		controls_.set(controls::ColourGains,
+					  libcamera::Span<const float, 2>({ options_->awb_gain_r, options_->awb_gain_b }));
 	if (!controls_.get(controls::Brightness))
 		controls_.set(controls::Brightness, options_->brightness);
 	if (!controls_.get(controls::Contrast))
