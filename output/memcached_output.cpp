@@ -15,6 +15,8 @@ using namespace std;
 MemcachedOutput::MemcachedOutput(VideoOptions const *options) : Output(options)
 {
 	// Connect
+	opt = options;
+
 	const char *config_string = "--SOCKET=\"/var/run/memcached/memcached.sock\" --BINARY-PROTOCOL";
 	memc = memcached(config_string, strlen(config_string));
 	if (memc == NULL)
@@ -48,18 +50,27 @@ void MemcachedOutput::outputBuffer(void *mem, size_t size, int64_t /*timestamp_u
 	sprintf(timestamp, "%li", t);
 	// Flag set to 16 since the python bmemcached protocol library recognizes binary data with flag 16
 	// This way the bmemcached library does not decode when reading.
-	memcached_return_t rc =
-		memcached_set(memc, timestamp, strlen(timestamp), (char *)mem, strlen((char *)mem), (time_t)0, (uint32_t)16);
+	memcached_return_t rc = memcached_set(memc, timestamp, strlen(timestamp), (char *)mem, opt->width * opt->height,
+										  (time_t)0, (uint32_t)16);
 	if (rc == MEMCACHED_SUCCESS)
 	{
-		cout << "Value added successfully to memcached: " << timestamp << endl;
+		LOG(2, "Value added successfully to memcached: " << timestamp);
 	}
 	else
-		cerr << "Error: " << rc << " adding value to memcached " << timestamp << endl;
-
+		LOG(2, "Error: " << rc << " adding value to memcached " << timestamp);
 	auto redis = Redis("tcp://127.0.0.1:6379");
 	using Attrs = std::vector<std::pair<std::string, std::string>>;
-	std::string s0 = timestamp;
-	Attrs attrs = { { "memcached", s0 } };
-	auto id = redis.xadd("key2", "*", attrs.begin(), attrs.end());
+	std::string time_str = timestamp;
+	Attrs attrs = {
+		{ "memcached", time_str },
+		{ "sensor_id", "Libcamera" },
+		{ "event", "NewFrame" },
+		{ "width", std::to_string(opt->width) },
+		{ "height", std::to_string(opt->height) },
+		{ "framerate", std::to_string(opt->framerate) },
+		{ "shutter", std::to_string(opt->shutter) },
+		{ "gain", std::to_string(opt->gain) },
+		{ "roi", opt->roi },
+	};
+	auto id = redis.xadd("Libcamera", "*", attrs.begin(), attrs.end());
 }

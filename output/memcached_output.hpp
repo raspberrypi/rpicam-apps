@@ -24,6 +24,7 @@ protected:
 
 private:
 	memcached_st *memc;
+	const VideoOptions *opt;
 	memcached_return_t rc;
 	memcached_return error;
 };

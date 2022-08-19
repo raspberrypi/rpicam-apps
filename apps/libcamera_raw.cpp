@@ -50,7 +50,7 @@ static void event_loop(LibcameraRaw &app)
 								  << cfg.pixelFormat.toString());
 		}
 
-		LOG(2, "Viewfinder frame " << count);
+		//LOG(2, "Viewfinder frame " << count);
 		auto now = std::chrono::high_resolution_clock::now();
 		if (options->timeout && now - start_time > std::chrono::milliseconds(options->timeout))
 		{
