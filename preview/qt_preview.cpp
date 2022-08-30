@@ -101,7 +101,7 @@ public:
 			{ 1.164, 0.0, 1.793, 1.164, -0.213, -0.533, 1.164, 2.112, 0.0 }, // Rec709
 		};
 		const float *M = YUV2RGB[0];
-		if (info.colour_space == libcamera::ColorSpace::Jpeg)
+		if (info.colour_space == libcamera::ColorSpace::Sycc)
 			M = YUV2RGB[0];
 		else if (info.colour_space == libcamera::ColorSpace::Smpte170m)
 			M = YUV2RGB[1];

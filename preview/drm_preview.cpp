@@ -279,7 +279,7 @@ static void get_colour_space_info(std::optional<libcamera::ColorSpace> const &cs
 	encoding = encoding_601;
 	range = range_limited;
 
-	if (cs == libcamera::ColorSpace::Jpeg)
+	if (cs == libcamera::ColorSpace::Sycc)
 		range = range_full;
 	else if (cs == libcamera::ColorSpace::Smpte170m)
 		/* all good */;

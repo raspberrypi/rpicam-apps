@@ -256,7 +256,7 @@ void LibcameraApp::ConfigureStill(unsigned int flags)
 		configuration_->at(0).size.width = options_->width;
 	if (options_->height)
 		configuration_->at(0).size.height = options_->height;
-	configuration_->at(0).colorSpace = libcamera::ColorSpace::Jpeg;
+	configuration_->at(0).colorSpace = libcamera::ColorSpace::Sycc;
 	configuration_->transform = options_->transform;
 
 	post_processor_.AdjustConfig("still", &configuration_->at(0));
@@ -307,7 +307,7 @@ void LibcameraApp::ConfigureVideo(unsigned int flags)
 	if (options_->height)
 		cfg.size.height = options_->height;
 	if (flags & FLAG_VIDEO_JPEG_COLOURSPACE)
-		cfg.colorSpace = libcamera::ColorSpace::Jpeg;
+		cfg.colorSpace = libcamera::ColorSpace::Sycc;
 	else if (cfg.size.width >= 1280 || cfg.size.height >= 720)
 		cfg.colorSpace = libcamera::ColorSpace::Rec709;
 	else
