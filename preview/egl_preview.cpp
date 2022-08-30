@@ -345,7 +345,7 @@ static void get_colour_space_info(std::optional<libcamera::ColorSpace> const &cs
 	encoding = EGL_ITU_REC601_EXT;
 	range = EGL_YUV_NARROW_RANGE_EXT;
 
-	if (cs == libcamera::ColorSpace::Jpeg)
+	if (cs == libcamera::ColorSpace::Sycc)
 		range = EGL_YUV_FULL_RANGE_EXT;
 	else if (cs == libcamera::ColorSpace::Smpte170m)
 		/* all good */;
