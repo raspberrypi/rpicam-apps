@@ -129,7 +129,11 @@ void LibAvEncoder::initVideoCodec(VideoOptions const *options, StreamInfo const 
 
 void LibAvEncoder::initAudioInCodec(VideoOptions const *options, StreamInfo const &info)
 {
-	AVInputFormat *input_fmt = av_find_input_format("pulse");
+#if LIBAVUTIL_VERSION_MAJOR < 58
+	AVInputFormat *input_fmt = (AVInputFormat *)av_find_input_format("pulse");
+#else
+	const AVInputFormat *input_fmt = (AVInputFormat *)av_find_input_format("pulse");
+#endif
 
 	assert(in_fmt_ctx_ == nullptr);
 	int ret = avformat_open_input(&in_fmt_ctx_, options->audio_device.c_str(), input_fmt, nullptr);
@@ -202,7 +206,7 @@ LibAvEncoder::LibAvEncoder(VideoOptions const *options, StreamInfo const &info)
 {
 	avdevice_register_all();
 
-	if (options->verbose)
+	if (options->verbose >= 2)
 		av_log_set_level(AV_LOG_VERBOSE);
 
 	initVideoCodec(options, info);
@@ -215,8 +219,7 @@ LibAvEncoder::LibAvEncoder(VideoOptions const *options, StreamInfo const &info)
 
 	av_dump_format(out_fmt_ctx_, 0, options_->output.c_str(), 1);
 
-	if (options->verbose)
-		std::cerr << "libav: codec init completed" << std::endl;
+	LOG(2, "libav: codec init completed");
 
 	video_thread_ = std::thread(&LibAvEncoder::videoThread, this);
 
@@ -245,8 +248,7 @@ LibAvEncoder::~LibAvEncoder()
 		avcodec_free_context(&codec_ctx_[AudioOut]);
 	}
 
-	if (options_->verbose)
-		std::cerr << "libav: codec closed" << std::endl;
+	LOG(2, "libav: codec closed");
 }
 
 void LibAvEncoder::EncodeBuffer(int fd, size_t size, void *mem, StreamInfo const &info, int64_t timestamp_us)
@@ -486,7 +488,7 @@ void LibAvEncoder::audioThread()
 
 		if (av_audio_fifo_space(fifo) < in_frame->nb_samples)
 		{
-			std::cerr << "libav: Draining audio fifo, configure a larger size" << std::endl;
+			LOG(1, "libav: Draining audio fifo, configure a larger size");
 			av_audio_fifo_drain(fifo, in_frame->nb_samples);
 		}
 

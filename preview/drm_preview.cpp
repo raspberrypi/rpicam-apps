@@ -82,8 +82,7 @@ void DrmPreview::findCrtc()
 
 	if (!conId_)
 	{
-		if (options_->verbose)
-			std::cerr << "No connector ID specified.  Choosing default from list:" << std::endl;
+		LOG(2, "No connector ID specified.  Choosing default from list:");
 
 		for (i = 0; i < res->count_connectors; i++)
 		{
@@ -112,10 +111,9 @@ void DrmPreview::findCrtc()
 				screen_height_ = crtc->height;
 			}
 
-			if (options_->verbose)
-				std::cerr << "Connector " << con->connector_id << " (crtc " << (crtc ? crtc->crtc_id : 0) << "): type "
-						  << con->connector_type << ", " << (crtc ? crtc->width : 0) << "x" << (crtc ? crtc->height : 0)
-						  << (conId_ == (int)con->connector_id ? " (chosen)" : "") << std::endl;
+			LOG(2, "Connector " << con->connector_id << " (crtc " << (crtc ? crtc->crtc_id : 0) << "): type "
+								<< con->connector_type << ", " << (crtc ? crtc->width : 0) << "x"
+								<< (crtc ? crtc->height : 0) << (conId_ == (int)con->connector_id ? " (chosen)" : ""));
 		}
 
 		if (!conId_)
@@ -281,14 +279,14 @@ static void get_colour_space_info(std::optional<libcamera::ColorSpace> const &cs
 	encoding = encoding_601;
 	range = range_limited;
 
-	if (cs == libcamera::ColorSpace::Jpeg)
+	if (cs == libcamera::ColorSpace::Sycc)
 		range = range_full;
 	else if (cs == libcamera::ColorSpace::Smpte170m)
 		/* all good */;
 	else if (cs == libcamera::ColorSpace::Rec709)
 		encoding = encoding_709;
 	else
-		std::cerr << "DrmPreview: unexpected colour space " << libcamera::ColorSpace::toString(cs) << std::endl;
+		LOG(1, "DrmPreview: unexpected colour space " << libcamera::ColorSpace::toString(cs));
 }
 
 static int drm_set_property(int fd, int plane_id, char const *name, char const *val)
@@ -321,15 +319,15 @@ static int drm_set_property(int fd, int plane_id, char const *name, char const *
 
 			ret = drmModeObjectSetProperty(fd, plane_id, DRM_MODE_OBJECT_PLANE, prop_id, prop->enums[j].value);
 			if (ret < 0)
-				std::cerr << "DrmPreview: failed to set value " << val << " for property " << name << std::endl;
+				LOG(1, "DrmPreview: failed to set value " << val << " for property " << name);
 			goto done;
 		}
 
-		std::cerr << "DrmPreview: failed to find value " << val << " for property " << name << std::endl;
+		LOG(1, "DrmPreview: failed to find value " << val << " for property " << name);
 		goto done;
 	}
 
-	std::cerr << "DrmPreview: failed to find property " << name << std::endl;
+	LOG(1, "DrmPreview: failed to find property " << name);
 done:
 	if (prop)
 		drmModeFreeProperty(prop);
@@ -404,7 +402,7 @@ void DrmPreview::Reset()
 		gem_close.handle = it.second.bo_handle;
 		if (drmIoctl(drmfd_, DRM_IOCTL_GEM_CLOSE, &gem_close) < 0)
 			// I have no idea what this would mean, so complain and try to carry on...
-			std::cerr << "DRM_IOCTL_GEM_CLOSE failed" << std::endl;
+			LOG(1, "DRM_IOCTL_GEM_CLOSE failed");
 	}
 	buffers_.clear();
 	last_fd_ = -1;

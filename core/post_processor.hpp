@@ -14,6 +14,7 @@
 #include <queue>
 
 #include "core/completed_request.hpp"
+#include "core/logging.hpp"
 
 namespace libcamera
 {

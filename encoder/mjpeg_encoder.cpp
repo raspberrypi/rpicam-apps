@@ -24,8 +24,7 @@ MjpegEncoder::MjpegEncoder(VideoOptions const *options)
 	output_thread_ = std::thread(&MjpegEncoder::outputThread, this);
 	for (int i = 0; i < NUM_ENC_THREADS; i++)
 		encode_thread_[i] = std::thread(std::bind(&MjpegEncoder::encodeThread, this, i));
-	if (options_->verbose)
-		std::cerr << "Opened MjpegEncoder" << std::endl;
+	LOG(2, "Opened MjpegEncoder");
 }
 
 MjpegEncoder::~MjpegEncoder()
@@ -35,8 +34,7 @@ MjpegEncoder::~MjpegEncoder()
 		encode_thread_[i].join();
 	abortOutput_ = true;
 	output_thread_.join();
-	if (options_->verbose)
-		std::cerr << "MjpegEncoder closed" << std::endl;
+	LOG(2, "MjpegEncoder closed");
 }
 
 void MjpegEncoder::EncodeBuffer(int fd, size_t size, void *mem, StreamInfo const &info, int64_t timestamp_us)
@@ -112,9 +110,9 @@ void MjpegEncoder::encodeThread(int num)
 				using namespace std::chrono_literals;
 				if (abortEncode_ && encode_queue_.empty())
 				{
-					if (frames && options_->verbose)
-						std::cerr << "Encode " << frames << " frames, average time "
-								  << encode_time.count() * 1000 / frames << "ms" << std::endl;
+					if (frames)
+						LOG(2, "Encode " << frames << " frames, average time " << encode_time.count() * 1000 / frames
+										 << "ms");
 					jpeg_destroy_compress(&cinfo);
 					return;
 				}

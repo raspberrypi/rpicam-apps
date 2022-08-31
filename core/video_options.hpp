@@ -131,9 +131,9 @@ struct VideoOptions : public Options
 		else
 			throw std::runtime_error("incorrect initial value " + initial);
 		if ((pause || split || segment || circular) && !inline_headers)
-			std::cerr << "WARNING: consider inline headers with 'pause'/split/segment/circular" << std::endl;
+			LOG_ERROR("WARNING: consider inline headers with 'pause'/split/segment/circular");
 		if ((split || segment) && output.find('%') == std::string::npos)
-			std::cerr << "WARNING: expected % directive in output filename" << std::endl;
+			LOG_ERROR("WARNING: expected % directive in output filename");
 
 		return true;
 	}

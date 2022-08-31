@@ -22,6 +22,7 @@ extern "C"
 #include "libavutil/hwcontext.h"
 #include "libavutil/hwcontext_drm.h"
 #include "libavutil/timestamp.h"
+#include "libavutil/version.h"
 #include "libswresample/swresample.h"
 }
 
@@ -50,7 +51,6 @@ private:
 	std::atomic<bool> output_ready_;
 	bool abort_video_;
 	bool abort_audio_;
-	int fd_;
 	uint64_t video_start_ts_;
 	uint64_t audio_start_ts_;
 
@@ -68,4 +68,3 @@ private:
 	AVFormatContext *in_fmt_ctx_;
 	AVFormatContext *out_fmt_ctx_;
 };
-
