@@ -93,7 +93,6 @@ static void event_loop(LibcameraDetectApp &app)
 			if (options->timeout && now - start_time > std::chrono::milliseconds(options->timeout))
 				return;
 
-                        // std::cout << "And here ------------------------>I am Working here" << ".\n";
 
 			std::vector<Detection> detections;
 			bool detected = completed_request->sequence - last_capture_frame >= options->gap &&
@@ -137,8 +136,6 @@ static void event_loop(LibcameraDetectApp &app)
                         for (size_t x = 0; x < sizeof(objx); x++) {
                             filename_new[x] = objx[x];
                         }
-                        std::cout << "------ " << filename_new << " -" << "\n";
-                        std::cout << "- " << filename << " ---------" << "\n";
                         strcat(filename_new, filename);
                         removeSpaces(filename_new);
 
