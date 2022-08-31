@@ -136,7 +136,7 @@ void dng_save(std::vector<libcamera::Span<uint8_t>> const &mem, StreamInfo const
 	if (it == bayer_formats.end())
 		throw std::runtime_error("unsupported Bayer format");
 	BayerFormat const &bayer_format = it->second;
-	std::cerr << "Bayer format is " << bayer_format.name << "\n";
+	LOG(1, "Bayer format is " << bayer_format.name);
 
 	std::vector<uint16_t> buf(info.width * info.height);
 	if (bayer_format.bits == 10)
@@ -150,54 +150,56 @@ void dng_save(std::vector<libcamera::Span<uint8_t>> const &mem, StreamInfo const
 
 	float black = 4096 * (1 << bayer_format.bits) / 65536.0;
 	float black_levels[] = { black, black, black, black };
-	if (metadata.contains(controls::SensorBlackLevels))
+	auto bl = metadata.get(controls::SensorBlackLevels);
+	if (bl)
 	{
-		Span<const int32_t> levels = metadata.get(controls::SensorBlackLevels);
 		// levels is in the order R, Gr, Gb, B. Re-order it for the actual bayer order.
 		for (int i = 0; i < 4; i++)
 		{
 			int j = bayer_format.order[i];
 			j = j == 0 ? 0 : (j == 2 ? 3 : 1 + !!bayer_format.order[i ^ 1]);
-			black_levels[j] = levels[i] * (1 << bayer_format.bits) / 65536.0;
+			black_levels[j] = (*bl)[i] * (1 << bayer_format.bits) / 65536.0;
 		}
 	}
 	else
-		std::cerr << "WARNING: no black level found, using default" << std::endl;
+		LOG_ERROR("WARNING: no black level found, using default");
 
+	auto exp = metadata.get(controls::ExposureTime);
 	float exp_time = 10000;
-	if (metadata.contains(controls::ExposureTime))
-		exp_time = metadata.get(controls::ExposureTime);
+	if (exp)
+		exp_time = *exp;
 	else
-		std::cerr << "WARNING: default to exposure time of " << exp_time << "us" << std::endl;
+		LOG_ERROR("WARNING: default to exposure time of " << exp_time << "us");
 	exp_time /= 1e6;
 
+	auto ag = metadata.get(controls::AnalogueGain);
 	uint16_t iso = 100;
-	if (metadata.contains(controls::AnalogueGain))
-		iso = metadata.get(controls::AnalogueGain) * 100.0;
+	if (ag)
+		iso = *ag * 100.0;
 	else
-		std::cerr << "WARNING: default to ISO value of " << iso << std::endl;
+		LOG_ERROR("WARNING: default to ISO value of " << iso);
 
 	float NEUTRAL[] = { 1, 1, 1 };
 	Matrix WB_GAINS(1, 1, 1);
-	if (metadata.contains(controls::ColourGains))
+	auto cg = metadata.get(controls::ColourGains);
+	if (cg)
 	{
-		Span<const float> colour_gains = metadata.get(controls::ColourGains);
-		NEUTRAL[0] = 1.0 / colour_gains[0];
-		NEUTRAL[2] = 1.0 / colour_gains[1];
-		WB_GAINS = Matrix(colour_gains[0], 1, colour_gains[1]);
+		NEUTRAL[0] = 1.0 / (*cg)[0];
+		NEUTRAL[2] = 1.0 / (*cg)[1];
+		WB_GAINS = Matrix((*cg)[0], 1, (*cg)[1]);
 	}
 
 	// Use a slightly plausible default CCM in case the metadata doesn't have one (it should!).
 	Matrix CCM(1.90255, -0.77478, -0.12777,
 			   -0.31338, 1.88197, -0.56858,
 			   -0.06001, -0.61785, 1.67786);
-	if (metadata.contains(controls::ColourCorrectionMatrix))
+	auto ccm = metadata.get(controls::ColourCorrectionMatrix);
+	if (ccm)
 	{
-		Span<const float> const &coeffs = metadata.get(controls::ColourCorrectionMatrix);
-		CCM = Matrix(coeffs[0], coeffs[1], coeffs[2], coeffs[3], coeffs[4], coeffs[5], coeffs[6], coeffs[7], coeffs[8]);
+		CCM = Matrix((*ccm)[0], (*ccm)[1], (*ccm)[2], (*ccm)[3], (*ccm)[4], (*ccm)[5], (*ccm)[6], (*ccm)[7], (*ccm)[8]);
 	}
 	else
-		std::cerr << "WARNING: no CCM metadata found" << std::endl;
+		LOG_ERROR("WARNING: no CCM metadata found");
 
 	// This maxtrix from http://www.brucelindbloom.com/index.html?Eqn_RGB_XYZ_Matrix.html
 	Matrix RGB2XYZ(0.4124564, 0.3575761, 0.1804375,
@@ -205,16 +207,13 @@ void dng_save(std::vector<libcamera::Span<uint8_t>> const &mem, StreamInfo const
 				   0.0193339, 0.1191920, 0.9503041);
 	Matrix CAM_XYZ = (RGB2XYZ * CCM * WB_GAINS).Inv();
 
-	if (options->verbose)
-	{
-		std::cerr << "Black levels " << black_levels[0] << " " << black_levels[1] << " " << black_levels[2] << " "
-				  << black_levels[3] << ", exposure time " << exp_time * 1e6 << "us, ISO " << iso << std::endl;
-		std::cerr << "Neutral " << NEUTRAL[0] << " " << NEUTRAL[1] << " " << NEUTRAL[2] << std::endl;
-		std::cerr << "Cam_XYZ: " << std::endl;
-		std::cerr << CAM_XYZ.m[0] << " " << CAM_XYZ.m[1] << " " << CAM_XYZ.m[2] << std::endl;
-		std::cerr << CAM_XYZ.m[3] << " " << CAM_XYZ.m[4] << " " << CAM_XYZ.m[5] << std::endl;
-		std::cerr << CAM_XYZ.m[6] << " " << CAM_XYZ.m[7] << " " << CAM_XYZ.m[8] << std::endl;
-	}
+	LOG(2, "Black levels " << black_levels[0] << " " << black_levels[1] << " " << black_levels[2] << " "
+						   << black_levels[3] << ", exposure time " << exp_time * 1e6 << "us, ISO " << iso);
+	LOG(2, "Neutral " << NEUTRAL[0] << " " << NEUTRAL[1] << " " << NEUTRAL[2]);
+	LOG(2, "Cam_XYZ: ");
+	LOG(2, CAM_XYZ.m[0] << " " << CAM_XYZ.m[1] << " " << CAM_XYZ.m[2]);
+	LOG(2, CAM_XYZ.m[3] << " " << CAM_XYZ.m[4] << " " << CAM_XYZ.m[5]);
+	LOG(2, CAM_XYZ.m[6] << " " << CAM_XYZ.m[7] << " " << CAM_XYZ.m[8]);
 
 	// Finally write the DNG.
 

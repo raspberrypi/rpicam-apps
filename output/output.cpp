@@ -14,7 +14,7 @@
 #include "output.hpp"
 
 Output::Output(VideoOptions const *options)
-	: options_(options), state_(WAITING_KEYFRAME), fp_timestamps_(nullptr), time_offset_(0), last_timestamp_(0)
+	: options_(options), fp_timestamps_(nullptr), state_(WAITING_KEYFRAME), time_offset_(0), last_timestamp_(0)
 {
 	if (!options->save_pts.empty())
 	{
@@ -60,7 +60,16 @@ void Output::OutputReady(void *mem, size_t size, int64_t timestamp_us, bool keyf
 
 	// Save timestamps to a file, if that was requested.
 	if (fp_timestamps_)
-		fprintf(fp_timestamps_, "%" PRId64 ".%03" PRId64 "\n", last_timestamp_ / 1000, last_timestamp_ % 1000);
+	{
+		timestampReady(last_timestamp_);
+	}
+}
+
+void Output::timestampReady(int64_t timestamp)
+{
+	fprintf(fp_timestamps_, "%" PRId64 ".%03" PRId64 "\n", timestamp / 1000, timestamp % 1000);
+	if (options_->flush)
+		fflush(fp_timestamps_);
 }
 
 void Output::outputBuffer(void *mem, size_t size, int64_t timestamp_us, uint32_t flags)

@@ -31,7 +31,9 @@ protected:
 		FLAG_RESTART = 2
 	};
 	virtual void outputBuffer(void *mem, size_t size, int64_t timestamp_us, uint32_t flags);
+	virtual void timestampReady(int64_t timestamp);
 	VideoOptions const *options_;
+	FILE *fp_timestamps_;
 
 private:
 	enum State
@@ -42,7 +44,6 @@ private:
 	};
 	State state_;
 	std::atomic<bool> enable_;
-	FILE *fp_timestamps_;
 	int64_t time_offset_;
 	int64_t last_timestamp_;
 };

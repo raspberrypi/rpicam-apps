@@ -345,14 +345,14 @@ static void get_colour_space_info(std::optional<libcamera::ColorSpace> const &cs
 	encoding = EGL_ITU_REC601_EXT;
 	range = EGL_YUV_NARROW_RANGE_EXT;
 
-	if (cs == libcamera::ColorSpace::Jpeg)
+	if (cs == libcamera::ColorSpace::Sycc)
 		range = EGL_YUV_FULL_RANGE_EXT;
 	else if (cs == libcamera::ColorSpace::Smpte170m)
 		/* all good */;
 	else if (cs == libcamera::ColorSpace::Rec709)
 		encoding = EGL_ITU_REC709_EXT;
 	else
-		std::cerr << "EglPreview: unexpected colour space " << libcamera::ColorSpace::toString(cs) << std::endl;
+		LOG(1, "EglPreview: unexpected colour space " << libcamera::ColorSpace::toString(cs));
 }
 
 void EglPreview::makeBuffer(int fd, size_t size, StreamInfo const &info, Buffer &buffer)

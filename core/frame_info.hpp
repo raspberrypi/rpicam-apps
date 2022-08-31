@@ -17,26 +17,31 @@ struct FrameInfo
 	FrameInfo(libcamera::ControlList &ctrls)
 		: exposure_time(0.0), digital_gain(0.0), colour_gains({ { 0.0f, 0.0f } }), focus(0.0), aelock(false)
 	{
-		if (ctrls.contains(libcamera::controls::ExposureTime))
-			exposure_time = ctrls.get<int32_t>(libcamera::controls::ExposureTime);
+		auto exp = ctrls.get(libcamera::controls::ExposureTime);
+		if (exp)
+			exposure_time = *exp;
 
-		if (ctrls.contains(libcamera::controls::AnalogueGain))
-			analogue_gain = ctrls.get(libcamera::controls::AnalogueGain);
+		auto ag = ctrls.get(libcamera::controls::AnalogueGain);
+		if (ag)
+			analogue_gain = *ag;
 
-		if (ctrls.contains(libcamera::controls::DigitalGain))
-			digital_gain = ctrls.get(libcamera::controls::DigitalGain);
+		auto dg = ctrls.get(libcamera::controls::DigitalGain);
+		if (dg)
+			digital_gain = *dg;
 
-		if (ctrls.contains(libcamera::controls::ColourGains))
+		auto cg = ctrls.get(libcamera::controls::ColourGains);
+		if (cg)
 		{
-			libcamera::Span<const float> gains = ctrls.get(libcamera::controls::ColourGains);
-			colour_gains[0] = gains[0], colour_gains[1] = gains[1];
+			colour_gains[0] = (*cg)[0], colour_gains[1] = (*cg)[1];
 		}
 
-		if (ctrls.contains(libcamera::controls::FocusFoM))
-			focus = ctrls.get(libcamera::controls::FocusFoM);
+		auto fom = ctrls.get(libcamera::controls::FocusFoM);
+		if (fom)
+			focus = *fom;
 
-		if (ctrls.contains(libcamera::controls::AeLocked))
-			aelock = ctrls.get(libcamera::controls::AeLocked);
+		auto ae = ctrls.get(libcamera::controls::AeLocked);
+		if (ae)
+			aelock = *ae;
 	}
 
 	std::string ToString(std::string &info_string) const
