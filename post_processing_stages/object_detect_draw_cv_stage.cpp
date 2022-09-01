@@ -20,7 +20,7 @@
 using namespace cv;
 
 using namespace std;
-string objx;
+string objx; // global Variable for Object Label.
 
 using Rectange = libcamera::Rectangle;
 using Stream = libcamera::Stream;
@@ -84,8 +84,7 @@ bool ObjectDetectDrawCvStage::Process(CompletedRequestPtr &completed_request)
 		Rect r(detection.box.x, detection.box.y, detection.box.width, detection.box.height);
 		rectangle(image, r, colour, line_thickness_);
 		std::stringstream text_stream;
-                objx = detection.name;
-                // std::cout << "hello ---- test" << detection.name << "xxxxxxxxxx" << "\n";
+                objx = detection.name; // Make the Name global.
 		text_stream << detection.name << " " << (int)(detection.confidence * 100) << "%";
 		std::string text = text_stream.str();
 		int baseline = 0;

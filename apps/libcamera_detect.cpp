@@ -18,7 +18,7 @@
 
 #include <string>
 using namespace std;
-extern string objx;
+extern string objx; // global Variable with Object Label.
 
 // #include <string>
 #include <iostream>
@@ -56,7 +56,7 @@ public:
 
 // The main even loop for the application.
 
-char *removeSpaces(char *str)
+char *removeSpaces(char *str)  // Remove spaces Funktion
 {
     int i = 0, j = 0;
     while (str[i])
@@ -130,16 +130,16 @@ static void event_loop(LibcameraDetectApp &app)
 			filename[sizeof(filename) - 1] = 0;
 			options->framestart++;
 
-                        if (objx == "cat" || objx == "dog" || objx == "person") {
+                        if (objx == "cat" || objx == "dog" || objx == "person") {  // Save only if these objects have been detected.
 
-                        char *filename_new = new char[sizeof(objx)];
-                        for (size_t x = 0; x < sizeof(objx); x++) {
+                        char *filename_new = new char[sizeof(objx)]; // defines the variable filename_new with the size of objx.
+                        for (size_t x = 0; x < sizeof(objx); x++) { // Convert String to Char
                             filename_new[x] = objx[x];
                         }
-                        strcat(filename_new, filename);
-                        removeSpaces(filename_new);
+                        strcat(filename_new, filename); // Merge the Filenames to filename_new.
+                        removeSpaces(filename_new); // Change spaces to "_", for example "dining table"
 
-			LOG(1, "Save image " << filename_new);
+			LOG(1, "Save image " << filename_new); // Use the new Filename
 			jpeg_save(mem, info, completed_request->metadata, std::string(filename_new), app.CameraId(), options);
 
                         }
