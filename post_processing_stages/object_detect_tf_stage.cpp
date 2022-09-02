@@ -8,10 +8,6 @@
 #include "object_detect.hpp"
 #include "tf_stage.hpp"
 
-#include <string>
-#include <iostream>
-using namespace std;
-string objx; // global Variable for Object Label.
 
 using Rectangle = libcamera::Rectangle;
 
