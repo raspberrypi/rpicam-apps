@@ -27,7 +27,7 @@ then
    if [ $process == 0 ];
    then
      echo "step 7"
-     /usr/local/bin/libcamera-detect -n -t 0 -o "%04d.jpg" --saturation 0.2 --contrast 1.3 --hflip --vflip --lores-width 450 --lores-height 300 --gap 10 --framerate 30 --verbose 0 --post-process-file /home/thomasd/object_detect_tf.json
+     /usr/local/bin/libcamera-detect -n -t 0 -o "%04d.jpg" --saturation 0.2 --contrast 1.3 --hflip --vflip --lores-width 450 --lores-height 300 --gap 10 --framerate 30 --verbose 0 --post-process-file /home/your_path/object_detect_tf.json
    else
      echo "stop 8"
      killall libcamera-detect
