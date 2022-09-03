@@ -1,15 +1,14 @@
 #! /bin/bash
 
 datum=$(date +%Y%m%d_%H%M%S)
-PNAME="libcamera-detect"
+PNAME="libcamera-detect" # Process to Watch
 load="$(/usr/bin/ps -C ${PNAME} -o %cpu | tail -1)"
 echo "step 1"
-b=10
+b=10 # CPU Useage for compare
 int=${load%.*}
 echo "step 2"
-re='^[0-9]+$'
-
-if ! [[ $int =~ $re ]]
+re='^[0-9]+$' # only numbers regex
+if ! [[ $int =~ $re ]] # Test for NOT Number
 then
    load2=1
    echo "step 3"
