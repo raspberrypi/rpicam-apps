@@ -16,6 +16,15 @@
 
 #include "post_processing_stages/object_detect.hpp"
 
+#include <string>
+using namespace std;
+extern string objx; // global Variable with Object Label.
+
+// #include <string>
+#include <iostream>
+
+
+
 struct DetectOptions : public StillOptions
 {
 	DetectOptions() : StillOptions()
@@ -47,6 +56,19 @@ public:
 
 // The main even loop for the application.
 
+char *removeSpaces(char *str)  // Remove spaces Funktion
+{
+    int i = 0, j = 0;
+    while (str[i])
+    {
+        if (str[i] != ' ')
+        str[j++] = str[i];
+        i++;
+    }
+    str[j] = '\0';
+    return str;
+}
+
 static void event_loop(LibcameraDetectApp &app)
 {
 	DetectOptions *options = app.GetOptions();
@@ -71,6 +93,7 @@ static void event_loop(LibcameraDetectApp &app)
 			if (options->timeout && now - start_time > std::chrono::milliseconds(options->timeout))
 				return;
 
+
 			std::vector<Detection> detections;
 			bool detected = completed_request->sequence - last_capture_frame >= options->gap &&
 							completed_request->post_process_metadata.Get("object_detect.results", detections) == 0 &&
@@ -79,6 +102,8 @@ static void event_loop(LibcameraDetectApp &app)
 							}) != detections.end();
 
 			app.ShowPreview(completed_request, app.ViewfinderStream());
+
+                        // std::cout << "I am Working here" << ".\n";
 
 			if (detected)
 			{
@@ -104,8 +129,20 @@ static void event_loop(LibcameraDetectApp &app)
 			snprintf(filename, sizeof(filename), options->output.c_str(), options->framestart);
 			filename[sizeof(filename) - 1] = 0;
 			options->framestart++;
-			LOG(1, "Save image " << filename);
-			jpeg_save(mem, info, completed_request->metadata, std::string(filename), app.CameraId(), options);
+
+                        if (objx == "cat" || objx == "dog" || objx == "person") {  // Save only if these objects have been detected.
+
+                        char *filename_new = new char[sizeof(objx)]; // defines the variable filename_new with the size of objx.
+                        for (size_t x = 0; x < sizeof(objx); x++) { // Convert String to Char
+                            filename_new[x] = objx[x];
+                        }
+                        strcat(filename_new, filename); // Merge the Filenames to filename_new.
+                        removeSpaces(filename_new); // Change spaces to "_", for example "dining table"
+
+			LOG(1, "Save image " << filename_new); // Use the new Filename
+			jpeg_save(mem, info, completed_request->metadata, std::string(filename_new), app.CameraId(), options);
+
+                        }
 
 			// Restart camera in preview mode.
 			app.Teardown();
