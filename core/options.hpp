@@ -130,6 +130,10 @@ struct Options
 			 "Camera mode as W:H:bit-depth:packing, where packing is P (packed) or U (unpacked)")
 			("viewfinder-mode", value<std::string>(&viewfinder_mode_string),
 			 "Camera mode for preview as W:H:bit-depth:packing, where packing is P (packed) or U (unpacked)")
+			("metadata", value<std::string>(&metadata),
+			 "Save captured image metadata to a file or \"-\" for stdout")
+			("metadata-format", value<std::string>(&metadata_format)->default_value("json"),
+			 "Format to save the metadata in, either txt or json (requires --metadata)")
 			;
 		// clang-format on
 	}
@@ -186,6 +190,8 @@ struct Options
 	Mode mode;
 	std::string viewfinder_mode_string;
 	Mode viewfinder_mode;
+	std::string metadata;
+	std::string metadata_format;
 
 	virtual bool Parse(int argc, char *argv[]);
 	virtual void Print() const;

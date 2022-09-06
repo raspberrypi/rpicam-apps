@@ -12,6 +12,7 @@
 #include "encoder/encoder.hpp"
 
 typedef std::function<void(void *, size_t, int64_t, bool)> EncodeOutputReadyCallback;
+typedef std::function<void(std::shared_ptr<libcamera::ControlList> &)> MetadataReadyCallback;
 
 class LibcameraEncoder : public LibcameraApp
 {
@@ -29,6 +30,7 @@ public:
 	}
 	// This is callback when the encoder gives you the encoded output data.
 	void SetEncodeOutputReadyCallback(EncodeOutputReadyCallback callback) { encode_output_ready_callback_ = callback; }
+	void SetMetadataReadyCallback(MetadataReadyCallback callback) { metadata_ready_callback_ = callback; }
 	void EncodeBuffer(CompletedRequestPtr &completed_request, Stream *stream)
 	{
 		assert(encoder_);
@@ -72,11 +74,16 @@ private:
 			std::lock_guard<std::mutex> lock(encode_buffer_queue_mutex_);
 			if (encode_buffer_queue_.empty())
 				throw std::runtime_error("no buffer available to return");
+			CompletedRequestPtr completed_request = encode_buffer_queue_.front();
+			std::shared_ptr<libcamera::ControlList> metadata_ptr =
+				std::make_shared<libcamera::ControlList>(completed_request->metadata);
 			encode_buffer_queue_.pop(); // drop shared_ptr reference
+			metadata_ready_callback_(metadata_ptr);
 		}
 	}
 
 	std::queue<CompletedRequestPtr> encode_buffer_queue_;
 	std::mutex encode_buffer_queue_mutex_;
 	EncodeOutputReadyCallback encode_output_ready_callback_;
+	MetadataReadyCallback metadata_ready_callback_;
 };

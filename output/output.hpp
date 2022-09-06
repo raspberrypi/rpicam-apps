@@ -22,6 +22,7 @@ public:
 	virtual ~Output();
 	virtual void Signal(); // a derived class might redefine what this means
 	void OutputReady(void *mem, size_t size, int64_t timestamp_us, bool keyframe);
+	void MetadataReady(std::shared_ptr<libcamera::ControlList> &metadata_ptr);
 
 protected:
 	enum Flag
@@ -46,4 +47,12 @@ private:
 	std::atomic<bool> enable_;
 	int64_t time_offset_;
 	int64_t last_timestamp_;
+	std::streambuf *buf_metadata_;
+	std::ofstream of_metadata_;
+	bool metadata_started_ = false;
+	std::queue<std::shared_ptr<libcamera::ControlList>> metadata_queue_;
 };
+
+void start_metadata_output(std::streambuf *buf, std::string fmt);
+void write_metadata(std::streambuf *buf, std::string fmt, libcamera::ControlList &metadata, bool first_write);
+void stop_metadata_output(std::streambuf *buf, std::string fmt);
