@@ -15,6 +15,8 @@
 #include "core/libcamera_app.hpp"
 #include "core/still_options.hpp"
 
+#include "output/output.hpp"
+
 #include "image/image.hpp"
 
 using namespace std::chrono_literals;
@@ -106,11 +108,11 @@ static void save_images(LibcameraStillApp &app, CompletedRequestPtr &payload)
 		options->framestart %= options->wrap;
 }
 
-static void save_metadata(const std::string &filename, const libcamera::ControlList &metadata)
+static void save_metadata(StillOptions const *options, libcamera::ControlList &metadata)
 {
-	const libcamera::ControlIdMap *id_map = metadata.idMap();
 	std::streambuf *buf = std::cout.rdbuf();
 	std::ofstream of;
+	const std::string &filename = options->metadata;
 
 	if (filename.compare("-"))
 	{
@@ -118,9 +120,7 @@ static void save_metadata(const std::string &filename, const libcamera::ControlL
 		buf = of.rdbuf();
 	}
 
-	std::ostream out(buf);
-	for (auto const &[id, val] : metadata)
-		out << id_map->at(id)->name() << "=" << val.toString() << std::endl;
+	write_metadata(buf, options->metadata_format, metadata, true);
 }
 
 // Some keypress/signal handling.
@@ -255,7 +255,7 @@ static void event_loop(LibcameraStillApp &app)
 			LOG(1, "Still capture image received");
 			save_images(app, std::get<CompletedRequestPtr>(msg.payload));
 			if (!options->metadata.empty())
-				save_metadata(options->metadata, std::get<CompletedRequestPtr>(msg.payload)->metadata);
+				save_metadata(options, std::get<CompletedRequestPtr>(msg.payload)->metadata);
 			timelapse_frames = 0;
 			if (!options->immediate && (options->timelapse || options->signal || options->keypress))
 			{
