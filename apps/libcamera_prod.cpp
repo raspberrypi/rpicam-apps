@@ -102,6 +102,8 @@ struct ProdOptions : public VideoOptions
 		using namespace boost::program_options;
 		// clang-format off
 		options_.add_options()
+			("cal", value<bool>(&cal)->default_value(false)->implicit_value(true),
+			 "Switches on calibration mode")
 			("focus-test", value<bool>(&focus_test)->default_value(false)->implicit_value(true),
 			 "Runs a focus test")
 			("focus-steps", value<uint32_t>(&focus_steps)->default_value(20),
@@ -118,6 +120,7 @@ struct ProdOptions : public VideoOptions
 		// clang-format on
 	}
 
+	bool cal;
 	bool focus_test;
 	bool dust_test;
 	uint32_t focus_steps;
@@ -146,7 +149,52 @@ public:
 	{
 		return static_cast<ProdOptions *>(options_.get());
 	}
+
+	void run_calibration(CompletedRequestPtr req);
 };
+
+void LibcameraProd::run_calibration(CompletedRequestPtr req)
+{
+	StreamInfo info;
+	libcamera::Stream *raw = RawStream(&info);
+
+	libcamera::FrameBuffer *buffer = req->buffers[raw];
+	libcamera::Span span = Mmap(buffer)[0];
+	void *mem = span.data();
+
+	if (!buffer || !mem)
+		throw std::runtime_error("Invalid RAW buffer");
+
+	auto it = bayer_formats.find(info.pixel_format);
+	if (it == bayer_formats.end())
+		throw std::runtime_error("Unsupported Bayer format");
+	unsigned int shift = 16 - it->second;
+
+	double sum[4] = { 0.0, 0.0, 0.0, 0.0 };
+	uint16_t min[4] = { 65535, 65535, 65535, 65535 };
+	uint16_t max[4] = { 0, 0, 0, 0 };
+
+	for (unsigned int y = 0; y < info.height; y += 2)
+	{
+		uint16_t *s = (uint16_t *)mem + y * info.stride / 2;
+		for (unsigned int x = 0; x < info.width; s += 2, x += 2)
+		{
+			uint16_t p[4] { (uint16_t)(*s << shift), (uint16_t)(*(s + 1) << shift),
+							(uint16_t)(*(s + info.stride / 2) << shift), (uint16_t)(*(s + info.stride / 2 + 1) << shift) };
+
+			for (unsigned int i = 0; i < 4; i++)
+			{
+				sum[i] += p[i];
+				if (p[i] < min[i]) min[i] = p[i];
+				if (p[i] > max[i]) max[i] = p[i];
+			}
+		}
+	}
+
+	for (unsigned int i = 0; i < 4; i++)
+		std::cout << "Channel " << i << " : min " << min[i] << " max " << max[i]
+					<< " mean " << sum[i] / (info.width * info.height / 4) << std::endl;
+}
 
 // The main even loop for the application.
 
@@ -195,6 +243,9 @@ static void event_loop(LibcameraProd &app)
 		bool frameout = options->frames && count >= options->frames;
 		if (timeout || frameout)
 			break;
+
+		if (options->cal)
+			app.run_calibration(req);
 
 		if (options->focus_test)
 		{
@@ -275,7 +326,7 @@ int main(int argc, char *argv[])
 		{
 			options->denoise = "cdn_off";
 
-			if (options->dust_test)
+			if (options->dust_test || options->cal)
 			{
 				options->mode_string = "10000:10000:12:U";
 				options->mode = Mode(options->mode_string);
