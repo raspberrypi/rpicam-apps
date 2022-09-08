@@ -111,6 +111,8 @@ struct ProdOptions : public VideoOptions
 			 "Step size for focus movements")
 			("focus-wait", value<uint32_t>(&focus_wait)->default_value(3),
 			 "Wait these many frames for the lens to complete movement (must be at least 1)")
+			 ("focus-cycles", value<uint32_t>(&focus_cycles)->default_value(3),
+			 "Number of focus cycles to run.")
 			("dust-test", value<bool>(&dust_test)->default_value(false)->implicit_value(true),
 			 "Runs the dust detection test")
 			("low-threshold", value<uint32_t>(&lo_threshold)->default_value(0),
@@ -129,6 +131,7 @@ struct ProdOptions : public VideoOptions
 	bool hist;
 	uint32_t focus_steps;
 	uint32_t focus_wait;
+	uint32_t focus_cycles;
 	uint32_t lo_threshold;
 	uint32_t hi_threshold;
 
@@ -145,7 +148,8 @@ class LibcameraProd : public LibcameraApp
 {
 public:
 	LibcameraProd()
-		: LibcameraApp(std::make_unique<ProdOptions>())
+		: LibcameraApp(std::make_unique<ProdOptions>()),
+		  focus_pos_(0), focus_max_pos_(0), focus_cycles_(0)
 	{
 	}
 
@@ -158,8 +162,10 @@ public:
 	bool run_focus_test(CompletedRequestPtr req, unsigned int count);
 	void run_dust_test(CompletedRequestPtr req);
 
-	std::map<unsigned int, float> foms_;
+	std::vector<std::map<unsigned int, float>> foms_;
+	unsigned int focus_pos_;
 	unsigned int focus_max_pos_;
+	unsigned int focus_cycles_;
 	std::string lens_device_;
 };
 
@@ -212,28 +218,53 @@ void LibcameraProd::run_calibration(CompletedRequestPtr req)
 bool LibcameraProd::run_focus_test(CompletedRequestPtr req, unsigned int count)
 {
 	ProdOptions const *options = static_cast<ProdOptions *>(GetOptions());
-	unsigned int focus_pos = 0;
 
 	if ((count % options->focus_wait) == 0)
 	{
 		FrameInfo frame_info(req->metadata);
 
-		foms_[focus_pos] = frame_info.focus;
-		LOG(2, "Position: " << focus_pos << " Focus: " << frame_info.focus);
+		if (focus_pos_ == 0)
+			foms_.push_back({});
 
-		if (focus_pos == focus_max_pos_)
+		foms_.back()[focus_pos_] = frame_info.focus;
+		LOG(2, "Position: " << focus_pos_ << " Focus: " << frame_info.focus);
+
+		if (focus_pos_ == focus_max_pos_)
 		{
-			auto [min, max] = std::minmax_element(foms_.begin(), foms_.end(),
+			if (focus_cycles_ == options->focus_cycles - 1)
+			{
+				std::stringstream s1, s2, s3, s4, s5;
+				s1 << "Minimum : FoM [ ";
+				s2 << " Pos [ ";
+				s3 << "Maximum : FoM [ ";
+				s4 << " Pos [ ";
+				s5 << "Max/Min ratio : [ " << std::setprecision(5);
+				
+				for (auto const &foms : foms_)
+				{
+					auto [min, max] = std::minmax_element(foms.begin(), foms.end(),
 										[](const auto &l, const auto &r) { return l.second < r.second; });
+					s1 << min->second << " ";
+					s2 << min->first << " ";
+					s3 << max->second << " ";
+					s4 << max->first << " ";
+					s5 << max->second / min->second << " ";
+				}
 
-			std::cout << "Maximum focus " << max->second << " at position " << max->first << std::endl;
-			std::cout << "Minimum focus " << min->second << " at position " << min->first << std::endl;
-			std::cout << "Max/Min ratio " << std::setprecision(5) << max->second / min->second << std::endl;
-			return true;
+				s1 << "]"; s2 << "]"; s3 << "]"; s4 << "]"; s5 << "]";
+				std::cout << s1.str() << s2.str() << std::endl << s3.str() << s4.str() << std::endl << s5.str() << std::endl;
+				return true;
+			}
+			else
+			{
+				focus_pos_ = 0;
+				focus_cycles_++;
+			}
 		}
+		else
+			focus_pos_ = std::min<unsigned int>(focus_pos_ + options->focus_steps, focus_max_pos_);
 
-		focus_pos = std::min<unsigned int>(focus_pos + options->focus_steps, focus_max_pos_);
-		if (set_focus(lens_device_, focus_pos))
+		if (set_focus(lens_device_, focus_pos_))
 			throw std::runtime_error("cannot set focus!");
 	}
 
