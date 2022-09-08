@@ -201,9 +201,12 @@ void LibcameraProd::run_calibration(CompletedRequestPtr req)
 		}
 	}
 
-	for (unsigned int i = 0; i < 4; i++)
-		std::cout << "Channel " << i << " : min " << min[i] << " max " << max[i]
-				  << " mean " << sum[i] / (info.width * info.height / 4) << std::endl;
+	std::stringstream s;
+	s << "Min: [" << min[0] << ", " << min[1] << ", " << min[2] << ", " << min[3] << "] ";
+	s << "Max: [" << max[0] << ", " << max[1] << ", " << max[2] << ", " << max[3] << "] ";
+	s << "Mean: [" << sum[0] / (info.width * info.height / 4) << ", " << sum[1] / (info.width * info.height / 4) << ", "
+	  << sum[2] / (info.width * info.height / 4) << ", " << sum[3] / (info.width * info.height / 4) << "]              ";
+	std::cout << "\r" << s.str() << std::flush;
 }
 
 bool LibcameraProd::run_focus_test(CompletedRequestPtr req, unsigned int count)
@@ -375,6 +378,8 @@ static void event_loop(LibcameraProd &app)
 
 		app.ShowPreview(req, app.VideoStream());
 	}
+
+	std::cout << std::endl;
 
 	if (options->dust_test && req)
 		app.run_dust_test(req);
