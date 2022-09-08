@@ -117,6 +117,8 @@ struct ProdOptions : public VideoOptions
 			 "Sets the low sample threshold (in 16-bits)")
 			("high-threshold", value<uint32_t>(&hi_threshold)->default_value(0),
 			 "Sets the high sample threshold (in 16-bits)")
+			("hist", value<bool>(&hist)->default_value(false)->implicit_value(true),
+			 "Switches on calibration mode")
 			;
 		// clang-format on
 	}
@@ -124,6 +126,7 @@ struct ProdOptions : public VideoOptions
 	bool cal;
 	bool focus_test;
 	bool dust_test;
+	bool hist;
 	uint32_t focus_steps;
 	uint32_t focus_wait;
 	uint32_t lo_threshold;
@@ -277,6 +280,12 @@ void LibcameraProd::run_dust_test(CompletedRequestPtr req)
 						sum[2] / (info.width * info.height / 4), sum[3] / (info.width * info.height / 4) };
 	double max_mean = std::max({ mean[0], mean[1], mean[2], mean[3] });
 
+	static constexpr unsigned int num_bins = 40;
+	uint16_t bins[num_bins] = { 4000 };
+	unsigned int counts[num_bins] = { 0 };
+	for (unsigned int i = 1; i < num_bins; i++)
+		bins[i] = bins[i - 1] + 1000;
+
 	uint32_t lo = 0, hi = 0;
 	for (unsigned int y = 0; y < info.height; y += 2)
 	{
@@ -292,6 +301,12 @@ void LibcameraProd::run_dust_test(CompletedRequestPtr req)
 					lo++;
 				if (p[i] <= options->hi_threshold)
 					hi++;
+				if (options->hist)
+				{
+					for (unsigned int j = 0; j < num_bins; j++)
+						if (p[i] <= bins[j])
+							counts[j]++;
+				}
 			}
 		}
 	}
@@ -299,6 +314,12 @@ void LibcameraProd::run_dust_test(CompletedRequestPtr req)
 	std::cout << info.width * info.height << " total samples" << std::endl;
 	std::cout << lo << " samples under threshold of " << options->lo_threshold << std::endl;
 	std::cout << hi << " samples under threshold of " << options->hi_threshold << std::endl;
+	if (options->hist)
+	{
+		std::cout << "Histogram:" << std::endl;
+		for (unsigned int j = 0; j < num_bins; j++)
+			std::cout << "    [" << bins[j] << "] " << counts[j] << std::endl;
+	}
 }
 
 // The main even loop for the application.
