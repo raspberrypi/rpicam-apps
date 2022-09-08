@@ -18,6 +18,7 @@
 #include "output/output.hpp"
 
 #include "core/frame_info.hpp"
+#include "core/logging.hpp"
 
 using namespace std::placeholders;
 
@@ -198,7 +199,8 @@ void LibcameraProd::run_calibration(CompletedRequestPtr req)
 	}
 
 	for (unsigned int i = 0; i < 4; i++)
-		LOG(1, "Channel " << i << " : min " << min[i] << " max " << max[i] << " mean " << sum[i] / (info.width * info.height / 4));
+		std::cout << "Channel " << i << " : min " << min[i] << " max " << max[i]
+				  << " mean " << sum[i] / (info.width * info.height / 4) << std::endl;
 }
 
 bool LibcameraProd::run_focus_test(CompletedRequestPtr req, unsigned int count)
@@ -211,17 +213,16 @@ bool LibcameraProd::run_focus_test(CompletedRequestPtr req, unsigned int count)
 		FrameInfo frame_info(req->metadata);
 
 		foms_[focus_pos] = frame_info.focus;
-		if (options->verbose)
-			LOG(1, "Position: " << focus_pos << " Focus: " << frame_info.focus);
+		LOG(2, "Position: " << focus_pos << " Focus: " << frame_info.focus);
 
 		if (focus_pos == focus_max_pos_)
 		{
 			auto [min, max] = std::minmax_element(foms_.begin(), foms_.end(),
 										[](const auto &l, const auto &r) { return l.second < r.second; });
 
-			LOG(1, "Maximum focus " << max->second << " at position " << max->first);
-			LOG(1, "Minimum focus " << min->second << " at position " << min->first);
-			LOG(1, "Max/Min ratio " << std::setprecision(5) << max->second / min->second);
+			std::cout << "Maximum focus " << max->second << " at position " << max->first << std::endl;
+			std::cout << "Minimum focus " << min->second << " at position " << min->first << std::endl;
+			std::cout << "Max/Min ratio " << std::setprecision(5) << max->second / min->second << std::endl;
 			return true;
 		}
 
@@ -295,9 +296,9 @@ void LibcameraProd::run_dust_test(CompletedRequestPtr req)
 		}
 	}
 
-	LOG(1, info.width * info.height << " total samples");
-	LOG(1, lo << " samples under threshold of " << options->lo_threshold);
-	LOG(1, hi << " samples under threshold of " << options->hi_threshold);
+	std::cout << info.width * info.height << " total samples" << std::endl;
+	std::cout << lo << " samples under threshold of " << options->lo_threshold << std::endl;
+	std::cout << hi << " samples under threshold of " << options->hi_threshold << std::endl;
 }
 
 // The main even loop for the application.
