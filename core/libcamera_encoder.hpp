@@ -12,7 +12,7 @@
 #include "encoder/encoder.hpp"
 
 typedef std::function<void(void *, size_t, int64_t, bool)> EncodeOutputReadyCallback;
-typedef std::function<void(std::shared_ptr<libcamera::ControlList> &)> MetadataReadyCallback;
+typedef std::function<void(libcamera::ControlList &)> MetadataReadyCallback;
 
 class LibcameraEncoder : public LibcameraApp
 {
@@ -75,10 +75,8 @@ private:
 			if (encode_buffer_queue_.empty())
 				throw std::runtime_error("no buffer available to return");
 			CompletedRequestPtr completed_request = encode_buffer_queue_.front();
-			std::shared_ptr<libcamera::ControlList> metadata_ptr =
-				std::make_shared<libcamera::ControlList>(completed_request->metadata);
+			metadata_ready_callback_(completed_request->metadata);
 			encode_buffer_queue_.pop(); // drop shared_ptr reference
-			metadata_ready_callback_(metadata_ptr);
 		}
 	}
 

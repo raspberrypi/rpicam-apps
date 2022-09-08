@@ -80,8 +80,8 @@ void Output::OutputReady(void *mem, size_t size, int64_t timestamp_us, bool keyf
 
 	if (!options_->metadata.empty())
 	{
-		libcamera::ControlList *metadata = metadata_queue_.front().get();
-		write_metadata(buf_metadata_, options_->metadata_format, *metadata, !metadata_started_);
+		libcamera::ControlList metadata = metadata_queue_.front();
+		write_metadata(buf_metadata_, options_->metadata_format, metadata, !metadata_started_);
 		metadata_started_ = true;
 		metadata_queue_.pop();
 	}
@@ -114,12 +114,12 @@ Output *Output::Create(VideoOptions const *options)
 		return new Output(options);
 }
 
-void Output::MetadataReady(std::shared_ptr<libcamera::ControlList> &metadata_ptr)
+void Output::MetadataReady(libcamera::ControlList &metadata)
 {
 	if (options_->metadata.empty())
 		return;
 
-	metadata_queue_.push(metadata_ptr);
+	metadata_queue_.push(metadata);
 }
 
 void start_metadata_output(std::streambuf *buf, std::string fmt)
