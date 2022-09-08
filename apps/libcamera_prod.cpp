@@ -151,6 +151,11 @@ public:
 	}
 
 	void run_calibration(CompletedRequestPtr req);
+	bool run_focus_test(CompletedRequestPtr req, unsigned int count);
+
+	std::map<unsigned int, float> foms_;
+	unsigned int focus_max_pos_;
+	std::string lens_device_;
 };
 
 void LibcameraProd::run_calibration(CompletedRequestPtr req)
@@ -196,13 +201,44 @@ void LibcameraProd::run_calibration(CompletedRequestPtr req)
 					<< " mean " << sum[i] / (info.width * info.height / 4) << std::endl;
 }
 
+bool LibcameraProd::run_focus_test(CompletedRequestPtr req, unsigned int count)
+{
+	ProdOptions const *options = static_cast<ProdOptions *>(GetOptions());
+	unsigned int focus_pos = 0;
+
+	if ((count % options->focus_wait) == 0)
+	{
+		FrameInfo frame_info(req->metadata);
+
+		foms_[focus_pos] = frame_info.focus;
+		if (options->verbose)
+			std::cerr << "Position: " << focus_pos << " Focus: " << frame_info.focus << std::endl;
+
+		if (focus_pos == focus_max_pos_)
+		{
+			auto [min, max] = std::minmax_element(foms_.begin(), foms_.end(),
+										[](const auto &l, const auto &r) { return l.second < r.second; });
+
+			std::cout << "Maximum focus " << max->second << " at position " << max->first << std::endl;
+			std::cout << "Minimum focus " << min->second << " at position " << min->first << std::endl;
+			std::cout << "Max/Min ratio " << std::setprecision(5) << max->second / min->second << std::endl;
+			return true;
+		}
+
+		focus_pos = std::min<unsigned int>(focus_pos + options->focus_steps, focus_max_pos_);
+		if (set_focus(lens_device_, focus_pos))
+			throw std::runtime_error("cannot set focus!");
+	}
+
+	return false;
+}
+
 // The main even loop for the application.
 
 static void event_loop(LibcameraProd &app)
 {
-	ProdOptions const *options = static_cast <ProdOptions *>(app.GetOptions());
+	ProdOptions const *options = static_cast<ProdOptions *>(app.GetOptions());
 	std::unique_ptr<Output> output = std::unique_ptr<Output>(Output::Create((VideoOptions *) options));
-	std::map<unsigned int, float> foms;
 	CompletedRequestPtr req;
 
 	app.OpenCamera();
@@ -210,11 +246,9 @@ static void event_loop(LibcameraProd &app)
 	app.StartCamera();
 	auto start_time = std::chrono::high_resolution_clock::now();
 
-	unsigned int focus_pos = 0, focus_max_pos = 0;
-	std::string lens_device;
 	if (options->focus_test)
 	{
-		if (!(init_focus(lens_device, focus_max_pos)))
+		if (!(init_focus(app.lens_device_, app.focus_max_pos_)))
 			throw std::runtime_error("Could not initialise focus driver!");
 	}
 
@@ -248,31 +282,8 @@ static void event_loop(LibcameraProd &app)
 			app.run_calibration(req);
 
 		if (options->focus_test)
-		{
-			if ((count % options->focus_wait) == 0)
-			{
-				FrameInfo frame_info(req->metadata);
-
-				foms[focus_pos] = frame_info.focus;
-				if (options->verbose)
-					std::cerr << "Position: " << focus_pos << " Focus: " << frame_info.focus << std::endl;
-
-				if (focus_pos == focus_max_pos)
-				{
-					auto [min, max] = std::minmax_element(foms.begin(), foms.end(),
-												[](const auto &l, const auto &r) { return l.second < r.second; });
-
-					std::cout << "Maximum focus " << max->second << " at position " << max->first << std::endl;
-					std::cout << "Minimum focus " << min->second << " at position " << min->first << std::endl;
-					std::cout << "Max/Min ratio " << std::setprecision(5) << max->second / min->second << std::endl;
-					break;
-				}
-
-				focus_pos = std::min<unsigned int>(focus_pos + options->focus_steps, focus_max_pos);
-				if (set_focus(lens_device, focus_pos))
-					throw std::runtime_error("cannot set focus!");
-			}
-		}
+			if (app.run_focus_test(req, count))
+				break;
 
 		app.ShowPreview(req, app.VideoStream());
 	}
