@@ -52,7 +52,7 @@ int set_focus(const std::string &device, unsigned int focus_pos)
 	fd = open(device.c_str(), O_RDWR, 0);
 	if (fd < 0)
 	{
-		std::cerr << "Open lens device error" << std::endl;
+		LOG_ERROR("Open lens device error");
 		goto err;
 	}
 
@@ -198,8 +198,7 @@ void LibcameraProd::run_calibration(CompletedRequestPtr req)
 	}
 
 	for (unsigned int i = 0; i < 4; i++)
-		std::cout << "Channel " << i << " : min " << min[i] << " max " << max[i]
-					<< " mean " << sum[i] / (info.width * info.height / 4) << std::endl;
+		LOG(1, "Channel " << i << " : min " << min[i] << " max " << max[i] << " mean " << sum[i] / (info.width * info.height / 4));
 }
 
 bool LibcameraProd::run_focus_test(CompletedRequestPtr req, unsigned int count)
@@ -213,16 +212,16 @@ bool LibcameraProd::run_focus_test(CompletedRequestPtr req, unsigned int count)
 
 		foms_[focus_pos] = frame_info.focus;
 		if (options->verbose)
-			std::cerr << "Position: " << focus_pos << " Focus: " << frame_info.focus << std::endl;
+			LOG(1, "Position: " << focus_pos << " Focus: " << frame_info.focus);
 
 		if (focus_pos == focus_max_pos_)
 		{
 			auto [min, max] = std::minmax_element(foms_.begin(), foms_.end(),
 										[](const auto &l, const auto &r) { return l.second < r.second; });
 
-			std::cout << "Maximum focus " << max->second << " at position " << max->first << std::endl;
-			std::cout << "Minimum focus " << min->second << " at position " << min->first << std::endl;
-			std::cout << "Max/Min ratio " << std::setprecision(5) << max->second / min->second << std::endl;
+			LOG(1, "Maximum focus " << max->second << " at position " << max->first);
+			LOG(1, "Minimum focus " << min->second << " at position " << min->first);
+			LOG(1, "Max/Min ratio " << std::setprecision(5) << max->second / min->second);
 			return true;
 		}
 
@@ -296,9 +295,9 @@ void LibcameraProd::run_dust_test(CompletedRequestPtr req)
 		}
 	}
 
-	std::cout << info.width * info.height << " total samples" << std::endl;
-	std::cout << lo << " samples under threshold of " << options->lo_threshold << std::endl;
-	std::cout << hi << " samples under threshold of " << options->hi_threshold << std::endl;
+	LOG(1, info.width * info.height << " total samples");
+	LOG(1, lo << " samples under threshold of " << options->lo_threshold);
+	LOG(1, hi << " samples under threshold of " << options->hi_threshold);
 }
 
 // The main even loop for the application.
@@ -333,12 +332,11 @@ static void event_loop(LibcameraProd &app)
 		if (count == 0)
 		{
 			libcamera::StreamConfiguration const &cfg = app.RawStream()->configuration();
-			std::cerr << "Raw stream: " << cfg.size.width << "x" << cfg.size.height << " stride " << cfg.stride
-					  << " format " << cfg.pixelFormat.toString() << std::endl;
+			LOG(1, "Raw stream: " << cfg.size.width << "x" << cfg.size.height << " stride " << cfg.stride
+					<< " format " << cfg.pixelFormat.toString());
 		}
 
-		if (options->verbose)
-			std::cerr << "Viewfinder frame " << count << std::endl;
+		LOG(2, "Viewfinder frame " << count);
 		auto now = std::chrono::high_resolution_clock::now();
 		bool timeout = !options->frames && options->timeout &&
 					   (now - start_time > std::chrono::milliseconds(options->timeout));
@@ -388,7 +386,7 @@ int main(int argc, char *argv[])
 					throw std::runtime_error("Must set fixed shutter and gain for the focus test!");
 			}
 
-			if (options->verbose)
+			if (options->verbose > 1)
 				options->Print();
 
 			event_loop(app);
