@@ -152,6 +152,7 @@ public:
 
 	void run_calibration(CompletedRequestPtr req);
 	bool run_focus_test(CompletedRequestPtr req, unsigned int count);
+	void run_dust_test(CompletedRequestPtr req);
 
 	std::map<unsigned int, float> foms_;
 	unsigned int focus_max_pos_;
@@ -233,6 +234,73 @@ bool LibcameraProd::run_focus_test(CompletedRequestPtr req, unsigned int count)
 	return false;
 }
 
+void LibcameraProd::run_dust_test(CompletedRequestPtr req)
+{
+	ProdOptions const *options = static_cast<ProdOptions *>(GetOptions());
+	StreamInfo info;
+	libcamera::Stream *raw = RawStream(&info);
+
+	libcamera::FrameBuffer *buffer = req->buffers[raw];
+	libcamera::Span span = Mmap(buffer)[0];
+	void *mem = span.data();
+
+	if (!buffer || !mem)
+		throw std::runtime_error("Invalid RAW buffer");
+
+	auto it = bayer_formats.find(info.pixel_format);
+	if (it == bayer_formats.end())
+		throw std::runtime_error("Unsupported Bayer format");
+	unsigned int shift = 16 - it->second;
+
+	// Shift and calculate mean
+	double sum[4] = { 0.0, 0.0, 0.0, 0.0 };
+	for (unsigned int y = 0; y < info.height; y += 2)
+	{
+		uint16_t *s = (uint16_t *)mem + y * info.stride / 2;
+		for (unsigned int x = 0; x < info.width; s += 2, x += 2)
+		{
+			*s = *s << shift;
+			*(s + 1) = *(s + 1) << shift;
+			*(s + info.stride / 2) = *(s + info.stride / 2) << shift;
+			*(s + info.stride / 2 + 1) = *(s + info.stride / 2 + 1) << shift;
+
+			uint16_t p[4] { (uint16_t)(*s), (uint16_t)(*(s + 1)),
+							(uint16_t)(*(s + info.stride / 2)), (uint16_t)(*(s + info.stride / 2 + 1)) };
+
+			for (unsigned int i = 0; i < 4; i++)
+				sum[i] += p[i];
+		}
+	}
+
+	// Normalise means and do counts
+	double mean[4] = { sum[0] / (info.width * info.height / 4), sum[1] / (info.width * info.height / 4),
+						sum[2] / (info.width * info.height / 4), sum[3] / (info.width * info.height / 4) };
+	double max_mean = std::max({ mean[0], mean[1], mean[2], mean[3] });
+
+	uint32_t lo = 0, hi = 0;
+	for (unsigned int y = 0; y < info.height; y += 2)
+	{
+		uint16_t *s = (uint16_t *)mem + y * info.stride / 2;
+		for (unsigned int x = 0; x < info.width; s += 2, x += 2)
+		{
+			uint16_t p[4] { (uint16_t)(*s * max_mean / mean[0]), (uint16_t)(*(s + 1) * max_mean / mean[1]),
+							(uint16_t)(*(s + info.stride / 2) * max_mean / mean[2]), (uint16_t)(*(s + info.stride / 2 + 1) * max_mean / mean[3]) };
+
+			for (unsigned int i = 0; i < 4; i++)
+			{
+				if (p[i] <= options->lo_threshold)
+					lo++;
+				if (p[i] <= options->hi_threshold)
+					hi++;
+			}
+		}
+	}
+
+	std::cout << info.width * info.height << " total samples" << std::endl;
+	std::cout << lo << " samples under threshold of " << options->lo_threshold << std::endl;
+	std::cout << hi << " samples under threshold of " << options->hi_threshold << std::endl;
+}
+
 // The main even loop for the application.
 
 static void event_loop(LibcameraProd &app)
@@ -289,40 +357,7 @@ static void event_loop(LibcameraProd &app)
 	}
 
 	if (options->dust_test && req)
-	{
-		StreamInfo info;
-		libcamera::Stream *raw = app.RawStream(&info);
-
-		libcamera::FrameBuffer *buffer = req->buffers[raw];
-		libcamera::Span span = app.Mmap(buffer)[0];
-		void *mem = span.data();
-
-		if (!buffer || !mem)
-			throw std::runtime_error("Invalid RAW buffer");
-
-		auto it = bayer_formats.find(info.pixel_format);
-		if (it == bayer_formats.end())
-			throw std::runtime_error("Unsupported Bayer format");
-		unsigned int shift = 16 - it->second;
-
-		uint32_t lo = 0, hi = 0;
-		for (unsigned int y = 0; y < info.height; y++)
-		{
-			uint16_t *s = (uint16_t *)mem + y * info.stride / 2;
-			for (unsigned int x = 0; x < info.width; s++, x++)
-			{
-				unsigned int p = *s << shift;
-				if (p > options->lo_threshold)
-					lo++;
-				if (p > options->hi_threshold)
-					hi++;
-			}
-		}
-
-		std::cout << info.width * info.height << " total samples" << std::endl;
-		std::cout << lo << " samples above threshold of " << options->lo_threshold << std::endl;
-		std::cout << hi << " samples above threshold of " << options->hi_threshold << std::endl;
-	}
+		app.run_dust_test(req);
 
 	app.StopCamera();
 }
