@@ -192,19 +192,38 @@ void LibcameraProd::run_calibration(CompletedRequestPtr req)
 
 	for (unsigned int y = 0; y < info.height; y += 2)
 	{
-		uint16_t *s = (uint16_t *)mem + y * info.stride / 2;
+		uint16_t const *s = (uint16_t const *)mem + y * info.stride / 2;
 		for (unsigned int x = 0; x < info.width; s += 2, x += 2)
 		{
-			uint16_t p[4] { (uint16_t)(*s << shift), (uint16_t)(*(s + 1) << shift),
-							(uint16_t)(*(s + info.stride / 2) << shift), (uint16_t)(*(s + info.stride / 2 + 1) << shift) };
-
-			for (unsigned int i = 0; i < 4; i++)
-			{
-				sum[i] += p[i];
-				if (p[i] < min[i]) min[i] = p[i];
-				if (p[i] > max[i]) max[i] = p[i];
-			}
+			uint16_t p = s[0];
+			sum[0] += p;
+			if (p < min[0]) min[0] = p;
+			if (p > max[0]) max[0] = p;
+			p = s[1];
+			sum[1] += p;
+			if (p < min[1]) min[1] = p;
+			if (p > max[1]) max[1] = p;
 		}
+
+		s = (uint16_t const *)mem + (y + 1) * info.stride / 2;
+		for (unsigned int x = 0; x < info.width; s += 2, x += 2)
+		{
+			uint16_t p = s[0];
+			sum[2] += p;
+			if (p < min[2]) min[2] = p;
+			if (p > max[2]) max[2] = p;
+			p = s[1];
+			sum[3] += p;
+			if (p < min[3]) min[3] = p;
+			if (p > max[3]) max[3] = p;
+		}
+	}
+
+	for (unsigned int i = 0; i < 4; i++)
+	{
+		min[i] <<= shift;
+		max[i] <<= shift;
+		sum[i] *= (1 << shift);
 	}
 
 	std::stringstream s;
@@ -289,30 +308,30 @@ void LibcameraProd::run_dust_test(CompletedRequestPtr req)
 		throw std::runtime_error("Unsupported Bayer format");
 	unsigned int shift = 16 - it->second;
 
-	// Shift and calculate mean
+	// Sum each (unshifted) component so we can compare their means
 	double sum[4] = { 0.0, 0.0, 0.0, 0.0 };
 	for (unsigned int y = 0; y < info.height; y += 2)
 	{
-		uint16_t *s = (uint16_t *)mem + y * info.stride / 2;
+		uint16_t const *s = (uint16_t const *)mem + y * info.stride / 2;
 		for (unsigned int x = 0; x < info.width; s += 2, x += 2)
 		{
-			*s = *s << shift;
-			*(s + 1) = *(s + 1) << shift;
-			*(s + info.stride / 2) = *(s + info.stride / 2) << shift;
-			*(s + info.stride / 2 + 1) = *(s + info.stride / 2 + 1) << shift;
+			sum[0] += s[0];
+			sum[1] += s[1];
+		}
 
-			uint16_t p[4] { (uint16_t)(*s), (uint16_t)(*(s + 1)),
-							(uint16_t)(*(s + info.stride / 2)), (uint16_t)(*(s + info.stride / 2 + 1)) };
-
-			for (unsigned int i = 0; i < 4; i++)
-				sum[i] += p[i];
+		s = (uint16_t const *)mem + (y + 1) * info.stride / 2;
+		for (unsigned int x = 0; x < info.width; s += 2, x += 2)
+		{
+			sum[2] += s[0];
+			sum[3] += s[1];
 		}
 	}
+	double max_sum = std::max({ sum[0], sum[1], sum[2], sum[3] });
 
-	// Normalise means and do counts
-	double mean[4] = { sum[0] / (info.width * info.height / 4), sum[1] / (info.width * info.height / 4),
-						sum[2] / (info.width * info.height / 4), sum[3] / (info.width * info.height / 4) };
-	double max_mean = std::max({ mean[0], mean[1], mean[2], mean[3] });
+	// Normalise to largest component, shift to 16 bits, do counts
+	double scale[4];
+	for (unsigned i = 0; i < 4; i++)
+		scale[i] = (max_sum * (1 << shift)) / sum[i];
 
 	static constexpr unsigned int num_bins = 40;
 	uint16_t bins[num_bins] = { 4000 };
@@ -323,11 +342,12 @@ void LibcameraProd::run_dust_test(CompletedRequestPtr req)
 	uint32_t lo = 0, hi = 0;
 	for (unsigned int y = 0; y < info.height; y += 2)
 	{
-		uint16_t *s = (uint16_t *)mem + y * info.stride / 2;
+		uint16_t const *s = (uint16_t const *)mem + y * info.stride / 2;
 		for (unsigned int x = 0; x < info.width; s += 2, x += 2)
 		{
-			uint16_t p[4] { (uint16_t)(*s * max_mean / mean[0]), (uint16_t)(*(s + 1) * max_mean / mean[1]),
-							(uint16_t)(*(s + info.stride / 2) * max_mean / mean[2]), (uint16_t)(*(s + info.stride / 2 + 1) * max_mean / mean[3]) };
+			// Note that normalisation could push high outliers above 65535
+			uint32_t p[4] { (uint32_t)(*s * scale[0]), (uint32_t)(*(s + 1) * scale[1]),
+							(uint32_t)(*(s + info.stride / 2) * scale[2]), (uint32_t)(*(s + info.stride / 2 + 1) * scale[3]) };
 
 			for (unsigned int i = 0; i < 4; i++)
 			{
