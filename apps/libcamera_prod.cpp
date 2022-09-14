@@ -44,7 +44,7 @@ static int xioctl(int fd, unsigned long ctl, void *arg)
 	return ret;
 }
 
-int set_focus(const std::string &device, unsigned int focus_pos)
+int set_focus(const std::string &device, int focus_pos)
 {
 	v4l2_control ctrl = {};
 	int ret = -1;
@@ -66,7 +66,7 @@ err:
 	return ret;
 }
 
-bool init_focus(std::string &device, unsigned int &focus_max_pos)
+bool init_focus(std::string &device, int &minimum, int &maximum)
 {
 	for (int i = 0; i < 4; i++)
 	{
@@ -87,9 +87,8 @@ bool init_focus(std::string &device, unsigned int &focus_max_pos)
 
 		close(fd);
 		device = dev;
-		focus_max_pos = ctrl.maximum;
-		set_focus(device, 0);
-
+		minimum = ctrl.minimum;
+		maximum = ctrl.maximum;
 		return true;
 	}
 
@@ -107,8 +106,12 @@ struct ProdOptions : public VideoOptions
 			 "Switches on calibration mode")
 			("focus-test", value<bool>(&focus_test)->default_value(false)->implicit_value(true),
 			 "Runs a focus test")
-			("focus-steps", value<uint32_t>(&focus_steps)->default_value(20),
+			("focus-steps", value<int32_t>(&focus_steps)->default_value(20),
 			 "Step size for focus movements")
+			("focus-min", value<int32_t>(&focus_min)->default_value(0),
+			 "Lowest lens position for focus test")
+			("focus-max", value<int32_t>(&focus_max)->default_value(65535),
+			 "Highest lens position for focus test")
 			("focus-wait", value<uint32_t>(&focus_wait)->default_value(3),
 			 "Wait these many frames for the lens to complete movement (must be at least 1)")
 			 ("focus-cycles", value<uint32_t>(&focus_cycles)->default_value(3),
@@ -120,7 +123,9 @@ struct ProdOptions : public VideoOptions
 			("high-threshold", value<uint32_t>(&hi_threshold)->default_value(0),
 			 "Sets the high sample threshold (in 16-bits)")
 			("hist", value<bool>(&hist)->default_value(false)->implicit_value(true),
-			 "Switches on calibration mode")
+			 "Switches on histogram display mode")
+			("focus-fix", value<int32_t>(&focus_fix)->default_value(INT_MIN),
+			 "Fixed focus position for cal/dust tests")
 			;
 		// clang-format on
 	}
@@ -129,7 +134,10 @@ struct ProdOptions : public VideoOptions
 	bool focus_test;
 	bool dust_test;
 	bool hist;
-	uint32_t focus_steps;
+	int32_t focus_steps;
+	int32_t focus_min;
+	int32_t focus_max;
+	int32_t focus_fix;
 	uint32_t focus_wait;
 	uint32_t focus_cycles;
 	uint32_t lo_threshold;
@@ -149,7 +157,7 @@ class LibcameraProd : public LibcameraApp
 public:
 	LibcameraProd()
 		: LibcameraApp(std::make_unique<ProdOptions>()),
-		  focus_pos_(0), focus_max_pos_(0), focus_cycles_(0)
+		  focus_pos_(0), focus_min_pos_(0), focus_max_pos_(0), focus_revdir_(false), focus_cycles_(0)
 	{
 	}
 
@@ -162,9 +170,12 @@ public:
 	bool run_focus_test(CompletedRequestPtr req, unsigned int count);
 	void run_dust_test(CompletedRequestPtr req);
 
-	std::vector<std::map<unsigned int, float>> foms_;
-	unsigned int focus_pos_;
-	unsigned int focus_max_pos_;
+	std::vector<uint16_t> linebuf_;
+	std::vector<std::map<int, float>> foms_;
+	int focus_pos_;
+	int focus_min_pos_;
+	int focus_max_pos_;
+	bool focus_revdir_;
 	unsigned int focus_cycles_;
 	std::string lens_device_;
 };
@@ -190,9 +201,11 @@ void LibcameraProd::run_calibration(CompletedRequestPtr req)
 	uint16_t min[4] = { 65535, 65535, 65535, 65535 };
 	uint16_t max[4] = { 0, 0, 0, 0 };
 
+	linebuf_.resize(info.width);
 	for (unsigned int y = 0; y < info.height; y += 2)
 	{
-		uint16_t const *s = (uint16_t const *)mem + y * info.stride / 2;
+		uint16_t *s = &linebuf_[0];
+		memcpy(s, (uint8_t const *)mem + y * info.stride, sizeof(uint16_t) * info.width);
 		for (unsigned int x = 0; x < info.width; s += 2, x += 2)
 		{
 			uint16_t p = s[0];
@@ -205,7 +218,8 @@ void LibcameraProd::run_calibration(CompletedRequestPtr req)
 			if (p > max[1]) max[1] = p;
 		}
 
-		s = (uint16_t const *)mem + (y + 1) * info.stride / 2;
+		s = &linebuf_[0];
+		memcpy(s, (uint8_t const *)mem + (y + 1) * info.stride, sizeof(uint16_t) * info.width);
 		for (unsigned int x = 0; x < info.width; s += 2, x += 2)
 		{
 			uint16_t p = s[0];
@@ -242,13 +256,13 @@ bool LibcameraProd::run_focus_test(CompletedRequestPtr req, unsigned int count)
 	{
 		FrameInfo frame_info(req->metadata);
 
-		if (focus_pos_ == 0)
+		if (focus_revdir_ ? (focus_pos_ >= focus_max_pos_) : (focus_pos_ <= focus_min_pos_))
 			foms_.push_back({});
 
 		foms_.back()[focus_pos_] = frame_info.focus;
 		LOG(2, "Position: " << focus_pos_ << " Focus: " << frame_info.focus);
 
-		if (focus_pos_ == focus_max_pos_)
+		if (focus_revdir_ ? (focus_pos_ <= focus_min_pos_) : (focus_pos_ >= focus_max_pos_))
 		{
 			if (focus_cycles_ == options->focus_cycles - 1)
 			{
@@ -276,12 +290,18 @@ bool LibcameraProd::run_focus_test(CompletedRequestPtr req, unsigned int count)
 			}
 			else
 			{
-				focus_pos_ = 0;
+				focus_revdir_ = !focus_revdir_;
 				focus_cycles_++;
 			}
 		}
-		else
-			focus_pos_ = std::min<unsigned int>(focus_pos_ + options->focus_steps, focus_max_pos_);
+		else if (!focus_revdir_) {
+			focus_pos_ = std::min(focus_max_pos_, focus_pos_ + options->focus_steps);
+		}
+		else {
+			focus_pos_ = (focus_pos_ >= focus_max_pos_) ?
+				focus_max_pos_ - 1 - (focus_max_pos_ - 1 - focus_min_pos_) % options->focus_steps :
+				std::max(focus_min_pos_, focus_pos_ - options->focus_steps);
+		}
 
 		if (set_focus(lens_device_, focus_pos_))
 			throw std::runtime_error("cannot set focus!");
@@ -389,10 +409,14 @@ static void event_loop(LibcameraProd &app)
 	app.StartCamera();
 	auto start_time = std::chrono::high_resolution_clock::now();
 
-	if (options->focus_test)
+	if (options->focus_test || options->focus_fix != INT_MIN)
 	{
-		if (!(init_focus(app.lens_device_, app.focus_max_pos_)))
+		if (!(init_focus(app.lens_device_, app.focus_min_pos_, app.focus_max_pos_)))
 			throw std::runtime_error("Could not initialise focus driver!");
+		app.focus_min_pos_ = std::max(app.focus_min_pos_, options->focus_min);
+		app.focus_max_pos_ = std::min(app.focus_max_pos_, options->focus_max);
+		app.focus_pos_ = (options->focus_test) ? app.focus_min_pos_ : options->focus_fix;
+		set_focus(app.lens_device_, app.focus_pos_);
 	}
 
 	for (unsigned int count = 0;; count++)
