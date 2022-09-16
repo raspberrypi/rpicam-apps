@@ -202,6 +202,13 @@ static void event_loop(LibcameraStillApp &app)
 	for (unsigned int count = 0; ; count++)
 	{
 		LibcameraApp::Msg msg = app.Wait();
+		if (msg.type == LibcameraApp::MsgType::Timeout)
+		{
+			LOG_ERROR("ERROR: Device timeout detected, attempting a restart!!!");
+			app.StopCamera();
+			app.StartCamera();
+			continue;
+		}
 		if (msg.type == LibcameraApp::MsgType::Quit)
 			return;
 		else if (msg.type != LibcameraApp::MsgType::RequestComplete)
