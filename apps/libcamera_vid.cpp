@@ -81,6 +81,13 @@ static void event_loop(LibcameraEncoder &app)
 	for (unsigned int count = 0; ; count++)
 	{
 		LibcameraEncoder::Msg msg = app.Wait();
+		if (msg.type == LibcameraApp::MsgType::Timeout)
+		{
+			LOG_ERROR("ERROR: Device timeout detected, attempting a restart!!!");
+			app.StopCamera();
+			app.StartCamera();
+			continue;
+		}
 		if (msg.type == LibcameraEncoder::MsgType::Quit)
 			return;
 		else if (msg.type != LibcameraEncoder::MsgType::RequestComplete)

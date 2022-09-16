@@ -42,6 +42,13 @@ static void event_loop(LibcameraRaw &app)
 	{
 		LibcameraRaw::Msg msg = app.Wait();
 
+		if (msg.type == LibcameraApp::MsgType::Timeout)
+		{
+			LOG_ERROR("ERROR: Device timeout detected, attempting a restart!!!");
+			app.StopCamera();
+			app.StartCamera();
+			continue;
+		}
 		if (msg.type != LibcameraRaw::MsgType::RequestComplete)
 			throw std::runtime_error("unrecognised message!");
 		if (count == 0)
