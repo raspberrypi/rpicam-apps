@@ -125,7 +125,11 @@ struct ProdOptions : public VideoOptions
 			("hist", value<bool>(&hist)->default_value(false)->implicit_value(true),
 			 "Switches on histogram display mode")
 			("focus-fix", value<int32_t>(&focus_fix)->default_value(INT_MIN),
-			 "Fixed focus position for cal/dust tests")
+			 "Fixed focus position for cal/dust/quad tests")
+			("quad-test", value<bool>(&quad_test)->default_value(false)->implicit_value(true),
+			 "Analyse a 4-quadrant image")
+			("black", value<uint32_t>(&black_level)->default_value(4096),
+			 "Sets the black level for quad test (in 16-bits)")
 			;
 		// clang-format on
 	}
@@ -133,6 +137,7 @@ struct ProdOptions : public VideoOptions
 	bool cal;
 	bool focus_test;
 	bool dust_test;
+	bool quad_test;
 	bool hist;
 	int32_t focus_steps;
 	int32_t focus_min;
@@ -142,6 +147,7 @@ struct ProdOptions : public VideoOptions
 	uint32_t focus_cycles;
 	uint32_t lo_threshold;
 	uint32_t hi_threshold;
+	uint32_t black_level;
 
 	virtual bool Parse(int argc, char *argv[]) override
 	{
@@ -169,6 +175,7 @@ public:
 	void run_calibration(CompletedRequestPtr req);
 	bool run_focus_test(CompletedRequestPtr req, unsigned int count);
 	void run_dust_test(CompletedRequestPtr req);
+	void run_quad_test(CompletedRequestPtr req);
 
 	std::vector<uint16_t> linebuf_;
 	std::vector<std::map<int, float>> foms_;
@@ -396,6 +403,348 @@ void LibcameraProd::run_dust_test(CompletedRequestPtr req)
 	}
 }
 
+// Stuff for Quadrants test
+
+static int find_max_step(uint16_t *buf, unsigned start, unsigned end, uint16_t &arg)
+{
+	int a = 0, max = 0;
+
+	for(unsigned x = start; x < end; ++x)
+	{
+		int d = -buf[x-9] -2*buf[x-7] - 3*buf[x-5] - 3*buf[x-3] - 3*buf[x-1]
+			+ 3*buf[x+1] + 3*buf[x+3] + 3*buf[x+5] + 2*buf[x+7] + buf[x+9];
+		d = std::abs(d);
+		if (d > max)
+			max = d, a = x;
+	}
+	arg = a;
+	return max;
+}
+
+static bool fit_line(double params[2], uint16_t const *val, unsigned len)
+{
+	static const double MARGIN2      = 36.0; // max jitter +/- 6 pixels
+	static const double MAX_GRADIENT = 0.26; // up to ~15 degrees off axis
+	const unsigned l_3 = len/3; // Seed points must be in the middle 1/3
+	double best_score = 0.0;
+
+	params[0] = 0.0;
+	params[1] = 0.0;
+
+	// Fit a line to two points drawn from the middle third of the domain.
+	// Use exhaustive search for one point and random sampling for the other.
+	// Note that a value of 0 means that a point is undefined.
+	for(unsigned x0 = l_3; x0 < 2*l_3; x0++)
+	{
+		if (!val[x0])
+			continue;
+
+		for(unsigned guess = 0; guess < 4; ++guess)
+		{
+			unsigned x1 = l_3 + (unsigned)rand() % l_3;
+			if ((x1 < x0 + 64 && x0 < x1 + 64) || !val[x1])
+				continue;
+
+			double p1 = ((double)val[x1] - (double)val[x0]) /
+				    ((double)x1 - (double)x0);
+			double p0 = val[x0] - p1*x0;
+			if (std::abs(p1) > MAX_GRADIENT)
+				continue;
+
+			double score = 0.0;
+			for(unsigned x = 0; x < len; ++x)
+			{
+				double err = p0 + p1 * x - val[x];
+				err *= err;
+				if (val[x] && err < MARGIN2)
+					score += MARGIN2 - err;
+			}
+			if (score > best_score)
+			{
+				best_score = score;
+				params[0] = p0;
+				params[1] = p1;
+			}
+		}
+	}
+
+	// As well as the two seed points there should be >= 2 more "good" points
+	return (best_score >= 4.0 * MARGIN2);
+}
+
+static unsigned find_centile(uint32_t const *histogram, unsigned start, unsigned finish, unsigned centile)
+{
+	uint64_t tot = 0, cum = 0;
+	unsigned i;
+
+	for(i = start; i < finish; ++i)
+		tot += histogram[i];
+	tot *= centile;
+	for(i = start; i < finish; ++i)
+	{
+		cum += histogram[i];
+		if (100*cum >= tot)
+			break;
+	}
+	return i;
+}
+
+void LibcameraProd::run_quad_test(CompletedRequestPtr req)
+{
+	StreamInfo info;
+	libcamera::Stream *raw = RawStream(&info);
+	unsigned black_level = static_cast<ProdOptions *>(GetOptions())->black_level;
+	libcamera::FrameBuffer *buffer = req->buffers[raw];
+	libcamera::Span span = Mmap(buffer)[0];
+	void *mem = span.data();
+
+	if (!buffer || !mem || info.width < 256 || info.height < 256)
+		throw std::runtime_error("Invalid RAW buffer");
+
+	auto it = bayer_formats.find(info.pixel_format);
+	if (it == bayer_formats.end())
+		throw std::runtime_error("Unsupported Bayer format");
+	unsigned int shift = 16 - it->second;
+
+	// Below, we'll use linebuf_[] to store either two rows of raw pixels,
+	// or one row (of pixels) and one column (of indices) or vice versa.
+	// We'll also compute the total light in each pair of rows and columns.
+	linebuf_.resize(info.width + std::max(info.width, info.height));
+	uint32_t *rowsums = new uint32_t [ (info.height + 1) / 2];
+	uint32_t *colsums = new uint32_t [ (info.width + 1) / 2];
+
+	// Find the largest H step (of any colour component) in the middle third of
+	// each scanline. Meanwhile, count very bright pixels (after shifting to 16 bits)
+	// and compute sums over pairs of rows. Subtract black level from each row sum.
+	uint32_t bright_count = 0;
+	for(unsigned y = 0; y < info.height; y++)
+	{
+		uint16_t *s = &linebuf_[info.height];
+		memcpy(s, (uint16_t const *)mem + y * info.stride / 2, info.width*sizeof(uint16_t));
+		uint32_t rowsum = 0;
+		for(unsigned x = 0; x < info.width; x++)
+		{
+			uint16_t p = s[x] << shift;
+			rowsum += p;
+			if (p >= 0xFE00)
+				bright_count++;
+		}
+		rowsum = (rowsum < info.width * black_level) ? 0 : (rowsum - info.width * black_level);
+		if (!(y & 1))
+			rowsums[y >> 1] = rowsum;
+		else
+			rowsums[y >> 1] += rowsum;
+		find_max_step(s, info.width/3, 2*info.width/3, linebuf_[y]);
+	}
+
+	// Fail if more than 1% of pixels are likely to have saturated.
+	printf("Saturation fraction: %4.2lf%%\n", 100.0 * bright_count / (double)(info.width * info.height));
+	if (100 * bright_count > info.width * info.height)
+		throw std::runtime_error("Image too bright for Quadrant test");
+
+	// Try to find the vertical line.
+	double vline_params[2], hline_params[2];
+	if (!fit_line(vline_params, &linebuf_[0], info.height))
+		throw std::runtime_error("Vertical line not detected");
+
+	// Read columns into cached memory, and find the largest V step (of any colour
+	// component) in the middle third of each column. Meanwhile, compute sums over
+	// pairs of columns. Shift each column sum to 16 bits and subtract black level.
+	for(unsigned x = 0; x < info.width; ++x)
+	{
+		uint16_t *s = &linebuf_[info.width];
+		uint32_t colsum = 0;
+		for(unsigned y = 0; y < info.height; ++y)
+		{
+			uint16_t p = *((uint16_t const *)mem + y * info.stride / 2 + x);
+			s[y] = p;
+			colsum += p;
+		}
+		colsum <<= shift;
+		colsum = (colsum < info.height * black_level) ? 0 : (colsum - info.height * black_level);
+		if (!(x & 1))
+			colsums[x >> 1] = colsum;
+		else
+			colsums[x >> 1] += colsum;
+		find_max_step(s, info.height/3, 2*info.height/3, linebuf_[x]);
+	}
+
+	// Try to find the horizontal line. Check the crossing angle is 90 +/- 5 degrees or so.
+	if (!fit_line(hline_params, &linebuf_[0], info.width))
+		throw std::runtime_error("Horizontal line not detected");
+	if (std::abs(hline_params[1] + vline_params[1]) > 0.088)
+		throw std::runtime_error("Detected lines not at right angles");
+
+	// Find the intersection point. Both lines have to pass through the central
+	// third of the width and of the height, but not necessarily to intersect there.
+	// Let's require them to intersect in the central half of the width and height.
+	unsigned intersect_x = (unsigned)(0.5 + (vline_params[0] + vline_params[1] * hline_params[0]) /
+					  (1.0 - vline_params[1] * hline_params[1]));
+	unsigned intersect_y = (unsigned)(0.5 + (hline_params[0] + hline_params[1] * vline_params[0]) /
+					  (1.0 - vline_params[1] * hline_params[1]));
+	printf("Lines intersect at %u, %u\n", intersect_x, intersect_y);
+	if (4*intersect_x < info.width  || 4*intersect_x >= 3 * info.width ||
+	    4*intersect_y < info.height || 4*intersect_y >= 3 * info.height)
+	  throw std::runtime_error("Intersection point not central");
+
+	// Find the bounding box containing 75% of the light in each of the 4 principal directions
+	// from the intersection (with a 64 pixel margin, but no attempt to correct for rotation).
+	// NB: bounding box coordinates are always even, so they align with pixel-quads.
+	unsigned vbounds[2], hbounds[2];
+	vbounds[0] = 2 * find_centile(rowsums, 0,                       (intersect_y - 64) >> 1, 25);
+	vbounds[1] = 2 * find_centile(rowsums, (intersect_y + 65) >> 1, info.height >> 1,        75);
+	hbounds[0] = 2 * find_centile(colsums, 0,                       (intersect_x - 64) >> 1, 25);
+	hbounds[1] = 2 * find_centile(colsums, (intersect_x + 65) >> 1, info.width >> 1,         75);
+
+	// Add up each colour component of pixel-quads in each image-quadrant within the bounding box,
+	// ignoring pixel-quads within 64 pel of the boundary lines (this time, corrected for rotation)
+	// and excluding quads containing very bright values that might have saturated.
+	uint32_t count[4] = { 0, 0, 0, 0 };
+	double mean[4][4];
+	for(unsigned q = 0; q < 4; q++)
+		for(unsigned c = 0; c < 4; c++)
+			mean[q][c] = 0.0;
+	for(unsigned y = vbounds[0]; y < vbounds[1] && y < info.height; y += 2)
+	{
+		uint16_t *s0 = &linebuf_[0];
+		uint16_t *s1 = &linebuf_[info.width];
+		memcpy(s0, (uint16_t const *)mem + y * info.stride / 2, info.width*sizeof(uint16_t));
+		memcpy(s1, (uint16_t const *)mem + (y + 1) * info.stride / 2, info.width*sizeof(uint16_t));
+		for(unsigned x = hbounds[0]; x < hbounds[1] && x < info.width; x += 2)
+		{
+			double hoffset = x + 0.5 - vline_params[0] - vline_params[1]*y;
+			double voffset = y + 0.5 - hline_params[0] - hline_params[1]*x;
+			if (std::abs(hoffset) >= 64.0 && std::abs(voffset) >= 64.0 &&
+			    (std::max(std::max(s0[x], s0[x+1]), std::max(s1[x], s1[x+1])) << shift) < 0xFE00)
+			{
+				int q = ((voffset < 0.0) ? 0 : 2) + ((hoffset < 0.0) ? 0 : 1);
+				mean[q][0] += s0[x];
+				mean[q][1] += s0[x+1];
+				mean[q][2] += s1[x];
+				mean[q][3] += s1[x+1];
+				count[q]++;
+			}
+		}
+	}
+
+	// Convert raw totals to means (shifted to 16 bits, with black level subtracted)
+	// and print them (PLUS black level, for compatibility with cal/dust test output)
+	for(unsigned q = 0; q < 4; q++)
+	{
+		double tot = 0.0;
+
+		if (count[q] < 4096)
+			throw std::runtime_error("Not enough pixels in quadrant");
+
+		for(unsigned c = 0; c < 4; c++)
+		{
+			mean[q][c] = ((mean[q][c] * (1 << shift)) / (double)count[q]) - black_level;
+			tot += mean[q][c];
+		}
+
+		printf("Means: [ %5d, %5d, %5d, %5d ] Fractions: [ %5.3lf, %5.3lf, %5.3lf, %5.3lf ]\n",
+		 (int)(mean[q][0] + black_level),
+		 (int)(mean[q][1] + black_level),
+		 (int)(mean[q][2] + black_level),
+		 (int)(mean[q][3] + black_level),
+		 mean[q][0] / tot,
+		 mean[q][1] / tot,
+		 mean[q][2] / tot,
+		 mean[q][3] / tot);
+	}
+
+	// Final image pass. Try to estimate the fraction of the image covered by the test pattern,
+	// by counting pix-quads whose normalized correlation with the quadrant's mean colour is >= 1/8
+	for(unsigned q = 0; q < 4; q++)
+	{
+		double mag2 = ((mean[q][0] * mean[q][0]) +
+			       (mean[q][1] * mean[q][1]) +
+			       (mean[q][2] * mean[q][2]) +
+			       (mean[q][3] * mean[q][3]));
+		mean[q][0] /= mag2;
+		mean[q][1] /= mag2;
+		mean[q][2] /= mag2;
+		mean[q][3] /= mag2;
+	}
+	bright_count = 0;
+	for(unsigned y = 0; y < info.height; y += 2)
+	{
+		uint16_t *s0 = &linebuf_[0];
+		uint16_t *s1 = &linebuf_[info.width];
+		memcpy(s0, (uint16_t const *)mem + y * info.stride / 2, info.width*sizeof(uint16_t));
+		memcpy(s1, (uint16_t const *)mem + (y + 1) * info.stride / 2, info.width*sizeof(uint16_t));
+		bool prev = false;
+		for(unsigned x = 0; x < info.width; x += 2)
+		{
+			double hoffset = x + 0.5 - vline_params[0] - vline_params[1]*y;
+			double voffset = y + 0.5 - hline_params[0] - hline_params[1]*x;
+			int q = ((voffset < 0.0) ? 0 : 2) + ((hoffset < 0.0) ? 0 : 1);
+			double corr =
+				((s0[x]   << shift) - (double)black_level) * mean[q][0] +
+				((s0[x+1] << shift) - (double)black_level) * mean[q][1] +
+				((s1[x]   << shift) - (double)black_level) * mean[q][2] +
+				((s1[x+1] << shift) - (double)black_level) * mean[q][3];
+			if (corr >= 0.125 && prev)
+				bright_count++;
+			prev = (corr >= 0.125);
+		}
+	}
+	printf("Area factor: %4.1lf%%\n", 400.0 * bright_count / (double)(info.width * info.height));
+
+#if 0
+	// XXX debug visualization only
+	FILE * fpdebug = fopen("tmp.ppm", "w");
+	fprintf(fpdebug, "P6 %d %d 255\n", info.width/2, info.height/2);
+	for(unsigned y = 0; y < info.height; y += 2)
+	{
+		uint16_t *s0 = &linebuf_[0];
+		uint16_t *s1 = &linebuf_[info.width];
+		memcpy(s0, (uint16_t const *)mem + y * info.stride / 2, info.width*sizeof(uint16_t));
+		memcpy(s1, (uint16_t const *)mem + (y + 1) * info.stride / 2, info.width*sizeof(uint16_t));
+		bool prev = false;
+		for(unsigned x = 0; x < info.width; x += 2)
+		{
+			double hoffset = x + 0.5 - vline_params[0] - vline_params[1]*y;
+			double voffset = y + 0.5 - hline_params[0] - hline_params[1]*x;
+			int q = ((voffset < 0.0) ? 0 : 2) + ((hoffset < 0.0) ? 0 : 1);
+			int r = s1[x+1] >> 2;
+			int g = (s0[x+1] + s1[0]) >> 3;
+			int b = s0[x] >> 2;
+			if ((info.height-2-y) < ((colsums[x>>1]>>17)&~1)) b = (b+255)>>1;
+			if (x < ((rowsums[y>>1]>>17)&~1)) r = (r+255)>>1;
+			if (y >= vbounds[0] && y < vbounds[1] && x >= hbounds[0] && x < hbounds[1] &&
+			    std::abs(hoffset) >= 64.0 && std::abs(voffset) >= 64.0 &&
+			    (std::max(std::max(s0[x], s0[x+1]), std::max(s1[x], s1[x+1])) << shift) < 0xFE00)
+			{
+				r >>= 1;
+				g >>= 1;
+				b >>= 1;
+			} else {
+				double corr =
+				  ((s0[x]   << shift) - black_level) * mean[q][0] +
+				  ((s0[x+1] << shift) - black_level) * mean[q][1] +
+				  ((s1[x]   << shift) - black_level) * mean[q][2] +
+				  ((s1[x+1] << shift) - black_level) * mean[q][3];
+				if (corr < 0.125 || !prev)
+					g = (g+255)>>1;
+				prev = (corr >= 0.125);
+				if (std::abs(x - vline_params[0] - vline_params[1]*y) <= 1.0 ||
+				    std::abs(y - hline_params[0] - hline_params[1]*x) <= 1.0)
+					r=g=b=255;
+			}
+			fputc(r, fpdebug);
+			fputc(g, fpdebug);
+			fputc(b, fpdebug);
+		}
+	}
+	fclose(fpdebug);
+#endif
+
+	delete [] colsums;
+	delete [] rowsums;
+}
+
+
 // The main even loop for the application.
 
 static void event_loop(LibcameraProd &app)
@@ -459,6 +808,9 @@ static void event_loop(LibcameraProd &app)
 	if (options->dust_test && req)
 		app.run_dust_test(req);
 
+	else if (options->quad_test && req)
+		app.run_quad_test(req);
+
 	app.StopCamera();
 }
 
@@ -472,7 +824,14 @@ int main(int argc, char *argv[])
 		{
 			options->denoise = "cdn_off";
 
-			if (options->dust_test || options->cal)
+			if (options->quad_test)
+			{
+				options->mode_string = "1920:1080:12:U";
+				options->mode = Mode(options->mode_string);
+				options->focus_test = false;
+				options->dust_test = false;
+			}
+			else if (options->dust_test || options->cal)
 			{
 				options->mode_string = "10000:10000:12:U";
 				options->mode = Mode(options->mode_string);
