@@ -777,6 +777,7 @@ void LibcameraApp::stopPreview()
 	}
 	preview_thread_.join();
 	preview_item_ = PreviewItem();
+	preview_completed_requests_.clear();
 }
 
 void LibcameraApp::previewThread()
