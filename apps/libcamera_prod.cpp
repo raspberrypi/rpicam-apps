@@ -407,15 +407,21 @@ void LibcameraProd::run_dust_test(CompletedRequestPtr req)
 
 static int find_max_step(uint16_t *buf, unsigned start, unsigned end, uint16_t &arg)
 {
-	int a = 0, max = 0;
+	unsigned a = 0;
+	int max = 0;
 
-	for(unsigned x = start; x < end; ++x)
+	for(unsigned x = start - 2; x < end + 2; ++x)
 	{
 		int d = -buf[x-9] -2*buf[x-7] - 3*buf[x-5] - 3*buf[x-3] - 3*buf[x-1]
 			+ 3*buf[x+1] + 3*buf[x+3] + 3*buf[x+5] + 2*buf[x+7] + buf[x+9];
 		d = std::abs(d);
 		if (d > max)
 			max = d, a = x;
+	}
+	if (a < start || a >= end)
+	{
+		a = 0;
+		max = 0;
 	}
 	arg = a;
 	return max;
@@ -439,7 +445,7 @@ static bool fit_line(double params[2], uint16_t const *val, unsigned len)
 		if (!val[x0])
 			continue;
 
-		for(unsigned guess = 0; guess < 4; ++guess)
+		for(unsigned guess = 0; guess < 10; ++guess)
 		{
 			unsigned x1 = l_3 + (unsigned)rand() % l_3;
 			if ((x1 < x0 + 64 && x0 < x1 + 64) || !val[x1])
@@ -655,6 +661,7 @@ void LibcameraProd::run_quad_test(CompletedRequestPtr req)
 
 	// Final image pass. Try to estimate the fraction of the image covered by the test pattern,
 	// by counting pix-quads whose normalized correlation with the quadrant's mean colour is >= 1/8
+	// with a bit of horizontal filtering to remove noise in the dark regions
 	for(unsigned q = 0; q < 4; q++)
 	{
 		double mag2 = ((mean[q][0] * mean[q][0]) +
@@ -673,7 +680,7 @@ void LibcameraProd::run_quad_test(CompletedRequestPtr req)
 		uint16_t *s1 = &linebuf_[info.width];
 		memcpy(s0, (uint16_t const *)mem + y * info.stride / 2, info.width*sizeof(uint16_t));
 		memcpy(s1, (uint16_t const *)mem + (y + 1) * info.stride / 2, info.width*sizeof(uint16_t));
-		bool prev = false;
+		bool prev = true;
 		for(unsigned x = 0; x < info.width; x += 2)
 		{
 			double hoffset = x + 0.5 - vline_params[0] - vline_params[1]*y;
@@ -701,17 +708,17 @@ void LibcameraProd::run_quad_test(CompletedRequestPtr req)
 		uint16_t *s1 = &linebuf_[info.width];
 		memcpy(s0, (uint16_t const *)mem + y * info.stride / 2, info.width*sizeof(uint16_t));
 		memcpy(s1, (uint16_t const *)mem + (y + 1) * info.stride / 2, info.width*sizeof(uint16_t));
-		bool prev = false;
+		bool prev = true;
 		for(unsigned x = 0; x < info.width; x += 2)
 		{
 			double hoffset = x + 0.5 - vline_params[0] - vline_params[1]*y;
 			double voffset = y + 0.5 - hline_params[0] - hline_params[1]*x;
 			int q = ((voffset < 0.0) ? 0 : 2) + ((hoffset < 0.0) ? 0 : 1);
-			int r = s1[x+1] >> 2;
-			int g = (s0[x+1] + s1[0]) >> 3;
-			int b = s0[x] >> 2;
-			if ((info.height-2-y) < ((colsums[x>>1]>>17)&~1)) b = (b+255)>>1;
-			if (x < ((rowsums[y>>1]>>17)&~1)) r = (r+255)>>1;
+			int r = std::sqrt(s1[x+1] << shift);
+			int g = std::sqrt(s0[x+1] << shift);
+			int b = std::sqrt(s0[x] << shift);
+			if ((info.height-2-y) == ((colsums[x>>1]>>17)&~1)) b = 255;
+			if (x == ((rowsums[y>>1]>>17)&~1)) r = 255;
 			if (y >= vbounds[0] && y < vbounds[1] && x >= hbounds[0] && x < hbounds[1] &&
 			    std::abs(hoffset) >= 64.0 && std::abs(voffset) >= 64.0 &&
 			    (std::max(std::max(s0[x], s0[x+1]), std::max(s1[x], s1[x+1])) << shift) < 0xFE00)
@@ -728,10 +735,10 @@ void LibcameraProd::run_quad_test(CompletedRequestPtr req)
 				if (corr < 0.125 || !prev)
 					g = (g+255)>>1;
 				prev = (corr >= 0.125);
-				if (std::abs(x - vline_params[0] - vline_params[1]*y) <= 1.0 ||
-				    std::abs(y - hline_params[0] - hline_params[1]*x) <= 1.0)
-					r=g=b=255;
 			}
+			if (std::abs(x - vline_params[0] - vline_params[1]*y) <= 1.0 ||
+			    std::abs(y - hline_params[0] - hline_params[1]*x) <= 1.0)
+			  g = 255;
 			fputc(r, fpdebug);
 			fputc(g, fpdebug);
 			fputc(b, fpdebug);
