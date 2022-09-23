@@ -189,6 +189,6 @@ if (viz):
     for i in range(len(rowsums)):
         vizimg[i,(rowsums[i]>>18),0] = 255
     for i in range(len(colsums)):
-        vizimg[height//2-(colsums[i]>>18),i,2] = 255
+        vizimg[height//2-1-(colsums[i]>>18),i,2] = 255
     plt.imshow(vizimg)
     plt.show()
