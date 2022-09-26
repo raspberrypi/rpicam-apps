@@ -177,7 +177,7 @@ void LibcameraApp::ConfigureViewfinder()
 		// afterwards - so try to match the field of view.
 		if (options_->width && options_->height)
 			size = size.boundedToAspectRatio(Size(options_->width, options_->height));
-		size.alignDownTo(2, 2); // YUV420 will want to be even
+		size.alignDownTo(4, 4); // YUV420 will want to be even
 		LOG(2, "Viewfinder size chosen is " << size.toString());
 	}
 
@@ -441,7 +441,8 @@ void LibcameraApp::StartCamera()
 		controls_.set(controls::Saturation, options_->saturation);
 	if (!controls_.get(controls::Sharpness))
 		controls_.set(controls::Sharpness, options_->sharpness);
-
+	if (!controls_.contains(libcamera::controls::draft::AfTrigger) && options.autofocus)
+		controls_.set(libcamera::controls::draft::AfTrigger, libcamera::controls::draft::AfTriggerStart);
 	if (camera_->start(&controls_))
 		throw std::runtime_error("failed to start camera");
 	controls_.clear();
