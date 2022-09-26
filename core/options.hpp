@@ -120,6 +120,8 @@ struct Options
 			 "Width of viewfinder frames from the camera (distinct from the preview window size")
 			("viewfinder-height", value<unsigned int>(&viewfinder_height)->default_value(0),
 			 "Height of viewfinder frames from the camera (distinct from the preview window size)")
+			("autofocus", value<bool>(&autofocus)->default_value(false)->implicit_value(true),
+			 "Flush output data as soon as possible")
 			("tuning-file", value<std::string>(&tuning_file)->default_value("-"),
 			 "Name of camera tuning file to use, omit this option for libcamera default behaviour")
 			("lores-width", value<unsigned int>(&lores_width)->default_value(0),
@@ -171,6 +173,7 @@ struct Options
 	float awb_gain_r;
 	float awb_gain_b;
 	bool flush;
+	bool autofocus;
 	unsigned int wrap;
 	float brightness;
 	float contrast;
