@@ -14,8 +14,9 @@ def fit_line(a):
     MARGIN2 = 36.0
     MAX_GRADIENT = 0.26
     best_score = 0.0;
-    params = { 0.0, 0.0 }
-    
+    params = [ 0.0, 0.0 ]
+    exes = np.arange(0, len(a), dtype=float)
+
     for x0 in range(len(a)//3, 2*len(a)//3):
         if (a[x0]==0):
             continue
@@ -28,9 +29,8 @@ def fit_line(a):
         if (abs(p1) > MAX_GRADIENT):
             continue
 
-        score = 0.0
-        errs = [p0 + p1*x - a[x] for x in range(len(a)) if a[x] != 0]
-        score = np.sum(np.maximum(0.0, MARGIN2 - np.square(errs)))
+        errs = exes*p1 + p0 - a
+        score = np.sum(np.where(a != 0, np.maximum(0.0, MARGIN2 - np.square(errs)), 0.0))
         if (score > best_score):
             best_score = score
             params = [ p0, p1 ]
@@ -85,10 +85,10 @@ if (100 * bright_count > width * height):
 # Find the largest H step (of any colour component) in the middle third of
 # each scanline. Compute sums over pairs of rows, with black level subtracted.
 tmp = np.absolute(np.apply_along_axis(lambda m: np.convolve(m, np.array([-1, 0, -2, 0, -3, 0, -3, 0, -3, 0, 3, 0, 3, 0, 3, 0, 2, 0, 1]), 'same'), axis=1, arr=raw))
-steps = [width//3 - 2 + r[(width//3 - 2):(2*width//3 + 2)].argmax() for r in tmp]
-steps = [s if s >= width//3 and s < 2*width//3 else 0 for s in steps]
-rowsums = [sum(r) for r in raw]
-rowsums = [(s - width * black_level if s > width * black_level else 0) for s in rowsums]
+steps = np.argmax(tmp[:,(width//3 - 2):(2*width//3 + 2)], axis=1) + width//3 - 2
+steps = np.where(np.logical_and(steps >= width//3, steps < 2*width//3), steps, 0)
+rowsums = np.sum(raw, axis=1, dtype=int)
+rowsums = np.maximum(rowsums - width * black_level, 0)
 rowsums = np.array(rowsums[0::2]) + np.array(rowsums[1::2])
 
 # Try to find the vertical line.
@@ -97,10 +97,10 @@ vline_params = fit_line(steps)
 # Find the largest V step (of any colour component) in the middle third of
 # each column. Compute sums over pairs of colums, with black level subtracted.
 tmp = np.absolute(np.apply_along_axis(lambda m: np.convolve(m, np.array([-1, 0, -2, 0, -3, 0, -3, 0, -3, 0, 3, 0, 3, 0, 3, 0, 2, 0, 1]), 'same'), axis=0, arr=raw))
-steps = [height//3 - 2 + r[(height//3 - 2):(2*height//3 + 2)].argmax() for r in tmp.transpose()]
-steps = [s if s >= height//3 and s < 2*height//3 else 0 for s in steps]
-colsums = [sum(c) for c in raw.transpose()]
-colsums = [(s - height * black_level if s > height * black_level else 0) for s in colsums]
+steps = np.argmax(tmp[(height//3 - 2):(2*height//3 + 2),:], axis=0) + height//3 - 2
+steps = np.where(np.logical_and(steps >= height//3, steps < 2*height//3), steps, 0)
+colsums = np.sum(raw, axis=0, dtype=int)
+colsums = np.maximum(colsums - height * black_level, 0)
 colsums = np.array(colsums[0::2]) + np.array(colsums[1::2])
 
 # Try to find the horizontal line. Check the crossing angle is 90 +/- 5 degrees or so.
