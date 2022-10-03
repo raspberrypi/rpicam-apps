@@ -21,10 +21,8 @@ struct DetectOptions : public StillOptions
 	DetectOptions() : StillOptions()
 	{
 		using namespace boost::program_options;
-		options_.add_options()
-			("object", value<std::string>(&object), "Name of object to detect")
-			("gap", value<unsigned int>(&gap)->default_value(30), "Smallest gap between captures in frames")
-			;
+		options_.add_options()("object", value<std::string>(&object), "Name of object to detect")(
+			"gap", value<unsigned int>(&gap)->default_value(30), "Smallest gap between captures in frames");
 	}
 
 	std::string object;
@@ -81,9 +79,10 @@ static void event_loop(LibcameraDetectApp &app)
 			std::vector<Detection> detections;
 			bool detected = completed_request->sequence - last_capture_frame >= options->gap &&
 							completed_request->post_process_metadata.Get("object_detect.results", detections) == 0 &&
-							std::find_if(detections.begin(), detections.end(), [options](const Detection &d) {
-								return d.name.find(options->object) != std::string::npos;
-							}) != detections.end();
+							std::find_if(detections.begin(), detections.end(),
+										 [options](const Detection &d) {
+											 return d.name.find(options->object) != std::string::npos;
+										 }) != detections.end();
 
 			app.ShowPreview(completed_request, app.ViewfinderStream());
 

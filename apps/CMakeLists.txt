@@ -1,5 +1,9 @@
 cmake_minimum_required(VERSION 3.6)
 
+project(exp)
+add_executable(exp exp.cpp)
+target_link_libraries(exp libcamera_app outputs images)
+
 project(libcamera-still)
 add_executable(libcamera-still libcamera_still.cpp)
 target_link_libraries(libcamera-still libcamera_app outputs images)
