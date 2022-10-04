@@ -304,7 +304,13 @@ void LibAvEncoder::initOutput()
 	char err[64];
 	if (!(out_fmt_ctx_->flags & AVFMT_NOFILE))
 	{
-		ret = avio_open2(&out_fmt_ctx_->pb, options_->output.c_str(), AVIO_FLAG_WRITE, nullptr, nullptr);
+		std::string filename = options_->output;
+
+		// libav uses "pipe:" for stdout
+		if (filename == "-")
+			filename = std::string("pipe:");
+
+		ret = avio_open2(&out_fmt_ctx_->pb, filename.c_str(), AVIO_FLAG_WRITE, nullptr, nullptr);
 		if (ret < 0)
 		{
 			av_strerror(ret, err, sizeof(err));
