@@ -73,6 +73,8 @@ struct VideoOptions : public Options
 			 "pactl list | grep -A2 'Source #' | grep 'Name: '")
 			("audio-bitrate", value<uint32_t>(&audio_bitrate)->default_value(32768),
 			 "Set the audio bitrate for encoding, in bits/second.")
+			("audio-samplerate", value<uint32_t>(&audio_samplerate)->default_value(0),
+			 "Set the audio sampling rate in Hz for encoding. Set to 0 to use the input sample rate.")
 			("av-sync", value<int32_t>(&av_sync)->default_value(0),
 			 "Add a time offset (in microseconds) to the audio stream, relative to the video stream. "
 			 "The offset value can be either positive or negative.")
@@ -92,6 +94,7 @@ struct VideoOptions : public Options
 	std::string audio_codec;
 	std::string audio_device;
 	uint32_t audio_bitrate;
+	uint32_t audio_samplerate;
 	int32_t av_sync;
 	std::string save_pts;
 	int quality;

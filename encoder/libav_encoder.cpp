@@ -178,7 +178,8 @@ void LibAvEncoder::initAudioOutCodec(VideoOptions const *options, StreamInfo con
 	assert(stream_[AudioIn]);
 	codec_ctx_[AudioOut]->channels = stream_[AudioIn]->codecpar->channels;
 	codec_ctx_[AudioOut]->channel_layout = av_get_default_channel_layout(stream_[AudioIn]->codecpar->channels);
-	codec_ctx_[AudioOut]->sample_rate = stream_[AudioIn]->codecpar->sample_rate;
+	codec_ctx_[AudioOut]->sample_rate = options->audio_samplerate ? options->audio_samplerate
+																  : stream_[AudioIn]->codecpar->sample_rate;
 	codec_ctx_[AudioOut]->sample_fmt = codec->sample_fmts[0];
 	codec_ctx_[AudioOut]->bit_rate = options->audio_bitrate;
 	// usec timebase
