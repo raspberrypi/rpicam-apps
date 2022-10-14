@@ -28,6 +28,8 @@ static void default_signal_handler(int signal_number)
 static int get_key_or_signal(VideoOptions const *options, pollfd p[1])
 {
 	int key = 0;
+	if (signal_received == SIGINT)
+		return 'x';
 	if (options->keypress)
 	{
 		poll(p, 1, 0);
@@ -76,6 +78,7 @@ static void event_loop(LibcameraEncoder &app)
 	// Monitoring for keypresses and signals.
 	signal(SIGUSR1, default_signal_handler);
 	signal(SIGUSR2, default_signal_handler);
+	signal(SIGINT, default_signal_handler);
 	pollfd p[1] = { { STDIN_FILENO, POLLIN, 0 } };
 
 	for (unsigned int count = 0; ; count++)
