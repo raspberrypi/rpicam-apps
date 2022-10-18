@@ -123,7 +123,16 @@ void LibAvEncoder::initVideoCodec(VideoOptions const *options, StreamInfo const 
 	if (!stream_[Video])
 		throw std::runtime_error("libav: cannot allocate stream for vidout output context");
 
-	stream_[Video]->time_base = codec_ctx_[Video]->time_base;
+	// The avi stream context seems to need the video stream time_base set to
+	// 1/framerate to report the correct framerate in the container file.
+	//
+	// This seems to be a limitation/bug in ffmpeg:
+	// https://github.com/FFmpeg/FFmpeg/blob/3141dbb7adf1e2bd5b9ff700312d7732c958b8df/libavformat/avienc.c#L527
+	if (!strncmp(out_fmt_ctx_->oformat->name, "avi", 3))
+		stream_[Video]->time_base = { 1000, (int)(options->framerate * 1000) };
+	else
+		stream_[Video]->time_base = codec_ctx_[Video]->time_base;
+
 	stream_[Video]->avg_frame_rate = stream_[Video]->r_frame_rate = codec_ctx_[Video]->framerate;
 	avcodec_parameters_from_context(stream_[Video]->codecpar, codec_ctx_[Video]);
 }
