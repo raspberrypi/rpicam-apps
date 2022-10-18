@@ -124,6 +124,7 @@ void LibAvEncoder::initVideoCodec(VideoOptions const *options, StreamInfo const 
 		throw std::runtime_error("libav: cannot allocate stream for vidout output context");
 
 	stream_[Video]->time_base = codec_ctx_[Video]->time_base;
+	stream_[Video]->avg_frame_rate = stream_[Video]->r_frame_rate = codec_ctx_[Video]->framerate;
 	avcodec_parameters_from_context(stream_[Video]->codecpar, codec_ctx_[Video]);
 }
 
