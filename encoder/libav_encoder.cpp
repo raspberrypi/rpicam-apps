@@ -204,7 +204,7 @@ void LibAvEncoder::initAudioOutCodec(VideoOptions const *options, StreamInfo con
 
 LibAvEncoder::LibAvEncoder(VideoOptions const *options, StreamInfo const &info)
 	: Encoder(options), output_ready_(false), abort_video_(false), abort_audio_(false),
-	  video_start_ts_(0), audio_start_ts_(0), in_fmt_ctx_(nullptr), out_fmt_ctx_(nullptr)
+	  video_start_ts_(0), audio_samples_(0), in_fmt_ctx_(nullptr), out_fmt_ctx_(nullptr)
 {
 	avdevice_register_all();
 
@@ -469,13 +469,13 @@ void LibAvEncoder::audioThread()
 
 		// Audio Resample/Conversion
 		uint8_t **samples = nullptr;
-		ret = av_samples_alloc_array_and_samples(&samples, NULL, codec_ctx_[AudioOut]->channels, in_frame->nb_samples,
-												 required_fmt, 0);
+		ret = av_samples_alloc_array_and_samples(&samples, NULL, codec_ctx_[AudioOut]->channels,
+												 codec_ctx_[AudioOut]->frame_size, required_fmt, 0);
 		if (ret < 0)
 			throw std::runtime_error("libav: failed to alloc sample array");
 
-		ret = swr_convert(conv, samples, in_frame->nb_samples, (const uint8_t **)in_frame->extended_data,
-						  in_frame->nb_samples);
+		ret = swr_convert(conv, samples, codec_ctx_[AudioOut]->frame_size,
+						  (const uint8_t **)in_frame->extended_data, in_frame->nb_samples);
 		if (ret < 0)
 			throw std::runtime_error("libav: swr_convert failed");
 
@@ -503,16 +503,12 @@ void LibAvEncoder::audioThread()
 		av_audio_fifo_write(fifo, (void **)samples, in_frame->nb_samples);
 		av_freep(&samples[0]);
 
-		int64_t in_pts = in_frame->pts;
 		av_frame_unref(in_frame);
 		av_packet_unref(in_pkt);
 
 		// Not yet ready to generate encoded audio!
 		if (!output_ready_)
 			continue;
-
-		if (audio_start_ts_ == 0)
-			audio_start_ts_ = in_pts;
 
 		// Audio Out
 		while (av_audio_fifo_size(fifo) >= codec_ctx_[AudioOut]->frame_size)
@@ -527,7 +523,12 @@ void LibAvEncoder::audioThread()
 			av_frame_get_buffer(out_frame, 0);
 			av_audio_fifo_read(fifo, (void **)out_frame->data, codec_ctx_[AudioOut]->frame_size);
 
-			out_frame->pts = in_pts - audio_start_ts_ + (options_->av_sync > 0 ? options_->av_sync : 0);
+			AVRational num = { 1, out_frame->sample_rate };
+			int64_t ts = av_rescale_q(audio_samples_, num, codec_ctx_[AudioOut]->time_base);
+
+			out_frame->pts = ts + (options_->av_sync > 0 ? options_->av_sync : 0);
+			audio_samples_ += codec_ctx_[AudioOut]->frame_size;
+
 			ret = avcodec_send_frame(codec_ctx_[AudioOut], out_frame);
 			if (ret < 0)
 				throw std::runtime_error("libav: error encoding frame: " + std::to_string(ret));
