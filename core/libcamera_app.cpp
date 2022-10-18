@@ -720,7 +720,14 @@ void LibcameraApp::makeRequests()
 void LibcameraApp::requestComplete(Request *request)
 {
 	if (request->status() == Request::RequestCancelled)
+	{
+		// If the request is cancelled while the camera is still running, it indicates
+		// a hardware timeout. Let the application handle this error.
+		if (camera_started_)
+			msg_queue_.Post(Msg(MsgType::Timeout));
+
 		return;
+	}
 
 	CompletedRequest *r = new CompletedRequest(sequence_++, request);
 	CompletedRequestPtr payload(r, [this](CompletedRequest *cr) { this->queueRequest(cr); });
@@ -770,6 +777,7 @@ void LibcameraApp::stopPreview()
 	}
 	preview_thread_.join();
 	preview_item_ = PreviewItem();
+	preview_completed_requests_.clear();
 }
 
 void LibcameraApp::previewThread()

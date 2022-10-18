@@ -228,6 +228,13 @@ bool Options::Parse(int argc, char *argv[])
 	if (tuning_file != "-")
 		setenv("LIBCAMERA_RPI_TUNING_FILE", tuning_file.c_str(), 1);
 
+	if (strcasecmp(metadata_format.c_str(), "json") == 0)
+		metadata_format = "json";
+	else if (strcasecmp(metadata_format.c_str(), "txt") == 0)
+		metadata_format = "txt";
+	else
+		throw std::runtime_error("unrecognised metadata format " + metadata_format);
+
 	mode = Mode(mode_string);
 	viewfinder_mode = Mode(viewfinder_mode_string);
 
@@ -288,4 +295,6 @@ void Options::Print() const
 
 	std::cerr << "    mode: " << mode.ToString() << std::endl;
 	std::cerr << "    viewfinder-mode: " << viewfinder_mode.ToString() << std::endl;
+	std::cerr << "    metadata: " << metadata << std::endl;
+	std::cerr << "    metadata-format: " << metadata_format << std::endl;
 }

@@ -46,8 +46,6 @@ struct StillOptions : public Options
 			 "Create a symbolic link with this name to most recent saved file")
 			("immediate", value<bool>(&immediate)->default_value(false)->implicit_value(true),
 			 "Perform first capture immediately, with no preview phase")
-			("metadata", value<std::string>(&metadata),
-			 "Save capture image metadata to a file or \"-\" for stdout")
 			;
 		// clang-format on
 	}
@@ -67,7 +65,6 @@ struct StillOptions : public Options
 	bool raw;
 	std::string latest;
 	bool immediate;
-	std::string metadata;
 
 	virtual bool Parse(int argc, char *argv[]) override
 	{
@@ -111,7 +108,6 @@ struct StillOptions : public Options
 		std::cerr << "    thumbnail quality: " << thumb_quality << std::endl;
 		std::cerr << "    latest: " << latest << std::endl;
 		std::cerr << "    immediate " << immediate << std::endl;
-		std::cerr << "    metadata " << metadata << std::endl;
 		for (auto &s : exif)
 			std::cerr << "    EXIF: " << s << std::endl;
 	}
