@@ -140,9 +140,9 @@ void LibAvEncoder::initVideoCodec(VideoOptions const *options, StreamInfo const 
 void LibAvEncoder::initAudioInCodec(VideoOptions const *options, StreamInfo const &info)
 {
 #if LIBAVUTIL_VERSION_MAJOR < 58
-	AVInputFormat *input_fmt = (AVInputFormat *)av_find_input_format("pulse");
+	AVInputFormat *input_fmt = (AVInputFormat *)av_find_input_format(options->audio_source.c_str());
 #else
-	const AVInputFormat *input_fmt = (AVInputFormat *)av_find_input_format("pulse");
+	const AVInputFormat *input_fmt = (AVInputFormat *)av_find_input_format(options->audio_source.c_str());
 #endif
 
 	assert(in_fmt_ctx_ == nullptr);
@@ -438,7 +438,7 @@ done:
 
 void LibAvEncoder::audioThread()
 {
-	constexpr AVSampleFormat required_fmt = AV_SAMPLE_FMT_FLTP;
+	const AVSampleFormat required_fmt = codec_ctx_[AudioOut]->sample_fmt;
 	// Amount of time to pre-record audio into the fifo before the first video frame.
 	constexpr std::chrono::milliseconds pre_record_time(10);
 
