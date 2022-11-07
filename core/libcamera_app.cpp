@@ -410,9 +410,9 @@ void LibcameraApp::StartCamera()
 		if (StillStream())
 			controls_.set(controls::FrameDurationLimits,
 						  libcamera::Span<const int64_t, 2>({ INT64_C(100), INT64_C(1000000000) }));
-		else if (options_->framerate > 0)
+		else if (!options_->framerate || options_->framerate.value() > 0)
 		{
-			int64_t frame_time = 1000000 / options_->framerate; // in us
+			int64_t frame_time = 1000000 / options_->framerate.value_or(DEFAULT_FRAMERATE); // in us
 			controls_.set(controls::FrameDurationLimits,
 						  libcamera::Span<const int64_t, 2>({ frame_time, frame_time }));
 		}
