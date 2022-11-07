@@ -63,6 +63,11 @@ bool Options::Parse(int argc, char *argv[])
 		notify(vm);
 	}
 
+	// This is to get round the fact that the boost option parser does not
+	// allow std::optional types.
+	if (framerate_ != -1.0)
+		framerate = framerate_;
+
 	// Set the verbosity
 	LibcameraApp::verbosity = verbose;
 
@@ -285,7 +290,7 @@ void Options::Print() const
 	std::cerr << "    contrast: " << contrast << std::endl;
 	std::cerr << "    saturation: " << saturation << std::endl;
 	std::cerr << "    sharpness: " << sharpness << std::endl;
-	std::cerr << "    framerate: " << framerate << std::endl;
+	std::cerr << "    framerate: " << framerate.value_or(DEFAULT_FRAMERATE) << std::endl;
 	std::cerr << "    denoise: " << denoise << std::endl;
 	std::cerr << "    viewfinder-width: " << viewfinder_width << std::endl;
 	std::cerr << "    viewfinder-height: " << viewfinder_height << std::endl;

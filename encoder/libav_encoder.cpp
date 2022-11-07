@@ -34,7 +34,7 @@ void LibAvEncoder::initVideoCodec(VideoOptions const *options, StreamInfo const 
 	codec_ctx_[Video]->height = info.height;
 	// usec timebase
 	codec_ctx_[Video]->time_base = { 1, 1000 * 1000 };
-	codec_ctx_[Video]->framerate = { (int)(options->framerate * 1000), 1000 };
+	codec_ctx_[Video]->framerate = { (int)(options->framerate.value_or(DEFAULT_FRAMERATE) * 1000), 1000 };
 	codec_ctx_[Video]->pix_fmt = AV_PIX_FMT_DRM_PRIME;
 	codec_ctx_[Video]->sw_pix_fmt = AV_PIX_FMT_YUV420P;
 
@@ -129,7 +129,7 @@ void LibAvEncoder::initVideoCodec(VideoOptions const *options, StreamInfo const 
 	// This seems to be a limitation/bug in ffmpeg:
 	// https://github.com/FFmpeg/FFmpeg/blob/3141dbb7adf1e2bd5b9ff700312d7732c958b8df/libavformat/avienc.c#L527
 	if (!strncmp(out_fmt_ctx_->oformat->name, "avi", 3))
-		stream_[Video]->time_base = { 1000, (int)(options->framerate * 1000) };
+		stream_[Video]->time_base = { 1000, (int)(options->framerate.value_or(DEFAULT_FRAMERATE) * 1000) };
 	else
 		stream_[Video]->time_base = codec_ctx_[Video]->time_base;
 
