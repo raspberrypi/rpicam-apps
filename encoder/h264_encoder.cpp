@@ -133,7 +133,7 @@ H264Encoder::H264Encoder(VideoOptions const *options, StreamInfo const &info)
 
 	struct v4l2_streamparm parm = {};
 	parm.type = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE;
-	parm.parm.output.timeperframe.numerator = 1000 / options->framerate;
+	parm.parm.output.timeperframe.numerator = 1000 / options->framerate.value_or(DEFAULT_FRAMERATE);
 	parm.parm.output.timeperframe.denominator = 1000;
 	if (xioctl(fd_, VIDIOC_S_PARM, &parm) < 0)
 		throw std::runtime_error("failed to set streamparm");
