@@ -14,6 +14,19 @@ using namespace std::placeholders;
 
 // The main event loop for the application.
 
+#include <libcamera/libcamera.h>
+using namespace libcamera;
+
+static void test()
+{
+	LibcameraApp app;
+	static std::shared_ptr<Camera> camera;
+
+	std::unique_ptr<CameraManager> cm = std::make_unique<CameraManager>();
+	cm->start();
+
+}
+
 static void event_loop(LibcameraApp &app)
 {
 	Options const *options = app.GetOptions();
@@ -49,8 +62,11 @@ static void event_loop(LibcameraApp &app)
 	}
 }
 
+
+
 int main(int argc, char *argv[])
 {
+	test();
 	try
 	{
 		LibcameraApp app;
@@ -70,3 +86,4 @@ int main(int argc, char *argv[])
 	}
 	return 0;
 }
+

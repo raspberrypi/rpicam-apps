@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.6)
 
 include(GNUInstallDirs)
 
+
 find_library(EXIF_LIBRARY exif REQUIRED)
 find_library(JPEG_LIBRARY jpeg REQUIRED)
 find_library(TIFF_LIBRARY tiff REQUIRED)
