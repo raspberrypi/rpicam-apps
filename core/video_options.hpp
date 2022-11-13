@@ -68,9 +68,14 @@ struct VideoOptions : public Options
 			("audio-codec", value<std::string>(&audio_codec)->default_value("aac"),
 			 "Sets the libav audio codec to use.\n"
 			 "To list available codecs, run  the \"ffmpeg -codecs\" command.")
+			("audio-source", value<std::string>(&audio_source)->default_value("pulse"),
+			 "Audio source to record from. Valid options are \"pulse\" and \"alsa\"")
 			("audio-device", value<std::string>(&audio_device)->default_value("default"),
-			 "Audio device to record from. To list the available devices, use the following command:\n"
-			 "pactl list | grep -A2 'Source #' | grep 'Name: '")
+			 "Audio device to record from.  To list the available devices,\n"
+			 "for pulseaudio, use the following command:\n"
+			 "\"pactl list | grep -A2 'Source #' | grep 'Name: '\"\n"
+			 "or for alsa, use the following command:\n"
+			 "\"arecord -L\"")
 			("audio-bitrate", value<uint32_t>(&audio_bitrate)->default_value(32768),
 			 "Set the audio bitrate for encoding, in bits/second.")
 			("audio-samplerate", value<uint32_t>(&audio_samplerate)->default_value(0),
@@ -93,6 +98,7 @@ struct VideoOptions : public Options
 	bool libav_audio;
 	std::string audio_codec;
 	std::string audio_device;
+	std::string audio_source;
 	uint32_t audio_bitrate;
 	uint32_t audio_samplerate;
 	int32_t av_sync;

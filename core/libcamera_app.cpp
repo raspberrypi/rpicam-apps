@@ -11,6 +11,7 @@
 #include "core/libcamera_app.hpp"
 #include "core/options.hpp"
 
+#include <cmath>
 #include <fcntl.h>
 
 #include <sys/ioctl.h>
@@ -126,6 +127,32 @@ void LibcameraApp::OpenCamera()
 	// The queue takes over ownership from the post-processor.
 	post_processor_.SetCallback(
 		[this](CompletedRequestPtr &r) { this->msg_queue_.Post(Msg(MsgType::RequestComplete, std::move(r))); });
+
+	if (options_->framerate)
+	{
+		std::unique_ptr<CameraConfiguration> config = camera_->generateConfiguration({ libcamera::StreamRole::Raw });
+		const libcamera::StreamFormats &formats = config->at(0).formats();
+
+		// Suppress log messages when enumerating camera modes.
+		libcamera::logSetLevel("RPI", "ERROR");
+		libcamera::logSetLevel("Camera", "ERROR");
+
+		for (const auto &pix : formats.pixelformats())
+		{
+			for (const auto &size : formats.sizes(pix))
+			{
+				config->at(0).size = size;
+				config->at(0).pixelFormat = pix;
+				config->validate();
+				camera_->configure(config.get());
+				auto fd_ctrl = camera_->controls().find(&controls::FrameDurationLimits);
+				sensor_modes_.emplace_back(size, pix, 1.0e6 / fd_ctrl->second.min().get<int64_t>());
+			}
+		}
+
+		libcamera::logSetLevel("RPI", "INFO");
+		libcamera::logSetLevel("Camera", "INFO");
+	}
 }
 
 void LibcameraApp::CloseCamera()
@@ -144,13 +171,62 @@ void LibcameraApp::CloseCamera()
 		LOG(2, "Camera closed");
 }
 
+Mode LibcameraApp::selectModeForFramerate(const libcamera::Size &req, double fps)
+{
+	auto scoreFormat = [](double desired, double actual) -> double
+	{
+		double score = desired - actual;
+		// Smaller desired dimensions are preferred.
+		if (score < 0.0)
+			score = (-score) / 8;
+		// Penalise non-exact matches.
+		if (actual != desired)
+			score *= 2;
+
+		return score;
+	};
+
+	constexpr float penalty_AR = 1500.0;
+	constexpr float penalty_BD = 500.0;
+	constexpr float penalty_FPS = 2000.0;
+
+	double best_score = std::numeric_limits<double>::max(), score;
+	SensorMode best_mode;
+
+	LOG(1, "Mode selection:");
+	for (const auto &mode : sensor_modes_)
+	{
+		double reqAr = static_cast<double>(req.width) / req.height;
+		double fmtAr = static_cast<double>(mode.size.width) / mode.size.height;
+
+		// Similar scoring mechanism that our pipeline handler does internally.
+		score = scoreFormat(req.width, mode.size.width);
+		score += scoreFormat(req.height, mode.size.height);
+		score += penalty_AR * scoreFormat(reqAr, fmtAr);
+		score += penalty_FPS * std::abs(fps - std::min(mode.fps, fps));
+		score += penalty_BD * (16 - mode.depth());
+
+		if (score <= best_score)
+		{
+			best_score = score;
+			best_mode.size = mode.size;
+			best_mode.format = mode.format;
+		}
+
+		LOG(1, "    " << mode.format.toString() << " " << mode.size.toString() << " - Score: " << score);
+	}
+
+	return { best_mode.size.width, best_mode.size.height, best_mode.depth(), true };
+}
+
 void LibcameraApp::ConfigureViewfinder()
 {
 	LOG(2, "Configuring viewfinder...");
 
+	bool select_mode = options_->framerate && options_->framerate.value() && options_->viewfinder_mode_string.empty();
 	int lores_stream_num = 0, raw_stream_num = 0;
 	bool have_lores_stream = options_->lores_width && options_->lores_height;
-	bool have_raw_stream = options_->viewfinder_mode.bit_depth;
+	bool have_raw_stream = options_->viewfinder_mode.bit_depth || select_mode;
 
 	StreamRoles stream_roles = { StreamRole::Viewfinder };
 	int stream_num = 1;
@@ -204,6 +280,9 @@ void LibcameraApp::ConfigureViewfinder()
 		configuration_->at(lores_stream_num).size = lores_size;
 		configuration_->at(lores_stream_num).bufferCount = configuration_->at(0).bufferCount;
 	}
+
+	if (select_mode)
+		options_->viewfinder_mode = selectModeForFramerate(size, options_->framerate.value());
 
 	if (have_raw_stream)
 	{
@@ -283,7 +362,8 @@ void LibcameraApp::ConfigureVideo(unsigned int flags)
 {
 	LOG(2, "Configuring video...");
 
-	bool have_raw_stream = (flags & FLAG_VIDEO_RAW) || options_->mode.bit_depth;
+	bool select_mode = options_->framerate && options_->framerate.value() && options_->mode_string.empty();
+	bool have_raw_stream = (flags & FLAG_VIDEO_RAW) || options_->mode.bit_depth || select_mode;
 	bool have_lores_stream = options_->lores_width && options_->lores_height;
 	StreamRoles stream_roles = { StreamRole::VideoRecording };
 	int lores_index = 1;
@@ -315,6 +395,9 @@ void LibcameraApp::ConfigureVideo(unsigned int flags)
 	configuration_->transform = options_->transform;
 
 	post_processor_.AdjustConfig("video", &configuration_->at(0));
+
+	if (select_mode)
+		options_->mode = selectModeForFramerate(cfg.size, options_->framerate.value());
 
 	if (have_raw_stream)
 	{
@@ -410,9 +493,9 @@ void LibcameraApp::StartCamera()
 		if (StillStream())
 			controls_.set(controls::FrameDurationLimits,
 						  libcamera::Span<const int64_t, 2>({ INT64_C(100), INT64_C(1000000000) }));
-		else if (options_->framerate > 0)
+		else if (!options_->framerate || options_->framerate.value() > 0)
 		{
-			int64_t frame_time = 1000000 / options_->framerate; // in us
+			int64_t frame_time = 1000000 / options_->framerate.value_or(DEFAULT_FRAMERATE); // in us
 			controls_.set(controls::FrameDurationLimits,
 						  libcamera::Span<const int64_t, 2>({ frame_time, frame_time }));
 		}

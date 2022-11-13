@@ -34,7 +34,7 @@ void LibAvEncoder::initVideoCodec(VideoOptions const *options, StreamInfo const 
 	codec_ctx_[Video]->height = info.height;
 	// usec timebase
 	codec_ctx_[Video]->time_base = { 1, 1000 * 1000 };
-	codec_ctx_[Video]->framerate = { (int)(options->framerate * 1000), 1000 };
+	codec_ctx_[Video]->framerate = { (int)(options->framerate.value_or(DEFAULT_FRAMERATE) * 1000), 1000 };
 	codec_ctx_[Video]->pix_fmt = AV_PIX_FMT_DRM_PRIME;
 	codec_ctx_[Video]->sw_pix_fmt = AV_PIX_FMT_YUV420P;
 
@@ -129,7 +129,7 @@ void LibAvEncoder::initVideoCodec(VideoOptions const *options, StreamInfo const 
 	// This seems to be a limitation/bug in ffmpeg:
 	// https://github.com/FFmpeg/FFmpeg/blob/3141dbb7adf1e2bd5b9ff700312d7732c958b8df/libavformat/avienc.c#L527
 	if (!strncmp(out_fmt_ctx_->oformat->name, "avi", 3))
-		stream_[Video]->time_base = { 1000, (int)(options->framerate * 1000) };
+		stream_[Video]->time_base = { 1000, (int)(options->framerate.value_or(DEFAULT_FRAMERATE) * 1000) };
 	else
 		stream_[Video]->time_base = codec_ctx_[Video]->time_base;
 
@@ -140,9 +140,9 @@ void LibAvEncoder::initVideoCodec(VideoOptions const *options, StreamInfo const 
 void LibAvEncoder::initAudioInCodec(VideoOptions const *options, StreamInfo const &info)
 {
 #if LIBAVUTIL_VERSION_MAJOR < 58
-	AVInputFormat *input_fmt = (AVInputFormat *)av_find_input_format("pulse");
+	AVInputFormat *input_fmt = (AVInputFormat *)av_find_input_format(options->audio_source.c_str());
 #else
-	const AVInputFormat *input_fmt = (AVInputFormat *)av_find_input_format("pulse");
+	const AVInputFormat *input_fmt = (AVInputFormat *)av_find_input_format(options->audio_source.c_str());
 #endif
 
 	assert(in_fmt_ctx_ == nullptr);
@@ -438,7 +438,7 @@ done:
 
 void LibAvEncoder::audioThread()
 {
-	constexpr AVSampleFormat required_fmt = AV_SAMPLE_FMT_FLTP;
+	const AVSampleFormat required_fmt = codec_ctx_[AudioOut]->sample_fmt;
 	// Amount of time to pre-record audio into the fifo before the first video frame.
 	constexpr std::chrono::milliseconds pre_record_time(10);
 
