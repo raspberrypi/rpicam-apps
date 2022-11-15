@@ -186,6 +186,9 @@ bool Options::Parse(int argc, char *argv[])
 	if (sscanf(roi.c_str(), "%f,%f,%f,%f", &roi_x, &roi_y, &roi_width, &roi_height) != 4)
 		roi_x = roi_y = roi_width = roi_height = 0; // don't set digital zoom
 
+	if (sscanf(afWindow.c_str(), "%f,%f,%f,%f", &afWindow_x, &afWindow_y, &afWindow_width, &afWindow_height) != 4)
+		afWindow_x = afWindow_y = afWindow_width = afWindow_height = 0; // don't set auto focus windows
+
 	std::map<std::string, int> metering_table =
 		{ { "centre", libcamera::controls::MeteringCentreWeighted },
 			{ "spot", libcamera::controls::MeteringSpot },
@@ -205,6 +208,33 @@ bool Options::Parse(int argc, char *argv[])
 	if (exposure_table.count(exposure) == 0)
 		throw std::runtime_error("Invalid exposure mode:" + exposure);
 	exposure_index = exposure_table[exposure];
+
+	std::map<std::string, int> afMode_table =
+		{ { "unset", -1 },
+			{ "manual", libcamera::controls::AfModeManual },
+			{ "auto", libcamera::controls::AfModeAuto },
+			{ "continuous", libcamera::controls::AfModeContinuous } };
+	if (afMode_table.count(afMode) == 0)
+		throw std::runtime_error("Invalid AfMode:" + afMode);
+	afMode_index = afMode_table[afMode];
+
+	std::map<std::string, int> afRange_table =
+		{ { "unset", -1 },
+		    { "normal", libcamera::controls::AfRangeNormal },
+			{ "macro", libcamera::controls::AfRangeMacro },
+			{ "full", libcamera::controls::AfRangeFull } };
+	if (afRange_table.count(afRange) == 0)
+		throw std::runtime_error("Invalid AfRange mode:" + exposure);
+	afRange_index = afRange_table[afRange];
+
+
+	std::map<std::string, int> afSpeed_table =
+		{ { "unset", -1 },
+		    { "normal", libcamera::controls::AfSpeedNormal },
+		    { "fast", libcamera::controls::AfSpeedFast } };
+	if (afSpeed_table.count(afSpeed) == 0)
+		throw std::runtime_error("Invalid afSpeed mode:" + afSpeed);
+	afSpeed_index = afSpeed_table[afSpeed];
 
 	std::map<std::string, int> awb_table =
 		{ { "auto", libcamera::controls::AwbAuto },
@@ -297,7 +327,17 @@ void Options::Print() const
 	std::cerr << "    tuning-file: " << (tuning_file == "-" ? "(libcamera)" : tuning_file) << std::endl;
 	std::cerr << "    lores-width: " << lores_width << std::endl;
 	std::cerr << "    lores-height: " << lores_height << std::endl;
-
+	if (afMode_index != -1)
+		std::cerr << "    autofocus-mode: " << afMode << std::endl;
+	if (afRange_index != -1)
+		std::cerr << "    autofocus-range: " << afRange << std::endl;
+	if (afSpeed_index != -1)
+		std::cerr << "    autofocus-speed: " << afSpeed << std::endl;
+	if (afWindow_width == 0 || afWindow_height == 0)
+		std::cerr << "    autofocus-window: all" << std::endl;
+	else
+		std::cerr << "    autofocus-window: " << afWindow_x << "," << afWindow_y << "," << afWindow_width << ","
+				  << afWindow_height << std::endl;
 	std::cerr << "    mode: " << mode.ToString() << std::endl;
 	std::cerr << "    viewfinder-mode: " << viewfinder_mode.ToString() << std::endl;
 	if (buffer_count > 0)

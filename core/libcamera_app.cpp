@@ -491,6 +491,24 @@ void LibcameraApp::StartCamera()
 		controls_.set(controls::ScalerCrop, crop);
 	}
 
+	if (!controls_.get(controls::AfWindows) && !controls_.get(controls::AfMetering) && options_->afWindow_width != 0 &&
+		options_->afWindow_height != 0)
+	{
+		Rectangle sensor_area = *camera_->properties().get(properties::ScalerCropMaximum);
+		int x = options_->afWindow_x * sensor_area.width;
+		int y = options_->afWindow_y * sensor_area.height;
+		int w = options_->afWindow_width * sensor_area.width;
+		int h = options_->afWindow_height * sensor_area.height;
+		Rectangle afwindows_rectangle[1];
+		afwindows_rectangle[0] = Rectangle(x, y, w, h);
+		afwindows_rectangle[0].translateBy(sensor_area.topLeft());
+		LOG(2, "Using AfWindow " << afwindows_rectangle[0].toString());
+		//activate the AfMeteringWindows
+		controls_.set(controls::AfMetering, controls::AfMeteringWindows);
+		//set window
+		controls_.set(controls::AfWindows, afwindows_rectangle);
+	}
+
 	// Framerate is a bit weird. If it was set programmatically, we go with that, but
 	// otherwise it applies only to preview/video modes. For stills capture we set it
 	// as long as possible so that we get whatever the exposure profile wants.
@@ -531,6 +549,16 @@ void LibcameraApp::StartCamera()
 	if (!controls_.get(controls::Sharpness))
 		controls_.set(controls::Sharpness, options_->sharpness);
 
+	if (camera_->controls().count(&controls::AfMode) > 0)
+	{
+		LOG(2, "Camera has AfMode");
+		if (options_->afMode_index != -1 && !controls_.get(controls::AfMode))
+			controls_.set(controls::AfMode, options_->afMode_index);
+		if (options_->afRange_index != -1 && !controls_.get(controls::AfRange))
+			controls_.set(controls::AfRange, options_->afRange_index);
+		if (options_->afSpeed_index != -1 && !controls_.get(controls::AfSpeed))
+			controls_.set(controls::AfSpeed, options_->afSpeed_index);
+	}
 	if (camera_->start(&controls_))
 		throw std::runtime_error("failed to start camera");
 	controls_.clear();
