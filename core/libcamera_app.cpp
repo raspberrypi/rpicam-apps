@@ -381,7 +381,10 @@ void LibcameraApp::ConfigureVideo(unsigned int flags)
 	// Now we get to override any of the default settings from the options_->
 	StreamConfiguration &cfg = configuration_->at(0);
 	cfg.pixelFormat = libcamera::formats::YUV420;
-	cfg.bufferCount = 6; // 6 buffers is better than 4
+	if (options_->buffer_count > 0)
+	{
+		cfg.bufferCount = options_->buffer_count;
+	}
 	if (options_->width)
 		cfg.size.width = options_->width;
 	if (options_->height)
@@ -485,6 +488,26 @@ void LibcameraApp::StartCamera()
 		controls_.set(controls::ScalerCrop, crop);
 	}
 
+
+	if (!controls_.get(controls::AfWindows) && !controls_.get(controls::AfMetering) && options_->afWindow_width != 0 && options_->afWindow_height != 0)
+	{
+		Rectangle sensor_area = *camera_->properties().get(properties::ScalerCropMaximum);
+		int x = options_->afWindow_x * sensor_area.width;
+		int y = options_->afWindow_y * sensor_area.height;
+		int w = options_->afWindow_width * sensor_area.width;
+		int h = options_->afWindow_height * sensor_area.height;
+		Rectangle afwindows_rectangle[1];
+		afwindows_rectangle[0]= Rectangle(x, y, w, h);
+		afwindows_rectangle[0].translateBy(sensor_area.topLeft());
+		LOG(2, "Using AfWindow " << afwindows_rectangle[0].toString());
+		//activate the AfMeteringWindows
+		controls_.set(controls::AfMetering, controls::AfMeteringWindows);
+		//set window
+		controls_.set(controls::AfWindows, afwindows_rectangle);
+
+		
+	}
+
 	// Framerate is a bit weird. If it was set programmatically, we go with that, but
 	// otherwise it applies only to preview/video modes. For stills capture we set it
 	// as long as possible so that we get whatever the exposure profile wants.
@@ -524,6 +547,15 @@ void LibcameraApp::StartCamera()
 		controls_.set(controls::Saturation, options_->saturation);
 	if (!controls_.get(controls::Sharpness))
 		controls_.set(controls::Sharpness, options_->sharpness);
+
+	if (!controls_.get(controls::AfMode))
+		controls_.set(controls::AfMode, options_->afMode_index);
+	if (!controls_.get(controls::AfRange))
+		controls_.set(controls::AfRange, options_->afRange_index);
+	if (!controls_.get(controls::AfSpeed))
+		controls_.set(controls::AfSpeed, options_->afSpeed_index);
+	if (!controls_.get(controls::LensPosition))
+		controls_.set(controls::LensPosition, options_->lens_position);
 
 	if (camera_->start(&controls_))
 		throw std::runtime_error("failed to start camera");
