@@ -381,10 +381,9 @@ void LibcameraApp::ConfigureVideo(unsigned int flags)
 	// Now we get to override any of the default settings from the options_->
 	StreamConfiguration &cfg = configuration_->at(0);
 	cfg.pixelFormat = libcamera::formats::YUV420;
-	if (options_->buffer_count > 0)
-	{
+	cfg.bufferCount = 6; // 6 buffers is better than 4
+	if (options_->buffer_count > 0) // give option to the user to use a different value
 		cfg.bufferCount = options_->buffer_count;
-	}
 	if (options_->width)
 		cfg.size.width = options_->width;
 	if (options_->height)
@@ -504,8 +503,6 @@ void LibcameraApp::StartCamera()
 		controls_.set(controls::AfMetering, controls::AfMeteringWindows);
 		//set window
 		controls_.set(controls::AfWindows, afwindows_rectangle);
-
-		
 	}
 
 	// Framerate is a bit weird. If it was set programmatically, we go with that, but
@@ -548,15 +545,20 @@ void LibcameraApp::StartCamera()
 	if (!controls_.get(controls::Sharpness))
 		controls_.set(controls::Sharpness, options_->sharpness);
 
-	if (!controls_.get(controls::AfMode))
-		controls_.set(controls::AfMode, options_->afMode_index);
-	if (!controls_.get(controls::AfRange))
-		controls_.set(controls::AfRange, options_->afRange_index);
-	if (!controls_.get(controls::AfSpeed))
-		controls_.set(controls::AfSpeed, options_->afSpeed_index);
-	if (!controls_.get(controls::LensPosition))
-		controls_.set(controls::LensPosition, options_->lens_position);
-
+	if(camera_->controls().count(&controls::AfMode)>0){
+		LOG(2, "Camera has AfMode");
+		if (options_->afMode_index!=-1 && !controls_.get(controls::AfMode)){
+			controls_.set(controls::AfMode, options_->afMode_index);
+			if(options_->afMode_index == controls::AfModeAuto){
+				//does the first focus on start 
+				controls_.set(controls::AfTrigger, controls::AfTriggerStart);
+			}
+		}
+		if (options_->afRange_index!=-1 && !controls_.get(controls::AfRange))
+			controls_.set(controls::AfRange, options_->afRange_index);
+		if (options_->afSpeed_index!=-1 && !controls_.get(controls::AfSpeed))
+			controls_.set(controls::AfSpeed, options_->afSpeed_index);
+	}
 	if (camera_->start(&controls_))
 		throw std::runtime_error("failed to start camera");
 	controls_.clear();

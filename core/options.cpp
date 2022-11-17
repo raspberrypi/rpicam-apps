@@ -210,7 +210,8 @@ bool Options::Parse(int argc, char *argv[])
 	exposure_index = exposure_table[exposure];
 
 	std::map<std::string, int> afMode_table =
-		{ { "manual", libcamera::controls::AfModeManual },
+		{ { "unset", -1 },
+			{ "manual", libcamera::controls::AfModeManual },
 			{ "auto", libcamera::controls::AfModeAuto },
 			{ "continuous", libcamera::controls::AfModeContinuous } };
 	if (afMode_table.count(afMode) == 0)
@@ -218,7 +219,8 @@ bool Options::Parse(int argc, char *argv[])
 	afMode_index = afMode_table[afMode];
 
 	std::map<std::string, int> afRange_table =
-		{ { "normal", libcamera::controls::AfRangeNormal },
+		{ { "unset", -1 },
+		    { "normal", libcamera::controls::AfRangeNormal },
 			{ "macro", libcamera::controls::AfRangeMacro },
 			{ "full", libcamera::controls::AfRangeFull } };
 	if (afRange_table.count(afRange) == 0)
@@ -227,7 +229,8 @@ bool Options::Parse(int argc, char *argv[])
 
 
 	std::map<std::string, int> afSpeed_table =
-		{ { "normal", libcamera::controls::AfSpeedNormal },
+		{ { "unset", -1 },
+		    { "normal", libcamera::controls::AfSpeedNormal },
 		    { "fast", libcamera::controls::AfSpeedFast } };
 	if (afSpeed_table.count(afSpeed) == 0)
 		throw std::runtime_error("Invalid afSpeed mode:" + afSpeed);
@@ -324,15 +327,16 @@ void Options::Print() const
 	std::cerr << "    tuning-file: " << (tuning_file == "-" ? "(libcamera)" : tuning_file) << std::endl;
 	std::cerr << "    lores-width: " << lores_width << std::endl;
 	std::cerr << "    lores-height: " << lores_height << std::endl;
-
-	std::cerr << "    autofocus-mode: " << afMode << std::endl;
+	if(afMode_index != -1)
+		std::cerr << "    autofocus-mode: " << afMode << std::endl;
+	if(afRange_index != -1)
 	std::cerr << "    autofocus-range: " << afRange << std::endl;
+	if(afSpeed_index != -1)
 	std::cerr << "    autofocus-speed: " << afSpeed << std::endl;
 	if (afWindow_width == 0 || afWindow_height == 0)
 		std::cerr << "    autofocus-window: all" << std::endl;
 	else
 		std::cerr << "    autofocus-window: " << afWindow_x << "," << afWindow_y << "," << afWindow_width << "," << afWindow_height << std::endl;
-	std::cerr << "    lens-position: " << lens_position << std::endl;
 	std::cerr << "    mode: " << mode.ToString() << std::endl;
 	std::cerr << "    viewfinder-mode: " << viewfinder_mode.ToString() << std::endl;
 	std::cerr << "    metadata: " << metadata << std::endl;

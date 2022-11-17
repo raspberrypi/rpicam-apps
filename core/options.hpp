@@ -133,17 +133,15 @@ struct Options
 			 "Camera mode as W:H:bit-depth:packing, where packing is P (packed) or U (unpacked)")
 			("viewfinder-mode", value<std::string>(&viewfinder_mode_string),
 			 "Camera mode for preview as W:H:bit-depth:packing, where packing is P (packed) or U (unpacked)")
-			("buffer-count", value<unsigned int>(&buffer_count)->default_value(0), "override bufferCount config (0 use imlp default)")
-			("autofocus-mode", value<std::string>(&afMode)->default_value("manual"),
-			 " Control to set the mode of the AF (autofocus) algorithm.(manual, auto, continuous)")
-			("autofocus-range", value<std::string>(&afRange)->default_value("normal"),
+			("buffer-count", value<unsigned int>(&buffer_count)->default_value(0), "overwrite bufferCount config (0 to use default)")
+			("autofocus-mode", value<std::string>(&afMode)->default_value("unset"),
+			 "Control to set the mode of the AF (autofocus) algorithm.(manual, auto, continuous)")
+			("autofocus-range", value<std::string>(&afRange)->default_value("unset"),
 			 "Set the range of focus distances that is scanned.(normal, macro, full)")
-			("autofocus-speed", value<std::string>(&afSpeed)->default_value("normal"),
+			("autofocus-speed", value<std::string>(&afSpeed)->default_value("unset"),
 			 "Control that determines whether the AF algorithm is to move the lens as quickly as possible or more steadily.(normal, fast)")
 			("autofocus-window", value<std::string>(&afWindow)->default_value("0,0,0,0"), 
 			"Sets AfMetering to  AfMeteringWindows an set region used for examle  e.g. 0.25,0.25,0.5,0.5")
-			("lens-position", value<float>(&lens_position)->default_value(0),
-			 "Acts as a control to instruct the lens to move to a particular position and also reports back the position of the lens for each frame. (0 moves the lens to infinity;0.5 moves the lens to twice the hyperfocal distance;1 moves the lens to the hyperfocal position )")
 			("metadata", value<std::string>(&metadata),
 			 "Save captured image metadata to a file or \"-\" for stdout")
 			("metadata-format", value<std::string>(&metadata_format)->default_value("json"),
@@ -190,7 +188,6 @@ struct Options
 	float contrast;
 	float saturation;
 	float sharpness;
-	float lens_position;
 	std::optional<float> framerate;
 	std::string denoise;
 	std::string info_text;
