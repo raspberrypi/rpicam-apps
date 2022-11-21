@@ -300,6 +300,10 @@ void Options::Print() const
 
 	std::cerr << "    mode: " << mode.ToString() << std::endl;
 	std::cerr << "    viewfinder-mode: " << viewfinder_mode.ToString() << std::endl;
+	if(buffer_count > 0)
+		std::cerr << "    buffer-count: " << buffer_count << std::endl;
+	if(viewfinder_buffer_count > 0)
+		std::cerr << "    viewfinder-buffer-count: " << viewfinder_buffer_count << std::endl;
 	std::cerr << "    metadata: " << metadata << std::endl;
 	std::cerr << "    metadata-format: " << metadata_format << std::endl;
 }

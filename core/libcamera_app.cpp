@@ -381,7 +381,8 @@ void LibcameraApp::ConfigureVideo(unsigned int flags)
 	// Now we get to override any of the default settings from the options_->
 	StreamConfiguration &cfg = configuration_->at(0);
 	cfg.pixelFormat = libcamera::formats::YUV420;
-	cfg.bufferCount = 6; // 6 buffers is better than 4
+	if (options_->buffer_count > 0)
+		cfg.bufferCount = options_->buffer_count;
 	if (options_->width)
 		cfg.size.width = options_->width;
 	if (options_->height)
@@ -419,7 +420,9 @@ void LibcameraApp::ConfigureVideo(unsigned int flags)
 			throw std::runtime_error("Low res image larger than video");
 		configuration_->at(lores_index).pixelFormat = libcamera::formats::YUV420;
 		configuration_->at(lores_index).size = lores_size;
-		configuration_->at(lores_index).bufferCount = configuration_->at(0).bufferCount;
+		if(options_->viewfinder_buffer_count > 0)
+			configuration_->at(lores_index).bufferCount = options_->viewfinder_buffer_count;
+		
 	}
 	configuration_->transform = options_->transform;
 
