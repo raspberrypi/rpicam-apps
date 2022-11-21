@@ -382,8 +382,6 @@ void LibcameraApp::ConfigureVideo(unsigned int flags)
 	StreamConfiguration &cfg = configuration_->at(0);
 	cfg.pixelFormat = libcamera::formats::YUV420;
 	cfg.bufferCount = 6; // 6 buffers is better than 4
-	if (options_->buffer_count > 0) // give option to the user to use a different value
-		cfg.bufferCount = options_->buffer_count;
 	if (options_->width)
 		cfg.size.width = options_->width;
 	if (options_->height)
@@ -487,7 +485,6 @@ void LibcameraApp::StartCamera()
 		controls_.set(controls::ScalerCrop, crop);
 	}
 
-
 	if (!controls_.get(controls::AfWindows) && !controls_.get(controls::AfMetering) && options_->afWindow_width != 0 && options_->afWindow_height != 0)
 	{
 		Rectangle sensor_area = *camera_->properties().get(properties::ScalerCropMaximum);
@@ -547,13 +544,8 @@ void LibcameraApp::StartCamera()
 
 	if(camera_->controls().count(&controls::AfMode)>0){
 		LOG(2, "Camera has AfMode");
-		if (options_->afMode_index!=-1 && !controls_.get(controls::AfMode)){
+		if (options_->afMode_index!=-1 && !controls_.get(controls::AfMode))
 			controls_.set(controls::AfMode, options_->afMode_index);
-			if(options_->afMode_index == controls::AfModeAuto){
-				//does the first focus on start 
-				controls_.set(controls::AfTrigger, controls::AfTriggerStart);
-			}
-		}
 		if (options_->afRange_index!=-1 && !controls_.get(controls::AfRange))
 			controls_.set(controls::AfRange, options_->afRange_index);
 		if (options_->afSpeed_index!=-1 && !controls_.get(controls::AfSpeed))
