@@ -210,8 +210,7 @@ struct Options
 	std::string afWindow;
 	float afWindow_x, afWindow_y, afWindow_width, afWindow_height;
 	std::string metadata;
-	std::string metadata_format;
-	
+	std::string metadata_format;	
 
 	virtual bool Parse(int argc, char *argv[]);
 	virtual void Print() const;
