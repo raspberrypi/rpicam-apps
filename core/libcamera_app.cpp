@@ -485,7 +485,8 @@ void LibcameraApp::StartCamera()
 		controls_.set(controls::ScalerCrop, crop);
 	}
 
-	if (!controls_.get(controls::AfWindows) && !controls_.get(controls::AfMetering) && options_->afWindow_width != 0 && options_->afWindow_height != 0)
+	if (!controls_.get(controls::AfWindows) && !controls_.get(controls::AfMetering) && options_->afWindow_width != 0 &&
+		options_->afWindow_height != 0)
 	{
 		Rectangle sensor_area = *camera_->properties().get(properties::ScalerCropMaximum);
 		int x = options_->afWindow_x * sensor_area.width;
@@ -493,7 +494,7 @@ void LibcameraApp::StartCamera()
 		int w = options_->afWindow_width * sensor_area.width;
 		int h = options_->afWindow_height * sensor_area.height;
 		Rectangle afwindows_rectangle[1];
-		afwindows_rectangle[0]= Rectangle(x, y, w, h);
+		afwindows_rectangle[0] = Rectangle(x, y, w, h);
 		afwindows_rectangle[0].translateBy(sensor_area.topLeft());
 		LOG(2, "Using AfWindow " << afwindows_rectangle[0].toString());
 		//activate the AfMeteringWindows
@@ -542,13 +543,14 @@ void LibcameraApp::StartCamera()
 	if (!controls_.get(controls::Sharpness))
 		controls_.set(controls::Sharpness, options_->sharpness);
 
-	if(camera_->controls().count(&controls::AfMode)>0){
+	if (camera_->controls().count(&controls::AfMode) > 0)
+	{
 		LOG(2, "Camera has AfMode");
-		if (options_->afMode_index!=-1 && !controls_.get(controls::AfMode))
+		if (options_->afMode_index != -1 && !controls_.get(controls::AfMode))
 			controls_.set(controls::AfMode, options_->afMode_index);
-		if (options_->afRange_index!=-1 && !controls_.get(controls::AfRange))
+		if (options_->afRange_index != -1 && !controls_.get(controls::AfRange))
 			controls_.set(controls::AfRange, options_->afRange_index);
-		if (options_->afSpeed_index!=-1 && !controls_.get(controls::AfSpeed))
+		if (options_->afSpeed_index != -1 && !controls_.get(controls::AfSpeed))
 			controls_.set(controls::AfSpeed, options_->afSpeed_index);
 	}
 	if (camera_->start(&controls_))

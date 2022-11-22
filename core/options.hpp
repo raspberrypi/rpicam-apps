@@ -139,7 +139,7 @@ struct Options
 			 "Set the range of focus distances that is scanned.(normal, macro, full)")
 			("autofocus-speed", value<std::string>(&afSpeed)->default_value("unset"),
 			 "Control that determines whether the AF algorithm is to move the lens as quickly as possible or more steadily.(normal, fast)")
-			("autofocus-window", value<std::string>(&afWindow)->default_value("0,0,0,0"), 
+			("autofocus-window", value<std::string>(&afWindow)->default_value("0,0,0,0"),
 			"Sets AfMetering to  AfMeteringWindows an set region used for examle  e.g. 0.25,0.25,0.5,0.5")
 			("metadata", value<std::string>(&metadata),
 			 "Save captured image metadata to a file or \"-\" for stdout")
