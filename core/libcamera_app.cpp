@@ -271,7 +271,7 @@ void LibcameraApp::ConfigureViewfinder()
 	configuration_->at(0).size = size;
 	if (options_->viewfinder_buffer_count > 0)
 		configuration_->at(0).bufferCount = options_->viewfinder_buffer_count;
-		
+
 	if (have_lores_stream)
 	{
 		Size lores_size(options_->lores_width, options_->lores_height);
@@ -425,7 +425,7 @@ void LibcameraApp::ConfigureVideo(unsigned int flags)
 			throw std::runtime_error("Low res image larger than video");
 		configuration_->at(lores_index).pixelFormat = libcamera::formats::YUV420;
 		configuration_->at(lores_index).size = lores_size;
-		configuration_->at(lores_index).bufferCount = configuration_->at(0).bufferCount;		
+		configuration_->at(lores_index).bufferCount = configuration_->at(0).bufferCount;
 	}
 	configuration_->transform = options_->transform;
 
