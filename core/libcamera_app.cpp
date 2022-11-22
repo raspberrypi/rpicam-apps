@@ -269,6 +269,8 @@ void LibcameraApp::ConfigureViewfinder()
 	// Now we get to override any of the default settings from the options_->
 	configuration_->at(0).pixelFormat = libcamera::formats::YUV420;
 	configuration_->at(0).size = size;
+	if(options_->viewfinder_buffer_count > 0)
+		configuration_->at(0).bufferCount = options_->viewfinder_buffer_count;
 
 	if (have_lores_stream)
 	{
@@ -331,6 +333,8 @@ void LibcameraApp::ConfigureStill(unsigned int flags)
 		configuration_->at(0).bufferCount = 2;
 	else if ((flags & FLAG_STILL_BUFFER_MASK) == FLAG_STILL_TRIPLE_BUFFER)
 		configuration_->at(0).bufferCount = 3;
+	else if (options_->buffer_count > 0)
+		configuration_->at(0).bufferCount = options_->buffer_count;
 	if (options_->width)
 		configuration_->at(0).size.width = options_->width;
 	if (options_->height)
@@ -381,6 +385,7 @@ void LibcameraApp::ConfigureVideo(unsigned int flags)
 	// Now we get to override any of the default settings from the options_->
 	StreamConfiguration &cfg = configuration_->at(0);
 	cfg.pixelFormat = libcamera::formats::YUV420;
+	cfg.bufferCount = 6; // 6 buffers is better than 4
 	if (options_->buffer_count > 0)
 		cfg.bufferCount = options_->buffer_count;
 	if (options_->width)
@@ -420,9 +425,7 @@ void LibcameraApp::ConfigureVideo(unsigned int flags)
 			throw std::runtime_error("Low res image larger than video");
 		configuration_->at(lores_index).pixelFormat = libcamera::formats::YUV420;
 		configuration_->at(lores_index).size = lores_size;
-		if(options_->viewfinder_buffer_count > 0)
-			configuration_->at(lores_index).bufferCount = options_->viewfinder_buffer_count;
-		
+		configuration_->at(lores_index).bufferCount = configuration_->at(0).bufferCount;		
 	}
 	configuration_->transform = options_->transform;
 
