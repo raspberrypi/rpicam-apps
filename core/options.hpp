@@ -141,6 +141,8 @@ struct Options
 			 "Control that determines whether the AF algorithm is to move the lens as quickly as possible or more steadily.(normal, fast)")
 			("autofocus-window", value<std::string>(&afWindow)->default_value("0,0,0,0"),
 			"Sets AfMetering to  AfMeteringWindows an set region used for examle  e.g. 0.25,0.25,0.5,0.5")
+			("buffer-count", value<unsigned int>(&buffer_count)->default_value(0), "Number of in-flight requests (and buffers) configured for video, raw, and still.")
+			("viewfinder-buffer-count", value<unsigned int>(&viewfinder_buffer_count)->default_value(0), "Number of in-flight requests (and buffers) configured for preview window.")
 			("metadata", value<std::string>(&metadata),
 			 "Save captured image metadata to a file or \"-\" for stdout")
 			("metadata-format", value<std::string>(&metadata_format)->default_value("json"),
@@ -209,6 +211,8 @@ struct Options
 	int afSpeed_index;
 	std::string afWindow;
 	float afWindow_x, afWindow_y, afWindow_width, afWindow_height;
+	unsigned int buffer_count;
+	unsigned int viewfinder_buffer_count;
 	std::string metadata;
 	std::string metadata_format;
 
