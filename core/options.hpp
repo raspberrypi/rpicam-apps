@@ -133,6 +133,8 @@ struct Options
 			 "Camera mode as W:H:bit-depth:packing, where packing is P (packed) or U (unpacked)")
 			("viewfinder-mode", value<std::string>(&viewfinder_mode_string),
 			 "Camera mode for preview as W:H:bit-depth:packing, where packing is P (packed) or U (unpacked)")
+			("buffer-count", value<unsigned int>(&buffer_count)->default_value(0), "Number of in-flight requests (and buffers) configured for video, raw, and still.")
+			("viewfinder-buffer-count", value<unsigned int>(&viewfinder_buffer_count)->default_value(0), "Number of in-flight requests (and buffers) configured for preview window.")
 			("metadata", value<std::string>(&metadata),
 			 "Save captured image metadata to a file or \"-\" for stdout")
 			("metadata-format", value<std::string>(&metadata_format)->default_value("json"),
@@ -193,6 +195,8 @@ struct Options
 	Mode mode;
 	std::string viewfinder_mode_string;
 	Mode viewfinder_mode;
+	unsigned int buffer_count;
+	unsigned int viewfinder_buffer_count;
 	std::string metadata;
 	std::string metadata_format;
 
