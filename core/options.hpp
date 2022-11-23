@@ -62,7 +62,8 @@ struct Options
 			 "Sets the information string on the titlebar. Available values:\n"
 			 "%frame (frame number)\n%fps (framerate)\n%exp (shutter speed)\n%ag (analogue gain)"
 			 "\n%dg (digital gain)\n%rg (red colour gain)\n%bg (blue colour gain)"
-			 "\n%focus (focus FoM value)\n%aelock (AE locked status)")
+			 "\n%focus (focus FoM value)\n%aelock (AE locked status)"
+			 "\n%lp (lens position, if known)\n%afstate (AF state, if supported)")
 			("width", value<unsigned int>(&width)->default_value(0),
 			 "Set the output image width (0 = use default value)")
 			("height", value<unsigned int>(&height)->default_value(0),
