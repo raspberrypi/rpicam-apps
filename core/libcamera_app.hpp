@@ -121,7 +121,7 @@ public:
 
 	void ShowPreview(CompletedRequestPtr &completed_request, Stream *stream);
 
-	void SetControls(ControlList &controls);
+	void SetControls(const ControlList &controls);
 	StreamInfo GetStreamInfo(Stream const *stream) const;
 
 	static unsigned int verbosity;

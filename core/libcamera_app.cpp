@@ -730,10 +730,15 @@ void LibcameraApp::ShowPreview(CompletedRequestPtr &completed_request, Stream *s
 	preview_cond_var_.notify_one();
 }
 
-void LibcameraApp::SetControls(ControlList &controls)
+void LibcameraApp::SetControls(const ControlList &controls)
 {
 	std::lock_guard<std::mutex> lock(control_mutex_);
-	controls_ = std::move(controls);
+
+	// Add new controls to the stored list. If a control is duplicated,
+	// the value in the argument replaces the previously stored value.
+	// These controls will be applied to the next StartCamera or request.
+	for (const auto &c : controls)
+		controls_.set(c.first, c.second);
 }
 
 StreamInfo LibcameraApp::GetStreamInfo(Stream const *stream) const
