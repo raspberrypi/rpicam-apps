@@ -39,7 +39,7 @@ struct Mode
 
 struct Options
 {
-	Options() : options_("Valid options are", 120, 80)
+	Options() : set_default_lens_position(false), options_("Valid options are", 120, 80)
 	{
 		using namespace boost::program_options;
 		// clang-format off
@@ -144,6 +144,8 @@ struct Options
 			 "Control that determines whether the AF algorithm is to move the lens as quickly as possible or more steadily.(normal, fast)")
 			("autofocus-window", value<std::string>(&afWindow)->default_value("0,0,0,0"),
 			"Sets AfMetering to  AfMeteringWindows an set region used, e.g. 0.25,0.25,0.5,0.5")
+			("lens-position", value<std::string>(&lens_position_)->default_value(""),
+			 "Set the lens to a particular focus position, expressed as a reciprocal distance (0 moves the lens to infinity), or \"default\" for the hyperfocal distance")
 			("metadata", value<std::string>(&metadata),
 			 "Save captured image metadata to a file or \"-\" for stdout")
 			("metadata-format", value<std::string>(&metadata_format)->default_value("json"),
@@ -214,6 +216,8 @@ struct Options
 	int afSpeed_index;
 	std::string afWindow;
 	float afWindow_x, afWindow_y, afWindow_width, afWindow_height;
+	std::optional<float> lens_position;
+	bool set_default_lens_position;
 	std::string metadata;
 	std::string metadata_format;
 
@@ -228,4 +232,5 @@ private:
 	bool vflip_;
 	int rotation_;
 	float framerate_;
+	std::string lens_position_;
 };

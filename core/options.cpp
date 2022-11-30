@@ -68,6 +68,17 @@ bool Options::Parse(int argc, char *argv[])
 	if (framerate_ != -1.0)
 		framerate = framerate_;
 
+	// lens_position is even more awkward, because we have two "default"
+	// behaviours: Either no lens movement at all (if option is not given),
+	// or libcamera's default control value (typically the hyperfocal).
+	float f = 0.0;
+	if (std::istringstream(lens_position_) >> f)
+		lens_position = f;
+	else if (lens_position_ == "default")
+		set_default_lens_position = true;
+	else if (!lens_position_.empty())
+		throw std::runtime_error("Invalid lens position: " + lens_position_);
+
 	// Set the verbosity
 	LibcameraApp::verbosity = verbose;
 
@@ -338,6 +349,8 @@ void Options::Print() const
 	else
 		std::cerr << "    autofocus-window: " << afWindow_x << "," << afWindow_y << "," << afWindow_width << ","
 				  << afWindow_height << std::endl;
+	if (!lens_position_.empty())
+		std::cerr << "    lens-position: " << lens_position_ << std::endl;
 	std::cerr << "    mode: " << mode.ToString() << std::endl;
 	std::cerr << "    viewfinder-mode: " << viewfinder_mode.ToString() << std::endl;
 	if (buffer_count > 0)
