@@ -34,7 +34,7 @@ void LibAvEncoder::initVideoCodec(VideoOptions const *options, StreamInfo const 
 	codec_ctx_[Video]->height = info.height;
 	// usec timebase
 	codec_ctx_[Video]->time_base = { 1, 1000 * 1000 };
-	codec_ctx_[Video]->framerate = { (int)(options->framerate * 1000), 1000 };
+	codec_ctx_[Video]->framerate = { (int)(options->framerate.value_or(DEFAULT_FRAMERATE) * 1000), 1000 };
 	codec_ctx_[Video]->pix_fmt = AV_PIX_FMT_DRM_PRIME;
 	codec_ctx_[Video]->sw_pix_fmt = AV_PIX_FMT_YUV420P;
 
@@ -123,16 +123,26 @@ void LibAvEncoder::initVideoCodec(VideoOptions const *options, StreamInfo const 
 	if (!stream_[Video])
 		throw std::runtime_error("libav: cannot allocate stream for vidout output context");
 
-	stream_[Video]->time_base = codec_ctx_[Video]->time_base;
+	// The avi stream context seems to need the video stream time_base set to
+	// 1/framerate to report the correct framerate in the container file.
+	//
+	// This seems to be a limitation/bug in ffmpeg:
+	// https://github.com/FFmpeg/FFmpeg/blob/3141dbb7adf1e2bd5b9ff700312d7732c958b8df/libavformat/avienc.c#L527
+	if (!strncmp(out_fmt_ctx_->oformat->name, "avi", 3))
+		stream_[Video]->time_base = { 1000, (int)(options->framerate.value_or(DEFAULT_FRAMERATE) * 1000) };
+	else
+		stream_[Video]->time_base = codec_ctx_[Video]->time_base;
+
+	stream_[Video]->avg_frame_rate = stream_[Video]->r_frame_rate = codec_ctx_[Video]->framerate;
 	avcodec_parameters_from_context(stream_[Video]->codecpar, codec_ctx_[Video]);
 }
 
 void LibAvEncoder::initAudioInCodec(VideoOptions const *options, StreamInfo const &info)
 {
 #if LIBAVUTIL_VERSION_MAJOR < 58
-	AVInputFormat *input_fmt = (AVInputFormat *)av_find_input_format("pulse");
+	AVInputFormat *input_fmt = (AVInputFormat *)av_find_input_format(options->audio_source.c_str());
 #else
-	const AVInputFormat *input_fmt = (AVInputFormat *)av_find_input_format("pulse");
+	const AVInputFormat *input_fmt = (AVInputFormat *)av_find_input_format(options->audio_source.c_str());
 #endif
 
 	assert(in_fmt_ctx_ == nullptr);
@@ -178,7 +188,8 @@ void LibAvEncoder::initAudioOutCodec(VideoOptions const *options, StreamInfo con
 	assert(stream_[AudioIn]);
 	codec_ctx_[AudioOut]->channels = stream_[AudioIn]->codecpar->channels;
 	codec_ctx_[AudioOut]->channel_layout = av_get_default_channel_layout(stream_[AudioIn]->codecpar->channels);
-	codec_ctx_[AudioOut]->sample_rate = stream_[AudioIn]->codecpar->sample_rate;
+	codec_ctx_[AudioOut]->sample_rate = options->audio_samplerate ? options->audio_samplerate
+																  : stream_[AudioIn]->codecpar->sample_rate;
 	codec_ctx_[AudioOut]->sample_fmt = codec->sample_fmts[0];
 	codec_ctx_[AudioOut]->bit_rate = options->audio_bitrate;
 	// usec timebase
@@ -202,7 +213,7 @@ void LibAvEncoder::initAudioOutCodec(VideoOptions const *options, StreamInfo con
 
 LibAvEncoder::LibAvEncoder(VideoOptions const *options, StreamInfo const &info)
 	: Encoder(options), output_ready_(false), abort_video_(false), abort_audio_(false),
-	  video_start_ts_(0), audio_start_ts_(0), in_fmt_ctx_(nullptr), out_fmt_ctx_(nullptr)
+	  video_start_ts_(0), audio_samples_(0), in_fmt_ctx_(nullptr), out_fmt_ctx_(nullptr)
 {
 	avdevice_register_all();
 
@@ -304,7 +315,13 @@ void LibAvEncoder::initOutput()
 	char err[64];
 	if (!(out_fmt_ctx_->flags & AVFMT_NOFILE))
 	{
-		ret = avio_open2(&out_fmt_ctx_->pb, options_->output.c_str(), AVIO_FLAG_WRITE, nullptr, nullptr);
+		std::string filename = options_->output;
+
+		// libav uses "pipe:" for stdout
+		if (filename == "-")
+			filename = std::string("pipe:");
+
+		ret = avio_open2(&out_fmt_ctx_->pb, filename.c_str(), AVIO_FLAG_WRITE, nullptr, nullptr);
 		if (ret < 0)
 		{
 			av_strerror(ret, err, sizeof(err));
@@ -421,7 +438,7 @@ done:
 
 void LibAvEncoder::audioThread()
 {
-	constexpr AVSampleFormat required_fmt = AV_SAMPLE_FMT_FLTP;
+	const AVSampleFormat required_fmt = codec_ctx_[AudioOut]->sample_fmt;
 	// Amount of time to pre-record audio into the fifo before the first video frame.
 	constexpr std::chrono::milliseconds pre_record_time(10);
 
@@ -461,13 +478,13 @@ void LibAvEncoder::audioThread()
 
 		// Audio Resample/Conversion
 		uint8_t **samples = nullptr;
-		ret = av_samples_alloc_array_and_samples(&samples, NULL, codec_ctx_[AudioOut]->channels, in_frame->nb_samples,
-												 required_fmt, 0);
+		ret = av_samples_alloc_array_and_samples(&samples, NULL, codec_ctx_[AudioOut]->channels,
+												 codec_ctx_[AudioOut]->frame_size, required_fmt, 0);
 		if (ret < 0)
 			throw std::runtime_error("libav: failed to alloc sample array");
 
-		ret = swr_convert(conv, samples, in_frame->nb_samples, (const uint8_t **)in_frame->extended_data,
-						  in_frame->nb_samples);
+		ret = swr_convert(conv, samples, codec_ctx_[AudioOut]->frame_size,
+						  (const uint8_t **)in_frame->extended_data, in_frame->nb_samples);
 		if (ret < 0)
 			throw std::runtime_error("libav: swr_convert failed");
 
@@ -495,16 +512,12 @@ void LibAvEncoder::audioThread()
 		av_audio_fifo_write(fifo, (void **)samples, in_frame->nb_samples);
 		av_freep(&samples[0]);
 
-		int64_t in_pts = in_frame->pts;
 		av_frame_unref(in_frame);
 		av_packet_unref(in_pkt);
 
 		// Not yet ready to generate encoded audio!
 		if (!output_ready_)
 			continue;
-
-		if (audio_start_ts_ == 0)
-			audio_start_ts_ = in_pts;
 
 		// Audio Out
 		while (av_audio_fifo_size(fifo) >= codec_ctx_[AudioOut]->frame_size)
@@ -519,7 +532,12 @@ void LibAvEncoder::audioThread()
 			av_frame_get_buffer(out_frame, 0);
 			av_audio_fifo_read(fifo, (void **)out_frame->data, codec_ctx_[AudioOut]->frame_size);
 
-			out_frame->pts = in_pts - audio_start_ts_ + (options_->av_sync > 0 ? options_->av_sync : 0);
+			AVRational num = { 1, out_frame->sample_rate };
+			int64_t ts = av_rescale_q(audio_samples_, num, codec_ctx_[AudioOut]->time_base);
+
+			out_frame->pts = ts + (options_->av_sync > 0 ? options_->av_sync : 0);
+			audio_samples_ += codec_ctx_[AudioOut]->frame_size;
+
 			ret = avcodec_send_frame(codec_ctx_[AudioOut], out_frame);
 			if (ret < 0)
 				throw std::runtime_error("libav: error encoding frame: " + std::to_string(ret));

@@ -9,6 +9,7 @@
 
 #include <fstream>
 #include <iostream>
+#include <optional>
 
 #include <boost/program_options.hpp>
 
@@ -20,6 +21,8 @@
 
 #include "core/logging.hpp"
 #include "core/version.hpp"
+
+static constexpr double DEFAULT_FRAMERATE = 30.0;
 
 struct Mode
 {
@@ -59,7 +62,8 @@ struct Options
 			 "Sets the information string on the titlebar. Available values:\n"
 			 "%frame (frame number)\n%fps (framerate)\n%exp (shutter speed)\n%ag (analogue gain)"
 			 "\n%dg (digital gain)\n%rg (red colour gain)\n%bg (blue colour gain)"
-			 "\n%focus (focus FoM value)\n%aelock (AE locked status)")
+			 "\n%focus (focus FoM value)\n%aelock (AE locked status)"
+			 "\n%lp (lens position, if known)\n%afstate (AF state, if supported)")
 			("width", value<unsigned int>(&width)->default_value(0),
 			 "Set the output image width (0 = use default value)")
 			("height", value<unsigned int>(&height)->default_value(0),
@@ -112,7 +116,7 @@ struct Options
 			 "Adjust the colour saturation of the output, where 1.0 = normal and 0.0 = greyscale")
 			("sharpness", value<float>(&sharpness)->default_value(1.0),
 			 "Adjust the sharpness of the output image, where 1.0 = normal sharpening")
-			("framerate", value<float>(&framerate)->default_value(30.0),
+			("framerate", value<float>(&framerate_)->default_value(-1.0),
 			 "Set the fixed framerate for preview and video modes")
 			("denoise", value<std::string>(&denoise)->default_value("auto"),
 			 "Sets the Denoise operating mode: auto, off, cdn_off, cdn_fast, cdn_hq")
@@ -130,6 +134,16 @@ struct Options
 			 "Camera mode as W:H:bit-depth:packing, where packing is P (packed) or U (unpacked)")
 			("viewfinder-mode", value<std::string>(&viewfinder_mode_string),
 			 "Camera mode for preview as W:H:bit-depth:packing, where packing is P (packed) or U (unpacked)")
+			("buffer-count", value<unsigned int>(&buffer_count)->default_value(0), "Number of in-flight requests (and buffers) configured for video, raw, and still.")
+			("viewfinder-buffer-count", value<unsigned int>(&viewfinder_buffer_count)->default_value(0), "Number of in-flight requests (and buffers) configured for preview window.")
+			("autofocus-mode", value<std::string>(&afMode)->default_value("unset"),
+			 "Control to set the mode of the AF (autofocus) algorithm.(manual, auto, continuous)")
+			("autofocus-range", value<std::string>(&afRange)->default_value("unset"),
+			 "Set the range of focus distances that is scanned.(normal, macro, full)")
+			("autofocus-speed", value<std::string>(&afSpeed)->default_value("unset"),
+			 "Control that determines whether the AF algorithm is to move the lens as quickly as possible or more steadily.(normal, fast)")
+			("autofocus-window", value<std::string>(&afWindow)->default_value("0,0,0,0"),
+			"Sets AfMetering to  AfMeteringWindows an set region used, e.g. 0.25,0.25,0.5,0.5")
 			("metadata", value<std::string>(&metadata),
 			 "Save captured image metadata to a file or \"-\" for stdout")
 			("metadata-format", value<std::string>(&metadata_format)->default_value("json"),
@@ -176,7 +190,7 @@ struct Options
 	float contrast;
 	float saturation;
 	float sharpness;
-	float framerate;
+	std::optional<float> framerate;
 	std::string denoise;
 	std::string info_text;
 	unsigned int viewfinder_width;
@@ -190,6 +204,16 @@ struct Options
 	Mode mode;
 	std::string viewfinder_mode_string;
 	Mode viewfinder_mode;
+	unsigned int buffer_count;
+	unsigned int viewfinder_buffer_count;
+	std::string afMode;
+	int afMode_index;
+	std::string afRange;
+	int afRange_index;
+	std::string afSpeed;
+	int afSpeed_index;
+	std::string afWindow;
+	float afWindow_x, afWindow_y, afWindow_width, afWindow_height;
 	std::string metadata;
 	std::string metadata_format;
 
@@ -203,4 +227,5 @@ private:
 	bool hflip_;
 	bool vflip_;
 	int rotation_;
+	float framerate_;
 };
