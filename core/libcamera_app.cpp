@@ -559,6 +559,28 @@ void LibcameraApp::StartCamera()
 		if (options_->afSpeed_index != -1 && !controls_.get(controls::AfSpeed))
 			controls_.set(controls::AfSpeed, options_->afSpeed_index);
 	}
+
+	if (controls_.get(controls::AfMode).value_or(controls::AfModeManual) == controls::AfModeAuto)
+	{
+		// When starting a viewfinder or video stream in AF "auto" mode,
+		// trigger a scan now (but don't move the lens when capturing a still).
+		// If an application requires more control over AF triggering, it may
+		// override this behaviour with prior settings of AfMode or AfTrigger.
+		if (!StillStream() && !controls_.get(controls::AfTrigger))
+			controls_.set(controls::AfTrigger, controls::AfTriggerStart);
+	}
+	else if ((options_->lens_position || options_->set_default_lens_position) &&
+			 camera_->controls().count(&controls::LensPosition) > 0 && !controls_.get(controls::LensPosition))
+	{
+		float f;
+		if (options_->lens_position)
+			f = options_->lens_position.value();
+		else
+			f = camera_->controls().at(&controls::LensPosition).def().get<float>();
+		LOG(2, "Setting LensPosition: " << f);
+		controls_.set(controls::LensPosition, f);
+	}
+
 	if (camera_->start(&controls_))
 		throw std::runtime_error("failed to start camera");
 	controls_.clear();
