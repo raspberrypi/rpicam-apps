@@ -206,6 +206,7 @@ static void event_loop(LibcameraStillApp &app)
 		AF_WAIT_SCANNING,
 		AF_WAIT_FINISHED
 	} af_wait_state = AF_WAIT_NONE;
+	int af_wait_timeout = 0;
 
 	for (unsigned int count = 0;; count++)
 	{
@@ -248,7 +249,7 @@ static void event_loop(LibcameraStillApp &app)
 			{
 				FrameInfo fi(completed_request->metadata);
 				bool scanning = fi.af_state == libcamera::controls::AfStateScanning;
-				if (scanning)
+				if (scanning || (af_wait_state == AF_WAIT_SCANNING && ++af_wait_timeout >= 16))
 					af_wait_state = AF_WAIT_FINISHED;
 				else if (af_wait_state == AF_WAIT_FINISHED)
 					want_capture = true;
@@ -267,6 +268,7 @@ static void event_loop(LibcameraStillApp &app)
 					cl.set(libcamera::controls::AfTrigger, libcamera::controls::AfTriggerStart);
 					app.SetControls(cl);
 					af_wait_state = AF_WAIT_SCANNING;
+					af_wait_timeout = 0;
 				}
 				else
 					want_capture = true;
