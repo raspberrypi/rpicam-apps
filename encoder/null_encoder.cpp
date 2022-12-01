@@ -57,7 +57,10 @@ void NullEncoder::outputThread()
 					return;
 			}
 		}
-		output_ready_callback_(item.mem, item.length, item.timestamp_us, true);
+		// Ensure the input done callback happens before the output ready callback.
+		// This is needed as the metadata queue gets pushed in the former, and popped
+		// in the latter.
 		input_done_callback_(nullptr);
+		output_ready_callback_(item.mem, item.length, item.timestamp_us, true);
 	}
 }
