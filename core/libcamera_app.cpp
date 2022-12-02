@@ -269,6 +269,8 @@ void LibcameraApp::ConfigureViewfinder()
 	// Now we get to override any of the default settings from the options_->
 	configuration_->at(0).pixelFormat = libcamera::formats::YUV420;
 	configuration_->at(0).size = size;
+	if (options_->viewfinder_buffer_count > 0)
+		configuration_->at(0).bufferCount = options_->viewfinder_buffer_count;
 
 	if (have_lores_stream)
 	{
@@ -331,6 +333,8 @@ void LibcameraApp::ConfigureStill(unsigned int flags)
 		configuration_->at(0).bufferCount = 2;
 	else if ((flags & FLAG_STILL_BUFFER_MASK) == FLAG_STILL_TRIPLE_BUFFER)
 		configuration_->at(0).bufferCount = 3;
+	else if (options_->buffer_count > 0)
+		configuration_->at(0).bufferCount = options_->buffer_count;
 	if (options_->width)
 		configuration_->at(0).size.width = options_->width;
 	if (options_->height)
@@ -382,6 +386,8 @@ void LibcameraApp::ConfigureVideo(unsigned int flags)
 	StreamConfiguration &cfg = configuration_->at(0);
 	cfg.pixelFormat = libcamera::formats::YUV420;
 	cfg.bufferCount = 6; // 6 buffers is better than 4
+	if (options_->buffer_count > 0)
+		cfg.bufferCount = options_->buffer_count;
 	if (options_->width)
 		cfg.size.width = options_->width;
 	if (options_->height)
@@ -485,6 +491,24 @@ void LibcameraApp::StartCamera()
 		controls_.set(controls::ScalerCrop, crop);
 	}
 
+	if (!controls_.get(controls::AfWindows) && !controls_.get(controls::AfMetering) && options_->afWindow_width != 0 &&
+		options_->afWindow_height != 0)
+	{
+		Rectangle sensor_area = *camera_->properties().get(properties::ScalerCropMaximum);
+		int x = options_->afWindow_x * sensor_area.width;
+		int y = options_->afWindow_y * sensor_area.height;
+		int w = options_->afWindow_width * sensor_area.width;
+		int h = options_->afWindow_height * sensor_area.height;
+		Rectangle afwindows_rectangle[1];
+		afwindows_rectangle[0] = Rectangle(x, y, w, h);
+		afwindows_rectangle[0].translateBy(sensor_area.topLeft());
+		LOG(2, "Using AfWindow " << afwindows_rectangle[0].toString());
+		//activate the AfMeteringWindows
+		controls_.set(controls::AfMetering, controls::AfMeteringWindows);
+		//set window
+		controls_.set(controls::AfWindows, afwindows_rectangle);
+	}
+
 	// Framerate is a bit weird. If it was set programmatically, we go with that, but
 	// otherwise it applies only to preview/video modes. For stills capture we set it
 	// as long as possible so that we get whatever the exposure profile wants.
@@ -524,6 +548,38 @@ void LibcameraApp::StartCamera()
 		controls_.set(controls::Saturation, options_->saturation);
 	if (!controls_.get(controls::Sharpness))
 		controls_.set(controls::Sharpness, options_->sharpness);
+
+	if (camera_->controls().count(&controls::AfMode) > 0)
+	{
+		LOG(2, "Camera has AfMode");
+		if (options_->afMode_index != -1 && !controls_.get(controls::AfMode))
+			controls_.set(controls::AfMode, options_->afMode_index);
+		if (options_->afRange_index != -1 && !controls_.get(controls::AfRange))
+			controls_.set(controls::AfRange, options_->afRange_index);
+		if (options_->afSpeed_index != -1 && !controls_.get(controls::AfSpeed))
+			controls_.set(controls::AfSpeed, options_->afSpeed_index);
+	}
+
+	if (controls_.get(controls::AfMode).value_or(controls::AfModeManual) == controls::AfModeAuto)
+	{
+		// When starting a viewfinder or video stream in AF "auto" mode,
+		// trigger a scan now (but don't move the lens when capturing a still).
+		// If an application requires more control over AF triggering, it may
+		// override this behaviour with prior settings of AfMode or AfTrigger.
+		if (!StillStream() && !controls_.get(controls::AfTrigger))
+			controls_.set(controls::AfTrigger, controls::AfTriggerStart);
+	}
+	else if ((options_->lens_position || options_->set_default_lens_position) &&
+			 camera_->controls().count(&controls::LensPosition) > 0 && !controls_.get(controls::LensPosition))
+	{
+		float f;
+		if (options_->lens_position)
+			f = options_->lens_position.value();
+		else
+			f = camera_->controls().at(&controls::LensPosition).def().get<float>();
+		LOG(2, "Setting LensPosition: " << f);
+		controls_.set(controls::LensPosition, f);
+	}
 
 	if (camera_->start(&controls_))
 		throw std::runtime_error("failed to start camera");
@@ -696,10 +752,15 @@ void LibcameraApp::ShowPreview(CompletedRequestPtr &completed_request, Stream *s
 	preview_cond_var_.notify_one();
 }
 
-void LibcameraApp::SetControls(ControlList &controls)
+void LibcameraApp::SetControls(const ControlList &controls)
 {
 	std::lock_guard<std::mutex> lock(control_mutex_);
-	controls_ = std::move(controls);
+
+	// Add new controls to the stored list. If a control is duplicated,
+	// the value in the argument replaces the previously stored value.
+	// These controls will be applied to the next StartCamera or request.
+	for (const auto &c : controls)
+		controls_.set(c.first, c.second);
 }
 
 StreamInfo LibcameraApp::GetStreamInfo(Stream const *stream) const
