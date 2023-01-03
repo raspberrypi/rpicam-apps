@@ -4,7 +4,7 @@ This is a small suite of libcamera-based apps that aim to copy the functionality
 
 Build
 -----
-For usage and build instructions, see the official Raspberry Pi documenation pages [here.](https://www.raspberrypi.com/documentation/accessories/camera.html#libcamera-and-libcamera-apps)
+For usage and build instructions, see the official Raspberry Pi documenation pages [here.](https://www.raspberrypi.com/documentation/computers/camera_software.html#building-libcamera-and-libcamera-apps)
 
 License
 -------
