@@ -221,7 +221,7 @@ bool Options::Parse(int argc, char *argv[])
 	exposure_index = exposure_table[exposure];
 
 	std::map<std::string, int> afMode_table =
-		{ { "unset", -1 },
+		{ { "default", -1 },
 			{ "manual", libcamera::controls::AfModeManual },
 			{ "auto", libcamera::controls::AfModeAuto },
 			{ "continuous", libcamera::controls::AfModeContinuous } };
@@ -230,8 +230,7 @@ bool Options::Parse(int argc, char *argv[])
 	afMode_index = afMode_table[afMode];
 
 	std::map<std::string, int> afRange_table =
-		{ { "unset", -1 },
-		    { "normal", libcamera::controls::AfRangeNormal },
+		{ { "normal", libcamera::controls::AfRangeNormal },
 			{ "macro", libcamera::controls::AfRangeMacro },
 			{ "full", libcamera::controls::AfRangeFull } };
 	if (afRange_table.count(afRange) == 0)
@@ -240,8 +239,7 @@ bool Options::Parse(int argc, char *argv[])
 
 
 	std::map<std::string, int> afSpeed_table =
-		{ { "unset", -1 },
-		    { "normal", libcamera::controls::AfSpeedNormal },
+		{ { "normal", libcamera::controls::AfSpeedNormal },
 		    { "fast", libcamera::controls::AfSpeedFast } };
 	if (afSpeed_table.count(afSpeed) == 0)
 		throw std::runtime_error("Invalid afSpeed mode:" + afSpeed);
