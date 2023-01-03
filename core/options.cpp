@@ -4,6 +4,10 @@
  *
  * options.cpp - common program options helpers
  */
+#include <fcntl.h>
+#include <linux/v4l2-controls.h>
+#include <linux/videodev2.h>
+#include <sys/ioctl.h>
 #include <algorithm>
 #include <iomanip>
 #include <iostream>
@@ -47,6 +51,16 @@ std::string Mode::ToString() const
 	}
 }
 
+static int xioctl(int fd, unsigned long ctl, void *arg)
+{
+	int ret, num_tries = 10;
+	do
+	{
+		ret = ioctl(fd, ctl, arg);
+	} while (ret == -1 && errno == EINTR && num_tries-- > 0);
+	return ret;
+}
+
 bool Options::Parse(int argc, char *argv[])
 {
 	using namespace boost::program_options;
@@ -78,6 +92,28 @@ bool Options::Parse(int argc, char *argv[])
 		set_default_lens_position = true;
 	else if (!lens_position_.empty())
 		throw std::runtime_error("Invalid lens position: " + lens_position_);
+
+	// HDR control. Set this before opening or listing any cameras.
+	// Currently this does not exist in libcamera, so go directly to V4L2
+	// XXX it's not obvious which v4l2-subdev to use for which camera!
+	if (hdr >= 0)
+	{
+		bool ok = false;
+		for (int i = 0; i < 4 && !ok; i++)
+		{
+			std::string dev("/dev/v4l-subdev");
+			dev += (char)('0' + i);
+			int fd = open(dev.c_str(), O_RDWR, 0);
+			if (fd < 0)
+				continue;
+
+			v4l2_control ctrl { V4L2_CID_WIDE_DYNAMIC_RANGE, hdr };
+			ok = !xioctl(fd, VIDIOC_S_CTRL, &ctrl);
+			close(fd);
+		}
+		if (!ok)
+			LOG_ERROR("WARNING: Unable to set HDR mode");
+	}
 
 	// Set the verbosity
 	LibcameraApp::verbosity = verbose;
@@ -351,6 +387,8 @@ void Options::Print() const
 				  << afWindow_height << std::endl;
 	if (!lens_position_.empty())
 		std::cerr << "    lens-position: " << lens_position_ << std::endl;
+	if (hdr >= 0)
+		std::cerr << "    hdr: " << hdr << std::endl;
 	std::cerr << "    mode: " << mode.ToString() << std::endl;
 	std::cerr << "    viewfinder-mode: " << viewfinder_mode.ToString() << std::endl;
 	if (buffer_count > 0)

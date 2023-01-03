@@ -146,6 +146,8 @@ struct Options
 			"Sets AfMetering to  AfMeteringWindows an set region used, e.g. 0.25,0.25,0.5,0.5")
 			("lens-position", value<std::string>(&lens_position_)->default_value(""),
 			 "Set the lens to a particular focus position, expressed as a reciprocal distance (0 moves the lens to infinity), or \"default\" for the hyperfocal distance")
+			("hdr", value<int>(&hdr)->default_value(-1)->implicit_value(1),
+			 "Enable (1) or disable (0) High Dynamic Range, where supported")
 			("metadata", value<std::string>(&metadata),
 			 "Save captured image metadata to a file or \"-\" for stdout")
 			("metadata-format", value<std::string>(&metadata_format)->default_value("json"),
@@ -220,6 +222,7 @@ struct Options
 	bool set_default_lens_position;
 	std::string metadata;
 	std::string metadata_format;
+	int hdr;
 
 	virtual bool Parse(int argc, char *argv[]);
 	virtual void Print() const;
