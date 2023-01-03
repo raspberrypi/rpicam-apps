@@ -67,7 +67,6 @@ struct StillOptions : public Options
 	bool raw;
 	std::string latest;
 	bool immediate;
-	bool af_on_capture;
 
 	virtual bool Parse(int argc, char *argv[]) override
 	{

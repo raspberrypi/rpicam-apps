@@ -549,16 +549,24 @@ void LibcameraApp::StartCamera()
 	if (!controls_.get(controls::Sharpness))
 		controls_.set(controls::Sharpness, options_->sharpness);
 
-	if (camera_->controls().count(&controls::AfMode) > 0)
+	// AF Controls, where supported and not already set
+	if (!controls_.get(controls::AfMode) && camera_->controls().count(&controls::AfMode) > 0)
 	{
-		LOG(2, "Camera has AfMode");
-		if (options_->afMode_index != -1 && !controls_.get(controls::AfMode))
-			controls_.set(controls::AfMode, options_->afMode_index);
-		if (options_->afRange_index != -1 && !controls_.get(controls::AfRange))
-			controls_.set(controls::AfRange, options_->afRange_index);
-		if (options_->afSpeed_index != -1 && !controls_.get(controls::AfSpeed))
-			controls_.set(controls::AfSpeed, options_->afSpeed_index);
+		int afm = options_->afMode_index;
+		if (afm == -1)
+		{
+			// Choose a default AF mode based on other options
+			if (options_->lens_position || options_->set_default_lens_position || options_->af_on_capture)
+				afm = controls::AfModeManual;
+			else
+				afm = camera_->controls().at(&controls::AfMode).max().get<int>();
+		}
+		controls_.set(controls::AfMode, afm);
 	}
+	if (!controls_.get(controls::AfRange) && camera_->controls().count(&controls::AfRange) > 0)
+		controls_.set(controls::AfRange, options_->afRange_index);
+	if (!controls_.get(controls::AfSpeed) && camera_->controls().count(&controls::AfSpeed) > 0)
+		controls_.set(controls::AfSpeed, options_->afSpeed_index);
 
 	if (controls_.get(controls::AfMode).value_or(controls::AfModeManual) == controls::AfModeAuto)
 	{
