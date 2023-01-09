@@ -42,7 +42,7 @@ jobs:
       run: tar -cvf build-artifacts-libcamera.tar -C ${{env.LIBCAMERA_SRC_DIR}} .
 
     - name: Upload build files
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v3
       with:
         name: build-artifacts-libcamera
         path: build-artifacts-libcamera.tar
@@ -54,7 +54,7 @@ jobs:
     needs: build-libcamera
 
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
       with:
         fetch-depth: 1
         clean: true
@@ -63,7 +63,7 @@ jobs:
       run: rm -rf ${{env.LIBCAMERA_SRC_DIR}} && mkdir -p ${{env.LIBCAMERA_SRC_DIR}}
 
     - name: Download libcamera artifact
-      uses: actions/download-artifact@v2
+      uses: actions/download-artifact@v3
       with:
         name: build-artifacts-libcamera
         path: ${{github.workspace}}
@@ -83,7 +83,7 @@ jobs:
       run: tar -cvf build-artifacts-libcamera-apps.tar -C ${{github.workspace}}/build .
 
     - name: Upload build files
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v3
       with:
         name: build-artifacts-libcamera-apps
         path: build-artifacts-libcamera-apps.tar
@@ -99,7 +99,7 @@ jobs:
         camera: [ imx219, imx477 ]
 
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
       with:
         fetch-depth: 1
         clean: true
@@ -108,7 +108,7 @@ jobs:
       run: mkdir -p ${{github.workspace}}/test_output
 
     - name: Download libcamera-apps build
-      uses: actions/download-artifact@v2
+      uses: actions/download-artifact@v3
       with:
         name: build-artifacts-libcamera-apps
         path: ${{github.workspace}}
@@ -120,7 +120,7 @@ jobs:
       run: rm -rf ${{env.LIBCAMERA_SRC_DIR}} && mkdir -p ${{env.LIBCAMERA_SRC_DIR}}
 
     - name: Download libcamera artifact
-      uses: actions/download-artifact@v2
+      uses: actions/download-artifact@v3
       with:
         name: build-artifacts-libcamera
         path: ${{github.workspace}}
@@ -140,7 +140,7 @@ jobs:
 
     - name: Upload test output
       if: ${{failure()}}
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v3
       with:
         name: test-artifacts-${{matrix.camera}}
         path: ${{github.workspace}}/test_output/
@@ -163,7 +163,7 @@ jobs:
       run: rm -rf ${{env.LIBCAMERA_SRC_DIR}} && mkdir -p ${{env.LIBCAMERA_SRC_DIR}}
 
     - name: Download libcamera artifact
-      uses: actions/download-artifact@v2
+      uses: actions/download-artifact@v3
       with:
         name: build-artifacts-libcamera
         path: ${{github.workspace}}
