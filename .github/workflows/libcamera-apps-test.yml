@@ -82,7 +82,7 @@ jobs:
 
     strategy:
       matrix:
-        camera: [ imx219, imx477 ]
+        camera: [ imx219, imx477, imx708 ]
 
     steps:
     - uses: actions/checkout@v3
