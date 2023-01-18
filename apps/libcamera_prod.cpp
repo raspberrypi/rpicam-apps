@@ -154,6 +154,13 @@ struct ProdOptions : public VideoOptions
 		if (VideoOptions::Parse(argc, argv) == false)
 			return false;
 
+		/* Ensure AF is disabled when libcamera_prod drives the lens */
+		if (focus_test || focus_fix != INT_MIN) {
+			afMode_index = libcamera::controls::AfModeManual;
+			lens_position = std::nullopt;
+			set_default_lens_position = false;
+		}
+
 		return true;
 	}
 };
