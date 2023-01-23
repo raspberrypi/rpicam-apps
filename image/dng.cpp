@@ -5,6 +5,7 @@
  * dng.cpp - Save raw image as DNG file.
  */
 
+#include <limits>
 #include <map>
 
 #include <libcamera/control_ids.h>
@@ -313,6 +314,13 @@ void dng_save(std::vector<libcamera::Span<uint8_t>> const &mem, StreamInfo const
 
 		TIFFSetField(tif, EXIFTAG_ISOSPEEDRATINGS, 1, &iso);
 		TIFFSetField(tif, EXIFTAG_EXPOSURETIME, exp_time);
+
+		auto lp = metadata.get(libcamera::controls::LensPosition);
+		if (lp)
+		{
+			double dist = (*lp > 0.0) ? (1.0 / *lp) : std::numeric_limits<double>::infinity();
+			TIFFSetField(tif, EXIFTAG_SUBJECTDISTANCE, dist);
+		}
 
 		TIFFCheckpointDirectory(tif);
 		offset_exififd = TIFFCurrentDirOffset(tif);
