@@ -488,6 +488,13 @@ static void create_exif_data(std::vector<libcamera::Span<uint8_t>> const &mem,
 			LOG(2, "Ag " << *ag << " Dg " << *dg << " Total " << gain);
 			exif_set_short(entry->data, exif_byte_order, 100 * gain);
 		}
+		auto lp = metadata.get(libcamera::controls::LensPosition);
+		if (lp)
+		{
+			entry = exif_create_tag(exif, EXIF_IFD_EXIF, EXIF_TAG_SUBJECT_DISTANCE);
+			ExifRational dist = { 1000, (ExifLong)(1000.0 * *lp) };
+			exif_set_rational(entry->data, exif_byte_order, dist);
+		}
 
 		// Command-line supplied tags.
 		for (auto &exif_item : options->exif)
