@@ -144,6 +144,14 @@ struct VideoOptions : public Options
 		if ((split || segment) && output.find('%') == std::string::npos)
 			LOG_ERROR("WARNING: expected % directive in output filename");
 
+		// From https://en.wikipedia.org/wiki/Advanced_Video_Coding#Levels
+		double mbps = ((width + 15) >> 4) * ((height + 15) >> 4) * framerate.value_or(DEFAULT_FRAMERATE);
+		if ((codec == "h264" || codec == "libav") && mbps > 245760.0)
+		{
+			LOG(1, "Overriding H.264 level 4.2");
+			level = "4.2";
+		}
+
 		return true;
 	}
 	virtual void Print() const override

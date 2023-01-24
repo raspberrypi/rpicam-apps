@@ -31,6 +31,7 @@ else()
 endif()
 
 add_library(encoders ${SRC})
+set_target_properties(encoders PROPERTIES VERSION ${PROJECT_VERSION} SOVERSION ${PROJECT_VERSION_MAJOR})
 target_link_libraries(encoders ${TARGET_LIBS})
 target_compile_definitions(encoders PUBLIC LIBAV_PRESENT=${LIBAV_PRESENT})
 

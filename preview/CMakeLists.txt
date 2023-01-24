@@ -64,6 +64,7 @@ else()
 endif()
 
 add_library(preview null_preview.cpp ${SRC})
+set_target_properties(preview PROPERTIES VERSION ${PROJECT_VERSION} SOVERSION ${PROJECT_VERSION_MAJOR})
 target_link_libraries(preview ${TARGET_LIBS})
 
 target_compile_definitions(preview PUBLIC LIBDRM_PRESENT=${DRM_FOUND})
