@@ -17,7 +17,7 @@ static void generate_filename(RawOptions *options, unsigned int clip_number = 0)
 	options->folder = std::string(filename);
 }
 
-static bool record_clip(RawOptions *options, unsigned int clip_number = 0)
+static bool create_clip_folder(RawOptions *options, unsigned int clip_number = 0)
 {
 	generate_filename(options, clip_number);
 	return fs::create_directories(std::string("/media/RAW/") + options->folder);

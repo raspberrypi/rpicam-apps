@@ -53,14 +53,24 @@ static void event_loop(CinePIRecorder &app, CinePIController &controller)
 		LOG(2, "Viewfinder frame " << count);
 		auto now = std::chrono::high_resolution_clock::now();
 
-		if(controller.isRecording()){
-			app.EncodeBuffer(std::get<CompletedRequestPtr>(msg.payload), app.RawStream(), app.LoresStream());
+		CompletedRequestPtr &completed_request = std::get<CompletedRequestPtr>(msg.payload);
+
+		controller.process(completed_request);
+
+		int trigger = controller.triggerRec();
+		if(trigger > 0){
+			controller.folderOpen = create_clip_folder(app.GetOptions(), controller.getClipNumber());
+		} else if (trigger < 0){
+			controller.folderOpen = false;
+			app.GetEncoder()->resetFrameCount();
+		}
+	
+		if(controller.isRecording() && controller.folderOpen){
+			app.EncodeBuffer(completed_request, app.RawStream(), app.LoresStream());
 			std::cout << count << std::endl;
 		}
 
-		// FrameInfo info(completed_request->metadata);
-		
-		app.ShowPreview(std::get<CompletedRequestPtr>(msg.payload), app.VideoStream());        
+		app.ShowPreview(completed_request, app.VideoStream());        
 	}
 }
 

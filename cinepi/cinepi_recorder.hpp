@@ -63,75 +63,8 @@ public:
 		encoder_->EncodeBuffer2(buffer->planes()[0].fd.get(), span.size(), mem, info, lospan.size(), lomem, loinfo, timestamp_ns / 1000, completed_request->metadata);
 	}
 	RawOptions *GetOptions() const { return static_cast<RawOptions *>(options_.get()); }
+	DngEncoder *GetEncoder() { return encoder_.get(); }
 	void StopEncoder() { encoder_.reset(); }
-
-	void LibcameraApp::OpenCamera()
-	{
-		// Make a preview window.
-		preview_ = std::unique_ptr<Preview>(make_preview(options_.get()));
-		preview_->SetDoneCallback(std::bind(&LibcameraApp::previewDoneCallback, this, std::placeholders::_1));
-
-		LOG(2, "Opening camera...");
-
-		camera_manager_ = std::make_unique<CameraManager>();
-		int ret = camera_manager_->start();
-		if (ret)
-			throw std::runtime_error("camera manager failed to start, code " + std::to_string(-ret));
-
-		std::vector<std::shared_ptr<libcamera::Camera>> cameras = camera_manager_->cameras();
-		// Do not show USB webcams as these are not supported in libcamera-apps!
-		auto rem = std::remove_if(cameras.begin(), cameras.end(),
-								[](auto &cam) { return cam->id().find("/usb") != std::string::npos; });
-		cameras.erase(rem, cameras.end());
-
-		if (cameras.size() == 0)
-			throw std::runtime_error("no cameras available");
-		if (options_->camera >= cameras.size())
-			throw std::runtime_error("selected camera is not available");
-
-		std::string const &cam_id = cameras[options_->camera]->id();
-		camera_ = camera_manager_->get(cam_id);
-		if (!camera_)
-			throw std::runtime_error("failed to find camera " + cam_id);
-
-		if (camera_->acquire())
-			throw std::runtime_error("failed to acquire camera " + cam_id);
-		camera_acquired_ = true;
-
-		LOG(2, "Acquired camera " << cam_id);
-
-		if (!options_->post_process_file.empty())
-			post_processor_.Read(options_->post_process_file);
-		// The queue takes over ownership from the post-processor.
-		post_processor_.SetCallback(
-			[this](CompletedRequestPtr &r) { this->msg_queue_.Post(Msg(MsgType::RequestComplete, std::move(r))); });
-
-		if (options_->framerate)
-		{
-			std::unique_ptr<CameraConfiguration> config = camera_->generateConfiguration({ libcamera::StreamRole::Raw });
-			const libcamera::StreamFormats &formats = config->at(0).formats();
-
-			// Suppress log messages when enumerating camera modes.
-			libcamera::logSetLevel("RPI", "ERROR");
-			libcamera::logSetLevel("Camera", "ERROR");
-
-			for (const auto &pix : formats.pixelformats())
-			{
-				for (const auto &size : formats.sizes(pix))
-				{
-					config->at(0).size = size;
-					config->at(0).pixelFormat = pix;
-					config->validate();
-					camera_->configure(config.get());
-					auto fd_ctrl = camera_->controls().find(&controls::FrameDurationLimits);
-					sensor_modes_.emplace_back(size, pix, 1.0e6 / fd_ctrl->second.min().get<int64_t>());
-				}
-			}
-
-			libcamera::logSetLevel("RPI", "INFO");
-			libcamera::logSetLevel("Camera", "INFO");
-		}
-	};
 
 protected:
 	virtual void createEncoder()

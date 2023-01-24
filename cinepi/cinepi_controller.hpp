@@ -22,6 +22,9 @@
 
 #include "utils.hpp"
 
+#include "cinepi_frameinfo.hpp"
+#include "core/stream_info.hpp"
+
 #include "cinepi_recorder.hpp"
 #include "cinepi_state.hpp"
 #include "raw_options.hpp"
@@ -46,18 +49,28 @@ class CinePIController : public CinePIState
             std::cout << redis_->ping() << std::endl;
             // sync();
             main_thread_ = std::thread(std::bind(&CinePIController::mainThread, this));
-            pub_thread_ = std::thread(std::bind(&CinePIController::pubThread, this));
+            // pub_thread_ = std::thread(std::bind(&CinePIController::pubThread, this));
         }
 
         void sync();
 
-        void process();
+        void process(CompletedRequestPtr &completed_request);
+
+        bool folderOpen;
+
+        int triggerRec(){
+            int state = trigger_;
+            trigger_ = 0;
+            return state;
+        }
 
     protected:
 
     private:
         void mainThread();
         void pubThread();
+
+        int trigger_;
 
         CinePIRecorder *app_;
         RawOptions *options_;
