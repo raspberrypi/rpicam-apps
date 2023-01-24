@@ -38,7 +38,7 @@ using namespace sw::redis;
 class CinePIController : public CinePIState
 {
     public:
-        CinePIController(CinePIRecorder *app) : CinePIState(), app_(app), options_(app->GetOptions()), abortThread_(false) {};
+        CinePIController(CinePIRecorder *app) : CinePIState(), app_(app), options_(app->GetOptions()), folderOpen(false), abortThread_(false) {};
         ~CinePIController() {
             abortThread_ = true;
             main_thread_.join();
@@ -59,7 +59,13 @@ class CinePIController : public CinePIState
         bool folderOpen;
 
         int triggerRec(){
+            if(!disk_mounted()){
+                return 0;
+            }
             int state = trigger_;
+            if(state < 0){
+                clip_number_++;
+            }
             trigger_ = 0;
             return state;
         }

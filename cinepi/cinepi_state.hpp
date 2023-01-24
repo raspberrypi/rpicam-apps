@@ -28,7 +28,7 @@
 class CinePIState
 {
     public:
-        CinePIState() : is_recording_(false) {};
+        CinePIState() : is_recording_(false), clip_number_(0) {};
         ~CinePIState() {};
 
         bool isRecording(){
