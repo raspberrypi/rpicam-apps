@@ -49,6 +49,7 @@ else()
 endif()
 
 add_library(post_processing_stages ${SRC})
+set_target_properties(post_processing_stages PROPERTIES VERSION ${PROJECT_VERSION} SOVERSION ${PROJECT_VERSION_MAJOR})
 target_link_libraries(post_processing_stages ${TARGET_LIBS})
 target_compile_definitions(post_processing_stages PUBLIC OPENCV_PRESENT=${OpenCV_FOUND})
 
