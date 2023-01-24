@@ -25,6 +25,7 @@ struct RawOptions : public VideoOptions
 	}
 
 	uint32_t clip_number;
+	std::string mediaDest;
 	std::string folder;
 	int compression;
 	float wb;
@@ -32,4 +33,6 @@ struct RawOptions : public VideoOptions
 	std::string make;
 	std::string serial;
 	float clipping;
+	std::string redis;
+
 };

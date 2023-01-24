@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.6)
 
 project(cinepi-raw)
-add_executable(cinepi-raw cinepi_raw.cpp dng_encoder.cpp)
+add_executable(cinepi-raw cinepi_raw.cpp dng_encoder.cpp cinepi_controller.cpp cinepi_state.cpp)
 target_link_libraries(cinepi-raw libcamera_app encoders outputs)
 
 # <---------- set c++ standard ------------->

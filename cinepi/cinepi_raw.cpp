@@ -7,42 +7,32 @@
 
 #include <chrono>
 
-#include "cinepi_encoder.hpp"
+#include "cinepi_controller.hpp"
 #include "dng_encoder.hpp"
 #include "output/output.hpp"
-#include <sw/redis++/redis++.h>
 
 using namespace std::placeholders;
-using namespace sw::redis;
-
-class CinePIRAW : public CinePIEncoder
-{
-public:
-	CinePIRAW() : CinePIEncoder() {}
-
-protected:
-	// Force the use of "null" encoder.
-	void createEncoder() { encoder_ = std::unique_ptr<Encoder>(new DngEncoder(GetOptions())); }
-};
 
 // The main even loop for the application.
 
-static void event_loop(CinePIRAW &app)
+static void event_loop(CinePIRecorder &app, CinePIController &controller)
 {
+	controller.start();
+
 	RawOptions const *options = app.GetOptions();
 	std::unique_ptr<Output> output = std::unique_ptr<Output>(Output::Create(options));
 	app.SetEncodeOutputReadyCallback(std::bind(&Output::OutputReady, output.get(), _1, _2, _3, _4));
 	app.SetMetadataReadyCallback(std::bind(&Output::MetadataReady, output.get(), _1));
 
 	app.OpenCamera();
-	app.ConfigureVideo(CinePIRAW::FLAG_VIDEO_RAW);
+	app.ConfigureVideo(CinePIRecorder::FLAG_VIDEO_RAW);
 	app.StartEncoder();
 	app.StartCamera();
 	auto start_time = std::chrono::high_resolution_clock::now();
 
 	for (unsigned int count = 0; ; count++)
 	{
-		CinePIRAW::Msg msg = app.Wait();
+		CinePIRecorder::Msg msg = app.Wait();
 
 		if (msg.type == LibcameraApp::MsgType::Timeout)
 		{
@@ -51,7 +41,7 @@ static void event_loop(CinePIRAW &app)
 			app.StartCamera();
 			continue;
 		}
-		if (msg.type != CinePIRAW::MsgType::RequestComplete)
+		if (msg.type != CinePIRecorder::MsgType::RequestComplete)
 			throw std::runtime_error("unrecognised message!");
 		if (count == 0)
 		{
@@ -62,16 +52,15 @@ static void event_loop(CinePIRAW &app)
 
 		LOG(2, "Viewfinder frame " << count);
 		auto now = std::chrono::high_resolution_clock::now();
-		if (options->timeout && now - start_time > std::chrono::milliseconds(options->timeout))
-		{
-			app.StopCamera();
-			app.StopEncoder();
-			return;
+
+		if(controller.isRecording()){
+			app.EncodeBuffer(std::get<CompletedRequestPtr>(msg.payload), app.RawStream(), app.LoresStream());
+			std::cout << count << std::endl;
 		}
 
-		app.EncodeBuffer(std::get<CompletedRequestPtr>(msg.payload), app.RawStream());
-
-        std::cout << count << std::endl;
+		// FrameInfo info(completed_request->metadata);
+		
+		app.ShowPreview(std::get<CompletedRequestPtr>(msg.payload), app.VideoStream());        
 	}
 }
 
@@ -79,19 +68,22 @@ int main(int argc, char *argv[])
 {
 	try
 	{
-        auto redis = Redis("redis://127.0.0.1:6379/0");
-        std::cout << redis.ping() << std::endl;
+		CinePIRecorder app;
+		CinePIController controller(&app);
 
-		CinePIRAW app;
 		RawOptions *options = app.GetOptions();
 		if (options->Parse(argc, argv))
 		{
-			options->denoise = "cdn_off";
-			options->nopreview = true;
+			options->denoise = "off";
+			options->lores_width = 400;
+			options->lores_height = 200;
+			options->redis = "redis://127.0.0.1:6379/0";
+			options->mediaDest = "/media/RAW";
+
 			if (options->verbose >= 2)
 				options->Print();
 
-			event_loop(app);
+			event_loop(app, controller);
 		}
 	}
 	catch (std::exception const &e)

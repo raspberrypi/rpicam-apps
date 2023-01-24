@@ -17,7 +17,8 @@ public:
 	~DngEncoder();
 	// Encode the given buffer.
 	void EncodeBuffer(int fd, size_t size, void *mem, StreamInfo const &info, int64_t timestamp_us) override;
-	// void MyEncodeBuffer(int fd, size_t size, void *mem, StreamInfo const &info, size_t losize, void *lomem, StreamInfo const &loinfo, int64_t timestamp_us) override;
+	// void Encode(CompletedRequestPtr &completed_request);
+	void EncodeBuffer2(int fd, size_t size, void *mem, StreamInfo const &info, size_t losize, void *lomem, StreamInfo const &loinfo, int64_t timestamp_us, CompletedRequest::ControlList const &metadata);
 	void resetFrameCount(){
 		index_ = 0;
 	}
@@ -65,14 +66,7 @@ private:
 		void *lomem;
 		size_t losize;
 		StreamInfo loinfo;
-		int64_t timestamp_us;
-		uint64_t index;
-	};
-    struct EncodeItem2
-	{
-		void *mem;
-        size_t size;
-		StreamInfo info;
+		CompletedRequest::ControlList met;
 		int64_t timestamp_us;
 		uint64_t index;
 	};

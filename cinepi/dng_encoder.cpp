@@ -33,9 +33,9 @@ static char TIFF_GBRG[4] = { 1, 2, 0, 1 };
 
 struct BayerFormat
 {
-	char const *name;
+	const char *name;
 	int bits;
-	char const *order;
+	const char *order;
 };
 
 ttag_t TIFFTAG_FRAMERATE =  0xC764;
@@ -61,48 +61,12 @@ static const std::map<PixelFormat, BayerFormat> bayer_formats =
 	{ formats::SBGGR12, { "BGGR-12", 12, TIFF_BGGR } },
 };
 
-static void unpack_10bit(uint8_t *src, StreamInfo const &info, uint16_t *dest)
-{
-	unsigned int w_align = info.width & ~3;
-	for (unsigned int y = 0; y < info.height; y++, src += info.stride)
-	{
-		uint8_t *ptr = src;
-		unsigned int x;
-		for (x = 0; x < w_align; x += 4, ptr += 5)
-		{
-			*dest++ = (ptr[0] << 2) | ((ptr[4] >> 0) & 3);
-			*dest++ = (ptr[1] << 2) | ((ptr[4] >> 2) & 3);
-			*dest++ = (ptr[2] << 2) | ((ptr[4] >> 4) & 3);
-			*dest++ = (ptr[3] << 2) | ((ptr[4] >> 6) & 3);
-		}
-		for (; x < info.width; x++)
-			*dest++ = (ptr[x & 3] << 2) | ((ptr[4] >> ((x & 3) << 1)) & 3);
-	}
-}
-
 extern __attribute__((noinline, section("disasm"))) void unpack12p(uint8x16x3_t *input){
     uint8x16_t tmp1 = input->val[1];
     uint8x16_t tmp2 = input->val[2];
 
     input->val[1] = vorrq_u8(vshlq_n_u8(tmp2,4),vshrq_n_u8(tmp1,4));
     input->val[2] = vorrq_u8(vshlq_n_u8(tmp1,4),vshrq_n_u8(tmp2,4));
-}
-
-static void unpack_12bit(uint8_t *src, StreamInfo const &info, uint16_t *dest)
-{
-	unsigned int w_align = info.width & ~1;
-	for (unsigned int y = 0; y < info.height; y++, src += info.stride)
-	{
-		uint8_t *ptr = src;
-		unsigned int x;
-		for (x = 0; x < w_align; x += 2, ptr += 3)
-		{
-			*dest++ = (ptr[0] << 4) | ((ptr[2] >> 0) & 15);
-			*dest++ = (ptr[1] << 4) | ((ptr[2] >> 4) & 15);
-		}
-		if (x < info.width)
-			*dest++ = (ptr[x & 1] << 4) | ((ptr[2] >> ((x & 1) << 2)) & 15);
-	}
 }
 
 struct Matrix
@@ -182,10 +146,6 @@ void DngEncoder::EncodeBuffer(int fd, size_t size, void *mem, StreamInfo const &
 {
 	{
 		std::lock_guard<std::mutex> lock(encode_mutex_);
-		// EncodeItem2 item = { mem, size, info, timestamp_us, index_++ };
-		// encode_queue_.push(item);
-		// encode_cond_var_.notify_all();
-        // free(mem);
 	}
     {
         input_done_callback_(nullptr);
@@ -193,15 +153,15 @@ void DngEncoder::EncodeBuffer(int fd, size_t size, void *mem, StreamInfo const &
 	}		
 }
 
-// void DngEncoder::MyEncodeBuffer(int fd, size_t size, void *mem, StreamInfo const &info, size_t losize, void *lomem, StreamInfo const &loinfo, int64_t timestamp_us)
-// {
-// 	{
-// 		std::lock_guard<std::mutex> lock(encode_mutex_);
-// 		EncodeItem item = { mem, size, info, lomem, losize, loinfo, timestamp_us, index_++ };
-// 		encode_queue_.push(item);
-// 		encode_cond_var_.notify_all();
-// 	}
-// }
+void DngEncoder::EncodeBuffer2(int fd, size_t size, void *mem, StreamInfo const &info, size_t losize, void *lomem, StreamInfo const &loinfo, int64_t timestamp_us, CompletedRequest::ControlList const &metadata)
+{
+	{
+		std::lock_guard<std::mutex> lock(encode_mutex_);
+		EncodeItem item = { mem, size, info, lomem, losize, loinfo, metadata, timestamp_us, index_++ };
+		encode_queue_.push(item);
+		encode_cond_var_.notify_all();
+	}
+}
 
 void DngEncoder::dng_save(uint8_t const *mem, StreamInfo const &info, uint8_t const *lomem, StreamInfo const &loinfo, size_t losize,
 			  ControlList const &metadata, std::string const &filename,
@@ -497,7 +457,8 @@ void DngEncoder::encodeThread(int num)
 		{
 			std::unique_lock<std::mutex> lock(encode_mutex_);
 			while (true)
-			{
+			{	
+
 				using namespace std::chrono_literals;
 				if (abortEncode_ && encode_queue_.empty())
 				{
@@ -526,7 +487,7 @@ void DngEncoder::encodeThread(int num)
 			memcpy(mem, encode_item.mem, encode_item.size);
 			uint8_t *lomem = (uint8_t*)malloc(encode_item.losize);
 			memcpy(lomem, encode_item.lomem, encode_item.losize);
-			CachedItem item = { mem, encode_item.size, encode_item.info, lomem, encode_item.losize, encode_item.loinfo, *(metadata_), encode_item.timestamp_us, encode_item.index };
+			CachedItem item = { mem, encode_item.size, encode_item.info, lomem, encode_item.losize, encode_item.loinfo, encode_item.met, encode_item.timestamp_us, encode_item.index };
 			std::lock_guard<std::mutex> lock(cache_mutex_);
 			cache_buffer_.push_back(std::move(item));
 			cache_cond_var_.notify_all();
@@ -572,7 +533,7 @@ void DngEncoder::cacheThread(int num)
 
 
 		char ft[128];
-		snprintf(ft, sizeof(ft), "%s/%s/%s_%09ld.dng", "/media/RAW", options_->folder.c_str(), options_->folder.c_str(), cache_item.index);
+		snprintf(ft, sizeof(ft), "%s/%s/%s_%09ld.dng", options_->mediaDest.c_str(), options_->folder.c_str(), options_->folder.c_str(), cache_item.index);
 		std::string filename = std::string(ft);
 		LOG(2, "save frame: " << cache_item.index);
 
