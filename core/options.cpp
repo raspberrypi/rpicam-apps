@@ -82,6 +82,11 @@ bool Options::Parse(int argc, char *argv[])
 	if (framerate_ != -1.0)
 		framerate = framerate_;
 
+	// Check if --nopreview is set, and if no info-text string was provided
+	// null the defaulted string so nothing gets displayed to stderr.
+	if (nopreview && vm["info-text"].defaulted())
+		info_text = "";
+
 	// lens_position is even more awkward, because we have two "default"
 	// behaviours: Either no lens movement at all (if option is not given),
 	// or libcamera's default control value (typically the hyperfocal).
