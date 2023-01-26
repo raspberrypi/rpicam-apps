@@ -25,6 +25,8 @@ public:
 	// Return the maximum image size allowed. Zeroes mean "no limit".
 	virtual void MaxImageSize(unsigned int &w, unsigned int &h) const override { w = h = 0; }
 
+	void SetInfoText(const std::string &text) override { LOG(1, text); }
+
 private:
 };
 
