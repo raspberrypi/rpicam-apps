@@ -130,6 +130,8 @@ struct ProdOptions : public VideoOptions
 			 "Analyse a 4-quadrant image")
 			("black", value<uint32_t>(&black_level)->default_value(4096),
 			 "Sets the black level for quad test (in 16-bits)")
+			("temp", value<bool>(&check_temp)->default_value(false)->implicit_value(true),
+			 "Report min and max sensor temperature")
 			;
 		// clang-format on
 	}
@@ -139,6 +141,7 @@ struct ProdOptions : public VideoOptions
 	bool dust_test;
 	bool quad_test;
 	bool hist;
+	bool check_temp;
 	int32_t focus_steps;
 	int32_t focus_min;
 	int32_t focus_max;
@@ -169,8 +172,8 @@ class LibcameraProd : public LibcameraApp
 {
 public:
 	LibcameraProd()
-		: LibcameraApp(std::make_unique<ProdOptions>()),
-		  focus_pos_(0), focus_min_pos_(0), focus_max_pos_(0), focus_revdir_(false), focus_cycles_(0)
+		: LibcameraApp(std::make_unique<ProdOptions>()), focus_pos_(0), focus_min_pos_(0), focus_max_pos_(0),
+		  focus_revdir_(false), focus_cycles_(0), lens_device_(), temp_min_(65536), temp_max_(-1)
 	{
 	}
 
@@ -183,6 +186,8 @@ public:
 	bool run_focus_test(CompletedRequestPtr req, unsigned int count);
 	void run_dust_test(CompletedRequestPtr req);
 	void run_quad_test(CompletedRequestPtr req);
+	void record_temp(int t);
+	void report_temp();
 
 	std::vector<uint16_t> linebuf_;
 	std::vector<std::map<int, float>> foms_;
@@ -192,6 +197,7 @@ public:
 	bool focus_revdir_;
 	unsigned int focus_cycles_;
 	std::string lens_device_;
+	int temp_min_, temp_max_;
 };
 
 void LibcameraProd::run_calibration(CompletedRequestPtr req)
@@ -758,6 +764,19 @@ void LibcameraProd::run_quad_test(CompletedRequestPtr req)
 	delete [] rowsums;
 }
 
+void LibcameraProd::record_temp(int t)
+{
+	if (t < temp_min_)
+		temp_min_ = t;
+	if (t > temp_max_)
+		temp_max_ = t;
+}
+
+void LibcameraProd::report_temp()
+{
+	std::cout << "Temperature: min " << temp_min_ << " max " << temp_max_ << " diff " << (temp_max_ - temp_min_)
+			  << std::endl;
+}
 
 // The main even loop for the application.
 
@@ -814,8 +833,18 @@ static void event_loop(LibcameraProd &app)
 			if (app.run_focus_test(req, count))
 				break;
 
+		if (options->check_temp)
+		{
+			auto tctl = req->metadata.get(libcamera::controls::SensorTemperature);
+			if (tctl)
+				app.record_temp(*tctl);
+		}
+
 		app.ShowPreview(req, app.VideoStream());
 	}
+
+	if (options->check_temp)
+		app.report_temp();
 
 	std::cout << std::endl;
 
