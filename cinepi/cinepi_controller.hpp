@@ -59,7 +59,7 @@ class CinePIController : public CinePIState
         bool folderOpen;
 
         int triggerRec(){
-            if(!disk_mounted()){
+            if(!disk_mounted(const_cast<RawOptions *>(options_))){
                 return 0;
             }
             int state = trigger_;

@@ -59,6 +59,7 @@ static const std::map<PixelFormat, BayerFormat> bayer_formats =
 	{ formats::SBGGR12_CSI2P, { "BGGR-12", 12, TIFF_BGGR } },
 	{ formats::SGBRG12_CSI2P, { "GBRG-12", 12, TIFF_GBRG } },
 	{ formats::SBGGR12, { "BGGR-12", 12, TIFF_BGGR } },
+	{ formats::SBGGR10, { "BGGR-10", 10, TIFF_BGGR } },
 };
 
 extern __attribute__((noinline, section("disasm"))) void unpack12p(uint8x16x3_t *input){
@@ -119,7 +120,7 @@ Matrix(float m0, float m1, float m2,
 };
 
 DngEncoder::DngEncoder(RawOptions const *options)
-	: Encoder(options), abortEncode_(false), abortOutput_(false), index_(0), frameStop_(0), frames_(0), resetCount_(false), encodeCheck_(false), cache_buffer_(448)
+	: Encoder(options), abortEncode_(false), abortOutput_(false), index_(0), frameStop_(0), frames_(0), resetCount_(false), encodeCheck_(false), cache_buffer_(448), compressed(false)
 {
     options_ = options;
 	// output_thread_ = std::thread(&DngEncoder::outputThread, this);
@@ -167,13 +168,20 @@ void DngEncoder::dng_save(uint8_t const *mem, StreamInfo const &info, uint8_t co
 			  ControlList const &metadata, std::string const &filename,
 			  std::string const &cam_name, RawOptions const *options, uint64_t fn)
 {
-	// Check the Bayer format and unpack it to u16.
+	
+	uint8_t rawUniq[8]; 
+	memset(rawUniq, 0, sizeof(rawUniq));
+	auto rU = metadata.get(libcamera::controls::SensorTimestamp);
+	if(rU){
+		memcpy(rawUniq, (uint8_t*)&(*rU), sizeof(rawUniq));
+	}
 
+	// Check the Bayer format
 	auto it = bayer_formats.find(info.pixel_format);
 	if (it == bayer_formats.end())
 		throw std::runtime_error("unsupported Bayer format");
 	BayerFormat const &bayer_format = it->second;
-	// LOG(2, "Bayer format is " << bayer_format.name);
+	LOG(2, "Bayer format is " << bayer_format.name);
 
 	// We need to fish out some metadata values for the DNG.
 	float black = 4096 * (1 << bayer_format.bits) / 65536.0;
@@ -268,14 +276,15 @@ void DngEncoder::dng_save(uint8_t const *mem, StreamInfo const &info, uint8_t co
 		TIFFSetField(tif, TIFFTAG_COMPRESSION, COMPRESSION_NONE);
 		TIFFSetField(tif, TIFFTAG_PHOTOMETRIC, PHOTOMETRIC_RGB);
 		TIFFSetField(tif, TIFFTAG_MAKE, "Raspberry Pi");
-		TIFFSetField(tif, TIFFTAG_MODEL, options_->model.c_str());
+		TIFFSetField(tif, TIFFTAG_MODEL, options_->sensor.c_str());
 		TIFFSetField(tif, TIFFTAG_DNGVERSION, "\001\004\000\000");
 		TIFFSetField(tif, TIFFTAG_DNGBACKWARDVERSION, "\001\001\000\000");
 		TIFFSetField(tif, TIFFTAG_UNIQUECAMERAMODEL, options_->serial.c_str());
+		TIFFSetField(tif, TIFFTAG_RAWDATAUNIQUEID, rawUniq);
 		TIFFSetField(tif, TIFFTAG_ORIENTATION, ORIENTATION_TOPLEFT);
 		TIFFSetField(tif, TIFFTAG_SAMPLESPERPIXEL, 3);
 		TIFFSetField(tif, TIFFTAG_PLANARCONFIG, PLANARCONFIG_CONTIG);
-		TIFFSetField(tif, TIFFTAG_SOFTWARE, "CINEPI");
+		TIFFSetField(tif, TIFFTAG_SOFTWARE, "Libcamera;cinepi-raw");
 		TIFFSetField(tif, TIFFTAG_COLORMATRIX1, 9, CAM_XYZ.m);
 		TIFFSetField(tif, TIFFTAG_ASSHOTNEUTRAL, 3, NEUTRAL);
 		TIFFSetField(tif, TIFFTAG_CALIBRATIONILLUMINANT1, 21);
@@ -303,7 +312,7 @@ void DngEncoder::dng_save(uint8_t const *mem, StreamInfo const &info, uint8_t co
 
 		// The main image (actually tends to show up as "sub-image 1").
 		TIFFSetField(tif, TIFFTAG_SUBFILETYPE, 0);
-		if(info.pixel_format == formats::SBGGR12){
+		if(info.pixel_format == formats::SBGGR12 || info.pixel_format == formats::SBGGR10){
 			TIFFSetField(tif, TIFFTAG_IMAGEWIDTH, info.stride / 2);
 		} else {
 			TIFFSetField(tif, TIFFTAG_IMAGEWIDTH, info.width);
@@ -351,7 +360,9 @@ void DngEncoder::dng_save(uint8_t const *mem, StreamInfo const &info, uint8_t co
 		const char tiemcode[] = { (uint8_t)(fn % (uint8_t)frameRate),time_info->tm_sec,time_info->tm_min, time_info->tm_hour, 0, 0, 0, 0 };
 		TIFFSetField(tif, TIFFTAG_TIMECODE, &tiemcode);
 
-		if(info.pixel_format != formats::SBGGR12 && options_->compression == COMPRESSION_NONE){
+		bool uncompressed = (info.pixel_format != formats::SBGGR12 || info.pixel_format != formats::SBGGR10 );
+
+		if(uncompressed && options_->compression == COMPRESSION_NONE){
 			// NEON UNPACK
 			uint8x16x3_t nbuf;
 			uint8x16x3_t nbuf1;
@@ -408,15 +419,10 @@ void DngEncoder::dng_save(uint8_t const *mem, StreamInfo const &info, uint8_t co
 			// LOG(1, "SIZE: " << encodedLength << " in :" << duration.count());
 		}
 
-
-
-		// We have to checkpoint before the directory offset is valid.
 		TIFFCheckpointDirectory(tif);
 		offset_subifd = TIFFCurrentDirOffset(tif);
 		TIFFWriteDirectory(tif);
 
-		// Create a separate IFD just for the EXIF tags. Why we couldn't simply have
-		// DNG tags for these, which would have made life so much easier, I have no idea.
 		TIFFCreateEXIFDirectory(tif);
 		char time_str[32];
 		strftime(time_str, 32, "%Y:%m:%d %H:%M:%S", time_info);
@@ -429,12 +435,6 @@ void DngEncoder::dng_save(uint8_t const *mem, StreamInfo const &info, uint8_t co
 		offset_exififd = TIFFCurrentDirOffset(tif);
 		TIFFWriteDirectory(tif);
 
-		// For reasons unknown, the last sub-IFD that we make seems to reappear at the
-		// end of the file as IDF1, and some tools (exiftool for example) are prone to
-		// complain about it. As far as I can see the code above is doing the correct
-		// things, and I can't find any references to this problem anywhere. So frankly
-		// I have no idea what is happening - please let us know if you do. Anyway,
-		// this bodge appears to make the problem go away...
 		TIFFUnlinkDirectory(tif, 2);
 
 		TIFFClose(tif);
@@ -480,7 +480,7 @@ void DngEncoder::encodeThread(int num)
 		}
 
 		frames_ = {encode_item.index};
-		LOG(2, "memcpy frame: " << encode_item.index);
+		LOG(1, "memcpy frame: " << encode_item.index);
 
 		{	
 			uint8_t *mem = (uint8_t*)malloc(encode_item.size);
@@ -535,9 +535,9 @@ void DngEncoder::cacheThread(int num)
 		char ft[128];
 		snprintf(ft, sizeof(ft), "%s/%s/%s_%09ld.dng", options_->mediaDest.c_str(), options_->folder.c_str(), options_->folder.c_str(), cache_item.index);
 		std::string filename = std::string(ft);
-		LOG(2, "save frame: " << cache_item.index);
+		LOG(1, "save frame: " << cache_item.index);
 
-		bool dm = disk_mounted();
+		bool dm = disk_mounted(options_);
 		auto start_time = std::chrono::high_resolution_clock::now();
 		if(dm){
 			dng_save((const uint8_t*)cache_item.mem, cache_item.info, (const uint8_t*)cache_item.lomem, cache_item.loinfo, cache_item.losize, cache_item.met, filename, "CINEPI-2K", options_, cache_item.index);

@@ -30,9 +30,15 @@ static void event_loop(CinePIRecorder &app, CinePIController &controller)
 	app.StartCamera();
 	auto start_time = std::chrono::high_resolution_clock::now();
 
+	app.GetOptions()->sensor = app.CameraId();
+
+	bool saveFrame = true; // for debugging
 	for (unsigned int count = 0; ; count++)
 	{
 		CinePIRecorder::Msg msg = app.Wait();
+
+		if (msg.type == LibcameraApp::MsgType::Quit)
+			return;
 
 		if (msg.type == LibcameraApp::MsgType::Timeout)
 		{
@@ -50,23 +56,21 @@ static void event_loop(CinePIRecorder &app, CinePIController &controller)
 								  << cfg.pixelFormat.toString());
 		}
 
-		LOG(2, "Viewfinder frame " << count);
-		auto now = std::chrono::high_resolution_clock::now();
-
 		CompletedRequestPtr &completed_request = std::get<CompletedRequestPtr>(msg.payload);
 
 		controller.process(completed_request);
 
 		int trigger = controller.triggerRec();
-		if(trigger > 0){
+		if(trigger > 0 || saveFrame){
 			controller.folderOpen = create_clip_folder(app.GetOptions(), controller.getClipNumber());
 		} else if (trigger < 0){
 			controller.folderOpen = false;
 			app.GetEncoder()->resetFrameCount();
 		}
 	
-		if(controller.isRecording() && controller.folderOpen){
+		if(controller.isRecording() && controller.folderOpen || saveFrame){
 			app.EncodeBuffer(completed_request, app.RawStream(), app.LoresStream());
+			saveFrame = false;
 			std::cout << count << std::endl;
 		}
 
@@ -88,7 +92,8 @@ int main(int argc, char *argv[])
 			options->lores_width = 400;
 			options->lores_height = 200;
 			options->redis = "redis://127.0.0.1:6379/0";
-			options->mediaDest = "/media/RAW";
+			options->mediaDest = "/home/pi/ssd";
+			options->compression = CompressionType::NONE;
 
 			if (options->verbose >= 2)
 				options->Print();

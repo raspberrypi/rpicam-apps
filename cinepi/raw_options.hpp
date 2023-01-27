@@ -29,6 +29,7 @@ struct RawOptions : public VideoOptions
 	std::string folder;
 	int compression;
 	float wb;
+	std::string sensor;
 	std::string model;
 	std::string make;
 	std::string serial;

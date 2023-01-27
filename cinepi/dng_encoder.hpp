@@ -9,6 +9,7 @@
 
 #include "encoder/encoder.hpp"
 #include "raw_options.hpp"
+#include "cinepi_frameinfo.hpp"
 
 class DngEncoder : public Encoder
 {
@@ -30,6 +31,8 @@ public:
 	}
 
     CompletedRequest::ControlList const *metadata_;
+
+	bool compressed;
 
 private:
 	// How many threads to use. Whichever thread is idle will pick up the next frame.

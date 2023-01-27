@@ -14,6 +14,13 @@ struct CinePIFrameInfo : public FrameInfo
 		if (colorT)
 			colorTemp = *colorT;
 
+
+        auto sts = ctrls.get(libcamera::controls::SensorTimestamp);
+        if(sts){
+            ts = (*sts);
+        }
+
+
         #if LIBCAMERA_CINEPI
 		    auto histo = ctrls.get(libcamera::controls::draft::SensorRollingShutterSkew);
             if(histo){
@@ -27,7 +34,7 @@ struct CinePIFrameInfo : public FrameInfo
         #endif
 	}
 
-
 	unsigned int colorTemp;
     int32_t histogram[6];
+    int64_t ts;
 };
