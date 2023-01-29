@@ -168,6 +168,7 @@ struct Options
 	std::string post_process_file;
 	unsigned int width;
 	unsigned int height;
+	int compression;
 	bool rawfull;
 	bool nopreview;
 	std::string preview;

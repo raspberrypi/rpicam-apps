@@ -80,9 +80,9 @@ static void event_loop(CinePIRecorder &app, CinePIController &controller)
 		// send frame to dng encoder and save to disk
 		if(controller.isRecording() && controller.folderOpen){
 			app.EncodeBuffer(completed_request, app.RawStream(), app.LoresStream());
-			saveFrame = false;
-			std::cout << count << std::endl;
 		}
+
+		// std::cout << count << std::endl;
 
 		// show frame on display
 		app.ShowPreview(completed_request, app.VideoStream());        

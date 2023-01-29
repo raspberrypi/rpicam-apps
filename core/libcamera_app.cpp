@@ -18,6 +18,8 @@
 
 #include <linux/videodev2.h>
 
+#include "cinepi/utils.hpp"
+
 unsigned int LibcameraApp::verbosity = 2;
 
 // If we definitely appear to be running the old camera stack, complain and give up.
@@ -415,6 +417,16 @@ void LibcameraApp::ConfigureVideo(unsigned int flags)
 		else if (!options_->rawfull)
 			configuration_->at(1).size = configuration_->at(0).size;
 		configuration_->at(1).bufferCount = configuration_->at(0).bufferCount;
+
+		if(options_->compression == CompressionType::LOSSLESS){
+			std::string pxInfo = configuration_->at(1).pixelFormat.toString();
+			std::cout << pxInfo << std::endl;
+			if(pxInfo.find("10") != std::string::npos){
+				configuration_->at(1).pixelFormat = libcamera::formats::SBGGR12;
+			} else if(pxInfo.find("12") != std::string::npos){
+				configuration_->at(1).pixelFormat = libcamera::formats::SBGGR10;
+			}
+		}
 	}
 	if (have_lores_stream)
 	{

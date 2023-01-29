@@ -27,8 +27,6 @@ struct RawOptions : public VideoOptions
 	std::string mediaDest;
 	std::string folder;
 
-	int compression;
-
 	float wb;
 	std::string sensor;
 	std::string model;
