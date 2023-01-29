@@ -81,7 +81,6 @@ static void event_loop(CinePIRecorder &app, CinePIController &controller)
 		if(controller.isRecording() && controller.folderOpen){
 			app.EncodeBuffer(completed_request, app.RawStream(), app.LoresStream());
 		}
-
 		// std::cout << count << std::endl;
 
 		// show frame on display

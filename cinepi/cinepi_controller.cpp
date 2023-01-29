@@ -54,8 +54,6 @@ void CinePIController::sync(){
     }
     
     options_->denoise = "off";
-    options_->lores_width = 400;
-    options_->lores_height = 200;
     options_->mode_string = "0:0:0:0";
 }
 
@@ -64,6 +62,7 @@ void CinePIController::process(CompletedRequestPtr &completed_request){
 
     redis_->publish(CHANNEL_STATS, to_string(completed_request->framerate));
     redis_->publish(CHANNEL_STATS, to_string(info.colorTemp));
+    redis_->publish(CHANNEL_STATS, to_string(info.focus));
     redis_->publish(CHANNEL_STATS, to_string(app_->GetEncoder()->getFrameCount()));
     redis_->publish(CHANNEL_STATS, to_string(app_->GetEncoder()->bufferSize()));
 }
@@ -147,6 +146,28 @@ void CinePIController::mainThread(){
             }
             else if(msg.compare(CONTROL_KEY_CAMERAINIT) == 0){
                 cameraInit_ = true;
+            } 
+            else if(msg.compare(LV_KEY_ZOOM) == 0){
+                float zoom = stof(*r);
+
+                float roi_x = 1.0, roi_y = 1.0, roi_height = 1.0, roi_width = 1.0;
+
+                roi_width = roi_width / zoom;
+                roi_height = roi_height / zoom;
+                roi_x = (roi_x - roi_width) / 2;
+                roi_y = (roi_y - roi_height) / 2;
+
+                libcamera::Rectangle sensor_area = *app_->CameraModel()->properties().get(properties::ScalerCropMaximum);
+                int x = roi_x * sensor_area.width;
+                int y = roi_y * sensor_area.height;
+                int w = roi_width * sensor_area.width;
+                int h = roi_height * sensor_area.height;
+                libcamera::Rectangle crop(x, y, w, h);
+                crop.translateBy(sensor_area.topLeft());
+
+                libcamera::ControlList cl;
+                cl.set(libcamera::controls::ScalerCrop, crop);
+                app_->SetControls(cl);
             }
 
             redis_->bgsave();

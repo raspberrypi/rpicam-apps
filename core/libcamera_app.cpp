@@ -430,7 +430,8 @@ void LibcameraApp::ConfigureVideo(unsigned int flags)
 	}
 	if (have_lores_stream)
 	{
-		Size lores_size(options_->lores_width, options_->lores_height);
+		// Size lores_size(options_->lores_width, options_->lores_height);
+		Size lores_size(options_->width >> 3, options_->height >> 3);
 		lores_size.alignDownTo(2, 2);
 		if (lores_size.width > configuration_->at(0).size.width ||
 			lores_size.height > configuration_->at(0).size.height)
