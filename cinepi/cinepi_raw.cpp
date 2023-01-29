@@ -29,7 +29,6 @@ static void event_loop(CinePIRecorder &app, CinePIController &controller)
 	app.StartEncoder();
 	app.GetOptions()->sensor = app.CameraId();
 
-	bool saveFrame = true; // for debugging
 	for (unsigned int count = 0; ; count++)
 	{
 		// if we change framerate or sensor mode, restart the camera. 
@@ -71,7 +70,7 @@ static void event_loop(CinePIRecorder &app, CinePIController &controller)
 
 		// check for record trigger signal, open a new folder if rec_start or reset frame count if _rec_stop
 		int trigger = controller.triggerRec();
-		if(trigger > 0 || saveFrame){
+		if(trigger > 0){
 			controller.folderOpen = create_clip_folder(app.GetOptions(), controller.getClipNumber());
 		} else if (trigger < 0){
 			controller.folderOpen = false;
@@ -79,7 +78,7 @@ static void event_loop(CinePIRecorder &app, CinePIController &controller)
 		}
 	
 		// send frame to dng encoder and save to disk
-		if(controller.isRecording() && controller.folderOpen || saveFrame){
+		if(controller.isRecording() && controller.folderOpen){
 			app.EncodeBuffer(completed_request, app.RawStream(), app.LoresStream());
 			saveFrame = false;
 			std::cout << count << std::endl;
@@ -100,7 +99,7 @@ int main(int argc, char *argv[])
 		RawOptions *options = app.GetOptions();
 		if (options->Parse(argc, argv))
 		{
-			options->mediaDest = "/home/pi/ssd";
+			options->mediaDest = "/media/RAW";
 
 			if (options->verbose >= 2)
 				options->Print();
