@@ -1,8 +1,8 @@
 /* SPDX-License-Identifier: BSD-2-Clause */
 /*
- * Copyright (C) 2020, Raspberry Pi (Trading) Ltd.
+ * Copyright (C) 2022, Csaba Nagy.
  *
- * libcamera_raw.cpp - libcamera raw video record app.
+ * cinepi_raw.cpp - cinepi raw dng recording app.
  */
 
 #include <chrono>
@@ -18,6 +18,7 @@ using namespace std::placeholders;
 static void event_loop(CinePIRecorder &app, CinePIController &controller)
 {
 	controller.start();
+	controller.sync();
 
 	RawOptions const *options = app.GetOptions();
 	std::unique_ptr<Output> output = std::unique_ptr<Output>(Output::Create(options));
@@ -25,16 +26,29 @@ static void event_loop(CinePIRecorder &app, CinePIController &controller)
 	app.SetMetadataReadyCallback(std::bind(&Output::MetadataReady, output.get(), _1));
 
 	app.OpenCamera();
-	app.ConfigureVideo(CinePIRecorder::FLAG_VIDEO_RAW);
 	app.StartEncoder();
-	app.StartCamera();
-	auto start_time = std::chrono::high_resolution_clock::now();
-
 	app.GetOptions()->sensor = app.CameraId();
 
 	bool saveFrame = true; // for debugging
 	for (unsigned int count = 0; ; count++)
 	{
+		// if we change framerate or sensor mode, restart the camera. 
+		if(controller.configChanged()){
+			if(controller.cameraRunning){
+				app.StopCamera();
+				app.Teardown();
+			}
+			app.ConfigureVideo(CinePIRecorder::FLAG_VIDEO_RAW);
+			app.StartCamera();
+			controller.cameraRunning = true;
+
+			libcamera::StreamConfiguration const &cfg = app.RawStream()->configuration();
+			LOG(1, "Raw stream: " << cfg.size.width << "x" << cfg.size.height << " stride " << cfg.stride << " format "
+								  << cfg.pixelFormat.toString());
+
+			controller.process_stream_info(cfg);
+		}
+
 		CinePIRecorder::Msg msg = app.Wait();
 
 		if (msg.type == LibcameraApp::MsgType::Quit)
@@ -49,17 +63,13 @@ static void event_loop(CinePIRecorder &app, CinePIController &controller)
 		}
 		if (msg.type != CinePIRecorder::MsgType::RequestComplete)
 			throw std::runtime_error("unrecognised message!");
-		if (count == 0)
-		{
-			libcamera::StreamConfiguration const &cfg = app.RawStream()->configuration();
-			LOG(1, "Raw stream: " << cfg.size.width << "x" << cfg.size.height << " stride " << cfg.stride << " format "
-								  << cfg.pixelFormat.toString());
-		}
 
 		CompletedRequestPtr &completed_request = std::get<CompletedRequestPtr>(msg.payload);
 
+		// parse the frame info metadata for the current frame, publish to redis stats channel
 		controller.process(completed_request);
 
+		// check for record trigger signal, open a new folder if rec_start or reset frame count if _rec_stop
 		int trigger = controller.triggerRec();
 		if(trigger > 0 || saveFrame){
 			controller.folderOpen = create_clip_folder(app.GetOptions(), controller.getClipNumber());
@@ -68,12 +78,14 @@ static void event_loop(CinePIRecorder &app, CinePIController &controller)
 			app.GetEncoder()->resetFrameCount();
 		}
 	
+		// send frame to dng encoder and save to disk
 		if(controller.isRecording() && controller.folderOpen || saveFrame){
 			app.EncodeBuffer(completed_request, app.RawStream(), app.LoresStream());
 			saveFrame = false;
 			std::cout << count << std::endl;
 		}
 
+		// show frame on display
 		app.ShowPreview(completed_request, app.VideoStream());        
 	}
 }
@@ -88,12 +100,7 @@ int main(int argc, char *argv[])
 		RawOptions *options = app.GetOptions();
 		if (options->Parse(argc, argv))
 		{
-			options->denoise = "off";
-			options->lores_width = 400;
-			options->lores_height = 200;
-			options->redis = "redis://127.0.0.1:6379/0";
 			options->mediaDest = "/home/pi/ssd";
-			options->compression = CompressionType::NONE;
 
 			if (options->verbose >= 2)
 				options->Print();

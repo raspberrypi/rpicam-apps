@@ -33,30 +33,43 @@
 #define CHANNEL_CONTROLS "cp_controls"
 #define CHANNEL_STATS "cp_stats"
 
+#define REDIS_DEFAULT "redis://127.0.0.1:6379/0"
+
 using namespace sw::redis;
 
 class CinePIController : public CinePIState
 {
     public:
-        CinePIController(CinePIRecorder *app) : CinePIState(), app_(app), options_(app->GetOptions()), folderOpen(false), abortThread_(false) {};
+        CinePIController(CinePIRecorder *app) : CinePIState(), app_(app), options_(app->GetOptions()), 
+            folderOpen(false), abortThread_(false), cameraInit_(true), cameraRunning(false) {};
         ~CinePIController() {
             abortThread_ = true;
             main_thread_.join();
         };
 
         void start(){
-            redis_ = new Redis(options_->redis);
+            redis_ = new Redis(options_->redis.value_or(REDIS_DEFAULT));
             std::cout << redis_->ping() << std::endl;
-            // sync();
             main_thread_ = std::thread(std::bind(&CinePIController::mainThread, this));
-            // pub_thread_ = std::thread(std::bind(&CinePIController::pubThread, this));
         }
 
         void sync();
 
         void process(CompletedRequestPtr &completed_request);
+        void process_stream_info(libcamera::StreamConfiguration const &cfg){
+            redis_->publish(CHANNEL_STATS, cfg.toString());
+            redis_->set(CONTROL_KEY_WIDTH, std::to_string(cfg.size.width));
+            redis_->set(CONTROL_KEY_HEIGHT, std::to_string(cfg.size.height));
+        }
 
         bool folderOpen;
+        bool cameraRunning;
+
+        bool configChanged(){
+            bool c = cameraInit_;
+            cameraInit_ = false;
+            return c;
+        }
 
         int triggerRec(){
             if(!disk_mounted(const_cast<RawOptions *>(options_))){
@@ -78,11 +91,13 @@ class CinePIController : public CinePIState
 
         int trigger_;
 
+        bool cameraInit_;
+
         CinePIRecorder *app_;
         RawOptions *options_;
+
         Redis *redis_;
 
         bool abortThread_;
         std::thread main_thread_;
-        std::thread pub_thread_;
 };

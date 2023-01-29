@@ -23,7 +23,7 @@ public:
 	void resetFrameCount(){
 		index_ = 0;
 	}
-	int recording(){
+	int bufferSize(){
 		return cache_buffer_.size();
 	}
 	uint64_t getFrameCount(){

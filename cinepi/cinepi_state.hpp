@@ -25,6 +25,14 @@
 #define CONTROL_KEY_SHUTTER_ANGLE "shutter_a"
 #define CONTROL_KEY_SHUTTER_SPEED "shutter_s"
 
+#define CONTROL_KEY_FRAMERATE "fps"
+#define CONTROL_KEY_WIDTH "width"
+#define CONTROL_KEY_HEIGHT "height"
+#define CONTROL_KEY_MODE "mode"
+#define CONTROL_KEY_COMPRESSION "compress"
+
+#define CONTROL_KEY_CAMERAINIT "cam_init"
+
 class CinePIState
 {
     public:
@@ -46,8 +54,13 @@ class CinePIState
         unsigned int awb_;
         float shutter_speed_;
         float shutter_angle_;
-        unsigned int colot_temp_;
+        unsigned int color_temp_;
         float cg_rb_[2];
+
+        uint16_t width_;
+        uint16_t height_;
+        int mode_;
+        int compression_;
 
         unsigned int clip_number_;
         

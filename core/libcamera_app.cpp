@@ -537,6 +537,8 @@ void LibcameraApp::StartCamera()
 		controls_.set(controls::ExposureValue, options_->ev);
 	if (!controls_.get(controls::AwbMode))
 		controls_.set(controls::AwbMode, options_->awb_index);
+	if (!controls_.get(controls::AwbEnable))
+		controls_.set(controls::AwbEnable, options_->awbEn);
 	if (!controls_.get(controls::ColourGains) && options_->awb_gain_r && options_->awb_gain_b)
 		controls_.set(controls::ColourGains,
 					  libcamera::Span<const float, 2>({ options_->awb_gain_r, options_->awb_gain_b }));
