@@ -1,6 +1,6 @@
-# libcamera-apps
+# cinepi-raw
 
-This is a small suite of libcamera-based apps that aim to copy the functionality of the existing "raspicam" apps. 
+fork of libcamera-apps that builds upon the libcamera-raw app, offering cinema dng recording capabillities and integration with REDIS offering an abstract "API" like layer for custom integrations. 
 
 Build
 -----
@@ -11,7 +11,3 @@ License
 
 The source code is made available under the simplified [BSD 2-Clause license](https://spdx.org/licenses/BSD-2-Clause.html).
 
-Status
-------
-
-[![ToT libcamera build/run test](https://github.com/raspberrypi/libcamera-apps/actions/workflows/libcamera-test.yml/badge.svg)](https://github.com/raspberrypi/libcamera-apps/actions/workflows/libcamera-test.yml)
