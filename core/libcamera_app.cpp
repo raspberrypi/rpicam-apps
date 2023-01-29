@@ -420,7 +420,7 @@ void LibcameraApp::ConfigureVideo(unsigned int flags)
 
 		if(options_->compression == CompressionType::LOSSLESS){
 			std::string pxInfo = configuration_->at(1).pixelFormat.toString();
-			std::cout << pxInfo << std::endl;
+			// std::cout << pxInfo << std::endl;
 			if(pxInfo.find("10") != std::string::npos){
 				configuration_->at(1).pixelFormat = libcamera::formats::SBGGR12;
 			} else if(pxInfo.find("12") != std::string::npos){
