@@ -49,7 +49,7 @@ class CinePIController : public CinePIState
 
         void start(){
             redis_ = new Redis(options_->redis.value_or(REDIS_DEFAULT));
-            std::cout << redis_->ping() << std::endl;
+            LOG(2, redis_->ping());
             main_thread_ = std::thread(std::bind(&CinePIController::mainThread, this));
         }
 

@@ -27,7 +27,7 @@ static void event_loop(CinePIRecorder &app, CinePIController &controller)
 
 	app.OpenCamera();
 	app.StartEncoder();
-	app.GetOptions()->sensor = app.CameraId();
+	app.GetOptions()->sensor = app.CameraModel()->properties().get(libcamera::properties::Model).value_or(app.CameraId());
 
 	for (unsigned int count = 0; ; count++)
 	{
