@@ -54,6 +54,8 @@ void CinePIController::sync(){
     }
     
     options_->denoise = "off";
+    options_->lores_width = 400;
+    options_->lores_height = 200;
     options_->mode_string = "0:0:0:0";
 }
 
