@@ -23,6 +23,10 @@
 #include "core/still_options.hpp"
 #include "core/stream_info.hpp"
 
+#ifndef MAKE_STRING
+#define MAKE_STRING "Raspberry Pi"
+#endif
+
 #if JPEG_LIB_VERSION_MAJOR > 9 || (JPEG_LIB_VERSION_MAJOR == 9 && JPEG_LIB_VERSION_MINOR >= 4)
 typedef size_t jpeg_mem_len_t;
 #else
@@ -419,24 +423,21 @@ static void YUV420_to_JPEG(const uint8_t *input, StreamInfo const &info,
 	jpeg_destroy_compress(&cinfo);
 }
 
-static void YUV_to_JPEG(const uint8_t *input, StreamInfo const &info,
-						const int output_width, const int output_height, const int quality,
-						const unsigned int restart, uint8_t *&jpeg_buffer, jpeg_mem_len_t &jpeg_len)
+static void YUV_to_JPEG(const uint8_t *input, StreamInfo const &info, const int output_width, const int output_height,
+						const int quality, const unsigned int restart, uint8_t *&jpeg_buffer, jpeg_mem_len_t &jpeg_len)
 {
 	if (info.pixel_format == libcamera::formats::YUYV)
-		YUYV_to_JPEG(input, info, output_width, output_height, quality, restart,
-					 jpeg_buffer, jpeg_len);
+		YUYV_to_JPEG(input, info, output_width, output_height, quality, restart, jpeg_buffer, jpeg_len);
 	else if (info.pixel_format == libcamera::formats::YUV420)
-		YUV420_to_JPEG(input, info, output_width, output_height, quality, restart,
-					   jpeg_buffer, jpeg_len);
+		YUV420_to_JPEG(input, info, output_width, output_height, quality, restart, jpeg_buffer, jpeg_len);
 	else
 		throw std::runtime_error("unsupported YUV format in JPEG encode");
 }
 
-static void create_exif_data(std::vector<libcamera::Span<uint8_t>> const &mem,
-							 StreamInfo const &info, ControlList const &metadata, std::string const &cam_name,
-							 StillOptions const *options, uint8_t *&exif_buffer, unsigned int &exif_len,
-							 uint8_t *&thumb_buffer, jpeg_mem_len_t &thumb_len)
+static void create_exif_data(std::vector<libcamera::Span<uint8_t>> const &mem, StreamInfo const &info,
+							 ControlList const &metadata, std::string const &cam_model, StillOptions const *options,
+							 uint8_t *&exif_buffer, unsigned int &exif_len, uint8_t *&thumb_buffer,
+							 jpeg_mem_len_t &thumb_len)
 {
 	exif_buffer = nullptr;
 	ExifData *exif = nullptr;
@@ -451,9 +452,9 @@ static void create_exif_data(std::vector<libcamera::Span<uint8_t>> const &mem,
 		// First add some fixed EXIF tags.
 
 		ExifEntry *entry = exif_create_tag(exif, EXIF_IFD_EXIF, EXIF_TAG_MAKE);
-		exif_set_string(entry, "Raspberry Pi");
+		exif_set_string(entry, MAKE_STRING);
 		entry = exif_create_tag(exif, EXIF_IFD_EXIF, EXIF_TAG_MODEL);
-		exif_set_string(entry, cam_name.c_str());
+		exif_set_string(entry, cam_model.c_str());
 		entry = exif_create_tag(exif, EXIF_IFD_EXIF, EXIF_TAG_SOFTWARE);
 		exif_set_string(entry, "libcamera-apps");
 		entry = exif_create_tag(exif, EXIF_IFD_EXIF, EXIF_TAG_DATE_TIME);
@@ -569,9 +570,8 @@ static void create_exif_data(std::vector<libcamera::Span<uint8_t>> const &mem,
 	}
 }
 
-void jpeg_save(std::vector<libcamera::Span<uint8_t>> const &mem, StreamInfo const &info,
-			   ControlList const &metadata, std::string const &filename,
-			   std::string const &cam_name, StillOptions const *options)
+void jpeg_save(std::vector<libcamera::Span<uint8_t>> const &mem, StreamInfo const &info, ControlList const &metadata,
+			   std::string const &filename, std::string const &cam_model, StillOptions const *options)
 {
 	FILE *fp = nullptr;
 	uint8_t *thumb_buffer = nullptr;
@@ -589,15 +589,14 @@ void jpeg_save(std::vector<libcamera::Span<uint8_t>> const &mem, StreamInfo cons
 
 		jpeg_mem_len_t thumb_len = 0; // stays zero if no thumbnail
 		unsigned int exif_len;
-		create_exif_data(mem, info, metadata, cam_name, options, exif_buffer, exif_len,
-						 thumb_buffer, thumb_len);
+		create_exif_data(mem, info, metadata, cam_model, options, exif_buffer, exif_len, thumb_buffer, thumb_len);
 
 		// Make the full size JPEG (could probably be more efficient if we had
 		// YUV422 or YUV420 planar format).
 
 		jpeg_mem_len_t jpeg_len;
-		YUV_to_JPEG((uint8_t *)(mem[0].data()), info, info.width, info.height, options->quality,
-					options->restart, jpeg_buffer, jpeg_len);
+		YUV_to_JPEG((uint8_t *)(mem[0].data()), info, info.width, info.height, options->quality, options->restart,
+					jpeg_buffer, jpeg_len);
 		LOG(2, "JPEG size is " << jpeg_len);
 
 		// Write everything out.
