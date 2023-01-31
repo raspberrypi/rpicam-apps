@@ -30,7 +30,9 @@ static void check_camera_stack()
 		return;
 
 	v4l2_capability caps;
-	int ret = ioctl(fd, VIDIOC_QUERYCAP, &caps);
+	unsigned long request = VIDIOC_QUERYCAP;
+
+	int ret = ioctl(fd, request, &caps);
 	close(fd);
 
 	if (ret < 0 || strcmp((char *)caps.driver, "bm2835 mmal"))
