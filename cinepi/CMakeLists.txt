@@ -1,8 +1,10 @@
 cmake_minimum_required(VERSION 3.6)
 
+find_library(TIFF_LIBRARY tiff REQUIRED)
+
 project(cinepi-raw)
 add_executable(cinepi-raw cinepi_raw.cpp dng_encoder.cpp cinepi_controller.cpp cinepi_state.cpp)
-target_link_libraries(cinepi-raw libcamera_app encoders outputs)
+target_link_libraries(cinepi-raw libcamera_app encoders outputs tiff)
 
 # <---------- set c++ standard ------------->
 # NOTE: you must build redis-plus-plus and your application code with the same standard.

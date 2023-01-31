@@ -32,6 +32,7 @@
 
 #define CHANNEL_CONTROLS "cp_controls"
 #define CHANNEL_STATS "cp_stats"
+#define CHANNEL_HISTOGRAM "cp_histogram"
 
 #define REDIS_DEFAULT "redis://127.0.0.1:6379/0"
 

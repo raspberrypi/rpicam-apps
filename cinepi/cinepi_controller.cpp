@@ -65,8 +65,12 @@ void CinePIController::process(CompletedRequestPtr &completed_request){
     redis_->publish(CHANNEL_STATS, to_string(completed_request->framerate));
     redis_->publish(CHANNEL_STATS, to_string(info.colorTemp));
     redis_->publish(CHANNEL_STATS, to_string(info.focus));
+    redis_->publish(CHANNEL_STATS, info.histoString());
     redis_->publish(CHANNEL_STATS, to_string(app_->GetEncoder()->getFrameCount()));
     redis_->publish(CHANNEL_STATS, to_string(app_->GetEncoder()->bufferSize()));
+
+    
+    redis_->publish(CHANNEL_HISTOGRAM, StringView(reinterpret_cast<const char *>(info.histogram), sizeof(info.histogram)));
 }
 
 
