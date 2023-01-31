@@ -92,7 +92,6 @@ public:
 		uint8_t *Y_start = span.data();
 		uint8_t *U_start = Y_start + info.stride * info.height;
 		int uv_size = (info.stride / 2) * (info.height / 2);
-		uint8_t *dest = pane_->image.bits();
 
 		// Choose the right matrix to convert YUV back to RGB.
 		static const float YUV2RGB[3][9] = {
@@ -120,6 +119,7 @@ public:
 			uint8_t *Y_row = Y_start + row * info.stride;
 			uint8_t *U_row = U_start + (row / 2) * (info.stride / 2);
 			uint8_t *V_row = U_row + uv_size;
+			uint8_t *dest = pane_->image.scanLine(y);
 			for (unsigned int x = 0; x < window_width_;)
 			{
 				int y_off0 = x_locations_[x++];
