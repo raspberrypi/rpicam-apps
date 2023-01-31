@@ -82,7 +82,7 @@ static void event_loop(LibcameraJpegApp &app)
 			StreamInfo info = app.GetStreamInfo(stream);
 			CompletedRequestPtr &payload = std::get<CompletedRequestPtr>(msg.payload);
 			const std::vector<libcamera::Span<uint8_t>> mem = app.Mmap(payload->buffers[stream]);
-			jpeg_save(mem, info, payload->metadata, options->output, app.CameraId(), options);
+			jpeg_save(mem, info, payload->metadata, options->output, app.CameraModel(), options);
 			return;
 		}
 	}

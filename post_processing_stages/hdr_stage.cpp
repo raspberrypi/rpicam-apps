@@ -491,7 +491,7 @@ bool HdrStage::Process(CompletedRequestPtr &completed_request)
 		filename[sizeof(filename) - 1] = 0;
 		StillOptions const *options = dynamic_cast<StillOptions *>(app_->GetOptions());
 		if (options)
-			jpeg_save(buffers, info_, completed_request->metadata, filename, app_->CameraId(), options);
+			jpeg_save(buffers, info_, completed_request->metadata, filename, app_->CameraModel(), options);
 		else
 			LOG(1, "No still options - unable to save JPEG");
 	}

@@ -16,6 +16,10 @@
 #include "core/still_options.hpp"
 #include "core/stream_info.hpp"
 
+#ifndef MAKE_STRING
+#define MAKE_STRING "Raspberry Pi"
+#endif
+
 using namespace libcamera;
 
 static char TIFF_RGGB[4] = { 0, 1, 1, 2 };
@@ -127,9 +131,8 @@ Matrix(float m0, float m1, float m2,
 	}
 };
 
-void dng_save(std::vector<libcamera::Span<uint8_t>> const &mem, StreamInfo const &info,
-			  ControlList const &metadata, std::string const &filename,
-			  std::string const &cam_name, StillOptions const *options)
+void dng_save(std::vector<libcamera::Span<uint8_t>> const &mem, StreamInfo const &info, ControlList const &metadata,
+			  std::string const &filename, std::string const &cam_model, StillOptions const *options)
 {
 	// Check the Bayer format and unpack it to u16.
 
@@ -225,6 +228,7 @@ void dng_save(std::vector<libcamera::Span<uint8_t>> const &mem, StreamInfo const
 		const short cfa_repeat_pattern_dim[] = { 2, 2 };
 		uint32_t white = (1 << bayer_format.bits) - 1;
 		toff_t offset_subifd = 0, offset_exififd = 0;
+		std::string unique_model = std::string(MAKE_STRING " ") + cam_model;
 
 		tif = TIFFOpen(filename.c_str(), "w");
 		if (!tif)
@@ -238,11 +242,11 @@ void dng_save(std::vector<libcamera::Span<uint8_t>> const &mem, StreamInfo const
 		TIFFSetField(tif, TIFFTAG_BITSPERSAMPLE, 8);
 		TIFFSetField(tif, TIFFTAG_COMPRESSION, COMPRESSION_NONE);
 		TIFFSetField(tif, TIFFTAG_PHOTOMETRIC, PHOTOMETRIC_RGB);
-		TIFFSetField(tif, TIFFTAG_MAKE, "Raspberry Pi");
-		TIFFSetField(tif, TIFFTAG_MODEL, cam_name.c_str());
+		TIFFSetField(tif, TIFFTAG_MAKE, MAKE_STRING);
+		TIFFSetField(tif, TIFFTAG_MODEL, cam_model.c_str());
 		TIFFSetField(tif, TIFFTAG_DNGVERSION, "\001\001\000\000");
 		TIFFSetField(tif, TIFFTAG_DNGBACKWARDVERSION, "\001\000\000\000");
-		TIFFSetField(tif, TIFFTAG_UNIQUECAMERAMODEL, cam_name.c_str());
+		TIFFSetField(tif, TIFFTAG_UNIQUECAMERAMODEL, unique_model.c_str());
 		TIFFSetField(tif, TIFFTAG_ORIENTATION, ORIENTATION_TOPLEFT);
 		TIFFSetField(tif, TIFFTAG_SAMPLESPERPIXEL, 3);
 		TIFFSetField(tif, TIFFTAG_PLANARCONFIG, PLANARCONFIG_CONTIG);
