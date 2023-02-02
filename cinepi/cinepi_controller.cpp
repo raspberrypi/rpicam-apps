@@ -66,6 +66,7 @@ void CinePIController::process(CompletedRequestPtr &completed_request){
     redis_->publish(CHANNEL_STATS, to_string(info.colorTemp));
     redis_->publish(CHANNEL_STATS, to_string(info.focus));
     redis_->publish(CHANNEL_STATS, info.histoString());
+    redis_->publish(CHANNEL_STATS, to_string(info.trafficLight));
     redis_->publish(CHANNEL_STATS, to_string(app_->GetEncoder()->getFrameCount()));
     redis_->publish(CHANNEL_STATS, to_string(app_->GetEncoder()->bufferSize()));
 
