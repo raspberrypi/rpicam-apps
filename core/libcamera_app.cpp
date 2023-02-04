@@ -786,8 +786,8 @@ StreamInfo LibcameraApp::GetStreamInfo(Stream const *stream) const
 	info.width = cfg.size.width;
 	info.height = cfg.size.height;
 	info.stride = cfg.stride;
-	info.pixel_format = stream->configuration().pixelFormat;
-	info.colour_space = stream->configuration().colorSpace;
+	info.pixel_format = cfg.pixelFormat;
+	info.colour_space = cfg.colorSpace;
 	return info;
 }
 
