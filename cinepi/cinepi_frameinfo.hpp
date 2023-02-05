@@ -66,21 +66,22 @@ struct CinePIFrameInfo : public FrameInfo
         #endif
 	}
 
-    std::string histoString() const{
-        std::ostringstream os;
-        os << rL << "%, " << gL << "%, " << bL << "% : " << rH << "%, " << gH << "%, " << bH << "%";
-        // os << (unsigned int)trafficLight;
-        return os.str();
-    };
+    #ifdef LIBCAMERA_CINEPI_CONTROLS 
 
-    float threshold_h;
-    float threshold_l;
-    uint8_t trafficLight;
-    float rL, gL, bL, rH, gH, bH;
+        std::string histoString() const{
+            std::ostringstream os;
+            os << rL << "%, " << gL << "%, " << bL << "% : " << rH << "%, " << gH << "%, " << bH << "%";
+            // os << (unsigned int)trafficLight;
+            return os.str();
+        };
+
+        uint8_t trafficLight;
+        float threshold_h, threshold_l;
+        float rL, gL, bL, rH, gH, bH;
+        int32_t histogram[HISTOGRAM_SIZE];
+        int32_t histogram_stats[9];
+    #endif
 
 	unsigned int colorTemp;
-    int32_t histogram[HISTOGRAM_SIZE];
-    int32_t histogram_stats[9];
-    unsigned int sums[3];
     int64_t ts;
 };

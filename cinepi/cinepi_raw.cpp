@@ -68,20 +68,24 @@ static void event_loop(CinePIRecorder &app, CinePIController &controller)
 		// check for record trigger signal, open a new folder if rec_start or reset frame count if _rec_stop
 		int trigger = controller.triggerRec();
 		if(trigger > 0){
-			std::cout << "Folder Open!" << std::endl;
 			controller.folderOpen = create_clip_folder(app.GetOptions(), controller.getClipNumber());
 		} else if (trigger < 0){
-			std::cout << "Folder Close!" << std::endl;
 			controller.folderOpen = false;
 			app.GetEncoder()->resetFrameCount();
 		}
 	
 		// send frame to dng encoder and save to disk
 		if(controller.isRecording() && controller.folderOpen){
-			// std::cout << "Saving frame!" << std::endl;
 			app.EncodeBuffer(completed_request, app.RawStream(), app.LoresStream());
 		}
-		// std::cout << count << std::endl;
+
+		// check for still trigger signal, open the stills folder and save a still frame
+		int still_trigger = controller.triggerStill();
+		if(still_trigger){
+			create_stills_folder(app.GetOptions(), controller.getStillNumber());
+			app.GetEncoder()->still_capture = true;
+			app.EncodeBuffer(completed_request, app.RawStream(), app.LoresStream());
+		}
 
 		// show frame on display
 		app.ShowPreview(completed_request, app.VideoStream());        

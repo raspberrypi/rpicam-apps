@@ -18,6 +18,10 @@
 #include <queue>
 #include <thread>
 
+#define CONTROL_TRIGGER_RECORD "rec"
+#define CONTROL_TRIGGER_STILL "stll"
+#define CONTROL_TRIGGER_TIMELASPSE "tlps"
+
 #define CONTROL_KEY_RECORD "is_recording"
 #define CONTROL_KEY_ISO "iso"
 #define CONTROL_KEY_WB "awb"
@@ -36,7 +40,7 @@
 class CinePIState
 {
     public:
-        CinePIState() : is_recording_(false), clip_number_(0) {};
+        CinePIState() : is_recording_(false), clip_number_(0), still_number_(0) {};
         ~CinePIState() {};
 
         bool isRecording(){
@@ -45,6 +49,10 @@ class CinePIState
 
         unsigned int getClipNumber(){
             return clip_number_;
+        }
+
+        unsigned int getStillNumber(){
+            return still_number_;
         }
 
     protected:
@@ -63,5 +71,6 @@ class CinePIState
         int compression_;
 
         unsigned int clip_number_;
+        unsigned int still_number_;
         
 };

@@ -33,6 +33,7 @@ public:
     CompletedRequest::ControlList const *metadata_;
 
 	bool compressed;
+	bool still_capture;
 
 private:
 	// How many threads to use. Whichever thread is idle will pick up the next frame.

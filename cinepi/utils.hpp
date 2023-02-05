@@ -28,3 +28,17 @@ static bool create_clip_folder(RawOptions *options, unsigned int clip_number = 0
 	generate_filename(options, clip_number);
 	return fs::create_directories(options->mediaDest + std::string("/") + options->folder);
 }
+
+
+static bool create_stills_folder(RawOptions *options, unsigned int still_number = 0)
+{
+	if(!disk_mounted(options))
+		return false;
+	std::string stillsPath = options->mediaDest + std::string("/stills");
+	bool exists = fs::exists(fs::path(stillsPath));
+	generate_filename(options, still_number);
+	if(!exists){
+		return fs::create_directories(options->mediaDest + std::string("/stills"));
+	}
+	return exists;
+}

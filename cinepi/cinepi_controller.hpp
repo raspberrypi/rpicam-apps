@@ -42,7 +42,7 @@ class CinePIController : public CinePIState
 {
     public:
         CinePIController(CinePIRecorder *app) : CinePIState(), app_(app), options_(app->GetOptions()), 
-            folderOpen(false), abortThread_(false), cameraInit_(true), cameraRunning(false) {};
+            folderOpen(false), abortThread_(false), cameraInit_(true), cameraRunning(false), triggerStill_(0) {};
         ~CinePIController() {
             abortThread_ = true;
             main_thread_.join();
@@ -84,6 +84,12 @@ class CinePIController : public CinePIState
             return state;
         }
 
+        int triggerStill(){
+            int ts_ = triggerStill_;
+            triggerStill_ = 0;
+            return ts_;
+        }
+
     protected:
 
     private:
@@ -91,6 +97,7 @@ class CinePIController : public CinePIState
         void pubThread();
 
         int trigger_;
+        int triggerStill_;
 
         bool cameraInit_;
 

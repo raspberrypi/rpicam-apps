@@ -531,9 +531,15 @@ void DngEncoder::cacheThread(int num)
 			}
 		}
 
-
 		char ft[128];
 		snprintf(ft, sizeof(ft), "%s/%s/%s_%09ld.dng", options_->mediaDest.c_str(), options_->folder.c_str(), options_->folder.c_str(), cache_item.index);
+		// if(still_capture){
+		// 	snprintf(ft, sizeof(ft), "%s/%s/%s_%09ld.dng", options_->mediaDest.c_str(), std::string("stills").c_str(), options_->folder.c_str(), cache_item.index);
+		// }
+		
+		// LOG(1, still_capture);
+		// LOG(1, ft);
+		
 		std::string filename = std::string(ft);
 		LOG(1, "save frame: " << cache_item.index);
 
@@ -543,6 +549,8 @@ void DngEncoder::cacheThread(int num)
 			dng_save((const uint8_t*)cache_item.mem, cache_item.info, (const uint8_t*)cache_item.lomem, cache_item.loinfo, cache_item.losize, cache_item.met, filename, "CINEPI-2K", options_, cache_item.index);
 		}
 		auto end_time = (std::chrono::high_resolution_clock::now() - start_time);
+
+		// still_capture = false;
 		
 		cache_time += (end_time);
 		free(cache_item.mem);

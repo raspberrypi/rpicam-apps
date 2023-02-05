@@ -8,6 +8,13 @@ using namespace std::chrono;
 #define LV_KEY_ZOOM "lv_zoom"
 #define LV_KEY_ENABLE "lv_en"
 
+#define CP_DEF_WIDTH 1920
+#define CP_DEF_HEIGHT 1080
+#define CP_DEF_FRAMERATE 30
+#define CP_DEF_ISO 400
+#define CP_DEF_SHUTTER 60
+#define CP_DEF_AWB 1
+#define CP_DEF_COMPRESS 1
 
 void CinePIController::sync(){
     auto pipe = redis_->pipeline();
@@ -21,12 +28,64 @@ void CinePIController::sync(){
                             .get(CONTROL_KEY_COMPRESSION)
                             .exec();
 
-    width_ = stoi(*pipe_replies.get<OptionalString>(0));
-    height_ = stoi(*pipe_replies.get<OptionalString>(1));
-    framerate_ = stof(*pipe_replies.get<OptionalString>(2));
-    iso_ = (unsigned int)(stoi(*pipe_replies.get<OptionalString>(3))/100.0);
-    shutter_speed_ = 1.0 / stof(*pipe_replies.get<OptionalString>(4));
-    awb_ = (bool)stoi(*pipe_replies.get<OptionalString>(5));
+    // width_ = stoi(pipe_replies.get<std::optional<std::string>>(0).value_or("1920"));
+
+    auto width = pipe_replies.get<OptionalString>(0);
+    if(width){
+        width_ = stoi(*width);
+    }else{
+        width_ = CP_DEF_WIDTH;
+        redis_->set(CONTROL_KEY_WIDTH, to_string(width_));
+    }
+        
+    auto height = pipe_replies.get<OptionalString>(1);
+    if(height){
+        height_ = stoi(*height);
+    }else{
+        height_ = CP_DEF_HEIGHT;
+        redis_->set(CONTROL_KEY_HEIGHT, to_string(height_)); 
+    }
+
+    auto framerate = pipe_replies.get<OptionalString>(2);
+    if(framerate){
+        framerate_ = stoi(*framerate);
+    }else{
+        framerate_ = CP_DEF_FRAMERATE;
+        redis_->set(CONTROL_KEY_HEIGHT, to_string(framerate_)); 
+    }
+
+    auto iso = pipe_replies.get<OptionalString>(3);
+    if(iso){
+        iso_ = stoi(*iso)/100;
+    }else{
+        iso_ = CP_DEF_ISO;
+        redis_->set(CONTROL_KEY_HEIGHT, to_string(iso_)); 
+    }
+
+    auto shutter_speed = pipe_replies.get<OptionalString>(4);
+    if(shutter_speed){
+        shutter_speed_ = stoi(*shutter_speed);
+    }else{
+        shutter_speed_ = CP_DEF_SHUTTER;
+        redis_->set(CONTROL_KEY_HEIGHT, to_string(shutter_speed_)); 
+    }
+
+    auto awb = pipe_replies.get<OptionalString>(5);
+    if(awb){
+        awb_ = stoi(*awb);
+    }else{
+        awb_ = CP_DEF_AWB;
+        redis_->set(CONTROL_KEY_HEIGHT, to_string(awb_)); 
+    }
+    
+    auto compress = pipe_replies.get<OptionalString>(7);
+    if(compress){
+        compression_ = stoi(*compress);
+    }else{
+        compression_ = CP_DEF_COMPRESS;
+        redis_->set(CONTROL_KEY_HEIGHT, to_string(compression_));
+    }
+
     char *ptr = strtok(&(*pipe_replies.get<OptionalString>(6))[0], ",");
     uint8_t i = 0;
     while(ptr != NULL){
@@ -34,8 +93,6 @@ void CinePIController::sync(){
         i++;
         ptr = strtok(NULL, ",");  
     }
-
-    compression_ = stoi(*pipe_replies.get<OptionalString>(7));
 
     options_->compression = compression_;
     options_->width = width_;
@@ -65,13 +122,14 @@ void CinePIController::process(CompletedRequestPtr &completed_request){
     redis_->publish(CHANNEL_STATS, to_string(completed_request->framerate));
     redis_->publish(CHANNEL_STATS, to_string(info.colorTemp));
     redis_->publish(CHANNEL_STATS, to_string(info.focus));
-    redis_->publish(CHANNEL_STATS, info.histoString());
-    redis_->publish(CHANNEL_STATS, to_string(info.trafficLight));
     redis_->publish(CHANNEL_STATS, to_string(app_->GetEncoder()->getFrameCount()));
     redis_->publish(CHANNEL_STATS, to_string(app_->GetEncoder()->bufferSize()));
-
     
-    redis_->publish(CHANNEL_HISTOGRAM, StringView(reinterpret_cast<const char *>(info.histogram), sizeof(info.histogram)));
+    #ifdef LIBCAMERA_CINEPI_CONTROLS 
+        redis_->publish(CHANNEL_STATS, info.histoString());
+        redis_->publish(CHANNEL_STATS, to_string(info.trafficLight));
+        redis_->publish(CHANNEL_HISTOGRAM, StringView(reinterpret_cast<const char *>(info.histogram), sizeof(info.histogram)));
+    #endif
 }
 
 
@@ -79,11 +137,19 @@ void CinePIController::mainThread(){
 
     time_point<system_clock> t = system_clock::now();
 
-    std::cout << "mainThread Started!" << std::endl;
+    LOG(1, "CINEPI_CONTROLLER THREAD STARTED");
     auto sub = redis_->subscriber();
 
     sub.on_message([this](std::string channel, std::string msg) {
         std::cout << msg << " from: " << channel << std::endl;
+
+        if(msg.compare(CONTROL_TRIGGER_STILL) == 0){
+            triggerStill_ = !triggerStill_;
+            if(!triggerStill_){
+                still_number_++;
+            }
+        }
+
         auto r = redis_->get(msg);
         if(r){
             if(msg.compare(CONTROL_KEY_RECORD) == 0){
