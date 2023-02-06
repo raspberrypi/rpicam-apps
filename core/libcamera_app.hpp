@@ -98,6 +98,7 @@ public:
 	Camera *CameraModel() const {
 		return camera_.get();
 	}
+
 	void OpenCamera();
 	void CloseCamera();
 
