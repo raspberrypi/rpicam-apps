@@ -21,6 +21,9 @@ static void event_loop(CinePIRecorder &app, CinePIController &controller)
 	controller.sync();
 
 	RawOptions const *options = app.GetOptions();
+	std::unique_ptr<Output> output = std::unique_ptr<Output>(Output::Create(options));
+	app.SetEncodeOutputReadyCallback(std::bind(&Output::OutputReady, output.get(), _1, _2, _3, _4));
+	app.SetMetadataReadyCallback(std::bind(&Output::MetadataReady, output.get(), _1));
 
 	app.OpenCamera();
 	app.StartEncoder();

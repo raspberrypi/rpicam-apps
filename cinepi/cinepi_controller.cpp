@@ -51,7 +51,7 @@ void CinePIController::sync(){
         framerate_ = stoi(*framerate);
     }else{
         framerate_ = CP_DEF_FRAMERATE;
-        redis_->set(CONTROL_KEY_HEIGHT, to_string(framerate_)); 
+        redis_->set(CONTROL_KEY_FRAMERATE, to_string(framerate_)); 
     }
 
     auto iso = pipe_replies.get<OptionalString>(3);
@@ -59,7 +59,7 @@ void CinePIController::sync(){
         iso_ = stoi(*iso)/100;
     }else{
         iso_ = CP_DEF_ISO;
-        redis_->set(CONTROL_KEY_HEIGHT, to_string(iso_)); 
+        redis_->set(CONTROL_KEY_ISO, to_string(iso_)); 
     }
 
     auto shutter_speed = pipe_replies.get<OptionalString>(4);
@@ -67,7 +67,7 @@ void CinePIController::sync(){
         shutter_speed_ = stoi(*shutter_speed);
     }else{
         shutter_speed_ = CP_DEF_SHUTTER;
-        redis_->set(CONTROL_KEY_HEIGHT, to_string(shutter_speed_)); 
+        redis_->set(CONTROL_KEY_SHUTTER_SPEED, to_string(shutter_speed_)); 
     }
 
     auto awb = pipe_replies.get<OptionalString>(5);
@@ -75,7 +75,7 @@ void CinePIController::sync(){
         awb_ = stoi(*awb);
     }else{
         awb_ = CP_DEF_AWB;
-        redis_->set(CONTROL_KEY_HEIGHT, to_string(awb_)); 
+        redis_->set(CONTROL_KEY_WB, to_string(awb_)); 
     }
     
     auto compress = pipe_replies.get<OptionalString>(7);
@@ -83,7 +83,7 @@ void CinePIController::sync(){
         compression_ = stoi(*compress);
     }else{
         compression_ = CP_DEF_COMPRESS;
-        redis_->set(CONTROL_KEY_HEIGHT, to_string(compression_));
+        redis_->set(CONTROL_KEY_COMPRESSION, to_string(compression_));
     }
 
     char *ptr = strtok(&(*pipe_replies.get<OptionalString>(6))[0], ",");

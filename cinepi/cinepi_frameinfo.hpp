@@ -12,7 +12,7 @@
 struct CinePIFrameInfo : public FrameInfo
 {
 	CinePIFrameInfo(libcamera::ControlList &ctrls)
-		: FrameInfo(ctrls), threshold_l(25.0), threshold_h(2.0), trafficLight(0)
+		: FrameInfo(ctrls)
 	{
 		auto colorT = ctrls.get(libcamera::controls::ColourTemperature);
 		if (colorT)
@@ -25,6 +25,10 @@ struct CinePIFrameInfo : public FrameInfo
         }
 
         #ifdef LIBCAMERA_CINEPI_CONTROLS 
+            trafficLight = 0;
+            threshold_l = 2.0;
+            threshold_h = 25.0;
+
 		    auto histo = ctrls.get(libcamera::controls::RawHistogram);
             if(histo){
                 memcpy(histogram,&(*histo)[0],sizeof(histogram));
@@ -59,15 +63,10 @@ struct CinePIFrameInfo : public FrameInfo
                 trafficLight ^= (-(gH > threshold_h) ^ trafficLight) & (0x20);
                 trafficLight ^= (-(bH > threshold_h) ^ trafficLight) & (0x40);
             }
-        #else
-            for(int i = 0; i < (HISTOGRAM_SIZE); i++){
-                histogram[i] = -1;
-            }
         #endif
 	}
 
     #ifdef LIBCAMERA_CINEPI_CONTROLS 
-
         std::string histoString() const{
             std::ostringstream os;
             os << rL << "%, " << gL << "%, " << bL << "% : " << rH << "%, " << gH << "%, " << bH << "%";

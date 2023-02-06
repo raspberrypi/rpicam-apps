@@ -532,13 +532,11 @@ void DngEncoder::cacheThread(int num)
 		}
 
 		char ft[128];
-		snprintf(ft, sizeof(ft), "%s/%s/%s_%09ld.dng", options_->mediaDest.c_str(), options_->folder.c_str(), options_->folder.c_str(), cache_item.index);
-		// if(still_capture){
-		// 	snprintf(ft, sizeof(ft), "%s/%s/%s_%09ld.dng", options_->mediaDest.c_str(), std::string("stills").c_str(), options_->folder.c_str(), cache_item.index);
-		// }
-		
-		// LOG(1, still_capture);
-		// LOG(1, ft);
+		if(still_capture){
+			snprintf(ft, sizeof(ft), "%s/%s/%s_%09ld.dng", options_->mediaDest.c_str(), std::string("stills").c_str(), options_->folder.c_str(), cache_item.index);
+		} else {
+			snprintf(ft, sizeof(ft), "%s/%s/%s_%09ld.dng", options_->mediaDest.c_str(), options_->folder.c_str(), options_->folder.c_str(), cache_item.index);
+		}
 		
 		std::string filename = std::string(ft);
 		LOG(1, "save frame: " << cache_item.index);
@@ -550,7 +548,7 @@ void DngEncoder::cacheThread(int num)
 		}
 		auto end_time = (std::chrono::high_resolution_clock::now() - start_time);
 
-		// still_capture = false;
+		still_capture = false;
 		
 		cache_time += (end_time);
 		free(cache_item.mem);
