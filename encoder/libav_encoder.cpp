@@ -146,7 +146,7 @@ void LibAvEncoder::initAudioInCodec(VideoOptions const *options, StreamInfo cons
 #endif
 
 	assert(in_fmt_ctx_ == nullptr);
-	int ret = avformat_open_input(&in_fmt_ctx_, options->audio_device.c_str(), input_fmt, nullptr);
+	int ret = avformat_open_input(&in_fmt_ctx_, options->audio_device.c_str(), nullptr, nullptr);
 	if (ret < 0)
 		throw std::runtime_error("libav: cannot open pulseaudio input device " + options->audio_device);
 
@@ -186,8 +186,15 @@ void LibAvEncoder::initAudioOutCodec(VideoOptions const *options, StreamInfo con
 		throw std::runtime_error("libav: cannot allocate audio in context");
 
 	assert(stream_[AudioIn]);
+
+//#if 0 // Implies this has been deprecated in the API
+	av_channel_layout_default(&codec_ctx_[AudioOut]->ch_layout,
+							  stream_[AudioIn]->codecpar->ch_layout.nb_channels);
+//#else
 	codec_ctx_[AudioOut]->channels = stream_[AudioIn]->codecpar->channels;
 	codec_ctx_[AudioOut]->channel_layout = av_get_default_channel_layout(stream_[AudioIn]->codecpar->channels);
+//#endif
+
 	codec_ctx_[AudioOut]->sample_rate = options->audio_samplerate ? options->audio_samplerate
 																  : stream_[AudioIn]->codecpar->sample_rate;
 	codec_ctx_[AudioOut]->sample_fmt = codec->sample_fmts[0];
@@ -218,7 +225,7 @@ LibAvEncoder::LibAvEncoder(VideoOptions const *options, StreamInfo const &info)
 	avdevice_register_all();
 
 	if (options->verbose >= 2)
-		av_log_set_level(AV_LOG_VERBOSE);
+		av_log_set_level(AV_LOG_DEBUG);
 
 	initVideoCodec(options, info);
 	if (options->libav_audio)
@@ -440,20 +447,35 @@ void LibAvEncoder::audioThread()
 {
 	const AVSampleFormat required_fmt = codec_ctx_[AudioOut]->sample_fmt;
 	// Amount of time to pre-record audio into the fifo before the first video frame.
-	constexpr std::chrono::milliseconds pre_record_time(10);
+	constexpr std::chrono::milliseconds pre_record_time(0);
 
 	SwrContext *conv;
 	AVAudioFifo *fifo;
 
+#if 0 // Implies this has been deprecated in the API
+	int ret = swr_alloc_set_opts2(&conv, &codec_ctx_[AudioOut]->ch_layout, required_fmt,
+								  stream_[AudioOut]->codecpar->sample_rate,
+							  	  &codec_ctx_[AudioIn]->ch_layout,
+							  	  codec_ctx_[AudioIn]->sample_fmt,
+							  	  codec_ctx_[AudioIn]->sample_rate, 0, nullptr);
+	if (ret < 0)
+			throw std::runtime_error("libav: cannot create swr context");
+
+	// 2 seconds FIFO buffer
+	fifo = av_audio_fifo_alloc(required_fmt, codec_ctx_[AudioOut]->ch_layout.nb_channels,
+							   codec_ctx_[AudioOut]->sample_rate * 2);
+#else
 	conv = swr_alloc_set_opts(nullptr, av_get_default_channel_layout(codec_ctx_[AudioOut]->channels),
 							  required_fmt, stream_[AudioOut]->codecpar->sample_rate,
 							  av_get_default_channel_layout(codec_ctx_[AudioIn]->channels),
-							  (AVSampleFormat)stream_[AudioIn]->codecpar->format,
-							  stream_[AudioIn]->codecpar->sample_rate, 0, nullptr);
-	swr_init(conv);
+							  codec_ctx_[AudioIn]->sample_fmt,
+							  codec_ctx_[AudioIn]->sample_rate, 0, nullptr);
 
 	// 2 seconds FIFO buffer
 	fifo = av_audio_fifo_alloc(required_fmt, codec_ctx_[AudioOut]->channels, codec_ctx_[AudioOut]->sample_rate * 2);
+#endif
+
+	swr_init(conv);
 
 	AVPacket *in_pkt = av_packet_alloc();
 	AVPacket *out_pkt = av_packet_alloc();
@@ -463,26 +485,35 @@ void LibAvEncoder::audioThread()
 	{
 		int ret;
 
+		std::cout << " in read frame\n";
 		// Audio In
 		ret = av_read_frame(in_fmt_ctx_, in_pkt);
 		if (ret < 0)
 			throw std::runtime_error("libav: cannot read audio in frame");
 
+		std::cout << " in send packet \n";
 		ret = avcodec_send_packet(codec_ctx_[AudioIn], in_pkt);
 		if (ret < 0)
 			throw std::runtime_error("libav: cannot send pkt for decoding audio in");
 
+		std::cout << " in rx \n";	
 		ret = avcodec_receive_frame(codec_ctx_[AudioIn], in_frame);
 		if (ret && ret != AVERROR(EAGAIN) && ret != AVERROR_EOF)
 			throw std::runtime_error("libav: error getting decoded audio in frame");
 
 		// Audio Resample/Conversion
 		uint8_t **samples = nullptr;
-		ret = av_samples_alloc_array_and_samples(&samples, NULL, codec_ctx_[AudioOut]->channels,
+#if 0 // Implies this has been deprecated in the API
+		uint32_t nb_channels = codec_ctx_[AudioOut]->ch_layout.nb_channels;
+#else
+		uint32_t nb_channels = codec_ctx_[AudioOut]->channels;
+#endif
+		ret = av_samples_alloc_array_and_samples(&samples, NULL, nb_channels,
 												 codec_ctx_[AudioOut]->frame_size, required_fmt, 0);
 		if (ret < 0)
 			throw std::runtime_error("libav: failed to alloc sample array");
 
+		std::cout << " swr convert \n";	
 		ret = swr_convert(conv, samples, codec_ctx_[AudioOut]->frame_size,
 						  (const uint8_t **)in_frame->extended_data, in_frame->nb_samples);
 		if (ret < 0)
@@ -498,20 +529,22 @@ void LibAvEncoder::audioThread()
 			// Number of pre-record samples rounded to the frame size.
 			unsigned int ps = !r ? ns : ns + codec_ctx_[AudioOut]->frame_size - r;
 			// FIFO size with samples from the next frame added.
-			unsigned int fs = av_audio_fifo_size(fifo) + in_frame->nb_samples;
+			unsigned int fs = av_audio_fifo_size(fifo) + codec_ctx_[AudioOut]->frame_size;
 			if (fs > ps)
 				av_audio_fifo_drain(fifo, fs - ps);
 		}
 
-		if (av_audio_fifo_space(fifo) < in_frame->nb_samples)
+		if (av_audio_fifo_space(fifo) < codec_ctx_[AudioOut]->frame_size)
 		{
 			LOG(1, "libav: Draining audio fifo, configure a larger size");
-			av_audio_fifo_drain(fifo, in_frame->nb_samples);
+			av_audio_fifo_drain(fifo, codec_ctx_[AudioOut]->frame_size);
 		}
 
-		av_audio_fifo_write(fifo, (void **)samples, in_frame->nb_samples);
-		av_freep(&samples[0]);
+	std::cout << " fifo write convert \n";	
+		av_audio_fifo_write(fifo, (void **)samples, codec_ctx_[AudioOut]->frame_size);
+std::cout << " fifo write convert done\n";
 
+		av_freep(&samples[0]);
 		av_frame_unref(in_frame);
 		av_packet_unref(in_pkt);
 
@@ -524,12 +557,20 @@ void LibAvEncoder::audioThread()
 		{
 			AVFrame *out_frame = av_frame_alloc();
 			out_frame->nb_samples = codec_ctx_[AudioOut]->frame_size;
+
+#if 0 // Implies this has been deprecated in the API
+			av_channel_layout_copy(&out_frame->ch_layout, &codec_ctx_[AudioOut]->ch_layout);
+#else
 			out_frame->channels = codec_ctx_[AudioOut]->channels;
 			out_frame->channel_layout = av_get_default_channel_layout(codec_ctx_[AudioOut]->channels);
+#endif
+
 			out_frame->format = required_fmt;
 			out_frame->sample_rate = codec_ctx_[AudioOut]->sample_rate;
-
 			av_frame_get_buffer(out_frame, 0);
+
+			std::cout << " fifo read\n";	
+
 			av_audio_fifo_read(fifo, (void **)out_frame->data, codec_ctx_[AudioOut]->frame_size);
 
 			AVRational num = { 1, out_frame->sample_rate };
@@ -538,11 +579,15 @@ void LibAvEncoder::audioThread()
 			out_frame->pts = ts + (options_->av_sync > 0 ? options_->av_sync : 0);
 			audio_samples_ += codec_ctx_[AudioOut]->frame_size;
 
+			std::cout << " send frame\n";
 			ret = avcodec_send_frame(codec_ctx_[AudioOut], out_frame);
 			if (ret < 0)
 				throw std::runtime_error("libav: error encoding frame: " + std::to_string(ret));
 
+			std::cout << " encode frame\n";
 			encode(out_pkt, AudioOut);
+			std::cout << " encode done\n";
+
 			av_frame_free(&out_frame);
 		}
 	}
