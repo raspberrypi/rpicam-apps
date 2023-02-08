@@ -186,8 +186,14 @@ void LibAvEncoder::initAudioOutCodec(VideoOptions const *options, StreamInfo con
 		throw std::runtime_error("libav: cannot allocate audio in context");
 
 	assert(stream_[AudioIn]);
+
+#if LIBAVUTIL_VERSION_MAJOR < 57
 	codec_ctx_[AudioOut]->channels = stream_[AudioIn]->codecpar->channels;
 	codec_ctx_[AudioOut]->channel_layout = av_get_default_channel_layout(stream_[AudioIn]->codecpar->channels);
+#else
+	av_channel_layout_default(&codec_ctx_[AudioOut]->ch_layout, stream_[AudioIn]->codecpar->ch_layout.nb_channels);
+#endif
+
 	codec_ctx_[AudioOut]->sample_rate = options->audio_samplerate ? options->audio_samplerate
 																  : stream_[AudioIn]->codecpar->sample_rate;
 	codec_ctx_[AudioOut]->sample_fmt = codec->sample_fmts[0];
@@ -441,19 +447,38 @@ void LibAvEncoder::audioThread()
 	const AVSampleFormat required_fmt = codec_ctx_[AudioOut]->sample_fmt;
 	// Amount of time to pre-record audio into the fifo before the first video frame.
 	constexpr std::chrono::milliseconds pre_record_time(10);
+	int ret;
+
+#if LIBAVUTIL_VERSION_MAJOR < 57
+	uint32_t out_channels = codec_ctx_[AudioOut]->channels;
+#else
+	uint32_t out_channels = codec_ctx_[AudioOut]->ch_layout.nb_channels;
+#endif
 
 	SwrContext *conv;
 	AVAudioFifo *fifo;
 
-	conv = swr_alloc_set_opts(nullptr, av_get_default_channel_layout(codec_ctx_[AudioOut]->channels),
-							  required_fmt, stream_[AudioOut]->codecpar->sample_rate,
+#if LIBAVUTIL_VERSION_MAJOR < 57
+	conv = swr_alloc_set_opts(nullptr, av_get_default_channel_layout(codec_ctx_[AudioOut]->channels), required_fmt,
+							  stream_[AudioOut]->codecpar->sample_rate,
 							  av_get_default_channel_layout(codec_ctx_[AudioIn]->channels),
-							  (AVSampleFormat)stream_[AudioIn]->codecpar->format,
-							  stream_[AudioIn]->codecpar->sample_rate, 0, nullptr);
-	swr_init(conv);
+							  codec_ctx_[AudioIn]->sample_fmt, codec_ctx_[AudioIn]->sample_rate, 0, nullptr);
 
 	// 2 seconds FIFO buffer
 	fifo = av_audio_fifo_alloc(required_fmt, codec_ctx_[AudioOut]->channels, codec_ctx_[AudioOut]->sample_rate * 2);
+#else
+	ret = swr_alloc_set_opts2(&conv, &codec_ctx_[AudioOut]->ch_layout, required_fmt,
+							  stream_[AudioOut]->codecpar->sample_rate, &codec_ctx_[AudioIn]->ch_layout,
+							  codec_ctx_[AudioIn]->sample_fmt, codec_ctx_[AudioIn]->sample_rate, 0, nullptr);
+	if (ret < 0)
+		throw std::runtime_error("libav: cannot create swr context");
+
+	// 2 seconds FIFO buffer
+	fifo = av_audio_fifo_alloc(required_fmt, codec_ctx_[AudioOut]->ch_layout.nb_channels,
+							   codec_ctx_[AudioOut]->sample_rate * 2);
+#endif
+
+	swr_init(conv);
 
 	AVPacket *in_pkt = av_packet_alloc();
 	AVPacket *out_pkt = av_packet_alloc();
@@ -463,8 +488,8 @@ void LibAvEncoder::audioThread()
 
 	int max_output_samples = av_rescale_rnd(codec_ctx_[AudioOut]->frame_size, codec_ctx_[AudioOut]->sample_rate,
 											codec_ctx_[AudioIn]->sample_rate, AV_ROUND_UP);
-	int ret = av_samples_alloc_array_and_samples(&samples, &sample_linesize, codec_ctx_[AudioOut]->channels,
-												 max_output_samples, required_fmt, 0);
+	ret = av_samples_alloc_array_and_samples(&samples, &sample_linesize, out_channels, max_output_samples, required_fmt,
+											 0);
 	if (ret < 0)
 		throw std::runtime_error("libav: failed to alloc sample array");
 
@@ -492,8 +517,8 @@ void LibAvEncoder::audioThread()
 		{
 			av_freep(&samples[0]);
 			max_output_samples = num_output_samples;
-			ret = av_samples_alloc_array_and_samples(&samples, &sample_linesize, codec_ctx_[AudioOut]->channels,
-													 max_output_samples, required_fmt, 0);
+			ret = av_samples_alloc_array_and_samples(&samples, &sample_linesize, out_channels, max_output_samples,
+													 required_fmt, 0);
 			if (ret < 0)
 				throw std::runtime_error("libav: failed to alloc sample array");
 		}
@@ -538,8 +563,14 @@ void LibAvEncoder::audioThread()
 		{
 			AVFrame *out_frame = av_frame_alloc();
 			out_frame->nb_samples = codec_ctx_[AudioOut]->frame_size;
+
+#if LIBAVUTIL_VERSION_MAJOR < 57
 			out_frame->channels = codec_ctx_[AudioOut]->channels;
 			out_frame->channel_layout = av_get_default_channel_layout(codec_ctx_[AudioOut]->channels);
+#else
+			av_channel_layout_copy(&out_frame->ch_layout, &codec_ctx_[AudioOut]->ch_layout);
+#endif
+
 			out_frame->format = required_fmt;
 			out_frame->sample_rate = codec_ctx_[AudioOut]->sample_rate;
 
