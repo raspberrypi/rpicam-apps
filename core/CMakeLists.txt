@@ -14,3 +14,25 @@ set_target_properties(libcamera_app PROPERTIES PREFIX "" IMPORT_PREFIX "" VERSIO
 target_link_libraries(libcamera_app pthread preview ${LIBCAMERA_LINK_LIBRARIES} ${Boost_LIBRARIES} post_processing_stages)
 
 install(TARGETS libcamera_app LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR} ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})
+
+list(APPEND ${PROJECT_NAME}_HEADERS
+    completed_request.hpp
+    frame_info.hpp
+    libcamera_app.hpp
+    libcamera_encoder.hpp
+    logging.hpp
+    metadata.hpp
+    options.hpp
+    post_processor.hpp
+    still_options.hpp
+    stream_info.hpp
+    version.hpp
+    video_options.hpp
+)
+
+install(FILES
+    ${${PROJECT_NAME}_HEADERS}
+    DESTINATION
+    ${INCLUDE_INSTALL_DIR}/${PROJECT_NAME}/core
+    COMPONENT Devel
+)

@@ -12,3 +12,15 @@ set_target_properties(images PROPERTIES VERSION ${PROJECT_VERSION} SOVERSION ${P
 target_link_libraries(images jpeg exif png tiff)
 
 install(TARGETS images LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR} ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})
+
+list(APPEND ${PROJECT_NAME}_HEADERS
+    image.hpp
+)
+
+install(FILES
+    ${${PROJECT_NAME}_HEADERS}
+    DESTINATION
+    ${INCLUDE_INSTALL_DIR}/${PROJECT_NAME}/image
+    COMPONENT Devel
+)
+
