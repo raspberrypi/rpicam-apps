@@ -18,6 +18,8 @@
 
 #include "libav_encoder.hpp"
 
+namespace {
+
 void encoderOptionsH264M2M(VideoOptions const *options, AVCodecContext *codec)
 {
 	codec->pix_fmt = AV_PIX_FMT_DRM_PRIME;
@@ -27,18 +29,44 @@ void encoderOptionsH264M2M(VideoOptions const *options, AVCodecContext *codec)
 		codec->bit_rate = options->bitrate;
 }
 
-static const std::map<std::string, std::function<void(VideoOptions const *, AVCodecContext *)>> optionsMap =
+void encoderOptionsLibx264(VideoOptions const *options, AVCodecContext *codec)
+{
+	codec->pix_fmt = AV_PIX_FMT_YUV420P;
+
+	if (options->bitrate)
+		codec->bit_rate = options->bitrate;
+
+	codec->max_b_frames = 1;
+	codec->me_range = 16;
+	codec->me_cmp = 1; // No chroma ME
+	codec->me_subpel_quality = 0;
+	codec->thread_count = 0;
+	codec->thread_type = FF_THREAD_FRAME;
+	codec->slices = 1;
+
+	av_opt_set(codec->priv_data, "preset", "superfast", 0);
+	av_opt_set(codec->priv_data, "partitions", "i8x8,i4x4", 0);
+	av_opt_set(codec->priv_data, "weightp", "none", 0);
+	av_opt_set(codec->priv_data, "weightb", "0", 0);
+	av_opt_set(codec->priv_data, "motion-est", "dia", 0);
+	av_opt_set(codec->priv_data, "sc_threshold", "0", 0);
+	av_opt_set(codec->priv_data, "rc-lookahead", "0", 0);
+	av_opt_set(codec->priv_data, "mixed_ref", "0", 0);
+}
+
+const std::map<std::string, std::function<void(VideoOptions const *, AVCodecContext *)>> optionsMap =
 {
 	{ "h264_v4l2m2m", encoderOptionsH264M2M },
+	{ "libx264", encoderOptionsLibx264 },
 };
+
+} // namespace
 
 void LibAvEncoder::initVideoCodec(VideoOptions const *options, StreamInfo const &info)
 {
-	const std::string codec_name("h264_v4l2m2m");
-
-	const AVCodec *codec = avcodec_find_encoder_by_name(codec_name.c_str());
+	const AVCodec *codec = avcodec_find_encoder_by_name(options->libav_video_codec.c_str());
 	if (!codec)
-		throw std::runtime_error("libav: cannot find video encoder " + codec_name);
+		throw std::runtime_error("libav: cannot find video encoder " + options->libav_video_codec);
 
 	codec_ctx_[Video] = avcodec_alloc_context3(codec);
 	if (!codec_ctx_[Video])
@@ -113,7 +141,7 @@ void LibAvEncoder::initVideoCodec(VideoOptions const *options, StreamInfo const 
 											     : (int)(options->framerate.value_or(DEFAULT_FRAMERATE));
 
 	// Apply any codec specific options:
-	auto fn = optionsMap.find("h264_v4l2m2m");
+	auto fn = optionsMap.find(options->libav_video_codec);
 	if (fn != optionsMap.end())
 		fn->second(options, codec_ctx_[Video]);
 
@@ -309,32 +337,39 @@ void LibAvEncoder::EncodeBuffer(int fd, size_t size, void *mem, StreamInfo const
 	frame->linesize[1] = frame->linesize[2] = info.stride >> 1;
 	frame->pts = timestamp_us - video_start_ts_ + (options_->av_sync < 0 ? -options_->av_sync : 0);
 
+	if (codec_ctx_[Video]->pix_fmt == AV_PIX_FMT_DRM_PRIME)
 	{
 		std::scoped_lock<std::mutex> lock(drm_queue_lock_);
 		drm_frame_queue_.emplace(std::make_unique<AVDRMFrameDescriptor>());
 		frame->buf[0] = av_buffer_create((uint8_t *)drm_frame_queue_.back().get(), sizeof(AVDRMFrameDescriptor),
 										 &LibAvEncoder::releaseBuffer, this, 0);
 		frame->data[0] = frame->buf[0]->data;
+
+		AVDRMFrameDescriptor *desc = (AVDRMFrameDescriptor *)frame->data[0];
+		desc->nb_objects = 1;
+		desc->objects[0].fd = fd;
+		desc->objects[0].size = size;
+		desc->objects[0].format_modifier = DRM_FORMAT_MOD_INVALID;
+
+		desc->nb_layers = 1;
+		desc->layers[0].format = DRM_FORMAT_YUV420;
+		desc->layers[0].nb_planes = 3;
+		desc->layers[0].planes[0].object_index = 0;
+		desc->layers[0].planes[0].offset = 0;
+		desc->layers[0].planes[0].pitch = info.stride;
+		desc->layers[0].planes[1].object_index = 0;
+		desc->layers[0].planes[1].offset = info.stride * info.height;
+		desc->layers[0].planes[1].pitch = info.stride >> 1;
+		desc->layers[0].planes[2].object_index = 0;
+		desc->layers[0].planes[2].offset = info.stride * info.height * 5 / 4;
+		desc->layers[0].planes[2].pitch = info.stride >> 1;
 	}
-
-	AVDRMFrameDescriptor *desc = (AVDRMFrameDescriptor *)frame->data[0];
-	desc->nb_objects = 1;
-	desc->objects[0].fd = fd;
-	desc->objects[0].size = size;
-	desc->objects[0].format_modifier = DRM_FORMAT_MOD_INVALID;
-
-	desc->nb_layers = 1;
-	desc->layers[0].format = DRM_FORMAT_YUV420;
-	desc->layers[0].nb_planes = 3;
-	desc->layers[0].planes[0].object_index = 0;
-	desc->layers[0].planes[0].offset = 0;
-	desc->layers[0].planes[0].pitch = info.stride;
-	desc->layers[0].planes[1].object_index = 0;
-	desc->layers[0].planes[1].offset = info.stride * info.height;
-	desc->layers[0].planes[1].pitch = info.stride >> 1;
-	desc->layers[0].planes[2].object_index = 0;
-	desc->layers[0].planes[2].offset = info.stride * info.height * 5 / 4;
-	desc->layers[0].planes[2].pitch = info.stride >> 1;
+	else
+	{
+		frame->buf[0] = av_buffer_create((uint8_t *)mem, size, &LibAvEncoder::releaseBuffer, this, 0);
+		av_image_fill_pointers(frame->data, AV_PIX_FMT_YUV420P, frame->height, frame->buf[0]->data, frame->linesize);
+		av_frame_make_writable(frame);
+	}
 
 	std::scoped_lock<std::mutex> lock(video_mutex_);
 	frame_queue_.push(frame);
