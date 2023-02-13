@@ -18,6 +18,20 @@
 
 #include "libav_encoder.hpp"
 
+void encoderOptionsH264M2M(VideoOptions const *options, AVCodecContext *codec)
+{
+	codec->pix_fmt = AV_PIX_FMT_DRM_PRIME;
+	codec->max_b_frames = 0;
+
+	if (options->bitrate)
+		codec->bit_rate = options->bitrate;
+}
+
+static const std::map<std::string, std::function<void(VideoOptions const *, AVCodecContext *)>> optionsMap =
+{
+	{ "h264_v4l2m2m", encoderOptionsH264M2M },
+};
+
 void LibAvEncoder::initVideoCodec(VideoOptions const *options, StreamInfo const &info)
 {
 	const std::string codec_name("h264_v4l2m2m");
@@ -35,7 +49,6 @@ void LibAvEncoder::initVideoCodec(VideoOptions const *options, StreamInfo const 
 	// usec timebase
 	codec_ctx_[Video]->time_base = { 1, 1000 * 1000 };
 	codec_ctx_[Video]->framerate = { (int)(options->framerate.value_or(DEFAULT_FRAMERATE) * 1000), 1000 };
-	codec_ctx_[Video]->pix_fmt = AV_PIX_FMT_DRM_PRIME;
 	codec_ctx_[Video]->sw_pix_fmt = AV_PIX_FMT_YUV420P;
 
 	if (info.colour_space)
@@ -80,10 +93,6 @@ void LibAvEncoder::initVideoCodec(VideoOptions const *options, StreamInfo const 
 			info.colour_space->range == ColorSpace::Range::Full ? AVCOL_RANGE_JPEG : AVCOL_RANGE_MPEG;
 	}
 
-	// Apply any options->
-	if (options->bitrate)
-		codec_ctx_[Video]->bit_rate = options->bitrate;
-
 	if (!options->profile.empty())
 	{
 		static const std::map<std::string, int> profile_map = {
@@ -100,9 +109,13 @@ void LibAvEncoder::initVideoCodec(VideoOptions const *options, StreamInfo const 
 	}
 
 	codec_ctx_[Video]->level = options->level.empty() ? FF_LEVEL_UNKNOWN : std::stof(options->level) * 10;
+	codec_ctx_[Video]->gop_size = options->intra ? options->intra
+											     : (int)(options->framerate.value_or(DEFAULT_FRAMERATE));
 
-	if (options->intra)
-		codec_ctx_[Video]->gop_size = options->intra;
+	// Apply any codec specific options:
+	auto fn = optionsMap.find("h264_v4l2m2m");
+	if (fn != optionsMap.end())
+		fn->second(options, codec_ctx_[Video]);
 
 	assert(out_fmt_ctx_ == nullptr);
 	avformat_alloc_output_context2(&out_fmt_ctx_, nullptr,
