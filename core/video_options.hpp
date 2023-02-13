@@ -59,6 +59,9 @@ struct VideoOptions : public Options
 			("frames", value<unsigned int>(&frames)->default_value(0),
 			 "Run for the exact number of frames specified. This will override any timeout set.")
 #if LIBAV_PRESENT
+			("libav-video-codec", value<std::string>(&libav_video_codec)->default_value("h264_v4l2m2m"),
+			 "Sets the libav video codec to use. "
+			 "To list available codecs, run  the \"ffmpeg -codecs\" command.")
 			("libav-format", value<std::string>(&libav_format)->default_value(""),
 			 "Sets the libav encoder output format to use. "
 			 "Leave blank to try and deduce this from the filename.\n"
@@ -96,6 +99,7 @@ struct VideoOptions : public Options
 	unsigned int intra;
 	bool inline_headers;
 	std::string codec;
+	std::string libav_video_codec;
 	std::string libav_format;
 	bool libav_audio;
 	std::string audio_codec;
