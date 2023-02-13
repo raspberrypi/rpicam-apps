@@ -289,14 +289,20 @@ void LibAvEncoder::EncodeBuffer(int fd, size_t size, void *mem, StreamInfo const
 	if (!video_start_ts_)
 		video_start_ts_ = timestamp_us;
 
-	frame->format = AV_PIX_FMT_DRM_PRIME;
+	frame->format = codec_ctx_[Video]->pix_fmt;
 	frame->width = info.width;
 	frame->height = info.height;
 	frame->linesize[0] = info.stride;
+	frame->linesize[1] = frame->linesize[2] = info.stride >> 1;
 	frame->pts = timestamp_us - video_start_ts_ + (options_->av_sync < 0 ? -options_->av_sync : 0);
 
-	frame->buf[0] = av_buffer_alloc(sizeof(AVDRMFrameDescriptor));
-	frame->data[0] = frame->buf[0]->data;
+	{
+		std::scoped_lock<std::mutex> lock(drm_queue_lock_);
+		drm_frame_queue_.emplace(std::make_unique<AVDRMFrameDescriptor>());
+		frame->buf[0] = av_buffer_create((uint8_t *)drm_frame_queue_.back().get(), sizeof(AVDRMFrameDescriptor),
+										 &LibAvEncoder::releaseBuffer, this, 0);
+		frame->data[0] = frame->buf[0]->data;
+	}
 
 	AVDRMFrameDescriptor *desc = (AVDRMFrameDescriptor *)frame->data[0];
 	desc->nb_objects = 1;
@@ -407,6 +413,18 @@ void LibAvEncoder::encode(AVPacket *pkt, unsigned int stream_id)
 	}
 }
 
+extern "C" void LibAvEncoder::releaseBuffer(void *opaque, uint8_t *data)
+{
+	LibAvEncoder *enc = static_cast<LibAvEncoder *>(opaque);
+
+	enc->input_done_callback_(nullptr);
+
+	// Pop the entry from the queue to release the AVDRMFrameDescriptor allocation
+	std::scoped_lock<std::mutex> lock(enc->drm_queue_lock_);
+	if (!enc->drm_frame_queue_.empty())
+		enc->drm_frame_queue_.pop();
+}
+
 void LibAvEncoder::videoThread()
 {
 	AVPacket *pkt = av_packet_alloc();
@@ -438,8 +456,6 @@ void LibAvEncoder::videoThread()
 		int ret = avcodec_send_frame(codec_ctx_[Video], frame);
 		if (ret < 0)
 			throw std::runtime_error("libav: error encoding frame: " + std::to_string(ret));
-
-		input_done_callback_(nullptr);
 
 		encode(pkt, Video);
 		av_frame_free(&frame);
