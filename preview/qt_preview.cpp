@@ -8,6 +8,7 @@
 #include <condition_variable>
 #include <iostream>
 #include <mutex>
+#include <string.h>
 #include <thread>
 
 // This header must be before the QT headers, as the latter #defines slot and emit!
@@ -66,6 +67,8 @@ public:
 		// This preview window is expensive, so make it small by default.
 		if (window_width_ == 0 || window_height_ == 0)
 			window_width_ = 512, window_height_ = 384;
+		// As a hint, reserve twice the binned width for our widest current camera (V3)
+		tmp_stripe_.reserve(4608);
 		thread_ = std::thread(&QtPreview::threadFunc, this, options);
 		std::unique_lock lock(mutex_);
 		while (!pane_)
@@ -83,9 +86,6 @@ public:
 		// Quick and simple nearest-neighbour-ish resampling is used here.
 		// We further share U,V samples between adjacent output pixel pairs
 		// (even when downscaling) to speed up the conversion.
-		uint8_t *Y_start = span.data();
-		uint8_t *U_start = Y_start + info.stride * info.height;
-		int uv_size = (info.stride >> 1) * (info.height >> 1);
 		unsigned x_step = (info.width << 16) / window_width_;
 		unsigned y_step = (info.height << 16) / window_height_;
 
@@ -127,6 +127,14 @@ public:
 				LOG(1, "QtPreview: unexpected colour space " << libcamera::ColorSpace::toString(info.colour_space));
 		}
 
+		// Because the source buffer is uncached, and we want to read it a byte at a time,
+		// take a copy of each row used. This is a speedup provided memcpy() is vectorized.
+		tmp_stripe_.resize(2 * info.stride);
+		uint8_t const *Y_start = span.data();
+		uint8_t *Y_row = &tmp_stripe_[0];
+		uint8_t *U_row = Y_row + info.stride;
+		uint8_t *V_row = U_row + (info.stride >> 1);
+
 		// Possibly this should be locked in case a repaint is happening? In practice the risk
 		// is only that there might be some tearing, so I don't think we worry. We could speed
 		// it up by getting the ISP to supply RGB, but I'm not sure I want to handle that extra
@@ -134,11 +142,13 @@ public:
 		for (unsigned int y = 0; y < window_height_; y++)
 		{
 			unsigned row = (y * y_step) >> 16;
-			uint8_t *Y_row = Y_start + row * info.stride;
-			uint8_t *U_row = U_start + (row >> 1) * (info.stride >> 1) - (x_step >> 18);
-			uint8_t *V_row = U_row + uv_size;
 			uint8_t *dest = pane_->image.scanLine(y);
 			unsigned x_pos = x_step >> 1;
+
+			memcpy(Y_row, Y_start + row * info.stride, info.stride);
+			memcpy(U_row, Y_start + ((4 * info.height + row) >> 1) * (info.stride >> 1), info.stride >> 1);
+			memcpy(V_row, Y_start + ((5 * info.height + row) >> 1) * (info.stride >> 1), info.stride >> 1);
+
 			for (unsigned int x = 0; x < window_width_; x += 2)
 			{
 				int Y0 = Y_row[x_pos >> 16];
@@ -207,6 +217,7 @@ private:
 	unsigned int window_width_, window_height_;
 	std::mutex mutex_;
 	std::condition_variable cond_var_;
+	std::vector<uint8_t> tmp_stripe_;
 };
 
 Preview *make_qt_preview(Options const *options)
