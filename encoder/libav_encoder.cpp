@@ -148,7 +148,7 @@ void LibAvEncoder::initAudioInCodec(VideoOptions const *options, StreamInfo cons
 	assert(in_fmt_ctx_ == nullptr);
 	int ret = avformat_open_input(&in_fmt_ctx_, options->audio_device.c_str(), input_fmt, nullptr);
 	if (ret < 0)
-		throw std::runtime_error("libav: cannot open pulseaudio input device " + options->audio_device);
+		throw std::runtime_error("libav: cannot open " + options->audio_source + " input device " + options->audio_device);
 
 	avformat_find_stream_info(in_fmt_ctx_, nullptr);
 
