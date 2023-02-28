@@ -280,9 +280,10 @@ void dng_save(std::vector<libcamera::Span<uint8_t>> const &mem, StreamInfo const
 			for (unsigned int x = 0; x < (info.width >> 4); x++)
 			{
 				unsigned int off = (y * info.width + x) << 4;
-				int grey = buf[off] + buf[off + 1] + buf[off + info.width] + buf[off + info.width + 1];
-				grey = white * sqrt(grey / (double)white); // fake "gamma"
-				thumb_buf[3 * x] = thumb_buf[3 * x + 1] = thumb_buf[3 * x + 2] = grey >> (bayer_format.bits - 6);
+				uint32_t grey = buf[off] + buf[off + 1] + buf[off + info.width] + buf[off + info.width + 1];
+				grey = (grey << 14) >> bayer_format.bits;
+				grey = sqrt((double)grey); // simple "gamma correction"
+				thumb_buf[3 * x] = thumb_buf[3 * x + 1] = thumb_buf[3 * x + 2] = grey;
 			}
 			if (TIFFWriteScanline(tif, &thumb_buf[0], y, 0) != 1)
 				throw std::runtime_error("error writing DNG thumbnail data");
