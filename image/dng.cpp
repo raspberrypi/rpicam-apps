@@ -44,14 +44,18 @@ static const std::map<PixelFormat, BayerFormat> bayer_formats =
 	{ formats::SGRBG12_CSI2P, { "GRBG-12", 12, TIFF_GRBG } },
 	{ formats::SBGGR12_CSI2P, { "BGGR-12", 12, TIFF_BGGR } },
 	{ formats::SGBRG12_CSI2P, { "GBRG-12", 12, TIFF_GBRG } },
+	{ formats::SRGGB16,       { "RGGB-16", 16, TIFF_RGGB } },
+	{ formats::SGRBG16,       { "GRBG-16", 16, TIFF_GRBG } },
+	{ formats::SBGGR16,       { "BGGR-16", 16, TIFF_BGGR } },
+	{ formats::SGBRG16,       { "GBRG-16", 16, TIFF_GBRG } },
 };
 
-static void unpack_10bit(uint8_t *src, StreamInfo const &info, uint16_t *dest)
+static void unpack_10bit(uint8_t const *src, StreamInfo const &info, uint16_t *dest)
 {
 	unsigned int w_align = info.width & ~3;
 	for (unsigned int y = 0; y < info.height; y++, src += info.stride)
 	{
-		uint8_t *ptr = src;
+		uint8_t const *ptr = src;
 		unsigned int x;
 		for (x = 0; x < w_align; x += 4, ptr += 5)
 		{
@@ -65,12 +69,12 @@ static void unpack_10bit(uint8_t *src, StreamInfo const &info, uint16_t *dest)
 	}
 }
 
-static void unpack_12bit(uint8_t *src, StreamInfo const &info, uint16_t *dest)
+static void unpack_12bit(uint8_t const *src, StreamInfo const &info, uint16_t *dest)
 {
 	unsigned int w_align = info.width & ~1;
 	for (unsigned int y = 0; y < info.height; y++, src += info.stride)
 	{
-		uint8_t *ptr = src;
+		uint8_t const *ptr = src;
 		unsigned int x;
 		for (x = 0; x < w_align; x += 2, ptr += 3)
 		{
@@ -79,6 +83,18 @@ static void unpack_12bit(uint8_t *src, StreamInfo const &info, uint16_t *dest)
 		}
 		if (x < info.width)
 			*dest++ = (ptr[x & 1] << 4) | ((ptr[2] >> ((x & 1) << 2)) & 15);
+	}
+}
+
+static void unpack_16bit(uint8_t const *src, StreamInfo const &info, uint16_t *dest)
+{
+	/* Assume the pixels in memory are already in native byte order */
+	unsigned int w = info.width;
+	for (unsigned int y = 0; y < info.height; y++)
+	{
+		memcpy(dest, src, 2 * w);
+		dest += w;
+		src += info.stride;
 	}
 }
 
@@ -144,14 +160,13 @@ void dng_save(std::vector<libcamera::Span<uint8_t>> const &mem, StreamInfo const
 
 	std::vector<uint16_t> buf(info.width * info.height);
 	if (bayer_format.bits == 10)
-		unpack_10bit((uint8_t *)mem[0].data(), info, &buf[0]);
+		unpack_10bit(mem[0].data(), info, &buf[0]);
 	else if (bayer_format.bits == 12)
-		unpack_12bit((uint8_t *)mem[0].data(), info, &buf[0]);
+		unpack_12bit(mem[0].data(), info, &buf[0]);
 	else
-		throw std::runtime_error("unsupported bit depth " + std::to_string(bayer_format.bits));
+		unpack_16bit(mem[0].data(), info, &buf[0]);
 
 	// We need to fish out some metadata values for the DNG.
-
 	float black = 4096 * (1 << bayer_format.bits) / 65536.0;
 	float black_levels[] = { black, black, black, black };
 	auto bl = metadata.get(controls::SensorBlackLevels);
