@@ -16,6 +16,10 @@
 #include "core/still_options.hpp"
 #include "core/stream_info.hpp"
 
+#ifndef MAKE_STRING
+#define MAKE_STRING "Raspberry Pi"
+#endif
+
 using namespace libcamera;
 
 static char TIFF_RGGB[4] = { 0, 1, 1, 2 };
@@ -40,14 +44,18 @@ static const std::map<PixelFormat, BayerFormat> bayer_formats =
 	{ formats::SGRBG12_CSI2P, { "GRBG-12", 12, TIFF_GRBG } },
 	{ formats::SBGGR12_CSI2P, { "BGGR-12", 12, TIFF_BGGR } },
 	{ formats::SGBRG12_CSI2P, { "GBRG-12", 12, TIFF_GBRG } },
+	{ formats::SRGGB16,       { "RGGB-16", 16, TIFF_RGGB } },
+	{ formats::SGRBG16,       { "GRBG-16", 16, TIFF_GRBG } },
+	{ formats::SBGGR16,       { "BGGR-16", 16, TIFF_BGGR } },
+	{ formats::SGBRG16,       { "GBRG-16", 16, TIFF_GBRG } },
 };
 
-static void unpack_10bit(uint8_t *src, StreamInfo const &info, uint16_t *dest)
+static void unpack_10bit(uint8_t const *src, StreamInfo const &info, uint16_t *dest)
 {
 	unsigned int w_align = info.width & ~3;
 	for (unsigned int y = 0; y < info.height; y++, src += info.stride)
 	{
-		uint8_t *ptr = src;
+		uint8_t const *ptr = src;
 		unsigned int x;
 		for (x = 0; x < w_align; x += 4, ptr += 5)
 		{
@@ -61,12 +69,12 @@ static void unpack_10bit(uint8_t *src, StreamInfo const &info, uint16_t *dest)
 	}
 }
 
-static void unpack_12bit(uint8_t *src, StreamInfo const &info, uint16_t *dest)
+static void unpack_12bit(uint8_t const *src, StreamInfo const &info, uint16_t *dest)
 {
 	unsigned int w_align = info.width & ~1;
 	for (unsigned int y = 0; y < info.height; y++, src += info.stride)
 	{
-		uint8_t *ptr = src;
+		uint8_t const *ptr = src;
 		unsigned int x;
 		for (x = 0; x < w_align; x += 2, ptr += 3)
 		{
@@ -75,6 +83,18 @@ static void unpack_12bit(uint8_t *src, StreamInfo const &info, uint16_t *dest)
 		}
 		if (x < info.width)
 			*dest++ = (ptr[x & 1] << 4) | ((ptr[2] >> ((x & 1) << 2)) & 15);
+	}
+}
+
+static void unpack_16bit(uint8_t const *src, StreamInfo const &info, uint16_t *dest)
+{
+	/* Assume the pixels in memory are already in native byte order */
+	unsigned int w = info.width;
+	for (unsigned int y = 0; y < info.height; y++)
+	{
+		memcpy(dest, src, 2 * w);
+		dest += w;
+		src += info.stride;
 	}
 }
 
@@ -127,9 +147,8 @@ Matrix(float m0, float m1, float m2,
 	}
 };
 
-void dng_save(std::vector<libcamera::Span<uint8_t>> const &mem, StreamInfo const &info,
-			  ControlList const &metadata, std::string const &filename,
-			  std::string const &cam_name, StillOptions const *options)
+void dng_save(std::vector<libcamera::Span<uint8_t>> const &mem, StreamInfo const &info, ControlList const &metadata,
+			  std::string const &filename, std::string const &cam_model, StillOptions const *options)
 {
 	// Check the Bayer format and unpack it to u16.
 
@@ -141,14 +160,13 @@ void dng_save(std::vector<libcamera::Span<uint8_t>> const &mem, StreamInfo const
 
 	std::vector<uint16_t> buf(info.width * info.height);
 	if (bayer_format.bits == 10)
-		unpack_10bit((uint8_t *)mem[0].data(), info, &buf[0]);
+		unpack_10bit(mem[0].data(), info, &buf[0]);
 	else if (bayer_format.bits == 12)
-		unpack_12bit((uint8_t *)mem[0].data(), info, &buf[0]);
+		unpack_12bit(mem[0].data(), info, &buf[0]);
 	else
-		throw std::runtime_error("unsupported bit depth " + std::to_string(bayer_format.bits));
+		unpack_16bit(mem[0].data(), info, &buf[0]);
 
 	// We need to fish out some metadata values for the DNG.
-
 	float black = 4096 * (1 << bayer_format.bits) / 65536.0;
 	float black_levels[] = { black, black, black, black };
 	auto bl = metadata.get(controls::SensorBlackLevels);
@@ -225,6 +243,7 @@ void dng_save(std::vector<libcamera::Span<uint8_t>> const &mem, StreamInfo const
 		const short cfa_repeat_pattern_dim[] = { 2, 2 };
 		uint32_t white = (1 << bayer_format.bits) - 1;
 		toff_t offset_subifd = 0, offset_exififd = 0;
+		std::string unique_model = std::string(MAKE_STRING " ") + cam_model;
 
 		tif = TIFFOpen(filename.c_str(), "w");
 		if (!tif)
@@ -238,11 +257,11 @@ void dng_save(std::vector<libcamera::Span<uint8_t>> const &mem, StreamInfo const
 		TIFFSetField(tif, TIFFTAG_BITSPERSAMPLE, 8);
 		TIFFSetField(tif, TIFFTAG_COMPRESSION, COMPRESSION_NONE);
 		TIFFSetField(tif, TIFFTAG_PHOTOMETRIC, PHOTOMETRIC_RGB);
-		TIFFSetField(tif, TIFFTAG_MAKE, "Raspberry Pi");
-		TIFFSetField(tif, TIFFTAG_MODEL, cam_name.c_str());
+		TIFFSetField(tif, TIFFTAG_MAKE, MAKE_STRING);
+		TIFFSetField(tif, TIFFTAG_MODEL, cam_model.c_str());
 		TIFFSetField(tif, TIFFTAG_DNGVERSION, "\001\001\000\000");
 		TIFFSetField(tif, TIFFTAG_DNGBACKWARDVERSION, "\001\000\000\000");
-		TIFFSetField(tif, TIFFTAG_UNIQUECAMERAMODEL, cam_name.c_str());
+		TIFFSetField(tif, TIFFTAG_UNIQUECAMERAMODEL, unique_model.c_str());
 		TIFFSetField(tif, TIFFTAG_ORIENTATION, ORIENTATION_TOPLEFT);
 		TIFFSetField(tif, TIFFTAG_SAMPLESPERPIXEL, 3);
 		TIFFSetField(tif, TIFFTAG_PLANARCONFIG, PLANARCONFIG_CONTIG);
@@ -261,9 +280,10 @@ void dng_save(std::vector<libcamera::Span<uint8_t>> const &mem, StreamInfo const
 			for (unsigned int x = 0; x < (info.width >> 4); x++)
 			{
 				unsigned int off = (y * info.width + x) << 4;
-				int grey = buf[off] + buf[off + 1] + buf[off + info.width] + buf[off + info.width + 1];
-				grey = white * sqrt(grey / (double)white); // fake "gamma"
-				thumb_buf[3 * x] = thumb_buf[3 * x + 1] = thumb_buf[3 * x + 2] = grey >> (bayer_format.bits - 6);
+				uint32_t grey = buf[off] + buf[off + 1] + buf[off + info.width] + buf[off + info.width + 1];
+				grey = (grey << 14) >> bayer_format.bits;
+				grey = sqrt((double)grey); // simple "gamma correction"
+				thumb_buf[3 * x] = thumb_buf[3 * x + 1] = thumb_buf[3 * x + 2] = grey;
 			}
 			if (TIFFWriteScanline(tif, &thumb_buf[0], y, 0) != 1)
 				throw std::runtime_error("error writing DNG thumbnail data");

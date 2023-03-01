@@ -119,6 +119,11 @@ bool Options::Parse(int argc, char *argv[])
 			LOG_ERROR("WARNING: Unable to set HDR mode");
 	}
 
+	// We have to pass the tuning file name through an environment variable.
+	// Note that we only overwrite the variable if the option was given.
+	if (tuning_file != "-")
+		setenv("LIBCAMERA_RPI_TUNING_FILE", tuning_file.c_str(), 1);
+
 	// Set the verbosity
 	LibcameraApp::verbosity = verbose;
 
@@ -306,11 +311,6 @@ bool Options::Parse(int argc, char *argv[])
 	contrast = std::clamp(contrast, 0.0f, 15.99f); // limits are arbitrary..
 	saturation = std::clamp(saturation, 0.0f, 15.99f); // limits are arbitrary..
 	sharpness = std::clamp(sharpness, 0.0f, 15.99f); // limits are arbitrary..
-
-	// We have to pass the tuning file name through an environment variable.
-	// Note that we only overwrite the variable if the option was given.
-	if (tuning_file != "-")
-		setenv("LIBCAMERA_RPI_TUNING_FILE", tuning_file.c_str(), 1);
 
 	if (strcasecmp(metadata_format.c_str(), "json") == 0)
 		metadata_format = "json";

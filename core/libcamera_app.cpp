@@ -30,7 +30,9 @@ static void check_camera_stack()
 		return;
 
 	v4l2_capability caps;
-	int ret = ioctl(fd, VIDIOC_QUERYCAP, &caps);
+	unsigned long request = VIDIOC_QUERYCAP;
+
+	int ret = ioctl(fd, request, &caps);
 	close(fd);
 
 	if (ret < 0 || strcmp((char *)caps.driver, "bm2835 mmal"))
@@ -85,6 +87,12 @@ LibcameraApp::~LibcameraApp()
 std::string const &LibcameraApp::CameraId() const
 {
 	return camera_->id();
+}
+
+std::string LibcameraApp::CameraModel() const
+{
+	auto model = camera_->properties().get(properties::Model);
+	return model ? *model : camera_->id();
 }
 
 void LibcameraApp::OpenCamera()
@@ -778,8 +786,8 @@ StreamInfo LibcameraApp::GetStreamInfo(Stream const *stream) const
 	info.width = cfg.size.width;
 	info.height = cfg.size.height;
 	info.stride = cfg.stride;
-	info.pixel_format = stream->configuration().pixelFormat;
-	info.colour_space = stream->configuration().colorSpace;
+	info.pixel_format = cfg.pixelFormat;
+	info.colour_space = cfg.colorSpace;
 	return info;
 }
 
