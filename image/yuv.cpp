@@ -44,6 +44,8 @@ static void yuv420_save(std::vector<libcamera::Span<uint8_t>> const &mem, Stream
 				if (fwrite(V + j * stride, w, 1, fp) != 1)
 					throw std::runtime_error("failed to write file " + filename);
 			}
+			if (fp != stdout)
+				fclose(fp);
 		}
 		catch (std::exception const &e)
 		{

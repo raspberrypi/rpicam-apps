@@ -81,9 +81,9 @@ static void save_image(LibcameraStillApp &app, CompletedRequestPtr &payload, Str
 	StreamInfo info = app.GetStreamInfo(stream);
 	const std::vector<libcamera::Span<uint8_t>> mem = app.Mmap(payload->buffers[stream]);
 	if (stream == app.RawStream())
-		dng_save(mem, info, payload->metadata, filename, app.CameraId(), options);
+		dng_save(mem, info, payload->metadata, filename, app.CameraModel(), options);
 	else if (options->encoding == "jpg")
-		jpeg_save(mem, info, payload->metadata, filename, app.CameraId(), options);
+		jpeg_save(mem, info, payload->metadata, filename, app.CameraModel(), options);
 	else if (options->encoding == "png")
 		png_save(mem, info, filename, options);
 	else if (options->encoding == "bmp")
