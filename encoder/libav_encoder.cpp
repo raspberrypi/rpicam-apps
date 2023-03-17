@@ -146,9 +146,21 @@ void LibAvEncoder::initAudioInCodec(VideoOptions const *options, StreamInfo cons
 #endif
 
 	assert(in_fmt_ctx_ == nullptr);
-	int ret = avformat_open_input(&in_fmt_ctx_, options->audio_device.c_str(), input_fmt, nullptr);
+
+	int ret;
+	AVDictionary *format_opts = nullptr;
+
+	if (options->audio_channels != 0)
+		ret = av_dict_set_int(&format_opts, "channels", options->audio_channels, 0);
+
+	ret = avformat_open_input(&in_fmt_ctx_, options->audio_device.c_str(), input_fmt, &format_opts);
 	if (ret < 0)
+	{
+		av_dict_free(&format_opts);
 		throw std::runtime_error("libav: cannot open " + options->audio_source + " input device " + options->audio_device);
+	}
+
+	av_dict_free(&format_opts);
 
 	avformat_find_stream_info(in_fmt_ctx_, nullptr);
 
