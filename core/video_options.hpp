@@ -76,6 +76,8 @@ struct VideoOptions : public Options
 			 "\"pactl list | grep -A2 'Source #' | grep 'Name: '\"\n"
 			 "or for alsa, use the following command:\n"
 			 "\"arecord -L\"")
+			("audio-channels", value<uint32_t>(&audio_channels)->default_value(0),
+			 "Number of channels to use for recording audio. Set to 0 to use default value.")
 			("audio-bitrate", value<uint32_t>(&audio_bitrate)->default_value(32768),
 			 "Set the audio bitrate for encoding, in bits/second.")
 			("audio-samplerate", value<uint32_t>(&audio_samplerate)->default_value(0),
@@ -99,6 +101,7 @@ struct VideoOptions : public Options
 	std::string audio_codec;
 	std::string audio_device;
 	std::string audio_source;
+	uint32_t audio_channels;
 	uint32_t audio_bitrate;
 	uint32_t audio_samplerate;
 	int32_t av_sync;
