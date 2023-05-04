@@ -36,6 +36,11 @@ elseif ("${ENABLE_COMPILE_FLAGS_FOR_TARGET}" STREQUAL "armv8-neon")
     add_definitions(-mfpu=neon-fp-armv8 -ftree-vectorize)
 endif()
 
+# Add the automatically determined parts of the RPATH
+# which point to directories outside the build tree to the install RPATH
+# See https://gitlab.kitware.com/cmake/community/-/wikis/doc/cmake/RPATH-handling
+set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
+
 # Source package generation setup.
 set(CPACK_GENERATOR "TXZ")
 set(CPACK_PACKAGE_FILE_NAME "libcamera-apps-build")
