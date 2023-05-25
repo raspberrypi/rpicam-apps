@@ -32,7 +32,7 @@ jobs:
       run: cd ${{env.LIBCAMERA_SRC_DIR}} && git log -1
 
     - name: Setup meson
-      run: cd ${{env.LIBCAMERA_SRC_DIR}} && meson build -Dprefix=${{env.LIBCAMERA_INSTALL_DIR}} -Dpipelines=raspberrypi -Dtest=false
+      run: cd ${{env.LIBCAMERA_SRC_DIR}} && meson build -Dprefix=${{env.LIBCAMERA_INSTALL_DIR}} -Dpipelines=rpi/vc4 -Dtest=false
 
     - name: Build
       run: cd ${{env.LIBCAMERA_SRC_DIR}}/build && ninja install
