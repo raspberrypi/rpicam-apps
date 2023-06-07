@@ -172,7 +172,7 @@ jobs:
       run: tar -xvf build-artifacts-libcamera.tar -C ${{env.LIBCAMERA_SRC_DIR}}
 
     - name: Setup meson
-      run: cd ${{env.LIBCAMERA_SRC_DIR}} && meson build --reconfigure -Dprefix=${{env.LIBCAMERA_LKG_DIR}} -Dpipelines=raspberrypi -Dtest=false
+      run: cd ${{env.LIBCAMERA_SRC_DIR}} && meson build --reconfigure -Dprefix=${{env.LIBCAMERA_LKG_DIR}} -Dpipelines=rpi/vc4 -Dtest=false
 
     - name: Build
       run: cd ${{env.LIBCAMERA_SRC_DIR}}/build && ninja install
