@@ -18,6 +18,7 @@
 #include <string>
 #include <thread>
 #include <variant>
+#include <vector>
 
 #include <libcamera/base/span.h>
 #include <libcamera/camera.h>
@@ -127,6 +128,17 @@ public:
 
 	static unsigned int verbosity;
 	static unsigned int GetVerbosity() { return verbosity; }
+
+	static std::vector<std::shared_ptr<libcamera::Camera>> GetCameras(const std::unique_ptr<CameraManager> &cm)
+	{
+		std::vector<std::shared_ptr<libcamera::Camera>> cameras = cm->cameras();
+		// Do not show USB webcams as these are not supported in libcamera-apps!
+		auto rem = std::remove_if(cameras.begin(), cameras.end(),
+								  [](auto &cam) { return cam->id().find("/usb") != std::string::npos; });
+		cameras.erase(rem, cameras.end());
+		std::sort(cameras.begin(), cameras.end(), [](auto l, auto r) { return l->id() > r->id(); });
+		return cameras;
+	}
 
 protected:
 	std::unique_ptr<Options> options_;

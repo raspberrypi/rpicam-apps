@@ -153,12 +153,7 @@ bool Options::Parse(int argc, char *argv[])
 		if (ret)
 			throw std::runtime_error("camera manager failed to start, code " + std::to_string(-ret));
 
-		std::vector<std::shared_ptr<libcamera::Camera>> cameras = cm->cameras();
-		// Do not show USB webcams as these are not supported in libcamera-apps!
-		auto rem = std::remove_if(cameras.begin(), cameras.end(),
-								  [](auto &cam) { return cam->id().find("/usb") != std::string::npos; });
-		cameras.erase(rem, cameras.end());
-
+		std::vector<std::shared_ptr<libcamera::Camera>> cameras = LibcameraApp::GetCameras(cm);
 		if (cameras.size() != 0)
 		{
 			unsigned int idx = 0;
