@@ -108,12 +108,7 @@ void LibcameraApp::OpenCamera()
 	if (ret)
 		throw std::runtime_error("camera manager failed to start, code " + std::to_string(-ret));
 
-	std::vector<std::shared_ptr<libcamera::Camera>> cameras = camera_manager_->cameras();
-	// Do not show USB webcams as these are not supported in libcamera-apps!
-	auto rem = std::remove_if(cameras.begin(), cameras.end(),
-							  [](auto &cam) { return cam->id().find("/usb") != std::string::npos; });
-	cameras.erase(rem, cameras.end());
-
+	std::vector<std::shared_ptr<libcamera::Camera>> cameras = LibcameraApp::GetCameras(camera_manager_);
 	if (cameras.size() == 0)
 		throw std::runtime_error("no cameras available");
 	if (options_->camera >= cameras.size())
