@@ -147,6 +147,7 @@ bool Options::Parse(int argc, char *argv[])
 	{
 		// Disable any libcamera logging for this bit.
 		logSetTarget(LoggingTargetNone);
+		LibcameraApp::verbosity = 1;
 
 		std::unique_ptr<CameraManager> cm = std::make_unique<CameraManager>();
 		int ret = cm->start();
@@ -176,6 +177,10 @@ bool Options::Parse(int argc, char *argv[])
 				if (!formats.pixelformats().size())
 					continue;
 
+				ControlInfoMap control_map;
+				Size max_size;
+				PixelFormat max_fmt;
+
 				std::cout << "    Modes: ";
 				unsigned int i = 0;
 				for (const auto &pix : formats.pixelformats())
@@ -193,6 +198,13 @@ bool Options::Parse(int argc, char *argv[])
 						config->validate();
 						cam->configure(config.get());
 
+						if (size > max_size)
+						{
+							control_map = cam->controls();
+							max_fmt = pix;
+							max_size = size;
+						}
+
 						auto fd_ctrl = cam->controls().find(&controls::FrameDurationLimits);
 						auto crop_ctrl = cam->properties().get(properties::ScalerCropMaximum);
 						double fps = fd_ctrl == cam->controls().end() ? NAN : (1e6 / fd_ctrl->second.min().get<int64_t>());
@@ -207,12 +219,31 @@ bool Options::Parse(int argc, char *argv[])
 					std::cout << std::endl;
 				}
 
+				if (verbose > 1)
+				{
+					std::stringstream ss;
+					ss << "\n    Available controls for " << max_size.toString() << " " << max_fmt.toString()
+					   << " mode:\n    ";
+					std::cout << ss.str();
+					for (std::size_t s = 0; s < ss.str().length() - 10; std::cout << "-", s++);
+					std::cout << std::endl;
+
+					std::vector<std::string> ctrls;
+					for (auto const &[id, info] : control_map)
+						ctrls.emplace_back(id->name() + " : " + info.toString());
+					std::sort(ctrls.begin(), ctrls.end(), [](auto const &l, auto const &r) { return l < r; });
+					for (auto const &c : ctrls)
+						std::cout << "    " << c << std::endl;
+				}
+
+				std::cout << std::endl;
 				cam->release();
 			}
 		}
 		else
 			std::cout << "No cameras available!" << std::endl;
 
+		verbose = 1;
 		cameras.clear();
 		cm->stop();
 		return false;
