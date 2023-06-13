@@ -13,8 +13,10 @@
 
 #include <cmath>
 #include <fcntl.h>
+#include <stdlib.h>
 
 #include <sys/ioctl.h>
+#include <sys/stat.h>
 
 #include <linux/videodev2.h>
 
@@ -64,6 +66,30 @@ static libcamera::PixelFormat mode_to_pixel_format(Mode const &mode)
 	return libcamera::formats::SBGGR12_CSI2P;
 }
 
+static void set_pipeline_configuration()
+{
+	// Respect any pre-existing value in the environment variable.
+	char const *existing_config = getenv("LIBCAMERA_RPI_CONFIG_FILE");
+	if (existing_config && existing_config[0])
+		return;
+
+	// Otherwise point it at whichever of these we find first (if any).
+	static const std::vector<std::string> config_files = {
+		"/usr/local/share/libcamera/pipeline/rpi/vc4/rpi_apps.yaml",
+		"/usr/share/libcamera/pipeline/rpi/vc4/rpi_apps.yaml",
+	};
+
+	for (auto &config_file : config_files)
+	{
+		struct stat info;
+		if (stat(config_file.c_str(), &info) == 0)
+		{
+			setenv("LIBCAMERA_RPI_CONFIG_FILE", config_file.c_str(), 1);
+			break;
+		}
+	}
+}
+
 LibcameraApp::LibcameraApp(std::unique_ptr<Options> opts)
 	: options_(std::move(opts)), controls_(controls::controls), post_processor_(this)
 {
@@ -71,6 +97,8 @@ LibcameraApp::LibcameraApp(std::unique_ptr<Options> opts)
 
 	if (!options_)
 		options_ = std::make_unique<Options>();
+
+	set_pipeline_configuration();
 }
 
 LibcameraApp::~LibcameraApp()
