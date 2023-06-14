@@ -6,12 +6,10 @@ on:
   workflow_dispatch:
 
 env:
-  # Customize the CMake build type here (Release, Debug, RelWithDebInfo, etc.)
-  BUILD_TYPE: Release
-  NUM_JOBS: 4
-  GCC_COMPILER: "-DCMAKE_C_COMPILER=/usr/bin/gcc -DCMAKE_CXX_COMPILER=/usr/bin/g++"
-  CLANG_COMPILER: "-DCMAKE_C_COMPILER=/usr/bin/clang -DCMAKE_CXX_COMPILER=/usr/bin/clang++"
-  CMAKE_OTHER_FLAGS: "-DENABLE_TFLITE=1"
+  # Customize the meson build type here (Release, Debug, RelWithDebInfo, etc.)
+  BUILD_TYPE: release
+  GCC_COMPILER: "CC=/usr/bin/gcc CXX=/usr/bin/g++"
+  CLANG_COMPILER: "CC=/usr/bin/clang-13 CXX=/usr/bin/clang++-13"
   LIBCAMERA_SRC_DIR: "${{github.workspace}}/../libcamera"
   LIBCAMERA_INSTALL_DIR: "${{github.workspace}}/../libcamera/install"
   LIBCAMERA_LKG_DIR: "${{github.workspace}}/../libcamera_lkg"
@@ -71,12 +69,12 @@ jobs:
     - name: Untar libcamera files
       run: tar -xvf build-artifacts-libcamera.tar -C ${{env.LIBCAMERA_SRC_DIR}}
 
-    - name: Configure CMake
-      run: cmake -B ${{github.workspace}}/build -DPKG_CONFIG_USE_CMAKE_PREFIX_PATH=TRUE -DCMAKE_PREFIX_PATH=${{env.LIBCAMERA_INSTALL_DIR}} -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} ${{env.GCC_COMPILER}} ${{env.CMAKE_OTHER_FLAGS}}
+    - name: Configure meson
+      run: ${{env.GCC_COMPILER}} meson setup ${{github.workspace}}/build --pkg-config-path=${{env.LIBCAMERA_INSTALL_DIR}}/lib/aarch64-linux-gnu/pkgconfig/ -Dbuildtype=${{env.BUILD_TYPE}}
       timeout-minutes: 5
 
     - name: Build
-      run: make -C ${{github.workspace}}/build -j ${{env.NUM_JOBS}}
+      run: ninja -C ${{github.workspace}}/build
       timeout-minutes: 10
 
     - name: Tar files
@@ -129,13 +127,13 @@ jobs:
       run: tar -xvf build-artifacts-libcamera.tar -C ${{env.LIBCAMERA_SRC_DIR}} --one-top-level=install
 
     - name: Print version string
-      run: ${{github.workspace}}/build/libcamera-hello --version
+      run: ${{github.workspace}}/build/apps/libcamera-hello --version
 
     - name: Print linkage info
-      run: ldd ${{github.workspace}}/build/libcamera-hello | grep libcamera
+      run: ldd ${{github.workspace}}/build/apps/libcamera-hello | grep libcamera
 
     - name: Test
-      run: ${{github.workspace}}/utils/camera-bug-report -o ${{github.workspace}}/test_output/bug.txt -t 300 -c "${{github.workspace}}/utils/test.py --exe-dir ${{github.workspace}}/build --output-dir ${{github.workspace}}/test_output --json-dir ${{github.workspace}}/assets"
+      run: ${{github.workspace}}/utils/camera-bug-report -o ${{github.workspace}}/test_output/bug.txt -t 300 -c "${{github.workspace}}/utils/test.py --exe-dir ${{github.workspace}}/build/apps/ --output-dir ${{github.workspace}}/test_output --json-dir ${{github.workspace}}/assets"
       timeout-minutes: 8 # Must be larger than the camera-bug-report timeout.
 
     - name: Upload test output
@@ -172,7 +170,7 @@ jobs:
       run: tar -xvf build-artifacts-libcamera.tar -C ${{env.LIBCAMERA_SRC_DIR}}
 
     - name: Setup meson
-      run: cd ${{env.LIBCAMERA_SRC_DIR}} && meson build --reconfigure -Dprefix=${{env.LIBCAMERA_LKG_DIR}} -Dpipelines=rpi/vc4 -Dtest=false
+      run: cd ${{env.LIBCAMERA_SRC_DIR}} && meson setup build -Dprefix=${{env.LIBCAMERA_LKG_DIR}} -Dpipelines=rpi/vc4 -Dtest=false --wipe
 
     - name: Build
       run: cd ${{env.LIBCAMERA_SRC_DIR}}/build && ninja install
