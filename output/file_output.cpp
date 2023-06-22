@@ -67,7 +67,12 @@ void FileOutput::openFile(int64_t timestamp_us)
 
 void FileOutput::closeFile()
 {
-	if (fp_ && fp_ != stdout)
-		fclose(fp_);
-	fp_ = nullptr;
+	if (fp_)
+	{
+		if (options_->flush)
+			fflush(fp_);
+		if (fp_ != stdout)
+			fclose(fp_);
+		fp_ = nullptr;
+	}
 }
