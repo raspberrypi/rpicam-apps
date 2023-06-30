@@ -39,6 +39,7 @@ static const std::map<PixelFormat, BayerFormat> bayer_formats =
 	{ formats::SRGGB10_CSI2P, { "RGGB-10", 10, TIFF_RGGB } },
 	{ formats::SGRBG10_CSI2P, { "GRBG-10", 10, TIFF_GRBG } },
 	{ formats::SBGGR10_CSI2P, { "BGGR-10", 10, TIFF_BGGR } },
+	{ formats::R10_CSI2P,     { "BGGR-10", 10, TIFF_BGGR } },
 	{ formats::SGBRG10_CSI2P, { "GBRG-10", 10, TIFF_GBRG } },
 	{ formats::SRGGB12_CSI2P, { "RGGB-12", 12, TIFF_RGGB } },
 	{ formats::SGRBG12_CSI2P, { "GRBG-12", 12, TIFF_GRBG } },
