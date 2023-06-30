@@ -28,6 +28,12 @@ libcamera_jpeg = executable('libcamera-jpeg', files('libcamera_jpeg.cpp'),
                             link_with : libcamera_app,
                             install : true)
 
+libcamera_prod = executable('libcamera-prod', files('libcamera_prod.cpp'),
+                            include_directories : include_directories('..'),
+                            dependencies: [libcamera_dep, boost_dep],
+                            link_with : libcamera_app,
+                            install : false)
+
 if enable_tflite
     libcamera_detect = executable('libcamera-detect', files('libcamera_detect.cpp'),
                                   include_directories : include_directories('..'),
