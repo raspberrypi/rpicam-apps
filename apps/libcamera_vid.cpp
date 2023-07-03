@@ -12,6 +12,7 @@
 #include <sys/stat.h>
 
 #include "core/libcamera_encoder.hpp"
+#include "encoder/encoder.hpp"
 #include "output/output.hpp"
 
 using namespace std::placeholders;
@@ -97,8 +98,10 @@ static void event_loop(LibcameraEncoder &app)
 			throw std::runtime_error("unrecognised message!");
 		int key = get_key_or_signal(options, p);
 		if (key == '\n')
+		{
 			output->Signal();
-
+			app.GetEncoder()->Signal();
+		}
 		LOG(2, "Viewfinder frame " << count);
 		auto now = std::chrono::high_resolution_clock::now();
 		bool timeout = !options->frames && options->timeout &&
