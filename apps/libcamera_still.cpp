@@ -14,6 +14,7 @@
 
 #include "core/frame_info.hpp"
 #include "core/libcamera_app.hpp"
+#include "core/metadata_handler.hpp"
 #include "core/still_options.hpp"
 
 #include "output/output.hpp"
@@ -111,17 +112,8 @@ static void save_images(LibcameraStillApp &app, CompletedRequestPtr &payload)
 
 static void save_metadata(StillOptions const *options, libcamera::ControlList &metadata)
 {
-	std::streambuf *buf = std::cout.rdbuf();
-	std::ofstream of;
-	const std::string &filename = options->metadata;
-
-	if (filename.compare("-"))
-	{
-		of.open(filename, std::ios::out);
-		buf = of.rdbuf();
-	}
-
-	write_metadata(buf, options->metadata_format, metadata, true);
+	MetadataHandler metadata_handler_ = MetadataHandler(nullptr);
+	metadata_handler_.writeStillMetadata(options, metadata);
 }
 
 // Some keypress/signal handling.

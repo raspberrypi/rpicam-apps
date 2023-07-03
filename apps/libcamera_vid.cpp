@@ -68,11 +68,15 @@ static void event_loop(LibcameraEncoder &app)
 	VideoOptions const *options = app.GetOptions();
 	std::unique_ptr<Output> output = std::unique_ptr<Output>(Output::Create(options));
 	app.SetEncodeOutputReadyCallback(std::bind(&Output::OutputReady, output.get(), _1, _2, _3, _4));
-	app.SetMetadataReadyCallback(std::bind(&Output::MetadataReady, output.get(), _1));
-
 	app.OpenCamera();
 	app.ConfigureVideo(get_colourspace_flags(options->codec));
 	app.StartEncoder();
+
+	if (options->codec == "libav")
+		app.SetMetadataReadyCallback(std::bind(&Encoder::MetadataReady, app.GetEncoder(), _1));
+	else
+		app.SetMetadataReadyCallback(std::bind(&Output::MetadataReady, output.get(), _1));
+
 	app.StartCamera();
 	auto start_time = std::chrono::high_resolution_clock::now();
 

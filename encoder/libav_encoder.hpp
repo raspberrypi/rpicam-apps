@@ -28,6 +28,7 @@ extern "C"
 #include "libswresample/swresample.h"
 }
 
+#include "core/metadata_handler.hpp"
 #include "encoder.hpp"
 
 class LibAvEncoder : public Encoder
@@ -38,6 +39,7 @@ public:
 	// Encode the given DMABUF.
 	void EncodeBuffer(int fd, size_t size, void *mem, StreamInfo const &info, int64_t timestamp_us) override;
 	void Signal() override;
+	void MetadataReady(libcamera::ControlList &metadata) override;
 
 private:
 	void initVideoCodec(VideoOptions const *options, StreamInfo const &info);
@@ -59,7 +61,7 @@ private:
 	std::atomic<bool> output_ready_;
 	bool abort_video_;
 	bool abort_audio_;
-	int64_t video_start_ts_;
+	uint64_t video_start_ts_;
 	uint64_t audio_samples_;
 
 	std::queue<AVFrame *> frame_queue_;
@@ -79,10 +81,13 @@ private:
 	// Adding variables used to track and create pauses, segments and split
 	int64_t segment_start_ts_;
 	int segment_num_;
-	int64_t previous_video_timestamp_;
 
 	std::mutex drm_queue_lock_;
 	std::queue<std::unique_ptr<AVDRMFrameDescriptor>> drm_frame_queue_;
+	int64_t previous_video_timestamp_;
+
+	MetadataHandler metadata_handler_;
+	FILE *fp_timestamps_;
 
 	int64_t current_timestamp_;
 

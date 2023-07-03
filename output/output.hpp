@@ -11,13 +11,13 @@
 
 #include <atomic>
 
+#include "core/metadata_handler.hpp"
 #include "core/video_options.hpp"
 
 class Output
 {
 public:
 	static Output *Create(VideoOptions const *options);
-
 	Output(VideoOptions const *options);
 	virtual ~Output();
 	virtual void Signal(); // a derived class might redefine what this means
@@ -33,6 +33,7 @@ protected:
 	};
 	virtual void outputBuffer(void *mem, size_t size, int64_t timestamp_us, uint32_t flags);
 	virtual void timestampReady(int64_t timestamp);
+	virtual int getSegmentNum();
 	VideoOptions const *options_;
 	FILE *fp_timestamps_;
 
@@ -47,12 +48,8 @@ private:
 	std::atomic<bool> enable_;
 	int64_t time_offset_;
 	int64_t last_timestamp_;
-	std::streambuf *buf_metadata_;
-	std::ofstream of_metadata_;
-	bool metadata_started_ = false;
-	std::queue<libcamera::ControlList> metadata_queue_;
+	int segment_num_;
+	int previous_segment_num_;
+	MetadataHandler metadata_handler_;
+	bool metadata_startedd_;
 };
-
-void start_metadata_output(std::streambuf *buf, std::string fmt);
-void write_metadata(std::streambuf *buf, std::string fmt, libcamera::ControlList &metadata, bool first_write);
-void stop_metadata_output(std::streambuf *buf, std::string fmt);

@@ -16,6 +16,7 @@
 #include <chrono>
 #include <iostream>
 
+#include "core/metadata_handler.hpp"
 #include "output/output.hpp"
 #include "libav_encoder.hpp"
 
@@ -294,7 +295,7 @@ void LibAvEncoder::initAudioOutCodec(VideoOptions const *options, StreamInfo con
 LibAvEncoder::LibAvEncoder(VideoOptions const *options, StreamInfo const &info)
 	: Encoder(options), output_ready_(false), abort_video_(false), abort_audio_(false), video_start_ts_(0),
 	  audio_samples_(0), in_fmt_ctx_(nullptr), out_fmt_ctx_(nullptr), segment_start_ts_(0), segment_num_(0),
-	  previous_video_timestamp_(0), current_timestamp_(0)
+	  previous_video_timestamp_(0), metadata_handler_(options), fp_timestamps_(nullptr), current_timestamp_(0)
 {
 	avdevice_register_all();
 
@@ -339,7 +340,6 @@ LibAvEncoder::~LibAvEncoder()
 		avcodec_free_context(&codec_ctx_[AudioIn]);
 		avcodec_free_context(&codec_ctx_[AudioOut]);
 	}
-
 	LOG(2, "libav: codec closed");
 }
 
@@ -353,8 +353,6 @@ void LibAvEncoder::EncodeBuffer(int fd, size_t size, void *mem, StreamInfo const
 	{
 		video_start_ts_ = timestamp_us;
 		segment_start_ts_ = video_start_ts_;
-		pause_state_.pause_timestamp = 0;
-		pause_state_.unpause_timestamp = 0;
 	}
 	current_timestamp_ = timestamp_us + (options_->av_sync.value < 0us
 											 ? -options_->av_sync.get<std::chrono::microseconds>()
@@ -446,6 +444,37 @@ void LibAvEncoder::initOutput()
 		}
 	}
 
+	// Implementation for timestamping files
+	if (!options_->save_pts.empty())
+	{
+		char subfilename[256];
+		if (!options_->segment && !options_->split)
+		{
+			// standard filename generation
+			fp_timestamps_ = fopen(options_->save_pts.c_str(), "w");
+		}
+		if (options_->segment || options_->split)
+		{
+			// If segmenting or splitting, need new names for each segement
+			int n;
+			n = snprintf(subfilename, sizeof(subfilename), options_->save_pts.c_str(), segment_num_);
+			// Used for turning those %04d 's into useful numbers
+			if (n < 0)
+				throw std::runtime_error("failed to generate timestamp filename");
+			fp_timestamps_ = fopen(subfilename, "w");
+		}
+		if (!fp_timestamps_)
+			throw std::runtime_error("Failed to open timestamp file " + options_->save_pts);
+		fprintf(fp_timestamps_, "# timecode format v2\n"); // Initialise the file
+	}
+
+	// if recording metadata for files, create file and initialise it
+	if (!options_->metadata.empty())
+	{
+		// The metadata_handler functions take care of segmenting and split when passed the segment number
+		metadata_handler_.initMetadata(segment_num_);
+	}
+
 	ret = avformat_write_header(out_fmt_ctx_, nullptr);
 	if (ret < 0)
 	{
@@ -456,6 +485,13 @@ void LibAvEncoder::initOutput()
 
 void LibAvEncoder::deinitOutput()
 {
+	if (!options_->metadata.empty())
+	{
+		// Stop metadata writing, ready to write to a new file if needed
+		metadata_handler_.stopMetadataOutput();
+	}
+	if (!options_->save_pts.empty())
+		fclose(fp_timestamps_);
 	if (!out_fmt_ctx_)
 		return;
 
@@ -511,9 +547,10 @@ void LibAvEncoder::encode(AVPacket *pkt, unsigned int stream_id)
 
 		// This is normal operation, with now pause/segment functionalit
 		if (!options_->segment && !options_->keypress && !options_->signal)
+		{
 			ret = writeFrame(out_fmt_ctx_, pkt);
-
-		// Only update pause_state_ variables on video feed
+		}
+		// Only update pausestate variables on video feed
 		if (stream_id == Video)
 			pause_state_.previous_state = pause_state_.paused;
 	}
@@ -557,7 +594,6 @@ void LibAvEncoder::videoThread()
 				// queue to have a callback.
 				if (abort_video_ && frame_queue_.empty())
 					goto done;
-
 				if (!frame_queue_.empty())
 				{
 					frame = frame_queue_.front();
@@ -597,7 +633,6 @@ done:
 	// Flush the encoder
 	avcodec_send_frame(codec_ctx_[Video], nullptr);
 	encode(pkt, Video);
-
 	av_packet_free(&pkt);
 	deinitOutput();
 }
@@ -769,6 +804,10 @@ int LibAvEncoder::writeFrame(AVFormatContext *out_fmt_ctx_, AVPacket *pkt)
 {
 	// Handler to write frame
 	int ret = 0;
+	if (!options_->metadata.empty())
+		metadata_handler_.writeMetadata();
+	if (!options_->save_pts.empty())
+		timestampReady(pkt->pts);
 	ret = av_interleaved_write_frame(out_fmt_ctx_, pkt);
 	if (ret < 0)
 		throw std::runtime_error("libav: error writing output: " + std::to_string(ret));
@@ -808,6 +847,7 @@ int LibAvEncoder::writePausedFrame(AVPacket *pkt, unsigned int stream_id)
 				nextSegment();
 		}
 		pause_state_.write_frames = false;
+		metadata_handler_.discardMetadata();
 		return 1;
 	}
 	if (packet_ts >= pause_state_.unpause_timestamp &&
@@ -846,4 +886,17 @@ int LibAvEncoder::writeSegmentedFrame(AVPacket *pkt, unsigned int stream_id)
 	}
 	else // Again, not much going on here, just write the frame
 		return writeFrame(out_fmt_ctx_, pkt);
+}
+
+void LibAvEncoder::timestampReady(int64_t timestamp)
+{
+	fprintf(fp_timestamps_, "%" PRId64 ".%03" PRId64 "\n", timestamp / 1000, timestamp % 1000);
+	if (options_->flush)
+		fflush(fp_timestamps_); // Appends the timestamp to the file
+}
+
+void LibAvEncoder::MetadataReady(libcamera::ControlList &metadata)
+{
+	// Pushes the metadata through to the queue
+	metadata_handler_.MetadataReady(metadata);
 }

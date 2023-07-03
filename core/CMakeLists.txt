@@ -22,6 +22,7 @@ list(APPEND ${PROJECT_NAME}_HEADERS
     libcamera_encoder.hpp
     logging.hpp
     metadata.hpp
+    metadata_handler.hpp
     options.hpp
     post_processor.hpp
     still_options.hpp

@@ -35,6 +35,8 @@ public:
 	// Allows libcamera-vid to forward the input signal through to the encoder
 	// This allows for segmentation and pausing with LibAV
 	virtual void Signal() {}
+	// Create virtual function that allows for metadata passthrough to libav encoder
+	virtual void MetadataReady(libcamera::ControlList &metadata) {}
 protected:
 	InputDoneCallback input_done_callback_;
 	OutputReadyCallback output_ready_callback_;

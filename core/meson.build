@@ -6,6 +6,7 @@ libcamera_app_dep += [boost_dep, thread_dep]
 libcamera_app_src += files([
     'libcamera_app.cpp',
     'post_processor.cpp',
+    'metadata_handler.cpp',
     'options.cpp',
 ])
 
@@ -16,6 +17,7 @@ core_headers = files([
     'libcamera_encoder.hpp',
     'logging.hpp',
     'metadata.hpp',
+    'metadata_handler.hpp',
     'options.hpp',
     'post_processor.hpp',
     'still_options.hpp',
