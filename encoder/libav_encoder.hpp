@@ -37,6 +37,7 @@ public:
 	~LibAvEncoder();
 	// Encode the given DMABUF.
 	void EncodeBuffer(int fd, size_t size, void *mem, StreamInfo const &info, int64_t timestamp_us) override;
+	void Signal() override;
 
 private:
 	void initVideoCodec(VideoOptions const *options, StreamInfo const &info);
@@ -49,7 +50,7 @@ private:
 
 	void videoThread();
 	void audioThread();
-
+	void nextSegment(int64_t timestamp_us, int64_t &update_variable);
 	static void releaseBuffer(void *opaque, uint8_t *data);
 
 	std::atomic<bool> output_ready_;
@@ -71,6 +72,16 @@ private:
 	AVStream *stream_[3];
 	AVFormatContext *in_fmt_ctx_;
 	AVFormatContext *out_fmt_ctx_;
+
+	// Adding variables used to track and create pauses, segments and split
+	int64_t segment_start_ts_;
+	int segment_num_;
+	int64_t virtual_video_ts_;
+	int64_t virtual_audio_ts_;
+	int64_t previous_video_timestamp_;
+	int64_t previous_audio_timestamp_;
+	bool feed_encoder_frames_;
+	bool previous_feed_value_;
 
 	std::mutex drm_queue_lock_;
 	std::queue<std::unique_ptr<AVDRMFrameDescriptor>> drm_frame_queue_;

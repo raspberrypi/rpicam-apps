@@ -32,7 +32,9 @@ public:
 	// Encode the given buffer. The buffer is specified both by an fd and size
 	// describing a DMABUF, and by a mmapped userland pointer.
 	virtual void EncodeBuffer(int fd, size_t size, void *mem, StreamInfo const &info, int64_t timestamp_us) = 0;
-
+	// Allows libcamera-vid to forward the input signal through to the encoder
+	// This allows for segmentation and pausing with LibAV
+	virtual void Signal() {}
 protected:
 	InputDoneCallback input_done_callback_;
 	OutputReadyCallback output_ready_callback_;
