@@ -61,6 +61,7 @@ private:
 	std::queue<AVFrame *> frame_queue_;
 	std::mutex video_mutex_;
 	std::mutex output_mutex_;
+	std::mutex reset_mutex_;
 	std::condition_variable video_cv_;
 	std::thread video_thread_;
 	std::thread audio_thread_;

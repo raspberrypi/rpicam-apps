@@ -17,7 +17,8 @@
 #include <iostream>
 
 #include "libav_encoder.hpp"
-
+int64_t segment_start_ts = 0;
+int segment_num = 0; 
 namespace {
 
 void encoderOptionsH264M2M(VideoOptions const *options, AVCodecContext *codec)
@@ -323,12 +324,28 @@ LibAvEncoder::~LibAvEncoder()
 
 void LibAvEncoder::EncodeBuffer(int fd, size_t size, void *mem, StreamInfo const &info, int64_t timestamp_us)
 {
+	
 	AVFrame *frame = av_frame_alloc();
 	if (!frame)
 		throw std::runtime_error("libav: could not allocate AVFrame");
 
-	if (!video_start_ts_)
+	if (!video_start_ts_) {
 		video_start_ts_ = timestamp_us;
+		segment_start_ts = video_start_ts_;
+	}
+	printf("Frame added \n");
+	if ((options_->segment && (timestamp_us - segment_start_ts)/ 1000 > options_->segment) && output_ready_)
+		{	
+			printf("Segment Added \n");
+			std::scoped_lock<std::mutex> lock(reset_mutex_);
+			// Flush the encoder, finish segment (but only if not first time)
+			segment_num += 1;
+			deinitOutput();
+			// Now, start up again
+			segment_start_ts = timestamp_us;
+			initOutput();
+	}
+
 
 	frame->format = codec_ctx_[Video]->pix_fmt;
 	frame->width = info.width;
@@ -388,7 +405,13 @@ void LibAvEncoder::initOutput()
 	if (!(out_fmt_ctx_->flags & AVFMT_NOFILE))
 	{
 		std::string filename = options_->output;
-
+		if (options_->segment){			
+			char subfilename[256];
+			snprintf(subfilename, sizeof(subfilename), options_->output.c_str(), segment_num);
+			filename = subfilename;
+		}
+		printf("Starting with filename: %s\n", filename.c_str() );
+		
 		// libav uses "pipe:" for stdout
 		if (filename == "-")
 			filename = std::string("pipe:");
@@ -411,6 +434,7 @@ void LibAvEncoder::initOutput()
 
 void LibAvEncoder::deinitOutput()
 {
+
 	if (!out_fmt_ctx_)
 		return;
 
@@ -418,6 +442,7 @@ void LibAvEncoder::deinitOutput()
 
 	if (!(out_fmt_ctx_->flags & AVFMT_NOFILE))
 		avio_closep(&out_fmt_ctx_->pb);
+	out_fmt_ctx_->pb = nullptr;
 }
 
 void LibAvEncoder::encode(AVPacket *pkt, unsigned int stream_id)
@@ -443,6 +468,7 @@ void LibAvEncoder::encode(AVPacket *pkt, unsigned int stream_id)
 			initOutput();
 			output_ready_ = true;
 		}
+
 
 		pkt->stream_index = stream_id;
 		pkt->pos = -1;
@@ -487,9 +513,9 @@ void LibAvEncoder::videoThread()
 				using namespace std::chrono_literals;
 				// Must check the abort first, to allow items in the output
 				// queue to have a callback.
-				if (abort_video_ && frame_queue_.empty())
+				if (abort_video_ && frame_queue_.empty()){
 					goto done;
-
+				}
 				if (!frame_queue_.empty())
 				{
 					frame = frame_queue_.front();
@@ -500,20 +526,24 @@ void LibAvEncoder::videoThread()
 					video_cv_.wait_for(lock, 200ms);
 			}
 		}
-
+		std::scoped_lock<std::mutex> lock(reset_mutex_);
+		{
+		frame->key_frame = 0;
+		std::cout << frame->key_frame << std::endl;
 		int ret = avcodec_send_frame(codec_ctx_[Video], frame);
+		char err[256];
+		av_strerror(ret, err, sizeof(err));
 		if (ret < 0)
-			throw std::runtime_error("libav: error encoding frame: " + std::to_string(ret));
-
+			throw std::runtime_error(std::string("libav: error encoding frame: ") + std::string(err));
+		}
 		encode(pkt, Video);
 		av_frame_free(&frame);
+		
 	}
 
 done:
-	// Flush the encoder
 	avcodec_send_frame(codec_ctx_[Video], nullptr);
 	encode(pkt, Video);
-
 	av_packet_free(&pkt);
 	deinitOutput();
 }
@@ -658,11 +688,11 @@ void LibAvEncoder::audioThread()
 
 			out_frame->pts = ts + (options_->av_sync > 0 ? options_->av_sync : 0);
 			audio_samples_ += codec_ctx_[AudioOut]->frame_size;
-
+			std::scoped_lock<std::mutex> lock(reset_mutex_); {
 			ret = avcodec_send_frame(codec_ctx_[AudioOut], out_frame);
 			if (ret < 0)
 				throw std::runtime_error("libav: error encoding frame: " + std::to_string(ret));
-
+		}
 			encode(out_pkt, AudioOut);
 			av_frame_free(&out_frame);
 		}
