@@ -28,6 +28,7 @@ static const std::map<libcamera::PixelFormat, unsigned int> bayer_formats =
 	{ libcamera::formats::SGRBG10, 10 },
 	{ libcamera::formats::SBGGR10, 10 },
 	{ libcamera::formats::SGBRG10, 10 },
+	{ libcamera::formats::R10,     10 },
 	{ libcamera::formats::SRGGB12, 12 },
 	{ libcamera::formats::SGRBG12, 12 },
 	{ libcamera::formats::SBGGR12, 12 },
