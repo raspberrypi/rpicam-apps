@@ -16,9 +16,11 @@
 #include <chrono>
 #include <iostream>
 
+#include "output/output.hpp"
+
 #include "libav_encoder.hpp"
-int64_t segment_start_ts = 0;
-int segment_num = 0; 
+
+
 namespace {
 
 void encoderOptionsH264M2M(VideoOptions const *options, AVCodecContext *codec)
@@ -62,6 +64,11 @@ const std::map<std::string, std::function<void(VideoOptions const *, AVCodecCont
 };
 
 } // namespace
+
+void LibAvEncoder::Signal(){
+	feed_encoder_frames = !feed_encoder_frames;
+	printf("Toggled Feed Me State");
+}
 
 void LibAvEncoder::initVideoCodec(VideoOptions const *options, StreamInfo const &info)
 {
@@ -273,7 +280,8 @@ void LibAvEncoder::initAudioOutCodec(VideoOptions const *options, StreamInfo con
 
 LibAvEncoder::LibAvEncoder(VideoOptions const *options, StreamInfo const &info)
 	: Encoder(options), output_ready_(false), abort_video_(false), abort_audio_(false),
-	  video_start_ts_(0), audio_samples_(0), in_fmt_ctx_(nullptr), out_fmt_ctx_(nullptr)
+	  video_start_ts_(0), audio_samples_(0), in_fmt_ctx_(nullptr), out_fmt_ctx_(nullptr),
+	  segment_start_ts(0), segment_num(0), virtual_video_ts(0), virtual_audio_ts(0), previous_timestamp(0), feed_encoder_frames(true), previous_feed_value(true)
 {
 	avdevice_register_all();
 
@@ -322,10 +330,12 @@ LibAvEncoder::~LibAvEncoder()
 	LOG(2, "libav: codec closed");
 }
 
+int64_t previous_time = 0;
+
 void LibAvEncoder::EncodeBuffer(int fd, size_t size, void *mem, StreamInfo const &info, int64_t timestamp_us)
 {
-	
 	AVFrame *frame = av_frame_alloc();
+
 	if (!frame)
 		throw std::runtime_error("libav: could not allocate AVFrame");
 
@@ -333,26 +343,53 @@ void LibAvEncoder::EncodeBuffer(int fd, size_t size, void *mem, StreamInfo const
 		video_start_ts_ = timestamp_us;
 		segment_start_ts = video_start_ts_;
 	}
-	printf("Frame added \n");
+	// Segmentation Function
 	if ((options_->segment && (timestamp_us - segment_start_ts)/ 1000 > options_->segment) && output_ready_)
 		{	
-			printf("Segment Added \n");
-			std::scoped_lock<std::mutex> lock(reset_mutex_);
-			// Flush the encoder, finish segment (but only if not first time)
+			std::scoped_lock<std::mutex> lock(reset_mutex_);  // prevent other threads from trying to encode any frames
+			// Flush the encoder, finish segment, save file
 			segment_num += 1;
 			deinitOutput();
 			// Now, start up again
 			segment_start_ts = timestamp_us;
 			initOutput();
 	}
-
+	// Split Function
+	//want to catch the 'rising edge' of the feed_frames variable. when it rises, we want to save the file and start with a new one
+	if (options_->split && (previous_feed_value != feed_encoder_frames) && feed_encoder_frames)  
+	{	
+		std::scoped_lock<std::mutex> lock(reset_mutex_);
+		// Flush the encoder, finish segment, save file.
+		segment_num += 1;
+		deinitOutput();
+		// Now, start up again
+		virtual_video_ts = timestamp_us; // When we restart recording to new file, the timestamp must start from zero again
+		initOutput();
+	}
 
 	frame->format = codec_ctx_[Video]->pix_fmt;
 	frame->width = info.width;
 	frame->height = info.height;
 	frame->linesize[0] = info.stride;
 	frame->linesize[1] = frame->linesize[2] = info.stride >> 1;
-	frame->pts = timestamp_us - video_start_ts_ + (options_->av_sync < 0 ? -options_->av_sync : 0);
+
+
+	if (previous_time == 0){
+			previous_time = timestamp_us;  // Only useful on startup
+		}
+
+
+	int64_t elapsed_time = timestamp_us - previous_time;  // Time since last loop. Needed for pause function
+
+	if (feed_encoder_frames && options_->keypress){  // If feeding video and keypress option is on, then count the frame timer for the frames
+		virtual_video_ts += elapsed_time;
+		frame->pts = virtual_video_ts;  // Gives the frames a relative time since recording started
+	}
+	else{
+	frame->pts = timestamp_us - video_start_ts_ + (options_->av_sync < 0 ? -options_->av_sync : 0);  // Standard Recording modes
+	}
+	previous_time = timestamp_us;
+	previous_feed_value = feed_encoder_frames;
 
 	if (codec_ctx_[Video]->pix_fmt == AV_PIX_FMT_DRM_PRIME)
 	{
@@ -405,12 +442,12 @@ void LibAvEncoder::initOutput()
 	if (!(out_fmt_ctx_->flags & AVFMT_NOFILE))
 	{
 		std::string filename = options_->output;
-		if (options_->segment){			
+		// if (options_->segment || options_->split){			
 			char subfilename[256];
 			snprintf(subfilename, sizeof(subfilename), options_->output.c_str(), segment_num);
 			filename = subfilename;
-		}
-		printf("Starting with filename: %s\n", filename.c_str() );
+		// }
+		printf("Outputting with filename: %s\n", filename.c_str() );
 		
 		// libav uses "pipe:" for stdout
 		if (filename == "-")
@@ -451,40 +488,41 @@ void LibAvEncoder::encode(AVPacket *pkt, unsigned int stream_id)
 
 	while (ret >= 0)
 	{
-		ret = avcodec_receive_packet(codec_ctx_[stream_id], pkt);
+		
+			ret = avcodec_receive_packet(codec_ctx_[stream_id], pkt);
 
-		if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF)
-		{
-			av_packet_unref(pkt);
-			break;
+			if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF)
+			{
+				av_packet_unref(pkt);
+				break;
+			}
+			else if (ret < 0)
+				throw std::runtime_error("libav: error receiving packet: " + std::to_string(ret));
+
+			// Initialise the ouput mux on the first received video packet, as we may need
+			// to copy global header data from the encoder.
+			if (stream_id == Video && !output_ready_)
+			{
+				initOutput();
+				output_ready_ = true;
+			}
+
+
+			pkt->stream_index = stream_id;
+			pkt->pos = -1;
+			pkt->duration = 0;
+
+			// Rescale from the codec timebase to the stream timebase.
+			av_packet_rescale_ts(pkt, codec_ctx_[stream_id]->time_base, out_fmt_ctx_->streams[stream_id]->time_base);
+
+			std::scoped_lock<std::mutex> lock(output_mutex_);
+			// pkt is now blank (av_interleaved_write_frame() takes ownership of
+			// its contents and resets pkt), so that no unreferencing is necessary.
+			// This would be different if one used av_write_frame().
+			ret = av_interleaved_write_frame(out_fmt_ctx_, pkt);
+			if (ret < 0)
+				throw std::runtime_error("libav: error writing output: " + std::to_string(ret));
 		}
-		else if (ret < 0)
-			throw std::runtime_error("libav: error receiving packet: " + std::to_string(ret));
-
-		// Initialise the ouput mux on the first received video packet, as we may need
-		// to copy global header data from the encoder.
-		if (stream_id == Video && !output_ready_)
-		{
-			initOutput();
-			output_ready_ = true;
-		}
-
-
-		pkt->stream_index = stream_id;
-		pkt->pos = -1;
-		pkt->duration = 0;
-
-		// Rescale from the codec timebase to the stream timebase.
-		av_packet_rescale_ts(pkt, codec_ctx_[stream_id]->time_base, out_fmt_ctx_->streams[stream_id]->time_base);
-
-		std::scoped_lock<std::mutex> lock(output_mutex_);
-		// pkt is now blank (av_interleaved_write_frame() takes ownership of
-		// its contents and resets pkt), so that no unreferencing is necessary.
-		// This would be different if one used av_write_frame().
-		ret = av_interleaved_write_frame(out_fmt_ctx_, pkt);
-		if (ret < 0)
-			throw std::runtime_error("libav: error writing output: " + std::to_string(ret));
-	}
 }
 
 extern "C" void LibAvEncoder::releaseBuffer(void *opaque, uint8_t *data)
@@ -528,8 +566,7 @@ void LibAvEncoder::videoThread()
 		}
 		std::scoped_lock<std::mutex> lock(reset_mutex_);
 		{
-		frame->key_frame = 0;
-		std::cout << frame->key_frame << std::endl;
+		if (feed_encoder_frames) {  // Needed for pause functionality
 		int ret = avcodec_send_frame(codec_ctx_[Video], frame);
 		char err[256];
 		av_strerror(ret, err, sizeof(err));
@@ -538,7 +575,7 @@ void LibAvEncoder::videoThread()
 		}
 		encode(pkt, Video);
 		av_frame_free(&frame);
-		
+		}
 	}
 
 done:
@@ -548,6 +585,8 @@ done:
 	deinitOutput();
 }
 
+
+int64_t previous_timestamp = 0;
 void LibAvEncoder::audioThread()
 {
 	const AVSampleFormat required_fmt = codec_ctx_[AudioOut]->sample_fmt;
@@ -660,6 +699,8 @@ void LibAvEncoder::audioThread()
 		av_frame_unref(in_frame);
 		av_packet_unref(in_pkt);
 
+		std::this_thread::yield();  // Added to try to reduce thread load on proccessor
+
 		// Not yet ready to generate encoded audio!
 		if (!output_ready_)
 			continue;
@@ -686,12 +727,33 @@ void LibAvEncoder::audioThread()
 			AVRational num = { 1, out_frame->sample_rate };
 			int64_t ts = av_rescale_q(audio_samples_, num, codec_ctx_[AudioOut]->time_base);
 
-			out_frame->pts = ts + (options_->av_sync > 0 ? options_->av_sync : 0);
+
+
+
+			// out_frame->pts = ts + (options_->av_sync > 0 ? options_->av_sync : 0);
+
+			// Need to set up timestamps based on the video recording settings:
+			if (previous_timestamp == 0){
+						previous_timestamp = ts;  // Only useful on startup
+					}
+				int64_t et = ts - previous_timestamp;  // Elapsed Time 
+
+				if (feed_encoder_frames && options_->keypress){  // If feeding audio and keypress option is on, then count the frame timer for the audio frames
+					virtual_audio_ts += et;
+					out_frame->pts = virtual_audio_ts;
+				}
+				else{
+				out_frame->pts = ts - virtual_audio_ts + (options_->av_sync < 0 ? -options_->av_sync : 0);
+				}
+			pts = ts;  //Previous TimeStamp
 			audio_samples_ += codec_ctx_[AudioOut]->frame_size;
 			std::scoped_lock<std::mutex> lock(reset_mutex_); {
-			ret = avcodec_send_frame(codec_ctx_[AudioOut], out_frame);
-			if (ret < 0)
-				throw std::runtime_error("libav: error encoding frame: " + std::to_string(ret));
+			if (feed_encoder_frames) {  // If recording, or not.
+				ret = avcodec_send_frame(codec_ctx_[AudioOut], out_frame);
+				if (ret < 0){
+					throw std::runtime_error("libav: error encoding frame: " + std::to_string(ret));
+				}
+			}
 		}
 			encode(out_pkt, AudioOut);
 			av_frame_free(&out_frame);

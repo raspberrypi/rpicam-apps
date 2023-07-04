@@ -33,6 +33,7 @@ public:
 	// This is callback when the encoder gives you the encoded output data.
 	void SetEncodeOutputReadyCallback(EncodeOutputReadyCallback callback) { encode_output_ready_callback_ = callback; }
 	void SetMetadataReadyCallback(MetadataReadyCallback callback) { metadata_ready_callback_ = callback; }
+	Encoder *GetEncoder() const { return encoder_.get(); }
 	void EncodeBuffer(CompletedRequestPtr &completed_request, Stream *stream)
 	{
 		assert(encoder_);

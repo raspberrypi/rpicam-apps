@@ -13,6 +13,8 @@
 #include "net_output.hpp"
 #include "output.hpp"
 
+bool enable_ = true;
+
 Output::Output(VideoOptions const *options)
 	: options_(options), fp_timestamps_(nullptr), state_(WAITING_KEYFRAME), time_offset_(0), last_timestamp_(0),
 	  buf_metadata_(std::cout.rdbuf()), of_metadata_()
