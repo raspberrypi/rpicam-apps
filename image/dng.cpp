@@ -36,20 +36,22 @@ struct BayerFormat
 
 static const std::map<PixelFormat, BayerFormat> bayer_formats =
 {
-	{ formats::SRGGB10_CSI2P, { "RGGB-10", 10, TIFF_RGGB } },
-	{ formats::SGRBG10_CSI2P, { "GRBG-10", 10, TIFF_GRBG } },
-	{ formats::SBGGR10_CSI2P, { "BGGR-10", 10, TIFF_BGGR } },
-	{ formats::R10_CSI2P,     { "BGGR-10", 10, TIFF_BGGR } },
-	{ formats::SGBRG10_CSI2P, { "GBRG-10", 10, TIFF_GBRG } },
-	{ formats::SRGGB12_CSI2P, { "RGGB-12", 12, TIFF_RGGB } },
-	{ formats::SGRBG12_CSI2P, { "GRBG-12", 12, TIFF_GRBG } },
-	{ formats::SBGGR12_CSI2P, { "BGGR-12", 12, TIFF_BGGR } },
-	{ formats::SGBRG12_CSI2P, { "GBRG-12", 12, TIFF_GBRG } },
-	{ formats::SRGGB16,       { "RGGB-16", 16, TIFF_RGGB } },
-	{ formats::SGRBG16,       { "GRBG-16", 16, TIFF_GRBG } },
-	{ formats::SBGGR16,       { "BGGR-16", 16, TIFF_BGGR } },
-	{ formats::SGBRG16,       { "GBRG-16", 16, TIFF_GBRG } },
+    { formats::SRGGB10_CSI2P, { "RGGB-10", 10, TIFF_RGGB } },
+    { formats::SGRBG10_CSI2P, { "GRBG-10", 10, TIFF_GRBG } },
+    { formats::SBGGR10_CSI2P, { "BGGR-10", 10, TIFF_BGGR } },
+    { formats::R10_CSI2P,     { "BGGR-10", 10, TIFF_BGGR } },
+    { formats::SGBRG10_CSI2P, { "GBRG-10", 10, TIFF_GBRG } },
+    { formats::SRGGB12_CSI2P, { "RGGB-12", 12, TIFF_RGGB } },
+    { formats::SGRBG12_CSI2P, { "GRBG-12", 12, TIFF_GRBG } },
+    { formats::SBGGR12_CSI2P, { "BGGR-12", 12, TIFF_BGGR } },
+    { formats::SGBRG12_CSI2P, { "GBRG-12", 12, TIFF_GBRG } },
+    { formats::SRGGB16,       { "RGGB-16", 16, TIFF_RGGB } },
+    { formats::SGRBG16,       { "GRBG-16", 16, TIFF_GRBG } },
+    { formats::SBGGR16,       { "BGGR-16", 16, TIFF_BGGR } },
+    { formats::SGBRG16,       { "GBRG-16", 16, TIFF_GBRG } },
+    { formats::MONO8,         { "MONO-8",  8,  TIFF_MONO } }  // New entry for monochromatic
 };
+
 
 static void unpack_10bit(uint8_t const *src, StreamInfo const &info, uint16_t *dest)
 {
