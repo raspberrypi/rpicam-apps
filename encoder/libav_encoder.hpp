@@ -78,13 +78,14 @@ private:
 	AVStream *stream_[3];
 	AVFormatContext *in_fmt_ctx_;
 	AVFormatContext *out_fmt_ctx_;
-	
+
 	// Adding variables used to track and create pauses, segments and split
 	int64_t segment_start_ts;
 	int segment_num;
 	int64_t virtual_video_ts;
 	int64_t virtual_audio_ts;
-	int64_t previous_timestamp;
+	int64_t previous_video_timestamp;
+	int64_t previous_audio_timestamp;
 	bool feed_encoder_frames;
 	bool previous_feed_value;
 

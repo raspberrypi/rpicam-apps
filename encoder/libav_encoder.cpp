@@ -68,7 +68,6 @@ const std::map<std::string, std::function<void(VideoOptions const *, AVCodecCont
 void LibAvEncoder::Signal()
 {
 	feed_encoder_frames = !feed_encoder_frames;
-	printf("Toggled Feed Me State");
 }
 
 void LibAvEncoder::initVideoCodec(VideoOptions const *options, StreamInfo const &info)
@@ -282,8 +281,8 @@ void LibAvEncoder::initAudioOutCodec(VideoOptions const *options, StreamInfo con
 LibAvEncoder::LibAvEncoder(VideoOptions const *options, StreamInfo const &info)
 	: Encoder(options), output_ready_(false), abort_video_(false), abort_audio_(false), video_start_ts_(0),
 	  audio_samples_(0), in_fmt_ctx_(nullptr), out_fmt_ctx_(nullptr), segment_start_ts(0), segment_num(0),
-	  virtual_video_ts(0), virtual_audio_ts(0), previous_timestamp(0), feed_encoder_frames(true),
-	  previous_feed_value(true)
+	  virtual_video_ts(0), virtual_audio_ts(0), previous_video_timestamp(0), previous_audio_timestamp(0),
+	  feed_encoder_frames(true), previous_feed_value(true)
 {
 	avdevice_register_all();
 
@@ -332,7 +331,6 @@ LibAvEncoder::~LibAvEncoder()
 	LOG(2, "libav: codec closed");
 }
 
-int64_t previous_time = 0;
 
 void LibAvEncoder::EncodeBuffer(int fd, size_t size, void *mem, StreamInfo const &info, int64_t timestamp_us)
 {
@@ -377,12 +375,12 @@ void LibAvEncoder::EncodeBuffer(int fd, size_t size, void *mem, StreamInfo const
 	frame->linesize[0] = info.stride;
 	frame->linesize[1] = frame->linesize[2] = info.stride >> 1;
 
-	if (previous_time == 0)
+	if (previous_video_timestamp == 0)
 	{
-		previous_time = timestamp_us; // Only useful on startup
+		previous_video_timestamp = timestamp_us; // Only useful on startup
 	}
 
-	int64_t elapsed_time = timestamp_us - previous_time; // Time since last loop. Needed for pause function
+	int64_t elapsed_time = timestamp_us - previous_video_timestamp; // Time since last loop. Needed for pause function
 
 	if (feed_encoder_frames && options_->keypress)
 	{ // If feeding video and keypress option is on, then count the frame timer for the frames
@@ -394,7 +392,7 @@ void LibAvEncoder::EncodeBuffer(int fd, size_t size, void *mem, StreamInfo const
 		frame->pts = timestamp_us - video_start_ts_ +
 					 (options_->av_sync < 0 ? -options_->av_sync : 0); // Standard Recording modes
 	}
-	previous_time = timestamp_us;
+	previous_video_timestamp = timestamp_us;
 	previous_feed_value = feed_encoder_frames;
 
 	if (codec_ctx_[Video]->pix_fmt == AV_PIX_FMT_DRM_PRIME)
@@ -449,9 +447,14 @@ void LibAvEncoder::initOutput()
 	{
 		std::string filename = options_->output;			
 		char subfilename[256];
-		snprintf(subfilename, sizeof(subfilename), options_->output.c_str(), segment_num);
+		int n;
+		n = snprintf(subfilename, sizeof(subfilename), options_->output.c_str(), segment_num);
 		filename = subfilename;
-		printf("Outputting with filename: %s\n", filename.c_str());
+		if (options_->wrap)
+			segment_num = segment_num % options_->wrap;
+		if (n < 0)
+			throw std::runtime_error("failed to generate filename");
+		LOG(2, "Outputting with filename: " << filename.c_str());
 		
 		// libav uses "pipe:" for stdout
 		if (filename == "-")
@@ -591,7 +594,6 @@ done:
 }
 
 
-int64_t previous_timestamp = 0;
 void LibAvEncoder::audioThread()
 {
 	const AVSampleFormat required_fmt = codec_ctx_[AudioOut]->sample_fmt;
@@ -735,10 +737,10 @@ void LibAvEncoder::audioThread()
 			// out_frame->pts = ts + (options_->av_sync > 0 ? options_->av_sync : 0);
 
 			// Need to set up timestamps based on the video recording settings:
-			if (previous_timestamp == 0)
-					previous_timestamp = ts; // Only useful on startup
+			if (previous_audio_timestamp == 0)
+				previous_audio_timestamp = ts; // Only useful on startup
 
-			int64_t et = ts - previous_timestamp; // Elapsed Time
+			int64_t et = ts - previous_audio_timestamp; // Elapsed Time
 
 			if (feed_encoder_frames && options_->keypress)
 			{ // If feeding audio and keypress option is on, then count the frame timer for the audio frames
@@ -749,7 +751,7 @@ void LibAvEncoder::audioThread()
 			{
 			out_frame->pts = ts - virtual_audio_ts + (options_->av_sync < 0 ? -options_->av_sync : 0);
 			}
-			previous_timestamp = ts; // Previous TimeStamp
+			previous_audio_timestamp = ts; // Previous TimeStamp
 			audio_samples_ += codec_ctx_[AudioOut]->frame_size;
 			std::scoped_lock<std::mutex> lock(reset_mutex_);
 			{
