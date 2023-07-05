@@ -68,7 +68,12 @@ private:
 	std::thread audio_thread_;
 
 	// The ordering in the enum below must not change!
-	enum Context { Video = 0, AudioOut = 1, AudioIn = 2 };
+	enum Context
+	{
+		Video = 0,
+		AudioOut = 1,
+		AudioIn = 2
+	};
 	AVCodecContext *codec_ctx_[3];
 	AVStream *stream_[3];
 	AVFormatContext *in_fmt_ctx_;
@@ -76,12 +81,12 @@ private:
 	
 	// Adding variables used to track and create pauses, segments and split
 	int64_t segment_start_ts;
-	int segment_num; 
+	int segment_num;
 	int64_t virtual_video_ts;
 	int64_t virtual_audio_ts;
+	int64_t previous_timestamp;
 	bool feed_encoder_frames;
 	bool previous_feed_value;
-	int64_t previous_timestamp;
 
 	std::mutex drm_queue_lock_;
 	std::queue<std::unique_ptr<AVDRMFrameDescriptor>> drm_frame_queue_;

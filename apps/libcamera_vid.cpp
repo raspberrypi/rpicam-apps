@@ -12,8 +12,8 @@
 #include <sys/stat.h>
 
 #include "core/libcamera_encoder.hpp"
-#include "output/output.hpp"
 #include "encoder/encoder.hpp"
+#include "output/output.hpp"
 
 using namespace std::placeholders;
 
@@ -97,7 +97,8 @@ static void event_loop(LibcameraEncoder &app)
 		else if (msg.type != LibcameraEncoder::MsgType::RequestComplete)
 			throw std::runtime_error("unrecognised message!");
 		int key = get_key_or_signal(options, p);
-		if (key == '\n') {
+		if (key == '\n')
+		{
 			output->Signal();
 			app.GetEncoder()->Signal();
 		}
