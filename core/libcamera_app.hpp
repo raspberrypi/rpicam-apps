@@ -119,6 +119,12 @@ public:
 	Stream *LoresStream(StreamInfo *info = nullptr) const;
 	Stream *GetMainStream() const;
 
+	const CameraManager *GetCameraManager() const;
+	std::vector<std::shared_ptr<libcamera::Camera>> GetCameras()
+	{
+		return GetCameras(camera_manager_.get());
+	}
+
 	std::vector<libcamera::Span<uint8_t>> Mmap(FrameBuffer *buffer) const;
 
 	void ShowPreview(CompletedRequestPtr &completed_request, Stream *stream);
@@ -129,7 +135,7 @@ public:
 	static unsigned int verbosity;
 	static unsigned int GetVerbosity() { return verbosity; }
 
-	static std::vector<std::shared_ptr<libcamera::Camera>> GetCameras(const std::unique_ptr<CameraManager> &cm)
+	static std::vector<std::shared_ptr<libcamera::Camera>> GetCameras(const CameraManager *cm)
 	{
 		std::vector<std::shared_ptr<libcamera::Camera>> cameras = cm->cameras();
 		// Do not show USB webcams as these are not supported in libcamera-apps!

@@ -136,7 +136,7 @@ void LibcameraApp::OpenCamera()
 	if (ret)
 		throw std::runtime_error("camera manager failed to start, code " + std::to_string(-ret));
 
-	std::vector<std::shared_ptr<libcamera::Camera>> cameras = LibcameraApp::GetCameras(camera_manager_);
+	std::vector<std::shared_ptr<libcamera::Camera>> cameras = GetCameras();
 	if (cameras.size() == 0)
 		throw std::runtime_error("no cameras available");
 	if (options_->camera >= cameras.size())
@@ -771,6 +771,11 @@ libcamera::Stream *LibcameraApp::GetMainStream() const
 	}
 
 	return nullptr;
+}
+
+const libcamera::CameraManager *LibcameraApp::GetCameraManager() const
+{
+	return camera_manager_.get();
 }
 
 std::vector<libcamera::Span<uint8_t>> LibcameraApp::Mmap(FrameBuffer *buffer) const
