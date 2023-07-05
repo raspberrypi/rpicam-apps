@@ -154,7 +154,7 @@ bool Options::Parse(int argc, char *argv[])
 		if (ret)
 			throw std::runtime_error("camera manager failed to start, code " + std::to_string(-ret));
 
-		std::vector<std::shared_ptr<libcamera::Camera>> cameras = LibcameraApp::GetCameras(cm);
+		std::vector<std::shared_ptr<libcamera::Camera>> cameras = LibcameraApp::GetCameras(cm.get());
 		if (cameras.size() != 0)
 		{
 			unsigned int idx = 0;
