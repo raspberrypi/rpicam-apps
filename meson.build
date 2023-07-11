@@ -1,6 +1,6 @@
 project('libcamera-apps', 'c', 'cpp',
         meson_version : '>= 0.64.0',
-        version : '1.2.0',
+        version : '1.2.1',
         default_options : [
             'werror=true',
             'warning_level=3',
