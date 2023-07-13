@@ -3,7 +3,7 @@ Section: video
 Priority: optional
 Maintainer: Serge Schneider <serge@raspberrypi.com>
 Build-Depends: debhelper (>= 11),
- cmake,
+ meson,
  pkg-config,
  python3,
  libboost-dev,

@@ -1,15 +1,16 @@
 #!/usr/bin/make -f
 #export DH_VERBOSE = 1
 
-CONFIG_COMMON := -DENABLE_OPENCV=0
-CONFIG_LITE := -DENABLE_X11=0 -DENABLE_QT=0 -DENABLE_LIBAV=0
+CONFIG_COMMON := -Denable_opencv=false -Denable_tflite=false
+CONFIG_FULL := -Denable_libav=true -Denable_drm=true -Denable_egl=true -Denable_qt=true
+CONFIG_LITE := -Denable_egl=false -Denable_qt=false -Denable_libav=false
 
 %:
-	dh $@
+	dh $@ --buildsystem=meson
 
 override_dh_auto_configure:
 	dh_auto_configure --builddirectory=build_lite -- $(CONFIG_COMMON) $(CONFIG_LITE)
-	dh_auto_configure -- $(CONFIG_COMMON)
+	dh_auto_configure -- $(CONFIG_COMMON) $(CONFIG_FULL)
 
 override_dh_auto_build:
 	dh_auto_build --builddirectory=build_lite
