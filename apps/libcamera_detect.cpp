@@ -78,7 +78,7 @@ static void event_loop(LibcameraDetectApp &app)
 		if (app.ViewfinderStream())
 		{
 			auto now = std::chrono::high_resolution_clock::now();
-			if (options->timeout && now - start_time > std::chrono::milliseconds(options->timeout))
+			if (options->timeout && (now - start_time) > options->timeout.value)
 				return;
 
 			std::vector<Detection> detections;

@@ -367,7 +367,7 @@ void LibAvEncoder::EncodeBuffer(int fd, size_t size, void *mem, StreamInfo const
 	else
 	{
 		frame->pts = timestamp_us - video_start_ts_ +
-					 (options_->av_sync < 0 ? -options_->av_sync : 0); // Standard Recording modes
+				(options_->av_sync.value < 0us ? -options_->av_sync.get<std::chrono::microseconds>() : 0); // Standard Recording modes
 	}
 	previous_video_timestamp_ = timestamp_us;
 	previous_feed_value_ = feed_encoder_frames_;
@@ -736,7 +736,8 @@ void LibAvEncoder::audioThread()
 				out_frame->pts = virtual_audio_ts_;
 			}
 			else
-				out_frame->pts = ts - virtual_audio_ts_ + (options_->av_sync < 0 ? -options_->av_sync : 0);
+				out_frame->pts = ts - virtual_audio_ts_ +
+						(options_->av_sync.value < 0us ? -options_->av_sync.get<std::chrono::microseconds>() : 0);
 
 			previous_audio_timestamp_ = ts; // Previous TimeStamp
 			audio_samples_ += codec_ctx_[AudioOut]->frame_size;

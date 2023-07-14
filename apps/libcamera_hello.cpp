@@ -41,7 +41,7 @@ static void event_loop(LibcameraApp &app)
 
 		LOG(2, "Viewfinder frame " << count);
 		auto now = std::chrono::high_resolution_clock::now();
-		if (options->timeout && now - start_time > std::chrono::milliseconds(options->timeout))
+		if (options->timeout && (now - start_time) > options->timeout.value)
 			return;
 
 		CompletedRequestPtr &completed_request = std::get<CompletedRequestPtr>(msg.payload);
