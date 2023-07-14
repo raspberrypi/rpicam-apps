@@ -129,6 +129,10 @@ bool Options::Parse(int argc, char *argv[])
 	else if (!lens_position_.empty())
 		throw std::runtime_error("Invalid lens position: " + lens_position_);
 
+	// Convert time strings to durations
+	timeout.set(timeout_);
+	shutter.set(shutter_);
+
 	// HDR control. Set this before opening or listing any cameras.
 	// Currently this does not exist in libcamera, so go directly to V4L2
 	// XXX it's not obvious which v4l2-subdev to use for which camera!
@@ -409,7 +413,7 @@ void Options::Print() const
 	if (!config_file.empty())
 		std::cerr << "    config file: " << config_file << std::endl;
 	std::cerr << "    info_text:" << info_text << std::endl;
-	std::cerr << "    timeout: " << timeout << std::endl;
+	std::cerr << "    timeout: " << timeout.get() << "ms" << std::endl;
 	std::cerr << "    width: " << width << std::endl;
 	std::cerr << "    height: " << height << std::endl;
 	std::cerr << "    output: " << output << std::endl;
@@ -431,7 +435,7 @@ void Options::Print() const
 	else
 		std::cerr << "    roi: " << roi_x << "," << roi_y << "," << roi_width << "," << roi_height << std::endl;
 	if (shutter)
-		std::cerr << "    shutter: " << shutter << std::endl;
+		std::cerr << "    shutter: " << shutter.get() << "us" << std::endl;
 	if (gain)
 		std::cerr << "    gain: " << gain << std::endl;
 	std::cerr << "    metering: " << metering << std::endl;

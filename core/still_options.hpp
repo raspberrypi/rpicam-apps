@@ -22,8 +22,8 @@ struct StillOptions : public Options
 			 "Set the JPEG quality parameter")
 			("exif,x", value<std::vector<std::string>>(&exif),
 			 "Add these extra EXIF tags to the output file")
-			("timelapse", value<uint64_t>(&timelapse)->default_value(0),
-			 "Time interval (in ms) between timelapse captures")
+			("timelapse", value<std::string>(&timelapse_)->default_value("0ms"),
+			 "Time interval between timelapse captures. If no units are provided default to ms.")
 			("framestart", value<uint32_t>(&framestart)->default_value(0),
 			 "Initial frame counter value for timelapse captures")
 			("datetime", value<bool>(&datetime)->default_value(false)->implicit_value(true),
@@ -54,7 +54,7 @@ struct StillOptions : public Options
 
 	int quality;
 	std::vector<std::string> exif;
-	uint64_t timelapse;
+	TimeVal<std::chrono::milliseconds> timelapse;
 	uint32_t framestart;
 	bool datetime;
 	bool timestamp;
@@ -72,6 +72,9 @@ struct StillOptions : public Options
 	{
 		if (Options::Parse(argc, argv) == false)
 			return false;
+
+		timelapse.set(timelapse_);
+
 		if ((keypress || signal) && timelapse)
 			throw std::runtime_error("keypress/signal and timelapse options are mutually exclusive");
 		if (strcasecmp(thumb.c_str(), "none") == 0)
@@ -99,7 +102,7 @@ struct StillOptions : public Options
 		std::cerr << "    quality: " << quality << std::endl;
 		std::cerr << "    raw: " << raw << std::endl;
 		std::cerr << "    restart: " << restart << std::endl;
-		std::cerr << "    timelapse: " << timelapse << std::endl;
+		std::cerr << "    timelapse: " << timelapse.get() << "ms" << std::endl;
 		std::cerr << "    framestart: " << framestart << std::endl;
 		std::cerr << "    datetime: " << datetime << std::endl;
 		std::cerr << "    timestamp: " << timestamp << std::endl;
@@ -114,4 +117,7 @@ struct StillOptions : public Options
 		for (auto &s : exif)
 			std::cerr << "    EXIF: " << s << std::endl;
 	}
+
+private:
+	std::string timelapse_;
 };

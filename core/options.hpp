@@ -7,6 +7,7 @@
 
 #pragma once
 
+#include <chrono>
 #include <fstream>
 #include <iostream>
 #include <optional>
@@ -35,6 +36,58 @@ struct Mode
 	bool packed;
 	libcamera::Size Size() const { return libcamera::Size(width, height); }
 	std::string ToString() const;
+};
+
+template <typename DEFAULT>
+struct TimeVal
+{
+	TimeVal() : value(0) {}
+
+	void set(const std::string &s)
+	{
+		static const std::map<std::string, std::chrono::nanoseconds> match
+		{
+			{ "min", std::chrono::minutes(1) },
+			{ "sec", std::chrono::seconds(1) },
+			{ "s", std::chrono::seconds(1) },
+			{ "ms", std::chrono::milliseconds(1) },
+			{ "us", std::chrono::microseconds(1) },
+			{ "ns", std::chrono::nanoseconds(1) },
+		};
+
+		try
+		{
+			std::size_t end_pos;
+			float f = std::stof(s, &end_pos);
+			value = std::chrono::duration_cast<std::chrono::nanoseconds>(f * DEFAULT { 1 });
+
+			for (const auto &m : match)
+			{
+				auto found = s.find(m.first, end_pos);
+				if (found != end_pos || found + m.first.length() != s.length())
+					continue;
+				value = std::chrono::duration_cast<std::chrono::nanoseconds>(f * m.second);
+				break;
+			}
+		}
+		catch (std::exception const &e)
+		{
+			throw std::runtime_error("Invalid time string provided");
+		}
+	}
+
+	template <typename C = DEFAULT>
+	int64_t get() const
+	{
+		return std::chrono::duration_cast<C>(value).count();
+	}
+
+	explicit constexpr operator bool() const
+	{
+		return !!value.count();
+	}
+
+	std::chrono::nanoseconds value;
 };
 
 struct Options
@@ -68,8 +121,8 @@ struct Options
 			 "Set the output image width (0 = use default value)")
 			("height", value<unsigned int>(&height)->default_value(0),
 			 "Set the output image height (0 = use default value)")
-			("timeout,t", value<uint64_t>(&timeout)->default_value(5000),
-			 "Time (in ms) for which program runs")
+			("timeout,t", value<std::string>(&timeout_)->default_value("5sec"),
+			 "Time for which program runs. If no units are provided default to ms.")
 			("output,o", value<std::string>(&output),
 			 "Set the output file name")
 			("post-process-file", value<std::string>(&post_process_file),
@@ -88,8 +141,8 @@ struct Options
 			("vflip", value<bool>(&vflip_)->default_value(false)->implicit_value(true), "Request a vertical flip transform")
 			("rotation", value<int>(&rotation_)->default_value(0), "Request an image rotation, 0 or 180")
 			("roi", value<std::string>(&roi)->default_value("0,0,0,0"), "Set region of interest (digital zoom) e.g. 0.25,0.25,0.5,0.5")
-			("shutter", value<float>(&shutter)->default_value(0),
-			 "Set a fixed shutter speed in microseconds")
+			("shutter", value<std::string>(&shutter_)->default_value("0"),
+			 "Set a fixed shutter speed. If no units are provided default to us")
 			("analoggain", value<float>(&gain)->default_value(0),
 			 "Set a fixed gain value (synonym for 'gain' option)")
 			("gain", value<float>(&gain),
@@ -162,7 +215,7 @@ struct Options
 	bool version;
 	bool list_cameras;
 	unsigned int verbose;
-	uint64_t timeout; // in ms
+	TimeVal<std::chrono::milliseconds> timeout;
 	std::string config_file;
 	std::string output;
 	std::string post_process_file;
@@ -176,7 +229,7 @@ struct Options
 	libcamera::Transform transform;
 	std::string roi;
 	float roi_x, roi_y, roi_width, roi_height;
-	float shutter;
+	TimeVal<std::chrono::microseconds> shutter;
 	float gain;
 	std::string metering;
 	int metering_index;
@@ -237,4 +290,6 @@ private:
 	int rotation_;
 	float framerate_;
 	std::string lens_position_;
+	std::string timeout_;
+	std::string shutter_;
 };

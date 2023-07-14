@@ -557,7 +557,7 @@ void LibcameraApp::StartCamera()
 	}
 
 	if (!controls_.get(controls::ExposureTime) && options_->shutter)
-		controls_.set(controls::ExposureTime, options_->shutter);
+		controls_.set(controls::ExposureTime, options_->shutter.get<std::chrono::microseconds>());
 	if (!controls_.get(controls::AnalogueGain) && options_->gain)
 		controls_.set(controls::AnalogueGain, options_->gain);
 	if (!controls_.get(controls::AeMeteringMode))

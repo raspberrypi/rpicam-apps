@@ -85,8 +85,8 @@ struct VideoOptions : public Options
 			 "Set the audio bitrate for encoding, in bits/second.")
 			("audio-samplerate", value<uint32_t>(&audio_samplerate)->default_value(0),
 			 "Set the audio sampling rate in Hz for encoding. Set to 0 to use the input sample rate.")
-			("av-sync", value<int32_t>(&av_sync)->default_value(0),
-			 "Add a time offset (in microseconds) to the audio stream, relative to the video stream. "
+			("av-sync", value<std::string>(&av_sync_)->default_value("0us"),
+			 "Add a time offset (in microseconds if no units provided) to the audio stream, relative to the video stream. "
 			 "The offset value can be either positive or negative.")
 #endif
 			;
@@ -108,7 +108,7 @@ struct VideoOptions : public Options
 	uint32_t audio_channels;
 	uint32_t audio_bitrate;
 	uint32_t audio_samplerate;
-	int32_t av_sync;
+	TimeVal<std::chrono::microseconds> av_sync;
 	std::string save_pts;
 	int quality;
 	bool listen;
@@ -125,6 +125,8 @@ struct VideoOptions : public Options
 	{
 		if (Options::Parse(argc, argv) == false)
 			return false;
+
+		av_sync.set(av_sync_);
 
 		if (width == 0)
 			width = 640;
@@ -179,4 +181,7 @@ struct VideoOptions : public Options
 		std::cerr << "    segment: " << segment << std::endl;
 		std::cerr << "    circular: " << circular << std::endl;
 	}
+
+private:
+	std::string av_sync_;
 };

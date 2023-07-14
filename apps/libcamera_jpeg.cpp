@@ -59,7 +59,7 @@ static void event_loop(LibcameraJpegApp &app)
 		if (app.ViewfinderStream())
 		{
 			auto now = std::chrono::high_resolution_clock::now();
-			if (options->timeout && now - start_time > std::chrono::milliseconds(options->timeout))
+			if (options->timeout && (now - start_time) > options->timeout.value)
 			{
 				app.StopCamera();
 				app.Teardown();
