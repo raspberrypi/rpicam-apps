@@ -737,7 +737,7 @@ void LibAvEncoder::audioThread()
 			}
 			else
 				out_frame->pts = ts - virtual_audio_ts_ +
-						(options_->av_sync.value < 0us ? -options_->av_sync.get<std::chrono::microseconds>() : 0);
+						(options_->av_sync.value > 0us ? options_->av_sync.get<std::chrono::microseconds>() : 0);
 
 			previous_audio_timestamp_ = ts; // Previous TimeStamp
 			audio_samples_ += codec_ctx_[AudioOut]->frame_size;
