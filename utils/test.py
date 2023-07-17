@@ -303,11 +303,11 @@ def test_jpeg(exe_dir, output_dir):
     print("    shutter test")
     retcode, time_taken = run_executable(
         [executable, '-t', '1000', '-o', output_shutter,
-         '--shutter', '20000', '--gain', '1.0', '--awbgains', '1.0,1.0'], logfile)
+         '--shutter', '20000', '--gain', '2.0', '--awbgains', '1.0,1.0'], logfile)
     check_retcode(retcode, "test_jpeg: shutter test")
     check_time(time_taken, 1.2, 8, "test_jpeg: shutter test")
     check_size(output_shutter, 1024, "test_jpeg: shutter test")
-    check_jpeg_shutter(output_shutter, '1/50', '100', "test_jpeg: shutter test")
+    check_jpeg_shutter(output_shutter, '1/50', '200', "test_jpeg: shutter test")
 
     print("libcamera-jpeg tests passed")
 

@@ -54,3 +54,19 @@ target_link_libraries(post_processing_stages ${TARGET_LIBS})
 target_compile_definitions(post_processing_stages PUBLIC OPENCV_PRESENT=${OpenCV_FOUND})
 
 install(TARGETS post_processing_stages LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR} ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})
+
+list(APPEND ${PROJECT_NAME}_HEADERS
+    histogram.hpp
+    object_detect.hpp
+    post_processing_stage.hpp
+    pwl.hpp
+    segmentation.hpp
+    tf_stage.hpp
+)
+
+install(FILES
+    ${${PROJECT_NAME}_HEADERS}
+    DESTINATION
+    ${INCLUDE_INSTALL_DIR}/${PROJECT_NAME}/post_processing_stages
+    COMPONENT Devel
+)

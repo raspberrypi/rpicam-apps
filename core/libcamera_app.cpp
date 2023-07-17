@@ -13,8 +13,10 @@
 
 #include <cmath>
 #include <fcntl.h>
+#include <stdlib.h>
 
 #include <sys/ioctl.h>
+#include <sys/stat.h>
 
 #include <linux/videodev2.h>
 
@@ -64,6 +66,30 @@ static libcamera::PixelFormat mode_to_pixel_format(Mode const &mode)
 	return libcamera::formats::SBGGR12_CSI2P;
 }
 
+static void set_pipeline_configuration()
+{
+	// Respect any pre-existing value in the environment variable.
+	char const *existing_config = getenv("LIBCAMERA_RPI_CONFIG_FILE");
+	if (existing_config && existing_config[0])
+		return;
+
+	// Otherwise point it at whichever of these we find first (if any).
+	static const std::vector<std::string> config_files = {
+		"/usr/local/share/libcamera/pipeline/rpi/vc4/rpi_apps.yaml",
+		"/usr/share/libcamera/pipeline/rpi/vc4/rpi_apps.yaml",
+	};
+
+	for (auto &config_file : config_files)
+	{
+		struct stat info;
+		if (stat(config_file.c_str(), &info) == 0)
+		{
+			setenv("LIBCAMERA_RPI_CONFIG_FILE", config_file.c_str(), 1);
+			break;
+		}
+	}
+}
+
 LibcameraApp::LibcameraApp(std::unique_ptr<Options> opts)
 	: options_(std::move(opts)), controls_(controls::controls), post_processor_(this)
 {
@@ -71,6 +97,8 @@ LibcameraApp::LibcameraApp(std::unique_ptr<Options> opts)
 
 	if (!options_)
 		options_ = std::make_unique<Options>();
+
+	set_pipeline_configuration();
 }
 
 LibcameraApp::~LibcameraApp()
@@ -108,12 +136,7 @@ void LibcameraApp::OpenCamera()
 	if (ret)
 		throw std::runtime_error("camera manager failed to start, code " + std::to_string(-ret));
 
-	std::vector<std::shared_ptr<libcamera::Camera>> cameras = camera_manager_->cameras();
-	// Do not show USB webcams as these are not supported in libcamera-apps!
-	auto rem = std::remove_if(cameras.begin(), cameras.end(),
-							  [](auto &cam) { return cam->id().find("/usb") != std::string::npos; });
-	cameras.erase(rem, cameras.end());
-
+	std::vector<std::shared_ptr<libcamera::Camera>> cameras = GetCameras();
 	if (cameras.size() == 0)
 		throw std::runtime_error("no cameras available");
 	if (options_->camera >= cameras.size())
@@ -748,6 +771,11 @@ libcamera::Stream *LibcameraApp::GetMainStream() const
 	}
 
 	return nullptr;
+}
+
+const libcamera::CameraManager *LibcameraApp::GetCameraManager() const
+{
+	return camera_manager_.get();
 }
 
 std::vector<libcamera::Span<uint8_t>> LibcameraApp::Mmap(FrameBuffer *buffer) const
