@@ -50,13 +50,16 @@ private:
 
 	void videoThread();
 	void audioThread();
-	void nextSegment(int64_t timestamp_us, int64_t &update_variable);
+	void nextSegment();
 	static void releaseBuffer(void *opaque, uint8_t *data);
-
+	void timestampReady(int64_t timestamp);
+	int writeFrame(AVFormatContext *out_fmt_ctx_, AVPacket *pkt);
+	int writePausedFrame(AVPacket *pkt, unsigned int stream_id);
+	int writeSegmentedFrame(AVPacket *pkt, unsigned int stream_id);
 	std::atomic<bool> output_ready_;
 	bool abort_video_;
 	bool abort_audio_;
-	uint64_t video_start_ts_;
+	int64_t video_start_ts_;
 	uint64_t audio_samples_;
 
 	std::queue<AVFrame *> frame_queue_;
@@ -76,13 +79,22 @@ private:
 	// Adding variables used to track and create pauses, segments and split
 	int64_t segment_start_ts_;
 	int segment_num_;
-	int64_t virtual_video_ts_;
-	int64_t virtual_audio_ts_;
 	int64_t previous_video_timestamp_;
-	int64_t previous_audio_timestamp_;
-	bool feed_encoder_frames_;
-	bool previous_feed_value_;
 
 	std::mutex drm_queue_lock_;
 	std::queue<std::unique_ptr<AVDRMFrameDescriptor>> drm_frame_queue_;
+
+	int64_t current_timestamp_;
+
+	struct PauseState
+	{
+		int64_t pause_timestamp = 0;
+		int64_t unpause_timestamp = 0;
+		bool paused = false;
+		bool previous_state = false;
+		bool first_frame = false;
+		bool write_frames = true;
+		int64_t pause_duration = 0;
+		bool first_pause = true;
+	} pause_state_;
 };
