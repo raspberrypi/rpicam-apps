@@ -1,0 +1,35 @@
+option('enable_libav',
+        type : 'boolean',
+        value : true,
+        description : 'Enable the libav encoder for video/audio capture')
+
+option('enable_drm',
+        type : 'boolean',
+        value : true,
+        description : 'Enable DRM preview window support')
+
+option('enable_egl',
+        type : 'boolean',
+        value : true,
+        description : 'Enable EGL preview window support')
+
+option('enable_qt',
+        type : 'boolean',
+        value : true,
+        description : 'Enable QT preview window support')
+
+option('enable_opencv',
+        type : 'boolean',
+        value : true,
+        description : 'Enable OpenCV postprocessing support')
+
+option('enable_tflite',
+        type : 'boolean',
+        value : false,
+        description : 'Enable Tensorflow Lite postprocessing support')
+
+option('neon_flags',
+        type : 'combo',
+        choices: ['arm64', 'armv8-neon', 'auto'],
+        value : 'auto',
+        description : 'User selectable arm-neon optimisation flags')

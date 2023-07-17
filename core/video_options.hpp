@@ -59,6 +59,9 @@ struct VideoOptions : public Options
 			("frames", value<unsigned int>(&frames)->default_value(0),
 			 "Run for the exact number of frames specified. This will override any timeout set.")
 #if LIBAV_PRESENT
+			("libav-video-codec", value<std::string>(&libav_video_codec)->default_value("h264_v4l2m2m"),
+			 "Sets the libav video codec to use. "
+			 "To list available codecs, run  the \"ffmpeg -codecs\" command.")
 			("libav-format", value<std::string>(&libav_format)->default_value(""),
 			 "Sets the libav encoder output format to use. "
 			 "Leave blank to try and deduce this from the filename.\n"
@@ -76,6 +79,8 @@ struct VideoOptions : public Options
 			 "\"pactl list | grep -A2 'Source #' | grep 'Name: '\"\n"
 			 "or for alsa, use the following command:\n"
 			 "\"arecord -L\"")
+			("audio-channels", value<uint32_t>(&audio_channels)->default_value(0),
+			 "Number of channels to use for recording audio. Set to 0 to use default value.")
 			("audio-bitrate", value<uint32_t>(&audio_bitrate)->default_value(32768),
 			 "Set the audio bitrate for encoding, in bits/second.")
 			("audio-samplerate", value<uint32_t>(&audio_samplerate)->default_value(0),
@@ -94,11 +99,13 @@ struct VideoOptions : public Options
 	unsigned int intra;
 	bool inline_headers;
 	std::string codec;
+	std::string libav_video_codec;
 	std::string libav_format;
 	bool libav_audio;
 	std::string audio_codec;
 	std::string audio_device;
 	std::string audio_source;
+	uint32_t audio_channels;
 	uint32_t audio_bitrate;
 	uint32_t audio_samplerate;
 	int32_t av_sync;

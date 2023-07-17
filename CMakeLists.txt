@@ -2,6 +2,8 @@ cmake_minimum_required(VERSION 3.6)
 
 project(libcamera-apps VERSION 1.1.0)
 
+message(WARNING "Using cmake to build libcamera-apps is deprecated and will soon be removed. Please switch to the meson build system.")
+
 if (NOT EXISTS ${CMAKE_BINARY_DIR}/CMakeCache.txt)
     if (NOT CMAKE_BUILD_TYPE)
         set(CMAKE_BUILD_TYPE "Release" CACHE STRING "" FORCE)
@@ -13,6 +15,8 @@ set (CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set (CMAKE_CXX_STANDARD 17)
 add_compile_options(-Wall -Wextra -pedantic -Wno-unused-parameter -faligned-new -Werror -Wfatal-errors)
 add_definitions(-D_FILE_OFFSET_BITS=64)
+
+set(INCLUDE_INSTALL_DIR "${CMAKE_INSTALL_PREFIX}/include")
 
 if (CMAKE_COMPILER_IS_GNUCXX)
     add_compile_options(-Wno-psabi)
@@ -33,6 +37,11 @@ elseif ("${ENABLE_COMPILE_FLAGS_FOR_TARGET}" STREQUAL "armv8-neon")
     # Only build with 32-bit Pi 3/4 specific optimisations if requested on the command line.
     add_definitions(-mfpu=neon-fp-armv8 -ftree-vectorize)
 endif()
+
+# Add the automatically determined parts of the RPATH
+# which point to directories outside the build tree to the install RPATH
+# See https://gitlab.kitware.com/cmake/community/-/wikis/doc/cmake/RPATH-handling
+set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
 
 # Source package generation setup.
 set(CPACK_GENERATOR "TXZ")

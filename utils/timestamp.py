@@ -21,12 +21,12 @@ def read_times_pts(file):
 
 
 def read_times_container(file):
-    cmd = ['ffprobe', file, '-hide_banner', '-select_streams', 'v', '-show_entries', 'frame=pkt_pts_time', '-of', 'csv=p=0']
+    cmd = ['ffprobe', file, '-hide_banner', '-select_streams', 'v', '-show_entries', 'frame=pts_time', '-of', 'csv=p=0']
     r = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True)
     if r.returncode:
         raise RuntimeError(f'ffprobe failed to run with command:\n{" ".join(cmd)}')
 
-    ts_list = [float(ts) * 1000 for ts in r.stdout.split('\n')[1:-1]]
+    ts_list = [float(ts) * 1000 for ts in r.stdout.split('\n')[1:-1] if ts != '']
     return ts_list
 
 
