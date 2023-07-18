@@ -27,7 +27,7 @@ void encoderOptionsH264M2M(VideoOptions const *options, AVCodecContext *codec)
 	codec->max_b_frames = 0;
 
 	if (options->bitrate)
-		codec->bit_rate = options->bitrate;
+		codec->bit_rate = options->bitrate.bps();
 }
 
 void encoderOptionsLibx264(VideoOptions const *options, AVCodecContext *codec)
@@ -35,7 +35,7 @@ void encoderOptionsLibx264(VideoOptions const *options, AVCodecContext *codec)
 	codec->pix_fmt = AV_PIX_FMT_YUV420P;
 
 	if (options->bitrate)
-		codec->bit_rate = options->bitrate;
+		codec->bit_rate = options->bitrate.bps();
 
 	codec->max_b_frames = 1;
 	codec->me_range = 16;
@@ -256,7 +256,7 @@ void LibAvEncoder::initAudioOutCodec(VideoOptions const *options, StreamInfo con
 	codec_ctx_[AudioOut]->sample_rate = options->audio_samplerate ? options->audio_samplerate
 																  : stream_[AudioIn]->codecpar->sample_rate;
 	codec_ctx_[AudioOut]->sample_fmt = codec->sample_fmts[0];
-	codec_ctx_[AudioOut]->bit_rate = options->audio_bitrate;
+	codec_ctx_[AudioOut]->bit_rate = options->audio_bitrate.bps();
 	// usec timebase
 	codec_ctx_[AudioOut]->time_base = { 1, 1000 * 1000 };
 
