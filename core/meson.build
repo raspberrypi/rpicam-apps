@@ -4,13 +4,15 @@ thread_dep = dependency('threads', required : true)
 libcamera_app_dep += [boost_dep, thread_dep]
 
 libcamera_app_src += files([
+    'dma_heaps.cpp',
     'libcamera_app.cpp',
-    'post_processor.cpp',
     'options.cpp',
+    'post_processor.cpp',
 ])
 
 core_headers = files([
     'completed_request.hpp',
+    'dma_heaps.hpp',
     'frame_info.hpp',
     'libcamera_app.hpp',
     'libcamera_encoder.hpp',
