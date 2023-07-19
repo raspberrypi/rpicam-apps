@@ -18,7 +18,10 @@
 #include <sys/ioctl.h>
 #include <sys/stat.h>
 
+#include <linux/dma-buf.h>
 #include <linux/videodev2.h>
+
+#include <libcamera/base/shared_fd.h>
 
 unsigned int LibcameraApp::verbosity = 2;
 
@@ -492,9 +495,6 @@ void LibcameraApp::Teardown()
 	}
 	mapped_buffers_.clear();
 
-	delete allocator_;
-	allocator_ = nullptr;
-
 	configuration_.reset();
 
 	frame_buffers_.clear();
@@ -717,6 +717,18 @@ void LibcameraApp::queueRequest(CompletedRequest *completed_request)
 
 	for (auto const &p : buffers)
 	{
+		struct dma_buf_sync dma_sync {};
+		dma_sync.flags = DMA_BUF_SYNC_END | DMA_BUF_SYNC_RW;
+		auto &list = frame_buffers_[const_cast<Stream *>(p.first)];
+		auto it = std::find_if(list.begin(), list.end(),
+							[&p] (auto &b) { return b.get() == p.second;} );
+		if (it == list.end())
+			throw std::runtime_error("failed to identify request buffer");
+
+		int ret = ::ioctl(it->get()->planes()[0].fd.get(), DMA_BUF_IOCTL_SYNC, &dma_sync);
+		if (ret)
+			throw std::runtime_error("failed to sync dma buf on queue request");
+
 		if (request->addBuffer(p.first, p.second) < 0)
 			throw std::runtime_error("failed to add buffer to request in QueueRequest");
 	}
@@ -847,33 +859,31 @@ void LibcameraApp::setupCapture()
 
 	// Next allocate all the buffers we need, mmap them and store them on a free list.
 
-	allocator_ = new FrameBufferAllocator(camera_);
 	for (StreamConfiguration &config : *configuration_)
 	{
 		Stream *stream = config.stream();
+		std::vector<std::unique_ptr<FrameBuffer>> fb;
 
-		if (allocator_->allocate(stream) < 0)
-			throw std::runtime_error("failed to allocate capture buffers");
-
-		for (const std::unique_ptr<FrameBuffer> &buffer : allocator_->buffers(stream))
+		for (unsigned int i = 0; i < config.bufferCount; i++)
 		{
-			// "Single plane" buffers appear as multi-plane here, but we can spot them because then
-			// planes all share the same fd. We accumulate them so as to mmap the buffer only once.
-			size_t buffer_size = 0;
-			for (unsigned i = 0; i < buffer->planes().size(); i++)
-			{
-				const FrameBuffer::Plane &plane = buffer->planes()[i];
-				buffer_size += plane.length;
-				if (i == buffer->planes().size() - 1 || plane.fd.get() != buffer->planes()[i + 1].fd.get())
-				{
-					void *memory = mmap(NULL, buffer_size, PROT_READ | PROT_WRITE, MAP_SHARED, plane.fd.get(), 0);
-					mapped_buffers_[buffer.get()].push_back(
-						libcamera::Span<uint8_t>(static_cast<uint8_t *>(memory), buffer_size));
-					buffer_size = 0;
-				}
-			}
-			frame_buffers_[stream].push(buffer.get());
+			std::string name("libcamera-apps" + std::to_string(i));
+			libcamera::UniqueFD fd = dma_heap_.alloc(name.c_str(), config.frameSize);
+
+			if (!fd.isValid())
+				throw std::runtime_error("failed to allocate capture buffers for stream");
+
+			std::vector<FrameBuffer::Plane> plane(1);
+			plane[0].fd = libcamera::SharedFD(std::move(fd));
+			plane[0].offset = 0;
+			plane[0].length = config.frameSize;
+
+			fb.push_back(std::make_unique<FrameBuffer>(plane));
+			void *memory = mmap(NULL, config.frameSize, PROT_READ | PROT_WRITE, MAP_SHARED, plane[0].fd.get(), 0);
+			mapped_buffers_[fb.back().get()].push_back(
+						libcamera::Span<uint8_t>(static_cast<uint8_t *>(memory), config.frameSize));
 		}
+
+		frame_buffers_[stream] = std::move(fb);
 	}
 	LOG(2, "Buffers allocated and mapped");
 
@@ -884,7 +894,15 @@ void LibcameraApp::setupCapture()
 
 void LibcameraApp::makeRequests()
 {
-	auto free_buffers(frame_buffers_);
+	std::map<Stream *, std::queue<FrameBuffer *>> free_buffers;
+
+	for (auto &kv : frame_buffers_)
+	{
+		free_buffers[kv.first] = {};
+		for (auto &b : kv.second)
+			free_buffers[kv.first].push(b.get());
+	}
+
 	while (true)
 	{
 		for (StreamConfiguration &config : *configuration_)
@@ -923,6 +941,21 @@ void LibcameraApp::requestComplete(Request *request)
 			msg_queue_.Post(Msg(MsgType::Timeout));
 
 		return;
+	}
+
+	struct dma_buf_sync dma_sync {};
+	dma_sync.flags = DMA_BUF_SYNC_START | DMA_BUF_SYNC_RW;
+	for (auto const &buffer_map : request->buffers())
+	{
+		auto &list = frame_buffers_[const_cast<Stream *>(buffer_map.first)];
+		auto it = std::find_if(list.begin(), list.end(),
+							   [&buffer_map] (auto &b) { return b.get() == buffer_map.second; } );
+		if (it == list.end())
+			throw std::runtime_error("failed to identify request buffer");
+
+		int ret = ::ioctl(it->get()->planes()[0].fd.get(), DMA_BUF_IOCTL_SYNC, &dma_sync);
+		if (ret)
+			throw std::runtime_error("failed to sync dma buf on returned request");
 	}
 
 	CompletedRequest *r = new CompletedRequest(sequence_++, request);
