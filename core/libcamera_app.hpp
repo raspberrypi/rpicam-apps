@@ -26,11 +26,11 @@
 #include <libcamera/control_ids.h>
 #include <libcamera/controls.h>
 #include <libcamera/formats.h>
-#include <libcamera/framebuffer_allocator.h>
 #include <libcamera/logging.h>
 #include <libcamera/property_ids.h>
 
 #include "core/completed_request.hpp"
+#include "core/dma_heaps.hpp"
 #include "core/post_processor.hpp"
 #include "core/stream_info.hpp"
 
@@ -51,7 +51,6 @@ public:
 	using CameraManager = libcamera::CameraManager;
 	using Camera = libcamera::Camera;
 	using CameraConfiguration = libcamera::CameraConfiguration;
-	using FrameBufferAllocator = libcamera::FrameBufferAllocator;
 	using StreamRole = libcamera::StreamRole;
 	using StreamRoles = std::vector<libcamera::StreamRole>;
 	using PixelFormat = libcamera::PixelFormat;
@@ -237,8 +236,8 @@ private:
 	std::unique_ptr<CameraConfiguration> configuration_;
 	std::map<FrameBuffer *, std::vector<libcamera::Span<uint8_t>>> mapped_buffers_;
 	std::map<std::string, Stream *> streams_;
-	FrameBufferAllocator *allocator_ = nullptr;
-	std::map<Stream *, std::queue<FrameBuffer *>> frame_buffers_;
+	DmaHeap dma_heap_;
+	std::map<Stream *, std::vector<std::unique_ptr<FrameBuffer>>> frame_buffers_;
 	std::vector<std::unique_ptr<Request>> requests_;
 	std::mutex completed_requests_mutex_;
 	std::set<CompletedRequest *> completed_requests_;
