@@ -474,7 +474,8 @@ bool HdrStage::Process(CompletedRequestPtr &completed_request)
 	if (frame_num_ >= config_.num_frames)
 		return false;
 
-	std::vector<libcamera::Span<uint8_t>> const &buffers = app_->Mmap(completed_request->buffers[stream_]);
+	BufferWriteSync w(app_, completed_request->buffers[stream_]);
+	std::vector<libcamera::Span<uint8_t>> const &buffers = w.Get();
 	libcamera::Span<uint8_t> buffer = buffers[0];
 	uint8_t *image = buffer.data();
 
