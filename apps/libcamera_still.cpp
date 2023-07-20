@@ -79,7 +79,8 @@ static void save_image(LibcameraStillApp &app, CompletedRequestPtr &payload, Str
 {
 	StillOptions const *options = app.GetOptions();
 	StreamInfo info = app.GetStreamInfo(stream);
-	const std::vector<libcamera::Span<uint8_t>> mem = app.Mmap(payload->buffers[stream]);
+	BufferReadSync r(&app, payload->buffers[stream]);
+	const std::vector<libcamera::Span<uint8_t>> mem = r.Get();
 	if (stream == app.RawStream())
 		dng_save(mem, info, payload->metadata, filename, app.CameraModel(), options);
 	else if (options->encoding == "jpg")

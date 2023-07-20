@@ -718,14 +718,13 @@ void LibcameraApp::queueRequest(CompletedRequest *completed_request)
 	for (auto const &p : buffers)
 	{
 		struct dma_buf_sync dma_sync {};
-		dma_sync.flags = DMA_BUF_SYNC_END | DMA_BUF_SYNC_RW;
-		auto &list = frame_buffers_[const_cast<Stream *>(p.first)];
-		auto it = std::find_if(list.begin(), list.end(),
-							[&p] (auto &b) { return b.get() == p.second;} );
-		if (it == list.end())
-			throw std::runtime_error("failed to identify request buffer");
+		dma_sync.flags = DMA_BUF_SYNC_END | DMA_BUF_SYNC_READ;
 
-		int ret = ::ioctl(it->get()->planes()[0].fd.get(), DMA_BUF_IOCTL_SYNC, &dma_sync);
+		auto it = mapped_buffers_.find(p.second);
+		if (it == mapped_buffers_.end())
+			throw std::runtime_error("failed to identify queue request buffer");
+
+		int ret = ::ioctl(p.second->planes()[0].fd.get(), DMA_BUF_IOCTL_SYNC, &dma_sync);
 		if (ret)
 			throw std::runtime_error("failed to sync dma buf on queue request");
 
@@ -796,14 +795,6 @@ libcamera::Stream *LibcameraApp::GetMainStream() const
 const libcamera::CameraManager *LibcameraApp::GetCameraManager() const
 {
 	return camera_manager_.get();
-}
-
-std::vector<libcamera::Span<uint8_t>> LibcameraApp::Mmap(FrameBuffer *buffer) const
-{
-	auto item = mapped_buffers_.find(buffer);
-	if (item == mapped_buffers_.end())
-		return {};
-	return item->second;
 }
 
 void LibcameraApp::ShowPreview(CompletedRequestPtr &completed_request, Stream *stream)
@@ -944,18 +935,16 @@ void LibcameraApp::requestComplete(Request *request)
 	}
 
 	struct dma_buf_sync dma_sync {};
-	dma_sync.flags = DMA_BUF_SYNC_START | DMA_BUF_SYNC_RW;
+	dma_sync.flags = DMA_BUF_SYNC_START | DMA_BUF_SYNC_READ;
 	for (auto const &buffer_map : request->buffers())
 	{
-		auto &list = frame_buffers_[const_cast<Stream *>(buffer_map.first)];
-		auto it = std::find_if(list.begin(), list.end(),
-							   [&buffer_map] (auto &b) { return b.get() == buffer_map.second; } );
-		if (it == list.end())
-			throw std::runtime_error("failed to identify request buffer");
+		auto it = mapped_buffers_.find(buffer_map.second);
+		if (it == mapped_buffers_.end())
+			throw std::runtime_error("failed to identify request complete buffer");
 
-		int ret = ::ioctl(it->get()->planes()[0].fd.get(), DMA_BUF_IOCTL_SYNC, &dma_sync);
+		int ret = ::ioctl(buffer_map.second->planes()[0].fd.get(), DMA_BUF_IOCTL_SYNC, &dma_sync);
 		if (ret)
-			throw std::runtime_error("failed to sync dma buf on returned request");
+			throw std::runtime_error("failed to sync dma buf on request complete");
 	}
 
 	CompletedRequest *r = new CompletedRequest(sequence_++, request);
@@ -1033,7 +1022,8 @@ void LibcameraApp::previewThread()
 
 		StreamInfo info = GetStreamInfo(item.stream);
 		FrameBuffer *buffer = item.completed_request->buffers[item.stream];
-		libcamera::Span span = Mmap(buffer)[0];
+		BufferReadSync r(this, buffer);
+		libcamera::Span span = r.Get()[0];
 
 		// Fill the frame info with the ControlList items and ancillary bits.
 		FrameInfo frame_info(item.completed_request->metadata);

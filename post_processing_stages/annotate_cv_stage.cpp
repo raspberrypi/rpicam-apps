@@ -82,7 +82,8 @@ void AnnotateCvStage::Configure()
 
 bool AnnotateCvStage::Process(CompletedRequestPtr &completed_request)
 {
-	libcamera::Span<uint8_t> buffer = app_->Mmap(completed_request->buffers[stream_])[0];
+	BufferWriteSync w(app_, completed_request->buffers[stream_]);
+	libcamera::Span<uint8_t> buffer = w.Get()[0];
 	FrameInfo info(completed_request->metadata);
 	info.sequence = completed_request->sequence;
 

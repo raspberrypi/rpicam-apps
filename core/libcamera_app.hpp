@@ -29,6 +29,7 @@
 #include <libcamera/logging.h>
 #include <libcamera/property_ids.h>
 
+#include "core/buffer_sync.hpp"
 #include "core/completed_request.hpp"
 #include "core/dma_heaps.hpp"
 #include "core/post_processor.hpp"
@@ -124,8 +125,6 @@ public:
 		return GetCameras(camera_manager_.get());
 	}
 
-	std::vector<libcamera::Span<uint8_t>> Mmap(FrameBuffer *buffer) const;
-
 	void ShowPreview(CompletedRequestPtr &completed_request, Stream *stream);
 
 	void SetControls(const ControlList &controls);
@@ -144,6 +143,9 @@ public:
 		std::sort(cameras.begin(), cameras.end(), [](auto l, auto r) { return l->id() > r->id(); });
 		return cameras;
 	}
+
+	friend class BufferWriteSync;
+	friend class BufferReadSync;
 
 protected:
 	std::unique_ptr<Options> options_;
