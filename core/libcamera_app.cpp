@@ -620,6 +620,14 @@ void LibcameraApp::StartCamera()
 		controls_.set(controls::LensPosition, f);
 	}
 
+	if (options_->flicker_period && !controls_.get(controls::AeFlickerMode) &&
+		camera_->controls().find(&controls::AeFlickerMode) != camera_->controls().end() &&
+		camera_->controls().find(&controls::AeFlickerPeriod) != camera_->controls().end())
+	{
+		controls_.set(controls::AeFlickerMode, controls::FlickerManual);
+		controls_.set(controls::AeFlickerPeriod, options_->flicker_period.get<std::chrono::microseconds>());
+	}
+
 	if (camera_->start(&controls_))
 		throw std::runtime_error("failed to start camera");
 	controls_.clear();
