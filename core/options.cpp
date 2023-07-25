@@ -132,6 +132,7 @@ bool Options::Parse(int argc, char *argv[])
 	// Convert time strings to durations
 	timeout.set(timeout_);
 	shutter.set(shutter_);
+	flicker_period.set(flicker_period_);
 
 	// HDR control. Set this before opening or listing any cameras.
 	// Currently this does not exist in libcamera, so go directly to V4L2
@@ -440,6 +441,8 @@ void Options::Print() const
 		std::cerr << "    gain: " << gain << std::endl;
 	std::cerr << "    metering: " << metering << std::endl;
 	std::cerr << "    exposure: " << exposure << std::endl;
+	if (flicker_period)
+		std::cerr << "    flicker period: " << flicker_period.get() << "us" << std::endl;
 	std::cerr << "    ev: " << ev << std::endl;
 	std::cerr << "    awb: " << awb << std::endl;
 	if (awb_gain_r && awb_gain_b)

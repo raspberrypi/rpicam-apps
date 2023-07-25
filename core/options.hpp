@@ -205,6 +205,10 @@ struct Options
 			 "Save captured image metadata to a file or \"-\" for stdout")
 			("metadata-format", value<std::string>(&metadata_format)->default_value("json"),
 			 "Format to save the metadata in, either txt or json (requires --metadata)")
+			("flicker-period", value<std::string>(&flicker_period_)->default_value("0s"),
+			 "Manual flicker correction period"
+			 "\nSet to 10000us to cancel 50Hz flicker."
+			 "\nSet to 8333us to cancel 60Hz flicker.\n")
 			;
 		// clang-format on
 	}
@@ -277,6 +281,7 @@ struct Options
 	std::string metadata;
 	std::string metadata_format;
 	bool hdr;
+	TimeVal<std::chrono::microseconds> flicker_period;
 
 	virtual bool Parse(int argc, char *argv[]);
 	virtual void Print() const;
@@ -292,4 +297,5 @@ private:
 	std::string lens_position_;
 	std::string timeout_;
 	std::string shutter_;
+	std::string flicker_period_;
 };
