@@ -4,6 +4,7 @@
 # Copyright (C) 2021, Raspberry Pi Ltd.
 #
 import argparse
+import json
 import subprocess
 
 try:
@@ -21,12 +22,19 @@ def read_times_pts(file):
 
 
 def read_times_container(file):
-    cmd = ['ffprobe', file, '-hide_banner', '-select_streams', 'v', '-show_entries', 'frame=pts_time', '-of', 'csv=p=0']
+    cmd = ['ffprobe', file, '-hide_banner', '-select_streams', 'v', '-show_entries', 'frame', '-of', 'json']
     r = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True)
     if r.returncode:
         raise RuntimeError(f'ffprobe failed to run with command:\n{" ".join(cmd)}')
 
-    ts_list = [float(ts) * 1000 for ts in r.stdout.split('\n')[1:-1] if ts != '']
+    frame_data = json.loads(r.stdout)['frames']
+    keys = ['pkt_pts_time', 'pts_time', 'pkt_dts_time', 'dts_time']
+    key = [k for k in keys if k in frame_data[0].keys()]
+
+    if len(key) == 0:
+        raise RuntimeError(f'Timestamp keys not found in {file}')
+
+    ts_list = [float(f[key[0]]) * 1000 for f in frame_data]
     return ts_list
 
 
