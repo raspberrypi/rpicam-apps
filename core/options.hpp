@@ -27,15 +27,17 @@ static constexpr double DEFAULT_FRAMERATE = 30.0;
 
 struct Mode
 {
-	Mode() : Mode(0, 0, 0, false) {}
-	Mode(unsigned int w, unsigned int h, unsigned int b, bool p) : width(w), height(h), bit_depth(b), packed(p) {}
+	Mode() : Mode(0, 0, 0, true) {}
+	Mode(unsigned int w, unsigned int h, unsigned int b, bool p) : width(w), height(h), bit_depth(b), packed(p), framerate(0) {}
 	Mode(std::string const &mode_string);
 	unsigned int width;
 	unsigned int height;
 	unsigned int bit_depth;
 	bool packed;
+	double framerate;
 	libcamera::Size Size() const { return libcamera::Size(width, height); }
 	std::string ToString() const;
+	void update(const libcamera::Size &size, const std::optional<float> &fps);
 };
 
 template <typename DEFAULT>
@@ -127,8 +129,6 @@ struct Options
 			 "Set the output file name")
 			("post-process-file", value<std::string>(&post_process_file),
 			 "Set the file name for configuring the post-processing")
-			("rawfull", value<bool>(&rawfull)->default_value(false)->implicit_value(true),
-			 "Force use of full resolution raw frames")
 			("nopreview,n", value<bool>(&nopreview)->default_value(false)->implicit_value(true),
 			 "Do not show a preview window")
 			("preview,p", value<std::string>(&preview)->default_value("0,0,0,0"),
@@ -225,7 +225,6 @@ struct Options
 	std::string post_process_file;
 	unsigned int width;
 	unsigned int height;
-	bool rawfull;
 	bool nopreview;
 	std::string preview;
 	bool fullscreen;

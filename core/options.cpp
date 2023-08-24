@@ -47,11 +47,9 @@ static const std::map<libcamera::PixelFormat, unsigned int> bayer_formats =
 };
 
 
-Mode::Mode(std::string const &mode_string)
+Mode::Mode(std::string const &mode_string) : Mode()
 {
-	if (mode_string.empty())
-		bit_depth = 0;
-	else
+	if (!mode_string.empty())
 	{
 		char p;
 		int n = sscanf(mode_string.c_str(), "%u:%u:%u:%c", &width, &height, &bit_depth, &p);
@@ -78,8 +76,22 @@ std::string Mode::ToString() const
 	{
 		std::stringstream ss;
 		ss << width << ":" << height << ":" << bit_depth << ":" << (packed ? "P" : "U");
+		if (framerate)
+			ss << "(" << framerate << ")";
 		return ss.str();
 	}
+}
+
+void Mode::update(const libcamera::Size &size, const std::optional<float> &fps)
+{
+	if (!width)
+		width = size.width;
+	if (!height)
+		height = size.height;
+	if (!bit_depth)
+		bit_depth = 12;
+	if (fps)
+		framerate = fps.value();
 }
 
 static int xioctl(int fd, unsigned long ctl, void *arg)
@@ -247,10 +259,14 @@ bool Options::Parse(int argc, char *argv[])
 					unsigned int num = formats.sizes(pix).size();
 					for (const auto &size : formats.sizes(pix))
 					{
+						LibcameraApp::SensorMode sensor_mode(size, pix, 0);
 						std::cout << size.toString() << " ";
 
 						config->at(0).size = size;
 						config->at(0).pixelFormat = pix;
+						config->sensorConfig = libcamera::SensorConfiguration();
+						config->sensorConfig->outputSize = size;
+						config->sensorConfig->bitDepth = sensor_mode.depth();
 						config->validate();
 						cam->configure(config.get());
 
@@ -419,7 +435,6 @@ void Options::Print() const
 	std::cerr << "    height: " << height << std::endl;
 	std::cerr << "    output: " << output << std::endl;
 	std::cerr << "    post_process_file: " << post_process_file << std::endl;
-	std::cerr << "    rawfull: " << rawfull << std::endl;
 	if (nopreview)
 		std::cerr << "    preview: none" << std::endl;
 	else if (fullscreen)
