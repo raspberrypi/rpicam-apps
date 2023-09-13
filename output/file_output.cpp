@@ -24,7 +24,7 @@ void FileOutput::outputBuffer(void *mem, size_t size, int64_t timestamp_us, uint
 	// and recording is being restarted (this is necessarily an I-frame already).
 	if (fp_ == nullptr ||
 		(options_->segment && (flags & FLAG_KEYFRAME) &&
-		 timestamp_us / 1000 - file_start_time_ms_ > options_->segment.get<std::chrono::microseconds>()) ||
+		 timestamp_us / 1000 - file_start_time_ms_ > options_->segment) ||
 		(options_->split && (flags & FLAG_RESTART)))
 	{
 		closeFile();

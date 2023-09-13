@@ -33,8 +33,6 @@ public:
 	// This is callback when the encoder gives you the encoded output data.
 	void SetEncodeOutputReadyCallback(EncodeOutputReadyCallback callback) { encode_output_ready_callback_ = callback; }
 	void SetMetadataReadyCallback(MetadataReadyCallback callback) { metadata_ready_callback_ = callback; }
-	// Allow libcamera-vid to talk through to the encoder class. Allows Signal communication between the two
-	Encoder *GetEncoder() const { return encoder_.get(); }
 	void EncodeBuffer(CompletedRequestPtr &completed_request, Stream *stream)
 	{
 		assert(encoder_);

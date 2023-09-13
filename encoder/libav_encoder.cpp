@@ -16,7 +16,6 @@
 #include <chrono>
 #include <iostream>
 
-#include "output/output.hpp"
 #include "libav_encoder.hpp"
 
 namespace {
@@ -62,26 +61,6 @@ const std::map<std::string, std::function<void(VideoOptions const *, AVCodecCont
 };
 
 } // namespace
-
-void LibAvEncoder::Signal()
-{
-	// We now need to tell the rest of the program what is happening
-	pause_state_.paused = !pause_state_.paused;
-	if (pause_state_.first_pause)
-		pause_state_.first_pause = false;
-	// When we switch from paused to not paused, update the timestamp at which that happened
-	if (!pause_state_.paused)
-	{
-		segment_start_ts_ = current_timestamp_;
-		pause_state_.unpause_timestamp = current_timestamp_ - pause_state_.pause_duration - video_start_ts_;
-	}
-	// Unpaused to Pause means that we have paused. Similarly update timestamps following
-	if (pause_state_.paused)
-	{
-		pause_state_.pause_timestamp = current_timestamp_ - pause_state_.pause_duration - video_start_ts_;
-		pause_state_.unpause_timestamp = 0;
-	}
-}
 
 void LibAvEncoder::initVideoCodec(VideoOptions const *options, StreamInfo const &info)
 {
@@ -292,9 +271,8 @@ void LibAvEncoder::initAudioOutCodec(VideoOptions const *options, StreamInfo con
 }
 
 LibAvEncoder::LibAvEncoder(VideoOptions const *options, StreamInfo const &info)
-	: Encoder(options), output_ready_(false), abort_video_(false), abort_audio_(false), video_start_ts_(0),
-	  audio_samples_(0), in_fmt_ctx_(nullptr), out_fmt_ctx_(nullptr), segment_start_ts_(0), segment_num_(0),
-	  previous_video_timestamp_(0), current_timestamp_(0)
+	: Encoder(options), output_ready_(false), abort_video_(false), abort_audio_(false),
+	  video_start_ts_(0), audio_samples_(0), in_fmt_ctx_(nullptr), out_fmt_ctx_(nullptr)
 {
 	avdevice_register_all();
 
@@ -350,25 +328,15 @@ void LibAvEncoder::EncodeBuffer(int fd, size_t size, void *mem, StreamInfo const
 		throw std::runtime_error("libav: could not allocate AVFrame");
 
 	if (!video_start_ts_)
-	{
 		video_start_ts_ = timestamp_us;
-		segment_start_ts_ = video_start_ts_;
-		pause_state_.pause_timestamp = 0;
-		pause_state_.unpause_timestamp = 0;
-	}
-	current_timestamp_ = timestamp_us + (options_->av_sync.value < 0us
-											 ? -options_->av_sync.get<std::chrono::microseconds>()
-											 : 0); // Standard Recording modes
 
 	frame->format = codec_ctx_[Video]->pix_fmt;
 	frame->width = info.width;
 	frame->height = info.height;
 	frame->linesize[0] = info.stride;
 	frame->linesize[1] = frame->linesize[2] = info.stride >> 1;
-	if (previous_video_timestamp_ == 0)
-		previous_video_timestamp_ = timestamp_us; // Only useful on startup
-
-	frame->pts = current_timestamp_ - video_start_ts_;
+	frame->pts = timestamp_us - video_start_ts_ +
+				 (options_->av_sync.value < 0us ? -options_->av_sync.get<std::chrono::microseconds>() : 0);
 
 	if (codec_ctx_[Video]->pix_fmt == AV_PIX_FMT_DRM_PRIME)
 	{
@@ -421,18 +389,6 @@ void LibAvEncoder::initOutput()
 	if (!(out_fmt_ctx_->flags & AVFMT_NOFILE))
 	{
 		std::string filename = options_->output;
-		if (options_->split || options_->segment)
-		{
-			char subfilename[256];
-			int n;
-			n = snprintf(subfilename, sizeof(subfilename), options_->output.c_str(), segment_num_);
-			filename = subfilename;
-			if (options_->wrap)
-				segment_num_ = segment_num_ % options_->wrap;
-			if (n < 0)
-				throw std::runtime_error("failed to generate filename");
-		}
-		LOG(2, "Outputting with filename: " << filename.c_str());
 
 		// libav uses "pipe:" for stdout
 		if (filename == "-")
@@ -463,7 +419,6 @@ void LibAvEncoder::deinitOutput()
 
 	if (!(out_fmt_ctx_->flags & AVFMT_NOFILE))
 		avio_closep(&out_fmt_ctx_->pb);
-	out_fmt_ctx_->pb = nullptr;
 }
 
 void LibAvEncoder::encode(AVPacket *pkt, unsigned int stream_id)
@@ -497,36 +452,14 @@ void LibAvEncoder::encode(AVPacket *pkt, unsigned int stream_id)
 		// Rescale from the codec timebase to the stream timebase.
 		av_packet_rescale_ts(pkt, codec_ctx_[stream_id]->time_base, out_fmt_ctx_->streams[stream_id]->time_base);
 
-		// When we are paused, keep track of how long passes in the pause state. Needed to make video continuous
-		if (!pause_state_.write_frames)
-			pause_state_.pause_duration += current_timestamp_ - previous_video_timestamp_;
-		previous_video_timestamp_ = current_timestamp_;
 		std::scoped_lock<std::mutex> lock(output_mutex_);
-
-		if (options_->keypress || options_->signal)
-			writePausedFrame(pkt, stream_id);
-
-		if (options_->segment)
-			writeSegmentedFrame(pkt, stream_id);
-
-		// This is normal operation, with now pause/segment functionalit
-		if (!options_->segment && !options_->keypress && !options_->signal)
-			ret = writeFrame(out_fmt_ctx_, pkt);
-
-		// Only update pause_state_ variables on video feed
-		if (stream_id == Video)
-			pause_state_.previous_state = pause_state_.paused;
+		// pkt is now blank (av_interleaved_write_frame() takes ownership of
+		// its contents and resets pkt), so that no unreferencing is necessary.
+		// This would be different if one used av_write_frame().
+		ret = av_interleaved_write_frame(out_fmt_ctx_, pkt);
+		if (ret < 0)
+			throw std::runtime_error("libav: error writing output: " + std::to_string(ret));
 	}
-}
-
-void LibAvEncoder::nextSegment()
-{
-	// Flush the encoder, finish segment, save file
-	deinitOutput();
-	// Now, start up again
-	segment_num_ += 1;
-	pause_state_.first_frame = true;
-	initOutput();
 }
 
 extern "C" void LibAvEncoder::releaseBuffer(void *opaque, uint8_t *data)
@@ -569,26 +502,10 @@ void LibAvEncoder::videoThread()
 			}
 		}
 
-		// We force a keyframe when we detect that the state of pause has gone from PAUSED -> UNPAUSED (1) -> (0)
-		if (pause_state_.previous_state && !pause_state_.paused)
-		{
-			// We have just unpaused. Need to force keyframe
-			frame->pict_type = AV_PICTURE_TYPE_I;
-		}
-		if ((current_timestamp_ - segment_start_ts_) > options_->segment.get<std::chrono::microseconds>() &&
-			!pause_state_.first_frame)
-		{
-			// Time to segment! We now need to force a keyframe for the encode thread to create a new segment with
-			frame->pict_type = AV_PICTURE_TYPE_I;
-		}
-
 		int ret = avcodec_send_frame(codec_ctx_[Video], frame);
 		if (ret < 0)
-		{
-			char err[256];
-			av_strerror(ret, err, sizeof(err));
-			throw std::runtime_error(std::string("libav: error encoding frame: ") + std::string(err));
-		}
+			throw std::runtime_error("libav: error encoding frame: " + std::to_string(ret));
+
 		encode(pkt, Video);
 		av_frame_free(&frame);
 	}
@@ -740,14 +657,15 @@ void LibAvEncoder::audioThread()
 			AVRational num = { 1, out_frame->sample_rate };
 			int64_t ts = av_rescale_q(audio_samples_, num, codec_ctx_[AudioOut]->time_base);
 
-			out_frame->pts =
-				ts + (options_->av_sync.value > 0us ? options_->av_sync.get<std::chrono::microseconds>() : 0);
-
+			out_frame->pts = ts +
+				(options_->av_sync.value > 0us ? options_->av_sync.get<std::chrono::microseconds>() : 0);
 			audio_samples_ += codec_ctx_[AudioOut]->frame_size;
 
 			ret = avcodec_send_frame(codec_ctx_[AudioOut], out_frame);
 			if (ret < 0)
 				throw std::runtime_error("libav: error encoding frame: " + std::to_string(ret));
+
+			encode(out_pkt, AudioOut);
 			av_frame_free(&out_frame);
 		}
 	}
@@ -763,87 +681,4 @@ void LibAvEncoder::audioThread()
 	av_packet_free(&in_pkt);
 	av_packet_free(&out_pkt);
 	av_frame_free(&in_frame);
-}
-
-int LibAvEncoder::writeFrame(AVFormatContext *out_fmt_ctx_, AVPacket *pkt)
-{
-	// Handler to write frame
-	int ret = 0;
-	ret = av_interleaved_write_frame(out_fmt_ctx_, pkt);
-	if (ret < 0)
-		throw std::runtime_error("libav: error writing output: " + std::to_string(ret));
-	return ret;
-}
-
-int LibAvEncoder::writePausedFrame(AVPacket *pkt, unsigned int stream_id)
-{
-	// Need to detect what state the packet came from
-	// If the timestamp is after a pause timestamp and before an unpause ts then it must be paused, and hence thrown away
-	// Additionally, the timestamp can be after a pause event but the current unpause timestamp is equal to zero, and hence is also paused
-	// if the timestamp is after an unpause timestamp and after the latest pause timestamp then it must be written (unpaused state)
-
-	// In the following, the logic all happens when we are passed a video frame. i.e. starting a new segment, initating split.
-	// Audio just follows a through afterwards. This is needed to make sure that the first thing in the video file is a keyframe.
-
-	// Need a constant value to the packet's timestamp
-	int64_t packet_ts = pkt->pts;
-	// Alter the timestamps to be continuous
-	pkt->pts -= pause_state_.pause_duration;
-	pkt->dts -= pause_state_.pause_duration;
-
-	// The below logic works out if a frame is paused. If the packet is after a pause, and the packet is before a pause
-	// or the unpause timestamp is set to zero (which indicates a pause)
-	// This method does mean that we need an extra variable, first pause (since unpause timestamp initialises to zero)
-	// There is likely a better implementation for this
-
-	if (packet_ts > pause_state_.pause_timestamp &&
-		(packet_ts < pause_state_.unpause_timestamp || !pause_state_.unpause_timestamp) && !pause_state_.first_pause)
-	{
-		// This must be a paused frame. We shall discard it
-		if (!pause_state_.first_frame && stream_id == Video)
-		{
-			// Upon pausing, set variables up for next segment, and if we are splitting, call function to create new output
-			pause_state_.first_frame = true;
-			if (options_->split)
-				nextSegment();
-		}
-		pause_state_.write_frames = false;
-		return 1;
-	}
-	if (packet_ts >= pause_state_.unpause_timestamp &&
-		((packet_ts > pause_state_.pause_timestamp && pause_state_.unpause_timestamp != 0) || pause_state_.first_pause))
-	{
-		// This frame fits into the 'unpaused' category
-		if (pause_state_.first_frame && pkt->flags & AV_PKT_FLAG_KEY && stream_id == Video)
-		{
-			// This is the first frame that is a keyframe. This will be the start of a new segment/split.
-			return writeFrame(out_fmt_ctx_, pkt);
-			pause_state_.first_frame = false;
-			pause_state_.write_frames = true;
-		}
-		// If there's nothing special going on, just write the frame
-		else if (!pause_state_.first_frame && pause_state_.write_frames)
-			return writeFrame(out_fmt_ctx_, pkt);
-	}
-	return 1;
-}
-
-int LibAvEncoder::writeSegmentedFrame(AVPacket *pkt, unsigned int stream_id)
-{
-	if ((current_timestamp_ - segment_start_ts_) > options_->segment.get<std::chrono::microseconds>() &&
-		!pause_state_.first_frame && stream_id == Video)
-	{
-		// Over segmenting threshold. Ready to make a new segment.
-		nextSegment();
-	}
-	if ((current_timestamp_ - segment_start_ts_) > options_->segment.get<std::chrono::microseconds>() &&
-		pkt->flags & AV_PKT_FLAG_KEY && pause_state_.first_frame && stream_id == Video)
-	{
-		// This is the first keyframe that has arrived since the start of a segment
-		pause_state_.first_frame = false;
-		segment_start_ts_ = current_timestamp_;
-		return writeFrame(out_fmt_ctx_, pkt);
-	}
-	else // Again, not much going on here, just write the frame
-		return writeFrame(out_fmt_ctx_, pkt);
 }
