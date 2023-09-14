@@ -388,7 +388,7 @@ void LibAvEncoder::initOutput()
 	char err[64];
 	if (!(out_fmt_ctx_->flags & AVFMT_NOFILE))
 	{
-		std::string filename = options_->output;
+		std::string filename = options_->output.empty() ? "/dev/null" : options_->output;
 
 		// libav uses "pipe:" for stdout
 		if (filename == "-")
