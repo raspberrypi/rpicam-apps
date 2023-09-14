@@ -38,6 +38,8 @@ struct Mode
 	std::string ToString() const;
 };
 
+float strtof_locale(const char *str, char **endptr);
+
 template <typename DEFAULT>
 struct TimeVal
 {
@@ -57,10 +59,11 @@ struct TimeVal
 
 		try
 		{
-			std::size_t end_pos;
-			float f = std::stof(s, &end_pos);
+			char *end;
+			float f = strtof_locale(s.c_str(), &end);
 			value = std::chrono::duration_cast<std::chrono::nanoseconds>(f * DEFAULT { 1 });
 
+			std::size_t end_pos = end - s.c_str();
 			for (const auto &m : match)
 			{
 				auto found = s.find(m.first, end_pos);

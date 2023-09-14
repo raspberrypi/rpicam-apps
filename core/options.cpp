@@ -4,6 +4,10 @@
  *
  * options.cpp - common program options helpers
  */
+
+#include <locale.h>
+#include <stdlib.h>
+
 #include <algorithm>
 #include <fcntl.h>
 #include <iomanip>
@@ -45,7 +49,6 @@ static const std::map<libcamera::PixelFormat, unsigned int> bayer_formats =
 	{ libcamera::formats::SBGGR16,       16 },
 	{ libcamera::formats::SGBRG16,       16 },
 };
-
 
 Mode::Mode(std::string const &mode_string)
 {
@@ -90,6 +93,34 @@ static int xioctl(int fd, unsigned long ctl, void *arg)
 		ret = ioctl(fd, ctl, arg);
 	} while (ret == -1 && errno == EINTR && num_tries-- > 0);
 	return ret;
+}
+
+class Locale
+{
+public:
+	Locale(const char *l)
+	{
+		locale_ = newlocale(LC_ALL_MASK, l, 0);
+	}
+
+	~Locale()
+	{
+		freelocale(locale_);
+	}
+
+	const locale_t &Get() const
+	{
+		return locale_;
+	}
+
+private:
+	locale_t locale_;
+};
+
+float strtof_locale(const char *str, char **endptr)
+{
+	static Locale c_locale("C");
+	return strtof_l(str, endptr, c_locale.Get());
 }
 
 bool Options::Parse(int argc, char *argv[])

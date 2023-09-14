@@ -34,10 +34,11 @@ public:
 
 		try
 		{
-			std::size_t end_pos;
-			float f = std::stof(s, &end_pos);
+			char *end;
+			float f = strtof_locale(s.c_str(), &end);
 			bps_ = f;
 
+			std::size_t end_pos = end - s.c_str();
 			for (const auto &m : match)
 			{
 				auto found = s.find(m.first, end_pos);
