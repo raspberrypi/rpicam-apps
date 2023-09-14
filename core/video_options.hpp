@@ -126,7 +126,7 @@ struct VideoOptions : public Options
 			("libav-video-codec", value<std::string>(&libav_video_codec)->default_value("h264_v4l2m2m"),
 			 "Sets the libav video codec to use. "
 			 "To list available codecs, run  the \"ffmpeg -codecs\" command.")
-			("libav-format", value<std::string>(&libav_format)->default_value(""),
+			("libav-format", value<std::string>(&libav_format)->default_value("h264"),
 			 "Sets the libav encoder output format to use. "
 			 "Leave blank to try and deduce this from the filename.\n"
 			 "To list available formats, run  the \"ffmpeg -formats\" command.")
