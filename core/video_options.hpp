@@ -190,10 +190,11 @@ struct VideoOptions : public Options
 		if (Options::Parse(argc, argv) == false)
 			return false;
 
-		av_sync.set(av_sync_);
 		bitrate.set(bitrate_);
+#if LIBAV_PRESENT
+		av_sync.set(av_sync_);
 		audio_bitrate.set(audio_bitrate_);
-
+#endif /* LIBAV_PRESENT */
 		if (width == 0)
 			width = 640;
 		if (height == 0)
@@ -249,7 +250,9 @@ struct VideoOptions : public Options
 	}
 
 private:
-	std::string av_sync_;
 	std::string bitrate_;
+#if LIBAV_PRESENT
+	std::string av_sync_;
 	std::string audio_bitrate_;
+#endif /* LIBAV_PRESENT */
 };
