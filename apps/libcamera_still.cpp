@@ -239,9 +239,9 @@ static void event_loop(LibcameraStillApp &app)
 			LOG(2, "Viewfinder frame " << count);
 			timelapse_frames++;
 
-			bool timed_out = options->timeout && now - start_time > std::chrono::milliseconds(options->timeout);
+			bool timed_out = options->timeout && (now - start_time) > options->timeout.value;
 			bool timelapse_timed_out = options->timelapse &&
-									   now - timelapse_time > std::chrono::milliseconds(options->timelapse) &&
+									   (now - timelapse_time) > options->timelapse.value &&
 									   timelapse_frames >= TIMELAPSE_MIN_FRAMES;
 			bool want_capture = false;
 
