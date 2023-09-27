@@ -1,8 +1,8 @@
-libcamera-apps (1.2.1-1+bookworm) bookworm; urgency=medium
+libcamera-apps (1.2.2-1) bookworm; urgency=medium
 
-  * bookworm rebuild
+  * New upstream version 1.2.2
 
- -- Serge Schneider <serge@raspberrypi.com>  Mon, 24 Jul 2023 11:54:48 +0100
+ -- Serge Schneider <serge@raspberrypi.com>  Wed, 27 Sep 2023 13:32:26 +0100
 
 libcamera-apps (1.2.1-1) bullseye; urgency=medium
 
