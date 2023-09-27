@@ -55,7 +55,7 @@ H264Encoder::H264Encoder(VideoOptions const *options, StreamInfo const &info)
 	if (options->bitrate)
 	{
 		ctrl.id = V4L2_CID_MPEG_VIDEO_BITRATE;
-		ctrl.value = options->bitrate;
+		ctrl.value = options->bitrate.bps();
 		if (xioctl(fd_, VIDIOC_S_CTRL, &ctrl) < 0)
 			throw std::runtime_error("failed to set bitrate");
 	}

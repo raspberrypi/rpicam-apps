@@ -557,7 +557,7 @@ void LibcameraApp::StartCamera()
 	}
 
 	if (!controls_.get(controls::ExposureTime) && options_->shutter)
-		controls_.set(controls::ExposureTime, options_->shutter);
+		controls_.set(controls::ExposureTime, options_->shutter.get<std::chrono::microseconds>());
 	if (!controls_.get(controls::AnalogueGain) && options_->gain)
 		controls_.set(controls::AnalogueGain, options_->gain);
 	if (!controls_.get(controls::AeMeteringMode))
@@ -618,6 +618,14 @@ void LibcameraApp::StartCamera()
 			f = camera_->controls().at(&controls::LensPosition).def().get<float>();
 		LOG(2, "Setting LensPosition: " << f);
 		controls_.set(controls::LensPosition, f);
+	}
+
+	if (options_->flicker_period && !controls_.get(controls::AeFlickerMode) &&
+		camera_->controls().find(&controls::AeFlickerMode) != camera_->controls().end() &&
+		camera_->controls().find(&controls::AeFlickerPeriod) != camera_->controls().end())
+	{
+		controls_.set(controls::AeFlickerMode, controls::FlickerManual);
+		controls_.set(controls::AeFlickerPeriod, options_->flicker_period.get<std::chrono::microseconds>());
 	}
 
 	if (camera_->start(&controls_))

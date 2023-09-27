@@ -102,12 +102,13 @@ static void event_loop(LibcameraEncoder &app)
 		LOG(2, "Viewfinder frame " << count);
 		auto now = std::chrono::high_resolution_clock::now();
 		bool timeout = !options->frames && options->timeout &&
-					   (now - start_time > std::chrono::milliseconds(options->timeout));
+					   ((now - start_time) > options->timeout.value);
 		bool frameout = options->frames && count >= options->frames;
 		if (timeout || frameout || key == 'x' || key == 'X')
 		{
 			if (timeout)
-				LOG(1, "Halting: reached timeout of " << options->timeout << " milliseconds.");
+				LOG(1, "Halting: reached timeout of " << options->timeout.get<std::chrono::milliseconds>()
+													  << " milliseconds.");
 			app.StopCamera(); // stop complains if encoder very slow to close
 			app.StopEncoder();
 			return;

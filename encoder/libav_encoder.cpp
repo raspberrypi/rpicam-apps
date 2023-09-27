@@ -26,7 +26,7 @@ void encoderOptionsH264M2M(VideoOptions const *options, AVCodecContext *codec)
 	codec->max_b_frames = 0;
 
 	if (options->bitrate)
-		codec->bit_rate = options->bitrate;
+		codec->bit_rate = options->bitrate.bps();
 }
 
 void encoderOptionsLibx264(VideoOptions const *options, AVCodecContext *codec)
@@ -34,7 +34,7 @@ void encoderOptionsLibx264(VideoOptions const *options, AVCodecContext *codec)
 	codec->pix_fmt = AV_PIX_FMT_YUV420P;
 
 	if (options->bitrate)
-		codec->bit_rate = options->bitrate;
+		codec->bit_rate = options->bitrate.bps();
 
 	codec->max_b_frames = 1;
 	codec->me_range = 16;
@@ -250,7 +250,7 @@ void LibAvEncoder::initAudioOutCodec(VideoOptions const *options, StreamInfo con
 	codec_ctx_[AudioOut]->sample_rate = options->audio_samplerate ? options->audio_samplerate
 																  : stream_[AudioIn]->codecpar->sample_rate;
 	codec_ctx_[AudioOut]->sample_fmt = codec->sample_fmts[0];
-	codec_ctx_[AudioOut]->bit_rate = options->audio_bitrate;
+	codec_ctx_[AudioOut]->bit_rate = options->audio_bitrate.bps();
 	// usec timebase
 	codec_ctx_[AudioOut]->time_base = { 1, 1000 * 1000 };
 
@@ -335,7 +335,8 @@ void LibAvEncoder::EncodeBuffer(int fd, size_t size, void *mem, StreamInfo const
 	frame->height = info.height;
 	frame->linesize[0] = info.stride;
 	frame->linesize[1] = frame->linesize[2] = info.stride >> 1;
-	frame->pts = timestamp_us - video_start_ts_ + (options_->av_sync < 0 ? -options_->av_sync : 0);
+	frame->pts = timestamp_us - video_start_ts_ +
+				 (options_->av_sync.value < 0us ? -options_->av_sync.get<std::chrono::microseconds>() : 0);
 
 	if (codec_ctx_[Video]->pix_fmt == AV_PIX_FMT_DRM_PRIME)
 	{
@@ -387,7 +388,7 @@ void LibAvEncoder::initOutput()
 	char err[64];
 	if (!(out_fmt_ctx_->flags & AVFMT_NOFILE))
 	{
-		std::string filename = options_->output;
+		std::string filename = options_->output.empty() ? "/dev/null" : options_->output;
 
 		// libav uses "pipe:" for stdout
 		if (filename == "-")
@@ -656,7 +657,8 @@ void LibAvEncoder::audioThread()
 			AVRational num = { 1, out_frame->sample_rate };
 			int64_t ts = av_rescale_q(audio_samples_, num, codec_ctx_[AudioOut]->time_base);
 
-			out_frame->pts = ts + (options_->av_sync > 0 ? options_->av_sync : 0);
+			out_frame->pts = ts +
+				(options_->av_sync.value > 0us ? options_->av_sync.get<std::chrono::microseconds>() : 0);
 			audio_samples_ += codec_ctx_[AudioOut]->frame_size;
 
 			ret = avcodec_send_frame(codec_ctx_[AudioOut], out_frame);

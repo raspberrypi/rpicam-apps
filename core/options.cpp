@@ -4,17 +4,48 @@
  *
  * options.cpp - common program options helpers
  */
-#include <fcntl.h>
-#include <linux/v4l2-controls.h>
-#include <linux/videodev2.h>
-#include <sys/ioctl.h>
 #include <algorithm>
+#include <fcntl.h>
 #include <iomanip>
 #include <iostream>
+#include <linux/v4l2-controls.h>
+#include <linux/videodev2.h>
+#include <map>
+#include <string>
+#include <sys/ioctl.h>
 
+#include <libcamera/formats.h>
 #include <libcamera/logging.h>
+#include <libcamera/property_ids.h>
 
 #include "core/options.hpp"
+
+static const std::map<int, std::string> cfa_map =
+{
+	{ properties::draft::ColorFilterArrangementEnum::RGGB, "RGGB" },
+	{ properties::draft::ColorFilterArrangementEnum::GRBG, "GRBG" },
+	{ properties::draft::ColorFilterArrangementEnum::GBRG, "GBRG" },
+	{ properties::draft::ColorFilterArrangementEnum::RGB, "RGB" },
+	{ properties::draft::ColorFilterArrangementEnum::MONO, "MONO" },
+};
+
+static const std::map<libcamera::PixelFormat, unsigned int> bayer_formats =
+{
+	{ libcamera::formats::SRGGB10_CSI2P, 10 },
+	{ libcamera::formats::SGRBG10_CSI2P, 10 },
+	{ libcamera::formats::SBGGR10_CSI2P, 10 },
+	{ libcamera::formats::R10_CSI2P,     10 },
+	{ libcamera::formats::SGBRG10_CSI2P, 10 },
+	{ libcamera::formats::SRGGB12_CSI2P, 12 },
+	{ libcamera::formats::SGRBG12_CSI2P, 12 },
+	{ libcamera::formats::SBGGR12_CSI2P, 12 },
+	{ libcamera::formats::SGBRG12_CSI2P, 12 },
+	{ libcamera::formats::SRGGB16,       16 },
+	{ libcamera::formats::SGRBG16,       16 },
+	{ libcamera::formats::SBGGR16,       16 },
+	{ libcamera::formats::SGBRG16,       16 },
+};
+
 
 Mode::Mode(std::string const &mode_string)
 {
@@ -98,6 +129,11 @@ bool Options::Parse(int argc, char *argv[])
 	else if (!lens_position_.empty())
 		throw std::runtime_error("Invalid lens position: " + lens_position_);
 
+	// Convert time strings to durations
+	timeout.set(timeout_);
+	shutter.set(shutter_);
+	flicker_period.set(flicker_period_);
+
 	// HDR control. Set this before opening or listing any cameras.
 	// Currently this does not exist in libcamera, so go directly to V4L2
 	// XXX it's not obvious which v4l2-subdev to use for which camera!
@@ -163,11 +199,13 @@ bool Options::Parse(int argc, char *argv[])
 			for (auto const &cam : cameras)
 			{
 				cam->acquire();
-				std::cout << idx++ << " : " << *cam->properties().get(libcamera::properties::Model);
+
+				std::stringstream sensor_props;
+				sensor_props << idx++ << " : " << *cam->properties().get(libcamera::properties::Model) << " [";
+
 				auto area = cam->properties().get(properties::PixelArrayActiveAreas);
 				if (area)
-					std::cout << " [" << (*area)[0].size().toString() << "]";
-				std::cout << " (" << cam->id() << ")" << std::endl;
+					sensor_props << (*area)[0].size().toString() << " ";
 
 				std::unique_ptr<CameraConfiguration> config = cam->generateConfiguration({libcamera::StreamRole::Raw});
 				if (!config)
@@ -176,6 +214,24 @@ bool Options::Parse(int argc, char *argv[])
 
 				if (!formats.pixelformats().size())
 					continue;
+
+				unsigned int bits = 0;
+				for (const auto &pix : formats.pixelformats())
+				{
+					const auto &b = bayer_formats.find(pix);
+					if (b != bayer_formats.end() && b->second > bits)
+						bits = b->second;
+				}
+				if (bits)
+					sensor_props << bits << "-bit ";
+
+				auto cfa = cam->properties().get(properties::draft::ColorFilterArrangement);
+				if (cfa && cfa_map.count(*cfa))
+					sensor_props << cfa_map.at(*cfa) << " ";
+
+				sensor_props.seekp(-1, sensor_props.cur);
+				sensor_props << "] (" << cam->id() << ")";
+				std::cout << sensor_props.str() << std::endl;
 
 				ControlInfoMap control_map;
 				Size max_size;
@@ -358,7 +414,7 @@ void Options::Print() const
 	if (!config_file.empty())
 		std::cerr << "    config file: " << config_file << std::endl;
 	std::cerr << "    info_text:" << info_text << std::endl;
-	std::cerr << "    timeout: " << timeout << std::endl;
+	std::cerr << "    timeout: " << timeout.get() << "ms" << std::endl;
 	std::cerr << "    width: " << width << std::endl;
 	std::cerr << "    height: " << height << std::endl;
 	std::cerr << "    output: " << output << std::endl;
@@ -380,11 +436,13 @@ void Options::Print() const
 	else
 		std::cerr << "    roi: " << roi_x << "," << roi_y << "," << roi_width << "," << roi_height << std::endl;
 	if (shutter)
-		std::cerr << "    shutter: " << shutter << std::endl;
+		std::cerr << "    shutter: " << shutter.get() << "us" << std::endl;
 	if (gain)
 		std::cerr << "    gain: " << gain << std::endl;
 	std::cerr << "    metering: " << metering << std::endl;
 	std::cerr << "    exposure: " << exposure << std::endl;
+	if (flicker_period)
+		std::cerr << "    flicker period: " << flicker_period.get() << "us" << std::endl;
 	std::cerr << "    ev: " << ev << std::endl;
 	std::cerr << "    awb: " << awb << std::endl;
 	if (awb_gain_r && awb_gain_b)

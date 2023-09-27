@@ -13,6 +13,70 @@
 
 #include "options.hpp"
 
+struct Bitrate
+{
+public:
+	Bitrate() : bps_(0) {}
+
+	void set(const std::string &s)
+	{
+		static const std::map<std::string, uint64_t> match
+		{
+			{ "bps", 1 },
+			{ "b", 1 },
+			{ "kbps", 1000 },
+			{ "k", 1000 },
+			{ "K", 1000 },
+			{ "mbps", 1000 * 1000 },
+			{ "m", 1000 * 1000 },
+			{ "M", 1000 },
+		};
+
+		try
+		{
+			std::size_t end_pos;
+			float f = std::stof(s, &end_pos);
+			bps_ = f;
+
+			for (const auto &m : match)
+			{
+				auto found = s.find(m.first, end_pos);
+				if (found != end_pos || found + m.first.length() != s.length())
+					continue;
+				bps_ = f * m.second;
+				break;
+			}
+		}
+		catch (std::exception const &e)
+		{
+			throw std::runtime_error("Invalid bitrate string provided");
+		}
+	}
+
+	uint64_t bps() const
+	{
+		return bps_;
+	}
+
+	uint64_t kbps() const
+	{
+		return bps_ / 1000;
+	}
+
+	uint64_t mbps() const
+	{
+		return bps_ / (1000 * 1000);
+	}
+
+	explicit constexpr operator bool() const
+	{
+		return !!bps_;
+	}
+
+private:
+	uint64_t bps_;
+};
+
 struct VideoOptions : public Options
 {
 	VideoOptions() : Options()
@@ -22,8 +86,8 @@ struct VideoOptions : public Options
 		// codec's default behaviour.
 		// clang-format off
 		options_.add_options()
-			("bitrate,b", value<uint32_t>(&bitrate)->default_value(0),
-			 "Set the video bitrate for encoding, in bits/second (h264 only)")
+			("bitrate,b", value<std::string>(&bitrate_)->default_value("0bps"),
+			 "Set the video bitrate for encoding. If no units are provided, default to bits/second.")
 			("profile", value<std::string>(&profile),
 			 "Set the encoding profile (h264 only)")
 			("level", value<std::string>(&level),
@@ -62,7 +126,7 @@ struct VideoOptions : public Options
 			("libav-video-codec", value<std::string>(&libav_video_codec)->default_value("h264_v4l2m2m"),
 			 "Sets the libav video codec to use. "
 			 "To list available codecs, run  the \"ffmpeg -codecs\" command.")
-			("libav-format", value<std::string>(&libav_format)->default_value(""),
+			("libav-format", value<std::string>(&libav_format)->default_value("h264"),
 			 "Sets the libav encoder output format to use. "
 			 "Leave blank to try and deduce this from the filename.\n"
 			 "To list available formats, run  the \"ffmpeg -formats\" command.")
@@ -81,19 +145,19 @@ struct VideoOptions : public Options
 			 "\"arecord -L\"")
 			("audio-channels", value<uint32_t>(&audio_channels)->default_value(0),
 			 "Number of channels to use for recording audio. Set to 0 to use default value.")
-			("audio-bitrate", value<uint32_t>(&audio_bitrate)->default_value(32768),
-			 "Set the audio bitrate for encoding, in bits/second.")
+			("audio-bitrate", value<std::string>(&audio_bitrate_)->default_value("32kbps"),
+			 "Set the audio bitrate for encoding. If no units are provided, default to bits/second.")
 			("audio-samplerate", value<uint32_t>(&audio_samplerate)->default_value(0),
 			 "Set the audio sampling rate in Hz for encoding. Set to 0 to use the input sample rate.")
-			("av-sync", value<int32_t>(&av_sync)->default_value(0),
-			 "Add a time offset (in microseconds) to the audio stream, relative to the video stream. "
+			("av-sync", value<std::string>(&av_sync_)->default_value("0us"),
+			 "Add a time offset (in microseconds if no units provided) to the audio stream, relative to the video stream. "
 			 "The offset value can be either positive or negative.")
 #endif
 			;
 		// clang-format on
 	}
 
-	uint32_t bitrate;
+	Bitrate bitrate;
 	std::string profile;
 	std::string level;
 	unsigned int intra;
@@ -106,9 +170,9 @@ struct VideoOptions : public Options
 	std::string audio_device;
 	std::string audio_source;
 	uint32_t audio_channels;
-	uint32_t audio_bitrate;
+	Bitrate audio_bitrate;
 	uint32_t audio_samplerate;
-	int32_t av_sync;
+	TimeVal<std::chrono::microseconds> av_sync;
 	std::string save_pts;
 	int quality;
 	bool listen;
@@ -126,6 +190,11 @@ struct VideoOptions : public Options
 		if (Options::Parse(argc, argv) == false)
 			return false;
 
+		bitrate.set(bitrate_);
+#if LIBAV_PRESENT
+		av_sync.set(av_sync_);
+		audio_bitrate.set(audio_bitrate_);
+#endif /* LIBAV_PRESENT */
 		if (width == 0)
 			width = 640;
 		if (height == 0)
@@ -164,7 +233,7 @@ struct VideoOptions : public Options
 	virtual void Print() const override
 	{
 		Options::Print();
-		std::cerr << "    bitrate: " << bitrate << std::endl;
+		std::cerr << "    bitrate: " << bitrate.kbps() << "kbps" << std::endl;
 		std::cerr << "    profile: " << profile << std::endl;
 		std::cerr << "    level:  " << level << std::endl;
 		std::cerr << "    intra: " << intra << std::endl;
@@ -179,4 +248,11 @@ struct VideoOptions : public Options
 		std::cerr << "    segment: " << segment << std::endl;
 		std::cerr << "    circular: " << circular << std::endl;
 	}
+
+private:
+	std::string bitrate_;
+#if LIBAV_PRESENT
+	std::string av_sync_;
+	std::string audio_bitrate_;
+#endif /* LIBAV_PRESENT */
 };
