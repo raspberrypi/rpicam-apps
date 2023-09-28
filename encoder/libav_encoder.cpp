@@ -145,10 +145,15 @@ void LibAvEncoder::initVideoCodec(VideoOptions const *options, StreamInfo const 
 	if (fn != optionsMap.end())
 		fn->second(options, codec_ctx_[Video]);
 
+	const char *format;
+	if (options_->output.empty() && options->libav_format.empty())
+		format = "h264";
+	else if (options->libav_format.empty())
+		format = nullptr;
+	else
+		format = options->libav_format.c_str();
 	assert(out_fmt_ctx_ == nullptr);
-	avformat_alloc_output_context2(&out_fmt_ctx_, nullptr,
-								   options->libav_format.empty() ? nullptr : options->libav_format.c_str(),
-								   options->output.c_str());
+	avformat_alloc_output_context2(&out_fmt_ctx_, nullptr, format, options->output.c_str());
 	if (!out_fmt_ctx_)
 		throw std::runtime_error("libav: cannot allocate output context");
 
