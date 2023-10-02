@@ -32,23 +32,41 @@ struct BayerFormat
 	char const *name;
 	int bits;
 	char const *order;
+	bool packed;
 };
 
 static const std::map<PixelFormat, BayerFormat> bayer_formats =
 {
-	{ formats::SRGGB10_CSI2P, { "RGGB-10", 10, TIFF_RGGB } },
-	{ formats::SGRBG10_CSI2P, { "GRBG-10", 10, TIFF_GRBG } },
-	{ formats::SBGGR10_CSI2P, { "BGGR-10", 10, TIFF_BGGR } },
-	{ formats::R10_CSI2P,     { "BGGR-10", 10, TIFF_BGGR } },
-	{ formats::SGBRG10_CSI2P, { "GBRG-10", 10, TIFF_GBRG } },
-	{ formats::SRGGB12_CSI2P, { "RGGB-12", 12, TIFF_RGGB } },
-	{ formats::SGRBG12_CSI2P, { "GRBG-12", 12, TIFF_GRBG } },
-	{ formats::SBGGR12_CSI2P, { "BGGR-12", 12, TIFF_BGGR } },
-	{ formats::SGBRG12_CSI2P, { "GBRG-12", 12, TIFF_GBRG } },
-	{ formats::SRGGB16,       { "RGGB-16", 16, TIFF_RGGB } },
-	{ formats::SGRBG16,       { "GRBG-16", 16, TIFF_GRBG } },
-	{ formats::SBGGR16,       { "BGGR-16", 16, TIFF_BGGR } },
-	{ formats::SGBRG16,       { "GBRG-16", 16, TIFF_GBRG } },
+	{ formats::SRGGB10_CSI2P, { "RGGB-10", 10, TIFF_RGGB, true } },
+	{ formats::SGRBG10_CSI2P, { "GRBG-10", 10, TIFF_GRBG, true } },
+	{ formats::SBGGR10_CSI2P, { "BGGR-10", 10, TIFF_BGGR, true } },
+	{ formats::SGBRG10_CSI2P, { "GBRG-10", 10, TIFF_GBRG, true } },
+
+	{ formats::SRGGB10, { "RGGB-10", 10, TIFF_RGGB, false } },
+	{ formats::SGRBG10, { "GRBG-10", 10, TIFF_GRBG, false } },
+	{ formats::SBGGR10, { "BGGR-10", 10, TIFF_BGGR, false } },
+	{ formats::SGBRG10, { "GBRG-10", 10, TIFF_GBRG, false } },
+
+	{ formats::SRGGB12_CSI2P, { "RGGB-12", 12, TIFF_RGGB, true } },
+	{ formats::SGRBG12_CSI2P, { "GRBG-12", 12, TIFF_GRBG, true } },
+	{ formats::SBGGR12_CSI2P, { "BGGR-12", 12, TIFF_BGGR, true } },
+	{ formats::SGBRG12_CSI2P, { "GBRG-12", 12, TIFF_GBRG, true } },
+
+	{ formats::SRGGB12, { "RGGB-12", 12, TIFF_RGGB, false } },
+	{ formats::SGRBG12, { "GRBG-12", 12, TIFF_GRBG, false } },
+	{ formats::SBGGR12, { "BGGR-12", 12, TIFF_BGGR, false } },
+	{ formats::SGBRG12, { "GBRG-12", 12, TIFF_GBRG, false } },
+
+	{ formats::SRGGB16, { "RGGB-16", 16, TIFF_RGGB, false } },
+	{ formats::SGRBG16, { "GRBG-16", 16, TIFF_GRBG, false } },
+	{ formats::SBGGR16, { "BGGR-16", 16, TIFF_BGGR, false } },
+	{ formats::SGBRG16, { "GBRG-16", 16, TIFF_GBRG, false } },
+
+	{ formats::R10_CSI2P, { "BGGR-10", 10, TIFF_BGGR, true } },
+	{ formats::R10, { "BGGR-10", 10, TIFF_BGGR, false } },
+	// Currently not in the main libcamera branch
+	//{ formats::R12_CSI2P, { "BGGR-12", 12, TIFF_BGGR, true } },
+	{ formats::R12, { "BGGR-12", 12, TIFF_BGGR, false } },
 };
 
 static void unpack_10bit(uint8_t const *src, StreamInfo const &info, uint16_t *dest)
@@ -160,10 +178,18 @@ void dng_save(std::vector<libcamera::Span<uint8_t>> const &mem, StreamInfo const
 	LOG(1, "Bayer format is " << bayer_format.name);
 
 	std::vector<uint16_t> buf(info.width * info.height);
-	if (bayer_format.bits == 10)
-		unpack_10bit(mem[0].data(), info, &buf[0]);
-	else if (bayer_format.bits == 12)
-		unpack_12bit(mem[0].data(), info, &buf[0]);
+	if (bayer_format.packed)
+	{
+		switch (bayer_format.bits)
+		{
+		case 10:
+			unpack_10bit(mem[0].data(), info, &buf[0]);
+			break;
+		case 12:
+			unpack_12bit(mem[0].data(), info, &buf[0]);
+			break;
+		}
+	}
 	else
 		unpack_16bit(mem[0].data(), info, &buf[0]);
 
