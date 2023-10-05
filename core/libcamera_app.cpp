@@ -25,14 +25,19 @@
 
 unsigned int LibcameraApp::verbosity = 2;
 
-// If we definitely appear to be running the old camera stack, complain and give up.
-// Everything else, Pi or not, we let through.
+enum class Platform
+{
+	UNKNOWN,
+	LEGACY,
+	VC4,
+	PISP,
+};
 
-static void check_camera_stack()
+Platform get_platform()
 {
 	int fd = open("/dev/video0", O_RDWR, 0);
 	if (fd < 0)
-		return;
+		return Platform::UNKNOWN;
 
 	v4l2_capability caps;
 	unsigned long request = VIDIOC_QUERYCAP;
@@ -40,11 +45,17 @@ static void check_camera_stack()
 	int ret = ioctl(fd, request, &caps);
 	close(fd);
 
-	if (ret < 0 || strcmp((char *)caps.driver, "bm2835 mmal"))
-		return;
+	if (ret)
+		return Platform::UNKNOWN;
 
-	fprintf(stderr, "ERROR: the system appears to be configured for the legacy camera stack\n");
-	exit(-1);
+	if (!strncmp((char *)caps.card, "unicam", sizeof(caps.card)))
+		return Platform::VC4;
+	else if (!strncmp((char *)caps.card, "rp1-cfe", sizeof(caps.card)))
+		return Platform::PISP;
+	else if (!strncmp((char *)caps.card, "bm2835 mmal", sizeof(caps.card)))
+		return Platform::LEGACY;
+
+	return Platform::UNKNOWN;
 }
 
 static libcamera::PixelFormat mode_to_pixel_format(Mode const &mode)
@@ -69,25 +80,25 @@ static libcamera::PixelFormat mode_to_pixel_format(Mode const &mode)
 	return libcamera::formats::SBGGR12_CSI2P;
 }
 
-static void set_pipeline_configuration()
+static void set_pipeline_configuration(Platform platform)
 {
 	// Respect any pre-existing value in the environment variable.
 	char const *existing_config = getenv("LIBCAMERA_RPI_CONFIG_FILE");
 	if (existing_config && existing_config[0])
 		return;
 
-	// Otherwise point it at whichever of these we find first (if any).
-	static const std::vector<std::string> config_files = {
-		"/usr/local/share/libcamera/pipeline/rpi/vc4/rpi_apps.yaml",
-		"/usr/share/libcamera/pipeline/rpi/vc4/rpi_apps.yaml",
+	// Otherwise point it at whichever of these we find first (if any) for the given platform.
+	static const std::vector<std::pair<Platform, std::string>> config_files = {
+		{ Platform::VC4, "/usr/local/share/libcamera/pipeline/rpi/vc4/rpi_apps.yaml" },
+		{ Platform::VC4, "/usr/share/libcamera/pipeline/rpi/vc4/rpi_apps.yaml" },
 	};
 
 	for (auto &config_file : config_files)
 	{
 		struct stat info;
-		if (stat(config_file.c_str(), &info) == 0)
+		if (config_file.first == platform && stat(config_file.second.c_str(), &info) == 0)
 		{
-			setenv("LIBCAMERA_RPI_CONFIG_FILE", config_file.c_str(), 1);
+			setenv("LIBCAMERA_RPI_CONFIG_FILE", config_file.second.c_str(), 1);
 			break;
 		}
 	}
@@ -96,12 +107,24 @@ static void set_pipeline_configuration()
 LibcameraApp::LibcameraApp(std::unique_ptr<Options> opts)
 	: options_(std::move(opts)), controls_(controls::controls), post_processor_(this)
 {
-	check_camera_stack();
+	Platform platform = get_platform();
+	if (platform == Platform::LEGACY)
+	{
+		// If we definitely appear to be running the old camera stack, complain and give up.
+		fprintf(stderr, "ERROR: the system appears to be configured for the legacy camera stack\n");
+		exit(-1);
+	}
+	else if (platform == Platform::UNKNOWN)
+	{
+		fprintf(stderr, "ERROR: libcamera-apps currently only supports the Raspberry Pi platform.\n"
+						"Contributions for other platforms are welcome at https://github.com/raspberrypi/libcamera-apps.\n");
+		exit(-1);
+	}
 
 	if (!options_)
 		options_ = std::make_unique<Options>();
 
-	set_pipeline_configuration();
+	set_pipeline_configuration(platform);
 }
 
 LibcameraApp::~LibcameraApp()

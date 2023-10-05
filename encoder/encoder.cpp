@@ -30,6 +30,7 @@ Encoder *h264_codec_select(VideoOptions *options, const StreamInfo &info)
 	if (fd)
 	{
 		int ret = ioctl(fd, VIDIOC_QUERYCAP, &caps);
+		close(fd);
 		if (!ret && !strncmp((char *)caps.card, "bcm2835-codec-encode", sizeof(caps.card)))
 			return new H264Encoder(options, info);
 	}
