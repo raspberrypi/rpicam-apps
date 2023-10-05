@@ -23,10 +23,11 @@
 
 #include <libcamera/base/shared_fd.h>
 
-unsigned int LibcameraApp::verbosity = 2;
+unsigned int LibcameraApp::verbosity = 1;
 
 enum class Platform
 {
+	MISSING,
 	UNKNOWN,
 	LEGACY,
 	VC4,
@@ -37,7 +38,7 @@ Platform get_platform()
 {
 	int fd = open("/dev/video0", O_RDWR, 0);
 	if (fd < 0)
-		return Platform::UNKNOWN;
+		return Platform::MISSING;
 
 	v4l2_capability caps;
 	unsigned long request = VIDIOC_QUERYCAP;
