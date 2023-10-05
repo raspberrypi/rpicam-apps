@@ -24,7 +24,7 @@ jobs:
       run: rm -rf ${{env.LIBCAMERA_SRC_DIR}}
 
     - name: Pull libcamera
-      run: git clone --depth=1 git://linuxtv.org/libcamera.git ${{env.LIBCAMERA_SRC_DIR}}
+      run: git clone --depth=1 https://github.com/raspberrypi/libcamera.git ${{env.LIBCAMERA_SRC_DIR}}
 
     - name: libcamera version
       run: cd ${{env.LIBCAMERA_SRC_DIR}} && git log -1
