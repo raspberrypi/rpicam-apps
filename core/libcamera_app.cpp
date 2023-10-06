@@ -285,7 +285,7 @@ Mode LibcameraApp::selectMode(const Mode &mode) const
 		LOG(1, "    " << sensor_mode.ToString() << " - Score: " << score);
 	}
 
-	return { best_mode.size.width, best_mode.size.height, best_mode.depth(), true };
+	return { best_mode.size.width, best_mode.size.height, best_mode.depth(), mode.packed };
 }
 
 void LibcameraApp::ConfigureViewfinder()
