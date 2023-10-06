@@ -36,25 +36,30 @@ enum class Platform
 
 Platform get_platform()
 {
-	int fd = open("/dev/video0", O_RDWR, 0);
-	if (fd < 0)
-		return Platform::MISSING;
+	for (unsigned int device_num = 0; device_num < 5; device_num++)
+	{
+		char device_name[16];
+		snprintf(device_name, sizeof(device_name), "/dev/video%u", device_num);
+		int fd = open(device_name, O_RDWR, 0);
+		if (fd < 0)
+			return Platform::UNKNOWN;
 
-	v4l2_capability caps;
-	unsigned long request = VIDIOC_QUERYCAP;
+		v4l2_capability caps;
+		unsigned long request = VIDIOC_QUERYCAP;
 
-	int ret = ioctl(fd, request, &caps);
-	close(fd);
+		int ret = ioctl(fd, request, &caps);
+		close(fd);
 
-	if (ret)
-		return Platform::UNKNOWN;
+		if (ret)
+			return Platform::UNKNOWN;
 
-	if (!strncmp((char *)caps.card, "unicam", sizeof(caps.card)))
-		return Platform::VC4;
-	else if (!strncmp((char *)caps.card, "rp1-cfe", sizeof(caps.card)))
-		return Platform::PISP;
-	else if (!strncmp((char *)caps.card, "bm2835 mmal", sizeof(caps.card)))
-		return Platform::LEGACY;
+		if (!strncmp((char *)caps.card, "unicam", sizeof(caps.card)))
+			return Platform::VC4;
+		else if (!strncmp((char *)caps.card, "rp1-cfe", sizeof(caps.card)))
+			return Platform::PISP;
+		else if (!strncmp((char *)caps.card, "bm2835 mmal", sizeof(caps.card)))
+			return Platform::LEGACY;
+	}
 
 	return Platform::UNKNOWN;
 }
