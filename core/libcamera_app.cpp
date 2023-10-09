@@ -36,13 +36,14 @@ enum class Platform
 
 Platform get_platform()
 {
+	bool unknown = false;
 	for (unsigned int device_num = 0; device_num < 5; device_num++)
 	{
 		char device_name[16];
 		snprintf(device_name, sizeof(device_name), "/dev/video%u", device_num);
 		int fd = open(device_name, O_RDWR, 0);
 		if (fd < 0)
-			return Platform::UNKNOWN;
+			continue;
 
 		v4l2_capability caps;
 		unsigned long request = VIDIOC_QUERYCAP;
@@ -51,7 +52,11 @@ Platform get_platform()
 		close(fd);
 
 		if (ret)
-			return Platform::UNKNOWN;
+			continue;
+
+		// We are not concerned with UVC devices for now.
+		if (!strncmp((char *)caps.driver, "uvcvideo", sizeof(caps.card)))
+			continue;
 
 		if (!strncmp((char *)caps.card, "unicam", sizeof(caps.card)))
 			return Platform::VC4;
@@ -59,9 +64,11 @@ Platform get_platform()
 			return Platform::PISP;
 		else if (!strncmp((char *)caps.card, "bm2835 mmal", sizeof(caps.card)))
 			return Platform::LEGACY;
+		else
+			unknown = true;
 	}
 
-	return Platform::UNKNOWN;
+	return unknown ? Platform::UNKNOWN : Platform::MISSING;
 }
 
 static libcamera::PixelFormat mode_to_pixel_format(Mode const &mode)
@@ -122,7 +129,7 @@ LibcameraApp::LibcameraApp(std::unique_ptr<Options> opts)
 	}
 	else if (platform == Platform::UNKNOWN)
 	{
-		fprintf(stderr, "ERROR: libcamera-apps currently only supports the Raspberry Pi platform.\n"
+		fprintf(stderr, "ERROR: libcamera-apps currently only supports the Raspberry Pi platforms.\n"
 						"Contributions for other platforms are welcome at https://github.com/raspberrypi/libcamera-apps.\n");
 		exit(-1);
 	}
