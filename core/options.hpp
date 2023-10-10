@@ -189,6 +189,8 @@ struct Options
 			 "Camera mode for preview as W:H:bit-depth:packing, where packing is P (packed) or U (unpacked)")
 			("buffer-count", value<unsigned int>(&buffer_count)->default_value(0), "Number of in-flight requests (and buffers) configured for video, raw, and still.")
 			("viewfinder-buffer-count", value<unsigned int>(&viewfinder_buffer_count)->default_value(0), "Number of in-flight requests (and buffers) configured for preview window.")
+			("no-raw", value<bool>(&no_raw)->default_value(false)->implicit_value(true),
+			 "Disable requesting of a RAW stream. Will override any manual mode reqest the mode choice when setting framerate.")
 			("autofocus-mode", value<std::string>(&afMode)->default_value("default"),
 			 "Control to set the mode of the AF (autofocus) algorithm.(manual, auto, continuous)")
 			("autofocus-range", value<std::string>(&afRange)->default_value("normal"),
@@ -281,6 +283,7 @@ struct Options
 	std::string metadata_format;
 	bool hdr;
 	TimeVal<std::chrono::microseconds> flicker_period;
+	bool no_raw;
 
 	virtual bool Parse(int argc, char *argv[]);
 	virtual void Print() const;
