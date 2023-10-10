@@ -311,7 +311,8 @@ void LibcameraApp::ConfigureViewfinder()
 	int stream_num = 1;
 	if (have_lores_stream)
 		stream_roles.push_back(StreamRole::Viewfinder), lores_stream_num = stream_num++;
-	stream_roles.push_back(StreamRole::Raw), raw_stream_num = stream_num++;
+	if (!options_->no_raw)
+		stream_roles.push_back(StreamRole::Raw), raw_stream_num = stream_num++;
 
 	configuration_ = camera_->generateConfiguration(stream_roles);
 	if (!configuration_)
@@ -361,15 +362,18 @@ void LibcameraApp::ConfigureViewfinder()
 		configuration_->at(lores_stream_num).bufferCount = configuration_->at(0).bufferCount;
 	}
 
-	options_->viewfinder_mode.update(size, options_->framerate);
-	options_->viewfinder_mode = selectMode(options_->viewfinder_mode);
+	if (!options_->no_raw)
+	{
+		options_->viewfinder_mode.update(size, options_->framerate);
+		options_->viewfinder_mode = selectMode(options_->viewfinder_mode);
 
-	configuration_->at(raw_stream_num).size = options_->viewfinder_mode.Size();
-	configuration_->at(raw_stream_num).pixelFormat = mode_to_pixel_format(options_->viewfinder_mode);
-	configuration_->at(raw_stream_num).bufferCount = configuration_->at(0).bufferCount;
-	configuration_->sensorConfig = libcamera::SensorConfiguration();
-	configuration_->sensorConfig->outputSize = options_->viewfinder_mode.Size();
-	configuration_->sensorConfig->bitDepth = options_->viewfinder_mode.bit_depth;
+		configuration_->at(raw_stream_num).size = options_->viewfinder_mode.Size();
+		configuration_->at(raw_stream_num).pixelFormat = mode_to_pixel_format(options_->viewfinder_mode);
+		configuration_->at(raw_stream_num).bufferCount = configuration_->at(0).bufferCount;
+		configuration_->sensorConfig = libcamera::SensorConfiguration();
+		configuration_->sensorConfig->outputSize = options_->viewfinder_mode.Size();
+		configuration_->sensorConfig->bitDepth = options_->viewfinder_mode.bit_depth;
+	}
 
 	configuration_->transform = options_->transform;
 
@@ -381,7 +385,8 @@ void LibcameraApp::ConfigureViewfinder()
 	streams_["viewfinder"] = configuration_->at(0).stream();
 	if (have_lores_stream)
 		streams_["lores"] = configuration_->at(lores_stream_num).stream();
-	streams_["raw"] = configuration_->at(raw_stream_num).stream();
+	if (!options_->no_raw)
+		streams_["raw"] = configuration_->at(raw_stream_num).stream();
 
 	post_processor_.Configure();
 
@@ -392,9 +397,12 @@ void LibcameraApp::ConfigureStill(unsigned int flags)
 {
 	LOG(2, "Configuring still capture...");
 
-	// Always request a raw stream as this forces the full resolution capture mode.
+	// Always request a raw stream as this forces the full resolution capture mode,
+	// unless the no-raw option is used.
 	// (options_->mode can override the choice of camera mode, however.)
-	StreamRoles stream_roles = { StreamRole::StillCapture, StreamRole::Raw };
+	StreamRoles stream_roles = { StreamRole::StillCapture };
+	if (!options_->no_raw)
+		stream_roles.push_back(StreamRole::Raw);
 	configuration_ = camera_->generateConfiguration(stream_roles);
 	if (!configuration_)
 		throw std::runtime_error("failed to generate still capture configuration");
@@ -421,21 +429,25 @@ void LibcameraApp::ConfigureStill(unsigned int flags)
 
 	post_processor_.AdjustConfig("still", &configuration_->at(0));
 
-	options_->mode.update(configuration_->at(0).size, options_->framerate);
-	options_->mode = selectMode(options_->mode);
+	if (!options_->no_raw)
+	{
+		options_->mode.update(configuration_->at(0).size, options_->framerate);
+		options_->mode = selectMode(options_->mode);
 
-	configuration_->at(1).size = options_->mode.Size();
-	configuration_->at(1).pixelFormat = mode_to_pixel_format(options_->mode);
-	configuration_->sensorConfig = libcamera::SensorConfiguration();
-	configuration_->sensorConfig->outputSize = options_->mode.Size();
-	configuration_->sensorConfig->bitDepth = options_->mode.bit_depth;
-	configuration_->at(1).bufferCount = configuration_->at(0).bufferCount;
+		configuration_->at(1).size = options_->mode.Size();
+		configuration_->at(1).pixelFormat = mode_to_pixel_format(options_->mode);
+		configuration_->sensorConfig = libcamera::SensorConfiguration();
+		configuration_->sensorConfig->outputSize = options_->mode.Size();
+		configuration_->sensorConfig->bitDepth = options_->mode.bit_depth;
+		configuration_->at(1).bufferCount = configuration_->at(0).bufferCount;
+	}
 
 	configureDenoise(options_->denoise == "auto" ? "cdn_hq" : options_->denoise);
 	setupCapture();
 
 	streams_["still"] = configuration_->at(0).stream();
-	streams_["raw"] = configuration_->at(1).stream();
+	if (!options_->no_raw)
+		streams_["raw"] = configuration_->at(1).stream();
 
 	post_processor_.Configure();
 
@@ -447,8 +459,10 @@ void LibcameraApp::ConfigureVideo(unsigned int flags)
 	LOG(2, "Configuring video...");
 
 	bool have_lores_stream = options_->lores_width && options_->lores_height;
-	StreamRoles stream_roles = { StreamRole::VideoRecording, StreamRole::Raw };
-	int lores_index = 2;
+	StreamRoles stream_roles = { StreamRole::VideoRecording };
+	int lores_index = 1;
+	if (!options_->no_raw)
+		stream_roles.push_back(StreamRole::Raw), lores_index++;
 	if (have_lores_stream)
 		stream_roles.push_back(StreamRole::Viewfinder);
 	configuration_ = camera_->generateConfiguration(stream_roles);
@@ -475,15 +489,18 @@ void LibcameraApp::ConfigureVideo(unsigned int flags)
 
 	post_processor_.AdjustConfig("video", &configuration_->at(0));
 
-	options_->mode.update(configuration_->at(0).size, options_->framerate);
-	options_->mode = selectMode(options_->mode);
+	if (!options_->no_raw)
+	{
+		options_->mode.update(configuration_->at(0).size, options_->framerate);
+		options_->mode = selectMode(options_->mode);
 
-	configuration_->at(1).size = options_->mode.Size();
-	configuration_->at(1).pixelFormat = mode_to_pixel_format(options_->mode);
-	configuration_->sensorConfig = libcamera::SensorConfiguration();
-	configuration_->sensorConfig->outputSize = options_->mode.Size();
-	configuration_->sensorConfig->bitDepth = options_->mode.bit_depth;
-	configuration_->at(1).bufferCount = configuration_->at(0).bufferCount;
+		configuration_->at(1).size = options_->mode.Size();
+		configuration_->at(1).pixelFormat = mode_to_pixel_format(options_->mode);
+		configuration_->sensorConfig = libcamera::SensorConfiguration();
+		configuration_->sensorConfig->outputSize = options_->mode.Size();
+		configuration_->sensorConfig->bitDepth = options_->mode.bit_depth;
+		configuration_->at(1).bufferCount = configuration_->at(0).bufferCount;
+	}
 
 	if (have_lores_stream)
 	{
@@ -502,7 +519,8 @@ void LibcameraApp::ConfigureVideo(unsigned int flags)
 	setupCapture();
 
 	streams_["video"] = configuration_->at(0).stream();
-	streams_["raw"] = configuration_->at(1).stream();
+	if (!options_->no_raw)
+		streams_["raw"] = configuration_->at(1).stream();
 	if (have_lores_stream)
 		streams_["lores"] = configuration_->at(lores_index).stream();
 

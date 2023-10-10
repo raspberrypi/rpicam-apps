@@ -108,6 +108,12 @@ def test_hello(exe_dir, output_dir):
     check_retcode(retcode, "test_hello: flips test")
     check_time(time_taken, 1.8, 6, "test_hello: flips test")
 
+    # "no-raw". Run without a raw stream
+    print("    no-raw test")
+    retcode, time_taken = run_executable([executable, '-t', '2000', '--no-raw'], logfile)
+    check_retcode(retcode, "test_hello: no-raw test")
+    check_time(time_taken, 1.8, 6, "test_hello: no-raw test")
+
     print("libcamera-hello tests passed")
 
 
@@ -187,6 +193,13 @@ def test_still(exe_dir, output_dir):
     check_retcode(retcode, "test_still: jpg test")
     check_time(time_taken, 1.2, 8, "test_still: jpg test")
     check_size(output_jpg, 1024, "test_still: jpg test")
+
+    # "no-raw test". As above but without a raw stream.
+    print("    jpg test")
+    retcode, time_taken = run_executable([executable, '-t', '1000', '-o', output_jpg, '--no-raw'], logfile)
+    check_retcode(retcode, "test_still: no-raw test")
+    check_time(time_taken, 1.2, 8, "test_still: no-raw test")
+    check_size(output_jpg, 1024, "test_still: no-raw test")
 
     # "png test". As above, but write a png.
     print("    png test")
@@ -352,6 +365,14 @@ def test_vid(exe_dir, output_dir):
     check_retcode(retcode, "test_vid: h264 test")
     check_time(time_taken, 2, 6, "test_vid: h264 test")
     check_size(output_h264, 1024, "test_vid: h264 test")
+
+    # "no-raw". As above, but with no raw stream
+    print("    h264 test")
+    retcode, time_taken = run_executable([executable, '-t', '2000', '-o', output_h264, '--no-raw'],
+                                         logfile)
+    check_retcode(retcode, "test_vid: no-raw test")
+    check_time(time_taken, 2, 6, "test_vid: no-raw test")
+    check_size(output_h264, 1024, "test_vid: no-raw test")
 
     # "mjpeg test". As above, but write an mjpeg file.
     print("    mjpeg test")
