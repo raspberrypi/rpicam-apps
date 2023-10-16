@@ -146,10 +146,14 @@ bool Options::Parse(int argc, char *argv[])
 	shutter.set(shutter_);
 	flicker_period.set(flicker_period_);
 
-	// HDR control. Set this before opening or listing any cameras.
+	if (hdr != "off" && hdr != "single-exp" && hdr != "sensor" && hdr != "auto")
+		throw std::runtime_error("Invalid HDR option provided: " + hdr);
+
+	// HDR control. Set the sensor control before opening or listing any cameras.
 	// Currently this does not exist in libcamera, so go directly to V4L2
 	// XXX it's not obvious which v4l2-subdev to use for which camera!
 	{
+		bool en = (hdr == "auto" || hdr == "sensor");
 		bool ok = false;
 		for (int i = 0; i < 4 && !ok; i++)
 		{
@@ -159,12 +163,14 @@ bool Options::Parse(int argc, char *argv[])
 			if (fd < 0)
 				continue;
 
-			v4l2_control ctrl { V4L2_CID_WIDE_DYNAMIC_RANGE, hdr };
+			v4l2_control ctrl { V4L2_CID_WIDE_DYNAMIC_RANGE, en };
 			ok = !xioctl(fd, VIDIOC_S_CTRL, &ctrl);
 			close(fd);
 		}
-		if (hdr && !ok)
-			LOG_ERROR("WARNING: Unable to set HDR mode");
+		if (hdr == "sensor" && en && !ok)
+			LOG_ERROR("WARNING: Unable to set sensor HDR mode");
+		else if (hdr == "auto" && en && ok)
+			hdr = "sensor";
 	}
 
 	// We have to pass the tuning file name through an environment variable.
@@ -488,8 +494,7 @@ void Options::Print() const
 				  << afWindow_height << std::endl;
 	if (!lens_position_.empty())
 		std::cerr << "    lens-position: " << lens_position_ << std::endl;
-	if (hdr)
-		std::cerr << "    hdr: enabled" << hdr << std::endl;
+	std::cerr << "    hdr: " << hdr << std::endl;
 	std::cerr << "    mode: " << mode.ToString() << std::endl;
 	std::cerr << "    viewfinder-mode: " << viewfinder_mode.ToString() << std::endl;
 	if (buffer_count > 0)

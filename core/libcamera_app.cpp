@@ -631,6 +631,9 @@ void LibcameraApp::StartCamera()
 		controls_.set(controls::Saturation, options_->saturation);
 	if (!controls_.get(controls::Sharpness))
 		controls_.set(controls::Sharpness, options_->sharpness);
+	if (!controls_.get(controls::HdrMode) &&
+	    (options_->hdr == "auto" || options_->hdr == "single-exp"))
+		controls_.set(controls::HdrMode, controls::HdrModeSingleExposure);
 
 	// AF Controls, where supported and not already set
 	if (!controls_.get(controls::AfMode) && camera_->controls().count(&controls::AfMode) > 0)
