@@ -193,6 +193,8 @@ static void event_loop(LibcameraStillApp &app)
 			std::this_thread::sleep_for(10ms);
 		}
 	}
+	else if (options->zsl)
+		app.ConfigureZsl();
 	else
 		app.ConfigureViewfinder();
 	app.StartCamera();
@@ -209,6 +211,7 @@ static void event_loop(LibcameraStillApp &app)
 	} af_wait_state = AF_WAIT_NONE;
 	int af_wait_timeout = 0;
 
+	bool want_capture = false;
 	for (unsigned int count = 0;; count++)
 	{
 		LibcameraApp::Msg msg = app.Wait();
@@ -235,7 +238,7 @@ static void event_loop(LibcameraStillApp &app)
 		// In viewfinder mode, run until the timeout or keypress. When that happens,
 		// if the "--autofocus-on-capture" option was set, trigger an AF scan and wait
 		// for it to complete. Then switch to capture mode if an output was requested.
-		if (app.ViewfinderStream())
+		if (app.ViewfinderStream() && !want_capture)
 		{
 			LOG(2, "Viewfinder frame " << count);
 			timelapse_frames++;
@@ -244,7 +247,6 @@ static void event_loop(LibcameraStillApp &app)
 			bool timelapse_timed_out = options->timelapse &&
 									   (now - timelapse_time) > options->timelapse.value &&
 									   timelapse_frames >= TIMELAPSE_MIN_FRAMES;
-			bool want_capture = false;
 
 			if (af_wait_state != AF_WAIT_NONE)
 			{
@@ -281,9 +283,12 @@ static void event_loop(LibcameraStillApp &app)
 				keypressed = false;
 				af_wait_state = AF_WAIT_NONE;
 				timelapse_time = std::chrono::high_resolution_clock::now();
-				app.StopCamera();
-				app.Teardown();
-				app.ConfigureStill(still_flags);
+				if (!options->zsl)
+				{
+					app.StopCamera();
+					app.Teardown();
+					app.ConfigureStill(still_flags);
+				}
 				if (options->af_on_capture)
 				{
 					libcamera::ControlList cl;
@@ -291,16 +296,19 @@ static void event_loop(LibcameraStillApp &app)
 					cl.set(libcamera::controls::AfTrigger, libcamera::controls::AfTriggerCancel);
 					app.SetControls(cl);
 				}
-				app.StartCamera();
+				if (!options->zsl)
+					app.StartCamera();
 			}
 			else
 				app.ShowPreview(completed_request, app.ViewfinderStream());
 		}
 		// In still capture mode, save a jpeg. Go back to viewfinder if in timelapse mode,
 		// otherwise quit.
-		else if (app.StillStream())
+		else if (app.StillStream() && want_capture)
 		{
-			app.StopCamera();
+			want_capture = false;
+			if (!options->zsl)
+				app.StopCamera();
 			LOG(1, "Still capture image received");
 			save_images(app, completed_request);
 			if (!options->metadata.empty())
@@ -308,8 +316,11 @@ static void event_loop(LibcameraStillApp &app)
 			timelapse_frames = 0;
 			if (!options->immediate && (options->timelapse || options->signal || options->keypress))
 			{
-				app.Teardown();
-				app.ConfigureViewfinder();
+				if (!options->zsl)
+				{
+					app.Teardown();
+					app.ConfigureViewfinder();
+				}
 				if (options->af_on_capture && options->afMode_index == -1)
 				{
 					libcamera::ControlList cl;
@@ -317,7 +328,8 @@ static void event_loop(LibcameraStillApp &app)
 					cl.set(libcamera::controls::AfTrigger, libcamera::controls::AfTriggerCancel);
 					app.SetControls(cl);
 				}
-				app.StartCamera();
+				if (!options->zsl)
+					app.StartCamera();
 				af_wait_state = AF_WAIT_NONE;
 			}
 			else
