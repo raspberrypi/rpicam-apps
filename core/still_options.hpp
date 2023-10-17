@@ -48,6 +48,8 @@ struct StillOptions : public Options
 			 "Perform first capture immediately, with no preview phase")
 			("autofocus-on-capture", value<bool>(&af_on_capture)->default_value(false)->implicit_value(true),
 			 "Switch to AfModeAuto and trigger a scan just before capturing a still")
+			("zsl", value<bool>(&zsl)->default_value(false)->implicit_value(true),
+			 "Switch to AfModeAuto and trigger a scan just before capturing a still")
 			;
 		// clang-format on
 	}
@@ -67,6 +69,7 @@ struct StillOptions : public Options
 	bool raw;
 	std::string latest;
 	bool immediate;
+	bool zsl;
 
 	virtual bool Parse(int argc, char *argv[]) override
 	{
@@ -114,6 +117,7 @@ struct StillOptions : public Options
 		std::cerr << "    latest: " << latest << std::endl;
 		std::cerr << "    immediate " << immediate << std::endl;
 		std::cerr << "    AF on capture: " << af_on_capture << std::endl;
+		std::cerr << "    Zero shutter lag: " << zsl << std::endl;
 		for (auto &s : exif)
 			std::cerr << "    EXIF: " << s << std::endl;
 	}
