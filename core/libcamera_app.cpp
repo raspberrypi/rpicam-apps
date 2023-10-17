@@ -393,6 +393,101 @@ void LibcameraApp::ConfigureViewfinder()
 	LOG(2, "Viewfinder setup complete");
 }
 
+void LibcameraApp::ConfigureZsl(unsigned int still_flags)
+{
+	LOG(2, "Configuring ZSL...");
+
+	StreamRoles stream_roles = { StreamRole::StillCapture, StreamRole::Viewfinder };
+	if (!options_->no_raw)
+		stream_roles.push_back(StreamRole::Raw);
+
+	configuration_ = camera_->generateConfiguration(stream_roles);
+	if (!configuration_)
+		throw std::runtime_error("failed to generate viewfinder configuration");
+
+	// Now we get to override any of the default settings from the options_->
+	if (still_flags & FLAG_STILL_BGR)
+		configuration_->at(0).pixelFormat = libcamera::formats::BGR888;
+	else if (still_flags & FLAG_STILL_RGB)
+		configuration_->at(0).pixelFormat = libcamera::formats::RGB888;
+	else
+		configuration_->at(0).pixelFormat = libcamera::formats::YUV420;
+	if (options_->buffer_count > 0)
+		configuration_->at(0).bufferCount = options_->buffer_count;
+	else
+		// Use the viewfinder stream buffer count if none has been provided
+		configuration_->at(0).bufferCount = configuration_->at(1).bufferCount;
+	if (options_->width)
+		configuration_->at(0).size.width = options_->width;
+	if (options_->height)
+		configuration_->at(0).size.height = options_->height;
+	configuration_->at(0).colorSpace = libcamera::ColorSpace::Sycc;
+	configuration_->transform = options_->transform;
+
+	post_processor_.AdjustConfig("still", &configuration_->at(0));
+
+	if (!options_->no_raw)
+	{
+		options_->mode.update(configuration_->at(0).size, options_->framerate);
+		options_->mode = selectMode(options_->mode);
+
+		configuration_->at(2).size = options_->mode.Size();
+		configuration_->at(2).pixelFormat = mode_to_pixel_format(options_->mode);
+		configuration_->sensorConfig = libcamera::SensorConfiguration();
+		configuration_->sensorConfig->outputSize = options_->mode.Size();
+		configuration_->sensorConfig->bitDepth = options_->mode.bit_depth;
+		configuration_->at(2).bufferCount = configuration_->at(0).bufferCount;
+	}
+
+	Size size(1280, 960);
+	auto area = camera_->properties().get(properties::PixelArrayActiveAreas);
+	if (options_->viewfinder_width && options_->viewfinder_height)
+		size = Size(options_->viewfinder_width, options_->viewfinder_height);
+	else if (area)
+	{
+		// The idea here is that most sensors will have a 2x2 binned mode that
+		// we can pick up. If it doesn't, well, you can always specify the size
+		// you want exactly with the viewfinder_width/height options_->
+		size = (*area)[0].size() / 2;
+		// If width and height were given, we might be switching to capture
+		// afterwards - so try to match the field of view.
+		if (options_->width && options_->height)
+			size = size.boundedToAspectRatio(Size(options_->width, options_->height));
+		size.alignDownTo(2, 2); // YUV420 will want to be even
+		LOG(2, "Viewfinder size chosen is " << size.toString());
+	}
+
+	// Finally trim the image size to the largest that the preview can handle.
+	Size max_size;
+	preview_->MaxImageSize(max_size.width, max_size.height);
+	if (max_size.width && max_size.height)
+	{
+		size.boundTo(max_size.boundedToAspectRatio(size)).alignDownTo(2, 2);
+		LOG(2, "Final viewfinder size is " << size.toString());
+	}
+
+	// Now we get to override any of the default settings from the options_->
+	configuration_->at(1).pixelFormat = libcamera::formats::YUV420;
+	configuration_->at(1).size = size;
+	configuration_->at(1).bufferCount = configuration_->at(0).bufferCount;
+
+	configuration_->transform = options_->transform;
+
+	post_processor_.AdjustConfig("viewfinder", &configuration_->at(1));
+
+	configureDenoise(options_->denoise == "auto" ? "cdn_hq" : options_->denoise);
+	setupCapture();
+
+	streams_["still"] = configuration_->at(0).stream();
+	streams_["viewfinder"] = configuration_->at(1).stream();
+	if (!options_->no_raw)
+		streams_["raw"] = configuration_->at(2).stream();
+
+	post_processor_.Configure();
+
+	LOG(2, "ZSL setup complete");
+}
+
 void LibcameraApp::ConfigureStill(unsigned int flags)
 {
 	LOG(2, "Configuring still capture...");
