@@ -30,11 +30,11 @@ jobs:
       run: cd ${{env.LIBCAMERA_SRC_DIR}} && git log -1
 
     - name: Setup meson
-      run: cd ${{env.LIBCAMERA_SRC_DIR}} && meson build -Dprefix=${{env.LIBCAMERA_INSTALL_DIR}} -Dpipelines=rpi/vc4 -Dtest=false
+      run: cd ${{env.LIBCAMERA_SRC_DIR}} && meson setup build -Dprefix=${{env.LIBCAMERA_INSTALL_DIR}} -Dpipelines=rpi/vc4,rpi/pisp -Dipas=rpi/vc4,rpi/pisp -Dpycamera=enabled -Dtest=false -Dbuildtype=${{env.BUILD_TYPE}} -Dlibpisp:default_library=static
 
     - name: Build
       run: cd ${{env.LIBCAMERA_SRC_DIR}}/build && ninja install
-      timeout-minutes: 10
+      timeout-minutes: 15
 
     - name: Tar files
       run: tar -cvf build-artifacts-libcamera.tar -C ${{env.LIBCAMERA_SRC_DIR}} .
@@ -75,7 +75,7 @@ jobs:
 
     - name: Build
       run: ninja -C ${{github.workspace}}/build
-      timeout-minutes: 10
+      timeout-minutes: 15
 
     - name: Tar files
       run: tar -cvf build-artifacts-libcamera-apps.tar -C ${{github.workspace}}/build .
@@ -94,7 +94,7 @@ jobs:
 
     strategy:
       matrix:
-        camera: [ imx219, imx477, imx708 ]
+        camera: [ imx219, imx477, imx708, pi5-imx708-imx477 ]
 
     steps:
     - uses: actions/checkout@v3
@@ -133,8 +133,8 @@ jobs:
       run: ldd ${{github.workspace}}/build/apps/libcamera-hello | grep libcamera
 
     - name: Test
-      run: ${{github.workspace}}/utils/camera-bug-report -o ${{github.workspace}}/test_output/bug.txt -t 300 -c "${{github.workspace}}/utils/test.py --exe-dir ${{github.workspace}}/build/apps/ --output-dir ${{github.workspace}}/test_output --json-dir ${{github.workspace}}/assets"
-      timeout-minutes: 8 # Must be larger than the camera-bug-report timeout.
+      run: ${{github.workspace}}/utils/test.py --exe-dir ${{github.workspace}}/build/apps/ --output-dir ${{github.workspace}}/test_output --json-dir ${{github.workspace}}/assets
+      timeout-minutes: 15
 
     - name: Upload test output
       if: ${{failure()}}
@@ -151,7 +151,7 @@ jobs:
 
     strategy:
       matrix:
-        camera: [ imx219, imx477, imx708 ]
+        camera: [ imx219, imx477, imx708, pi5-imx708-imx477 ]
 
     steps:
     - name: Clean libcamera LKG
@@ -170,8 +170,8 @@ jobs:
       run: tar -xvf build-artifacts-libcamera.tar -C ${{env.LIBCAMERA_SRC_DIR}}
 
     - name: Setup meson
-      run: cd ${{env.LIBCAMERA_SRC_DIR}} && meson setup build -Dprefix=${{env.LIBCAMERA_LKG_DIR}} -Dpipelines=rpi/vc4 -Dtest=false --wipe
+      run: cd ${{env.LIBCAMERA_SRC_DIR}} && meson setup build -Dprefix=${{env.LIBCAMERA_LKG_DIR}} -Dpipelines=rpi/vc4,rpi/pisp -Dipas=rpi/vc4,rpi/pisp -Dpycamera=enabled -Dtest=false  -Dlibpisp:default_library=static --wipe
 
     - name: Build
       run: cd ${{env.LIBCAMERA_SRC_DIR}}/build && ninja install
-      timeout-minutes: 10
+      timeout-minutes: 15
