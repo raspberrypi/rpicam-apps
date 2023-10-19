@@ -11,8 +11,10 @@ env:
   GCC_COMPILER: "CC=/usr/bin/gcc CXX=/usr/bin/g++"
   CLANG_COMPILER: "CC=/usr/bin/clang-13 CXX=/usr/bin/clang++-13"
   LIBCAMERA_SRC_DIR: "${{github.workspace}}/../libcamera"
+  PICAMERA2_SRC_DIR: "${{github.workspace}}/../picamera2"
   LIBCAMERA_INSTALL_DIR: "${{github.workspace}}/../libcamera/install"
   LIBCAMERA_LKG_DIR: "${{github.workspace}}/../libcamera_lkg"
+  LIBCAMERA_LD_LIBRARY_DIR: "${{github.workspace}}/../libcamera/install/lib/aarch64-linux-gnu"
 
 jobs:
   build-libcamera:
@@ -132,7 +134,7 @@ jobs:
     - name: Print linkage info
       run: ldd ${{github.workspace}}/build/apps/libcamera-hello | grep libcamera
 
-    - name: Test
+    - name: Test libcamera-apps
       run: ${{github.workspace}}/utils/test.py --exe-dir ${{github.workspace}}/build/apps/ --output-dir ${{github.workspace}}/test_output --json-dir ${{github.workspace}}/assets
       timeout-minutes: 15
 
@@ -144,10 +146,30 @@ jobs:
         path: ${{github.workspace}}/test_output/
         retention-days: 7
 
-  update-libcamera-base:
+  run-picamera2-tests:
 
     runs-on: ${{matrix.camera}}
     needs: run-test
+
+    strategy:
+      matrix:
+        camera: [ imx219, imx477, imx708, pi5-imx708-imx477 ]
+
+    steps:
+    - name: Clean picamera2
+      run: rm -rf ${{env.PICAMERA2_SRC_DIR}}
+
+    - name: Pull picamera2
+      run: git clone --depth=1 https://github.com/raspberrypi/picamera2.git ${{env.PICAMERA2_SRC_DIR}}
+
+    - name: Test picamera2
+      run: DISPLAY=:0.0 LD_LIBRARY_PATH=${{env.LIBCAMERA_LD_LIBRARY_DIR}} PYTHONPATH=${{env.LIBCAMERA_LD_LIBRARY_DIR}}/python3.11/site-packages/:${{env.PICAMERA2_SRC_DIR}} ${{env.PICAMERA2_SRC_DIR}}/tools/run_tests.py --picamera2-dir ${{env.PICAMERA2_SRC_DIR}}
+      timeout-minutes: 15
+
+  update-libcamera-base:
+
+    runs-on: ${{matrix.camera}}
+    needs: run-picamera2-tests
 
     strategy:
       matrix:
@@ -170,7 +192,7 @@ jobs:
       run: tar -xvf build-artifacts-libcamera.tar -C ${{env.LIBCAMERA_SRC_DIR}}
 
     - name: Setup meson
-      run: cd ${{env.LIBCAMERA_SRC_DIR}} && meson setup build -Dprefix=${{env.LIBCAMERA_LKG_DIR}} -Dpipelines=rpi/vc4,rpi/pisp -Dipas=rpi/vc4,rpi/pisp -Dpycamera=enabled -Dtest=false  -Dlibpisp:default_library=static --wipe
+      run: cd ${{env.LIBCAMERA_SRC_DIR}} && meson setup build -Dprefix=${{env.LIBCAMERA_LKG_DIR}} -Dpipelines=rpi/vc4,rpi/pisp -Dipas=rpi/vc4,rpi/pisp -Dpycamera=enabled -Dtest=false -Dlibpisp:default_library=static --wipe
 
     - name: Build
       run: cd ${{env.LIBCAMERA_SRC_DIR}}/build && ninja install
