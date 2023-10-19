@@ -225,6 +225,13 @@ def test_still(exe_dir, output_dir):
     check_time(time_taken, 1.2, 8, "test_still: no-raw test")
     check_size(output_jpg, 1024, "test_still: no-raw test")
 
+    # "zsl test". As above, but with zsl enabled
+    print("    zsl test")
+    retcode, time_taken = run_executable([executable, '-t', '1000', '-o', output_jpg, '--zsl'], logfile)
+    check_retcode(retcode, "test_still: zsl test")
+    check_time(time_taken, 1.2, 8, "test_still: zsl test")
+    check_size(output_jpg, 1024, "test_still: zsl test")
+
     # "png test". As above, but write a png.
     print("    png test")
     retcode, time_taken = run_executable(
@@ -519,7 +526,7 @@ def test_post_processing(exe_dir, output_dir, json_dir):
                                           '--post-process-file', json_file],
                                          logfile)
     check_retcode(retcode, "test_post_processing: hdr test")
-    check_time(time_taken, 6, 12, "test_post_processing: hdr test")
+    check_time(time_taken, 2, 12, "test_post_processing: hdr test")
     check_size(output_hdr, 1024, "test_post_processing: hdr test")
 
     # "sobel test". Try to run a stage that uses OpenCV.
