@@ -12,13 +12,37 @@
 # get a test in here.
 
 import argparse
+from enum import Enum
+import fcntl
 import json
 import os
 import os.path
 import subprocess
 import sys
 from timeit import default_timer as timer
+import v4l2
 import numpy as np
+
+
+def get_platform():
+    platform = 'vc4'
+    try:
+        for num in range(5):
+            device = '/dev/video' + str(num)
+            if os.path.exists(device):
+                with open(device, 'rb+', buffering=0) as fd:
+                    caps = v4l2.v4l2_capability()
+                    fcntl.ioctl(fd, v4l2.VIDIOC_QUERYCAP, caps)
+                    decoded = caps.card.decode('utf-8')
+                    if decoded == 'rp1-cfe':
+                        platform = 'pisp'
+                        break
+                    elif decoded == 'unicam':
+                        break
+    except Exception:
+        pass
+
+    return platform
 
 
 class TestFailure(Exception):
@@ -345,6 +369,7 @@ def check_timestamps(file, preamble):
 
 
 def test_vid(exe_dir, output_dir):
+    platform = get_platform()
     executable = os.path.join(exe_dir, 'libcamera-vid')
     output_h264 = os.path.join(output_dir, 'test.h264')
     output_mjpeg = os.path.join(output_dir, 'test.mjpeg')
@@ -382,6 +407,10 @@ def test_vid(exe_dir, output_dir):
     check_retcode(retcode, "test_vid: mjpeg test")
     check_time(time_taken, 2, 6, "test_vid: mjpeg test")
     check_size(output_mjpeg, 1024, "test_vid: mjpeg test")
+
+    if platform == 'pisp':
+        print("skipping unsupported Pi 5 libcamera-vid tests")
+        return
 
     # "segment test". As above, write the output in single frame segements.
     print("    segment test")
