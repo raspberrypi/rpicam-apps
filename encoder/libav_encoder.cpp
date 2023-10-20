@@ -22,7 +22,7 @@ namespace {
 
 void encoderOptionsH264M2M(VideoOptions const *options, AVCodecContext *codec)
 {
-	codec->pix_fmt = AV_PIX_FMT_DRM_PRIME;
+	codec->pix_fmt = AV_PIX_FMT_YUV420P;
 	codec->max_b_frames = 0;
 
 	if (options->bitrate)
@@ -343,39 +343,9 @@ void LibAvEncoder::EncodeBuffer(int fd, size_t size, void *mem, StreamInfo const
 	frame->pts = timestamp_us - video_start_ts_ +
 				 (options_->av_sync.value < 0us ? -options_->av_sync.get<std::chrono::microseconds>() : 0);
 
-	if (codec_ctx_[Video]->pix_fmt == AV_PIX_FMT_DRM_PRIME)
-	{
-		std::scoped_lock<std::mutex> lock(drm_queue_lock_);
-		drm_frame_queue_.emplace(std::make_unique<AVDRMFrameDescriptor>());
-		frame->buf[0] = av_buffer_create((uint8_t *)drm_frame_queue_.back().get(), sizeof(AVDRMFrameDescriptor),
-										 &LibAvEncoder::releaseBuffer, this, 0);
-		frame->data[0] = frame->buf[0]->data;
-
-		AVDRMFrameDescriptor *desc = (AVDRMFrameDescriptor *)frame->data[0];
-		desc->nb_objects = 1;
-		desc->objects[0].fd = fd;
-		desc->objects[0].size = size;
-		desc->objects[0].format_modifier = DRM_FORMAT_MOD_INVALID;
-
-		desc->nb_layers = 1;
-		desc->layers[0].format = DRM_FORMAT_YUV420;
-		desc->layers[0].nb_planes = 3;
-		desc->layers[0].planes[0].object_index = 0;
-		desc->layers[0].planes[0].offset = 0;
-		desc->layers[0].planes[0].pitch = info.stride;
-		desc->layers[0].planes[1].object_index = 0;
-		desc->layers[0].planes[1].offset = info.stride * info.height;
-		desc->layers[0].planes[1].pitch = info.stride >> 1;
-		desc->layers[0].planes[2].object_index = 0;
-		desc->layers[0].planes[2].offset = info.stride * info.height * 5 / 4;
-		desc->layers[0].planes[2].pitch = info.stride >> 1;
-	}
-	else
-	{
-		frame->buf[0] = av_buffer_create((uint8_t *)mem, size, &LibAvEncoder::releaseBuffer, this, 0);
-		av_image_fill_pointers(frame->data, AV_PIX_FMT_YUV420P, frame->height, frame->buf[0]->data, frame->linesize);
-		av_frame_make_writable(frame);
-	}
+	frame->buf[0] = av_buffer_create((uint8_t *)mem, size, &LibAvEncoder::releaseBuffer, this, 0);
+	av_image_fill_pointers(frame->data, AV_PIX_FMT_YUV420P, frame->height, frame->buf[0]->data, frame->linesize);
+	av_frame_make_writable(frame);
 
 	std::scoped_lock<std::mutex> lock(video_mutex_);
 	frame_queue_.push(frame);
@@ -472,11 +442,6 @@ extern "C" void LibAvEncoder::releaseBuffer(void *opaque, uint8_t *data)
 	LibAvEncoder *enc = static_cast<LibAvEncoder *>(opaque);
 
 	enc->input_done_callback_(nullptr);
-
-	// Pop the entry from the queue to release the AVDRMFrameDescriptor allocation
-	std::scoped_lock<std::mutex> lock(enc->drm_queue_lock_);
-	if (!enc->drm_frame_queue_.empty())
-		enc->drm_frame_queue_.pop();
 }
 
 void LibAvEncoder::videoThread()

@@ -9,7 +9,6 @@
 
 #include <atomic>
 #include <condition_variable>
-#include <memory>
 #include <mutex>
 #include <queue>
 #include <thread>
@@ -71,7 +70,4 @@ private:
 	AVStream *stream_[3];
 	AVFormatContext *in_fmt_ctx_;
 	AVFormatContext *out_fmt_ctx_;
-
-	std::mutex drm_queue_lock_;
-	std::queue<std::unique_ptr<AVDRMFrameDescriptor>> drm_frame_queue_;
 };
