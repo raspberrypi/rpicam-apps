@@ -75,7 +75,10 @@ void DrmPreview::findCrtc()
 		throw std::runtime_error("drmModeGetResources failed: " + std::string(ERRSTR));
 
 	if (res->count_crtcs <= 0)
+	{
+		drmModeFreeResources(res);
 		throw std::runtime_error("drm: no crts");
+	}
 
 	max_image_width_ = res->max_width;
 	max_image_height_ = res->max_height;
@@ -114,10 +117,23 @@ void DrmPreview::findCrtc()
 			LOG(2, "Connector " << con->connector_id << " (crtc " << (crtc ? crtc->crtc_id : 0) << "): type "
 								<< con->connector_type << ", " << (crtc ? crtc->width : 0) << "x"
 								<< (crtc ? crtc->height : 0) << (conId_ == (int)con->connector_id ? " (chosen)" : ""));
+
+			if (con->encoder_id)
+			{
+				drmModeFreeEncoder(enc);
+				if (enc->crtc_id)
+				{
+					drmModeFreeCrtc(crtc);
+				}
+			}
+			drmModeFreeConnector(con);
 		}
 
 		if (!conId_)
+		{
+			drmModeFreeResources(res);
 			throw std::runtime_error("No suitable enabled connector found");
+		}
 	}
 
 	crtcIdx_ = -1;
@@ -167,6 +183,9 @@ void DrmPreview::findCrtc()
 		height_ = crtc->height;
 		drmModeFreeCrtc(crtc);
 	}
+
+	drmModeFreeConnector(c);
+	drmModeFreeResources(res);
 }
 
 void DrmPreview::findPlane()
@@ -185,7 +204,7 @@ void DrmPreview::findPlane()
 		for (i = 0; i < planes->count_planes; ++i)
 		{
 			plane = drmModeGetPlane(drmfd_, planes->planes[i]);
-			if (!planes)
+			if (!plane)
 				throw std::runtime_error("drmModeGetPlane failed: " + std::string(ERRSTR));
 
 			if (!(plane->possible_crtcs & (1 << crtcIdx_)))

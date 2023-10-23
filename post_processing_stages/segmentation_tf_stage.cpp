@@ -91,7 +91,8 @@ void SegmentationTfStage::applyResults(CompletedRequestPtr &completed_request)
 	if (!config()->draw)
 		return;
 
-	libcamera::Span<uint8_t> buffer = app_->Mmap(completed_request->buffers[main_stream_])[0];
+	BufferWriteSync w(app_, completed_request->buffers[main_stream_]);
+	libcamera::Span<uint8_t> buffer = w.Get()[0];
 	int y_offset = main_stream_info_.height - HEIGHT;
 	int x_offset = main_stream_info_.width - WIDTH;
 	int scale = 255 / labels_.size();

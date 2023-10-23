@@ -47,11 +47,9 @@ static const std::map<libcamera::PixelFormat, unsigned int> bayer_formats =
 };
 
 
-Mode::Mode(std::string const &mode_string)
+Mode::Mode(std::string const &mode_string) : Mode()
 {
-	if (mode_string.empty())
-		bit_depth = 0;
-	else
+	if (!mode_string.empty())
 	{
 		char p;
 		int n = sscanf(mode_string.c_str(), "%u:%u:%u:%c", &width, &height, &bit_depth, &p);
@@ -78,8 +76,22 @@ std::string Mode::ToString() const
 	{
 		std::stringstream ss;
 		ss << width << ":" << height << ":" << bit_depth << ":" << (packed ? "P" : "U");
+		if (framerate)
+			ss << "(" << framerate << ")";
 		return ss.str();
 	}
+}
+
+void Mode::update(const libcamera::Size &size, const std::optional<float> &fps)
+{
+	if (!width)
+		width = size.width;
+	if (!height)
+		height = size.height;
+	if (!bit_depth)
+		bit_depth = 12;
+	if (fps)
+		framerate = fps.value();
 }
 
 static int xioctl(int fd, unsigned long ctl, void *arg)
@@ -134,10 +146,14 @@ bool Options::Parse(int argc, char *argv[])
 	shutter.set(shutter_);
 	flicker_period.set(flicker_period_);
 
-	// HDR control. Set this before opening or listing any cameras.
+	if (hdr != "off" && hdr != "single-exp" && hdr != "sensor" && hdr != "auto")
+		throw std::runtime_error("Invalid HDR option provided: " + hdr);
+
+	// HDR control. Set the sensor control before opening or listing any cameras.
 	// Currently this does not exist in libcamera, so go directly to V4L2
 	// XXX it's not obvious which v4l2-subdev to use for which camera!
 	{
+		bool en = (hdr == "auto" || hdr == "sensor");
 		bool ok = false;
 		for (int i = 0; i < 4 && !ok; i++)
 		{
@@ -147,12 +163,14 @@ bool Options::Parse(int argc, char *argv[])
 			if (fd < 0)
 				continue;
 
-			v4l2_control ctrl { V4L2_CID_WIDE_DYNAMIC_RANGE, hdr };
+			v4l2_control ctrl { V4L2_CID_WIDE_DYNAMIC_RANGE, en };
 			ok = !xioctl(fd, VIDIOC_S_CTRL, &ctrl);
 			close(fd);
 		}
-		if (hdr && !ok)
-			LOG_ERROR("WARNING: Unable to set HDR mode");
+		if (hdr == "sensor" && en && !ok)
+			LOG_ERROR("WARNING: Unable to set sensor HDR mode");
+		else if (hdr == "auto" && en && ok)
+			hdr = "sensor";
 	}
 
 	// We have to pass the tuning file name through an environment variable.
@@ -247,10 +265,14 @@ bool Options::Parse(int argc, char *argv[])
 					unsigned int num = formats.sizes(pix).size();
 					for (const auto &size : formats.sizes(pix))
 					{
+						LibcameraApp::SensorMode sensor_mode(size, pix, 0);
 						std::cout << size.toString() << " ";
 
 						config->at(0).size = size;
 						config->at(0).pixelFormat = pix;
+						config->sensorConfig = libcamera::SensorConfiguration();
+						config->sensorConfig->outputSize = size;
+						config->sensorConfig->bitDepth = sensor_mode.depth();
 						config->validate();
 						cam->configure(config.get());
 
@@ -419,7 +441,6 @@ void Options::Print() const
 	std::cerr << "    height: " << height << std::endl;
 	std::cerr << "    output: " << output << std::endl;
 	std::cerr << "    post_process_file: " << post_process_file << std::endl;
-	std::cerr << "    rawfull: " << rawfull << std::endl;
 	if (nopreview)
 		std::cerr << "    preview: none" << std::endl;
 	else if (fullscreen)
@@ -473,8 +494,7 @@ void Options::Print() const
 				  << afWindow_height << std::endl;
 	if (!lens_position_.empty())
 		std::cerr << "    lens-position: " << lens_position_ << std::endl;
-	if (hdr)
-		std::cerr << "    hdr: enabled" << hdr << std::endl;
+	std::cerr << "    hdr: " << hdr << std::endl;
 	std::cerr << "    mode: " << mode.ToString() << std::endl;
 	std::cerr << "    viewfinder-mode: " << viewfinder_mode.ToString() << std::endl;
 	if (buffer_count > 0)

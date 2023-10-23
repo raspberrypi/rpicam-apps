@@ -15,6 +15,7 @@
 #include <mutex>
 #include <queue>
 #include <set>
+#include <sstream>
 #include <string>
 #include <thread>
 #include <variant>
@@ -26,11 +27,12 @@
 #include <libcamera/control_ids.h>
 #include <libcamera/controls.h>
 #include <libcamera/formats.h>
-#include <libcamera/framebuffer_allocator.h>
 #include <libcamera/logging.h>
 #include <libcamera/property_ids.h>
 
+#include "core/buffer_sync.hpp"
 #include "core/completed_request.hpp"
+#include "core/dma_heaps.hpp"
 #include "core/post_processor.hpp"
 #include "core/stream_info.hpp"
 
@@ -51,7 +53,6 @@ public:
 	using CameraManager = libcamera::CameraManager;
 	using Camera = libcamera::Camera;
 	using CameraConfiguration = libcamera::CameraConfiguration;
-	using FrameBufferAllocator = libcamera::FrameBufferAllocator;
 	using StreamRole = libcamera::StreamRole;
 	using StreamRoles = std::vector<libcamera::StreamRole>;
 	using PixelFormat = libcamera::PixelFormat;
@@ -75,6 +76,37 @@ public:
 		}
 		MsgType type;
 		MsgPayload payload;
+	};
+	struct SensorMode
+	{
+		SensorMode()
+			: size({}), format({}), fps(0)
+		{
+		}
+		SensorMode(libcamera::Size _size, libcamera::PixelFormat _format, double _fps)
+			: size(_size), format(_format), fps(_fps)
+		{
+		}
+		unsigned int depth() const
+		{
+			// This is a really ugly way of getting the bit depth of the format.
+			// But apart from duplicating the massive bayer format table, there is
+			// no other way to determine this.
+			std::string fmt = format.toString();
+			unsigned int mode_depth = fmt.find("8") != std::string::npos ? 8 :
+									  fmt.find("10") != std::string::npos ? 10 :
+									  fmt.find("12") != std::string::npos ? 12 : 16;
+			return mode_depth;
+		}
+		libcamera::Size size;
+		libcamera::PixelFormat format;
+		double fps;
+		std::string ToString() const
+		{
+			std::stringstream ss;
+			ss << format.toString() << "," << size.toString() << "/" << fps;
+			return ss.str();
+		}
 	};
 
 	// Some flags that can be used to give hints to the camera configuration.
@@ -103,6 +135,7 @@ public:
 	void ConfigureViewfinder();
 	void ConfigureStill(unsigned int flags = FLAG_STILL_NONE);
 	void ConfigureVideo(unsigned int flags = FLAG_VIDEO_NONE);
+	void ConfigureZsl(unsigned int still_flags = FLAG_STILL_NONE);
 
 	void Teardown();
 	void StartCamera();
@@ -125,8 +158,6 @@ public:
 		return GetCameras(camera_manager_.get());
 	}
 
-	std::vector<libcamera::Span<uint8_t>> Mmap(FrameBuffer *buffer) const;
-
 	void ShowPreview(CompletedRequestPtr &completed_request, Stream *stream);
 
 	void SetControls(const ControlList &controls);
@@ -145,6 +176,9 @@ public:
 		std::sort(cameras.begin(), cameras.end(), [](auto l, auto r) { return l->id() > r->id(); });
 		return cameras;
 	}
+
+	friend class BufferWriteSync;
+	friend class BufferReadSync;
 
 protected:
 	std::unique_ptr<Options> options_;
@@ -194,31 +228,6 @@ private:
 		CompletedRequestPtr completed_request;
 		Stream *stream;
 	};
-	struct SensorMode
-	{
-		SensorMode()
-			: size({}), format({}), fps(0)
-		{
-		}
-		SensorMode(libcamera::Size _size, libcamera::PixelFormat _format, double _fps)
-			: size(_size), format(_format), fps(_fps)
-		{
-		}
-		unsigned int depth() const
-		{
-			// This is a really ugly way of getting the bit depth of the format.
-			// But apart from duplicating the massive bayer format table, there is
-			// no other way to determine this.
-			std::string fmt = format.toString();
-			unsigned int mode_depth = fmt.find("8") != std::string::npos ? 8 :
-									  fmt.find("10") != std::string::npos ? 10 :
-									  fmt.find("12") != std::string::npos ? 12 : 16;
-			return mode_depth;
-		}
-		libcamera::Size size;
-		libcamera::PixelFormat format;
-		double fps;
-	};
 
 	void setupCapture();
 	void makeRequests();
@@ -229,7 +238,7 @@ private:
 	void stopPreview();
 	void previewThread();
 	void configureDenoise(const std::string &denoise_mode);
-	Mode selectModeForFramerate(const libcamera::Size &req, double fps);
+	Mode selectMode(const Mode &mode) const;
 
 	std::unique_ptr<CameraManager> camera_manager_;
 	std::shared_ptr<Camera> camera_;
@@ -237,8 +246,8 @@ private:
 	std::unique_ptr<CameraConfiguration> configuration_;
 	std::map<FrameBuffer *, std::vector<libcamera::Span<uint8_t>>> mapped_buffers_;
 	std::map<std::string, Stream *> streams_;
-	FrameBufferAllocator *allocator_ = nullptr;
-	std::map<Stream *, std::queue<FrameBuffer *>> frame_buffers_;
+	DmaHeap dma_heap_;
+	std::map<Stream *, std::vector<std::unique_ptr<FrameBuffer>>> frame_buffers_;
 	std::vector<std::unique_ptr<Request>> requests_;
 	std::mutex completed_requests_mutex_;
 	std::set<CompletedRequest *> completed_requests_;

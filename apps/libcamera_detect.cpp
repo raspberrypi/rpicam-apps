@@ -107,7 +107,8 @@ static void event_loop(LibcameraDetectApp &app)
 
 			StreamInfo info;
 			libcamera::Stream *stream = app.StillStream(&info);
-			const std::vector<libcamera::Span<uint8_t>> mem = app.Mmap(completed_request->buffers[stream]);
+			BufferReadSync r(app, completed_request->buffers[stream]);
+			const std::vector<libcamera::Span<uint8_t>> mem = r.Get();
 
 			// Generate a filename for the output and save it.
 			char filename[128];

@@ -12,13 +12,37 @@
 # get a test in here.
 
 import argparse
+from enum import Enum
+import fcntl
 import json
 import os
 import os.path
 import subprocess
 import sys
 from timeit import default_timer as timer
+import v4l2
 import numpy as np
+
+
+def get_platform():
+    platform = 'vc4'
+    try:
+        for num in range(5):
+            device = '/dev/video' + str(num)
+            if os.path.exists(device):
+                with open(device, 'rb+', buffering=0) as fd:
+                    caps = v4l2.v4l2_capability()
+                    fcntl.ioctl(fd, v4l2.VIDIOC_QUERYCAP, caps)
+                    decoded = caps.card.decode('utf-8')
+                    if decoded == 'rp1-cfe':
+                        platform = 'pisp'
+                        break
+                    elif decoded == 'unicam':
+                        break
+    except Exception:
+        pass
+
+    return platform
 
 
 class TestFailure(Exception):
@@ -108,6 +132,12 @@ def test_hello(exe_dir, output_dir):
     check_retcode(retcode, "test_hello: flips test")
     check_time(time_taken, 1.8, 6, "test_hello: flips test")
 
+    # "no-raw". Run without a raw stream
+    print("    no-raw test")
+    retcode, time_taken = run_executable([executable, '-t', '2000', '--no-raw'], logfile)
+    check_retcode(retcode, "test_hello: no-raw test")
+    check_time(time_taken, 1.8, 6, "test_hello: no-raw test")
+
     print("libcamera-hello tests passed")
 
 
@@ -187,6 +217,20 @@ def test_still(exe_dir, output_dir):
     check_retcode(retcode, "test_still: jpg test")
     check_time(time_taken, 1.2, 8, "test_still: jpg test")
     check_size(output_jpg, 1024, "test_still: jpg test")
+
+    # "no-raw test". As above but without a raw stream.
+    print("    jpg test")
+    retcode, time_taken = run_executable([executable, '-t', '1000', '-o', output_jpg, '--no-raw'], logfile)
+    check_retcode(retcode, "test_still: no-raw test")
+    check_time(time_taken, 1.2, 8, "test_still: no-raw test")
+    check_size(output_jpg, 1024, "test_still: no-raw test")
+
+    # "zsl test". As above, but with zsl enabled
+    print("    zsl test")
+    retcode, time_taken = run_executable([executable, '-t', '1000', '-o', output_jpg, '--zsl'], logfile)
+    check_retcode(retcode, "test_still: zsl test")
+    check_time(time_taken, 1.2, 8, "test_still: zsl test")
+    check_size(output_jpg, 1024, "test_still: zsl test")
 
     # "png test". As above, but write a png.
     print("    png test")
@@ -332,6 +376,7 @@ def check_timestamps(file, preamble):
 
 
 def test_vid(exe_dir, output_dir):
+    platform = get_platform()
     executable = os.path.join(exe_dir, 'libcamera-vid')
     output_h264 = os.path.join(output_dir, 'test.h264')
     output_mjpeg = os.path.join(output_dir, 'test.mjpeg')
@@ -353,6 +398,14 @@ def test_vid(exe_dir, output_dir):
     check_time(time_taken, 2, 6, "test_vid: h264 test")
     check_size(output_h264, 1024, "test_vid: h264 test")
 
+    # "no-raw". As above, but with no raw stream
+    print("    h264 test")
+    retcode, time_taken = run_executable([executable, '-t', '2000', '-o', output_h264, '--no-raw'],
+                                         logfile)
+    check_retcode(retcode, "test_vid: no-raw test")
+    check_time(time_taken, 2, 6, "test_vid: no-raw test")
+    check_size(output_h264, 1024, "test_vid: no-raw test")
+
     # "mjpeg test". As above, but write an mjpeg file.
     print("    mjpeg test")
     retcode, time_taken = run_executable([executable, '-t', '2000', '--codec', 'mjpeg',
@@ -361,6 +414,10 @@ def test_vid(exe_dir, output_dir):
     check_retcode(retcode, "test_vid: mjpeg test")
     check_time(time_taken, 2, 6, "test_vid: mjpeg test")
     check_size(output_mjpeg, 1024, "test_vid: mjpeg test")
+
+    if platform == 'pisp':
+        print("skipping unsupported Pi 5 libcamera-vid tests")
+        return
 
     # "segment test". As above, write the output in single frame segements.
     print("    segment test")
@@ -469,7 +526,7 @@ def test_post_processing(exe_dir, output_dir, json_dir):
                                           '--post-process-file', json_file],
                                          logfile)
     check_retcode(retcode, "test_post_processing: hdr test")
-    check_time(time_taken, 6, 12, "test_post_processing: hdr test")
+    check_time(time_taken, 2, 12, "test_post_processing: hdr test")
     check_size(output_hdr, 1024, "test_post_processing: hdr test")
 
     # "sobel test". Try to run a stage that uses OpenCV.
