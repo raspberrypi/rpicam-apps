@@ -94,7 +94,8 @@ struct TimeVal
 
 struct Options
 {
-	Options() : set_default_lens_position(false), af_on_capture(false), options_("Valid options are", 120, 80)
+	Options()
+		: set_default_lens_position(false), af_on_capture(false), options_("Valid options are", 120, 80), app_(nullptr)
 	{
 		using namespace boost::program_options;
 		// clang-format off
@@ -290,6 +291,8 @@ struct Options
 	virtual bool Parse(int argc, char *argv[]);
 	virtual void Print() const;
 
+	void SetApp(LibcameraApp *app) { app_ = app; }
+
 protected:
 	boost::program_options::options_description options_;
 
@@ -302,4 +305,5 @@ private:
 	std::string timeout_;
 	std::string shutter_;
 	std::string flicker_period_;
+	LibcameraApp *app_;
 };

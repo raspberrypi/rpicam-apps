@@ -104,8 +104,9 @@ static int xioctl(int fd, unsigned long ctl, void *arg)
 	return ret;
 }
 
-static void set_subdev_hdr_ctrl(int en)
+static bool set_subdev_hdr_ctrl(int en)
 {
+	bool changed = false;
 	// Currently this does not exist in libcamera, so go directly to V4L2
 	// XXX it's not obvious which v4l2-subdev to use for which camera!
 	for (int i = 0; i < 8; i++)
@@ -117,9 +118,15 @@ static void set_subdev_hdr_ctrl(int en)
 			continue;
 
 		v4l2_control ctrl { V4L2_CID_WIDE_DYNAMIC_RANGE, en };
-		xioctl(fd, VIDIOC_S_CTRL, &ctrl);
+		if (!xioctl(fd, VIDIOC_G_CTRL, &ctrl) && ctrl.value != en)
+		{
+			ctrl.value = en;
+			if (!xioctl(fd, VIDIOC_S_CTRL, &ctrl))
+				changed = true;
+		}
 		close(fd);
 	}
+	return changed;
 }
 
 bool Options::Parse(int argc, char *argv[])
@@ -164,45 +171,6 @@ bool Options::Parse(int argc, char *argv[])
 	shutter.set(shutter_);
 	flicker_period.set(flicker_period_);
 
-	if (hdr != "off" && hdr != "single-exp" && hdr != "sensor" && hdr != "auto")
-		throw std::runtime_error("Invalid HDR option provided: " + hdr);
-
-	logSetTarget(LoggingTargetNone);
-
-	// HDR control. Set the sensor control before opening or listing any cameras.
-	// Start by disabling HDR unconditionally.
-	set_subdev_hdr_ctrl(0);
-
-	std::unique_ptr<CameraManager> cm = std::make_unique<CameraManager>();
-	int ret = cm->start();
-	if (ret)
-		throw std::runtime_error("camera manager failed to start, code " + std::to_string(-ret));
-
-	std::vector<std::shared_ptr<libcamera::Camera>> cameras = LibcameraApp::GetCameras(cm.get());
-	std::string const &cam_id = *cameras[camera]->properties().get(libcamera::properties::Model);
-	cameras.clear();
-	cm->stop();
-	cm.reset();
-
-	if ((hdr == "sensor" || hdr == "auto") && cam_id == "imx708")
-	{
-		set_subdev_hdr_ctrl(1);
-		hdr = "sensor";
-	}
-
-	logSetTarget(LoggingTargetStream);
-
-	// We have to pass the tuning file name through an environment variable.
-	// Note that we only overwrite the variable if the option was given.
-	if (tuning_file != "-")
-		setenv("LIBCAMERA_RPI_TUNING_FILE", tuning_file.c_str(), 1);
-
-	// Set the verbosity
-	LibcameraApp::verbosity = verbose;
-
-	if (verbose == 0)
-		libcamera::logSetTarget(libcamera::LoggingTargetNone);
-
 	if (help)
 	{
 		std::cout << options_;
@@ -216,18 +184,42 @@ bool Options::Parse(int argc, char *argv[])
 		return false;
 	}
 
+	if (hdr != "off" && hdr != "single-exp" && hdr != "sensor" && hdr != "auto")
+		throw std::runtime_error("Invalid HDR option provided: " + hdr);
+
+	if (!verbose || list_cameras)
+		libcamera::logSetTarget(libcamera::LoggingTargetNone);
+
+	// HDR control. Set the sensor control before opening or listing any cameras.
+	// Start by disabling HDR unconditionally. Reset the camera manager if we have
+	// actually switched the value of the control.
+	set_subdev_hdr_ctrl(0);
+	app_->initCameraManager();
+
+	// Unconditionally disable libcamera logging for a bit.
+	libcamera::logSetTarget(libcamera::LoggingTargetNone);
+
+	std::vector<std::shared_ptr<libcamera::Camera>> cameras = app_->GetCameras();
+	const std::string cam_id = *cameras[camera]->properties().get(libcamera::properties::Model);
+
+	if ((hdr == "sensor" || hdr == "auto") && cam_id == "imx708")
+	{
+		// Turn on sensor HDR.  Reset the camera manager if we have switched the value of the control.
+		if (set_subdev_hdr_ctrl(1))
+		{
+			cameras.clear();
+			app_->initCameraManager();
+			cameras = app_->GetCameras();
+		}
+		hdr = "sensor";
+	}
+
 	if (list_cameras)
 	{
 		// Disable any libcamera logging for this bit.
 		logSetTarget(LoggingTargetNone);
 		LibcameraApp::verbosity = 1;
 
-		std::unique_ptr<CameraManager> cm = std::make_unique<CameraManager>();
-		int ret = cm->start();
-		if (ret)
-			throw std::runtime_error("camera manager failed to start, code " + std::to_string(-ret));
-
-		std::vector<std::shared_ptr<libcamera::Camera>> cameras = LibcameraApp::GetCameras(cm.get());
 		if (cameras.size() != 0)
 		{
 			unsigned int idx = 0;
@@ -341,10 +333,20 @@ bool Options::Parse(int argc, char *argv[])
 			std::cout << "No cameras available!" << std::endl;
 
 		verbose = 1;
-		cameras.clear();
-		cm->stop();
 		return false;
 	}
+
+	// Reset verbosity to the user request.
+	if (verbose)
+		libcamera::logSetTarget(libcamera::LoggingTargetStream);
+
+	// Set the verbosity
+	LibcameraApp::verbosity = verbose;
+
+	// We have to pass the tuning file name through an environment variable.
+	// Note that we only overwrite the variable if the option was given.
+	if (tuning_file != "-")
+		setenv("LIBCAMERA_RPI_TUNING_FILE", tuning_file.c_str(), 1);
 
 	if (sscanf(preview.c_str(), "%u,%u,%u,%u", &preview_x, &preview_y, &preview_width, &preview_height) != 4)
 		preview_x = preview_y = preview_width = preview_height = 0; // use default window
