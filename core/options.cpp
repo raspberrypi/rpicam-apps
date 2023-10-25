@@ -104,6 +104,24 @@ static int xioctl(int fd, unsigned long ctl, void *arg)
 	return ret;
 }
 
+static void set_subdev_hdr_ctrl(int en)
+{
+	// Currently this does not exist in libcamera, so go directly to V4L2
+	// XXX it's not obvious which v4l2-subdev to use for which camera!
+	for (int i = 0; i < 8; i++)
+	{
+		std::string dev("/dev/v4l-subdev");
+		dev += (char)('0' + i);
+		int fd = open(dev.c_str(), O_RDWR, 0);
+		if (fd < 0)
+			continue;
+
+		v4l2_control ctrl { V4L2_CID_WIDE_DYNAMIC_RANGE, en };
+		xioctl(fd, VIDIOC_S_CTRL, &ctrl);
+		close(fd);
+	}
+}
+
 bool Options::Parse(int argc, char *argv[])
 {
 	using namespace boost::program_options;
@@ -149,29 +167,30 @@ bool Options::Parse(int argc, char *argv[])
 	if (hdr != "off" && hdr != "single-exp" && hdr != "sensor" && hdr != "auto")
 		throw std::runtime_error("Invalid HDR option provided: " + hdr);
 
-	// HDR control. Set the sensor control before opening or listing any cameras.
-	// Currently this does not exist in libcamera, so go directly to V4L2
-	// XXX it's not obvious which v4l2-subdev to use for which camera!
-	{
-		bool en = (hdr == "auto" || hdr == "sensor");
-		bool ok = false;
-		for (int i = 0; i < 4 && !ok; i++)
-		{
-			std::string dev("/dev/v4l-subdev");
-			dev += (char)('0' + i);
-			int fd = open(dev.c_str(), O_RDWR, 0);
-			if (fd < 0)
-				continue;
+	logSetTarget(LoggingTargetNone);
 
-			v4l2_control ctrl { V4L2_CID_WIDE_DYNAMIC_RANGE, en };
-			ok = !xioctl(fd, VIDIOC_S_CTRL, &ctrl);
-			close(fd);
-		}
-		if (hdr == "sensor" && en && !ok)
-			LOG_ERROR("WARNING: Unable to set sensor HDR mode");
-		else if (hdr == "auto" && en && ok)
-			hdr = "sensor";
+	// HDR control. Set the sensor control before opening or listing any cameras.
+	// Start by disabling HDR unconditionally.
+	set_subdev_hdr_ctrl(0);
+
+	std::unique_ptr<CameraManager> cm = std::make_unique<CameraManager>();
+	int ret = cm->start();
+	if (ret)
+		throw std::runtime_error("camera manager failed to start, code " + std::to_string(-ret));
+
+	std::vector<std::shared_ptr<libcamera::Camera>> cameras = LibcameraApp::GetCameras(cm.get());
+	std::string const &cam_id = *cameras[camera]->properties().get(libcamera::properties::Model);
+	cameras.clear();
+	cm->stop();
+	cm.reset();
+
+	if ((hdr == "sensor" || hdr == "auto") && cam_id == "imx708")
+	{
+		set_subdev_hdr_ctrl(1);
+		hdr = "sensor";
 	}
+
+	logSetTarget(LoggingTargetStream);
 
 	// We have to pass the tuning file name through an environment variable.
 	// Note that we only overwrite the variable if the option was given.
