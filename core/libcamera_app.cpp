@@ -137,6 +137,8 @@ LibcameraApp::LibcameraApp(std::unique_ptr<Options> opts)
 	if (!options_)
 		options_ = std::make_unique<Options>();
 
+	options_->SetApp(this);
+
 	set_pipeline_configuration(platform);
 }
 
@@ -149,6 +151,15 @@ LibcameraApp::~LibcameraApp()
 	StopCamera();
 	Teardown();
 	CloseCamera();
+}
+
+void LibcameraApp::initCameraManager()
+{
+	camera_manager_.reset();
+	camera_manager_ = std::make_unique<CameraManager>();
+	int ret = camera_manager_->start();
+	if (ret)
+		throw std::runtime_error("camera manager failed to start, code " + std::to_string(-ret));
 }
 
 std::string const &LibcameraApp::CameraId() const
@@ -170,14 +181,13 @@ void LibcameraApp::OpenCamera()
 
 	LOG(2, "Opening camera...");
 
-	camera_manager_ = std::make_unique<CameraManager>();
-	int ret = camera_manager_->start();
-	if (ret)
-		throw std::runtime_error("camera manager failed to start, code " + std::to_string(-ret));
+	if (!camera_manager_)
+		initCameraManager();
 
 	std::vector<std::shared_ptr<libcamera::Camera>> cameras = GetCameras();
 	if (cameras.size() == 0)
 		throw std::runtime_error("no cameras available");
+
 	if (options_->camera >= cameras.size())
 		throw std::runtime_error("selected camera is not available");
 

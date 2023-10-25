@@ -179,6 +179,7 @@ public:
 
 	friend class BufferWriteSync;
 	friend class BufferReadSync;
+	friend struct Options;
 
 protected:
 	std::unique_ptr<Options> options_;
@@ -229,6 +230,7 @@ private:
 		Stream *stream;
 	};
 
+	void initCameraManager();
 	void setupCapture();
 	void makeRequests();
 	void queueRequest(CompletedRequest *completed_request);
@@ -241,6 +243,7 @@ private:
 	Mode selectMode(const Mode &mode) const;
 
 	std::unique_ptr<CameraManager> camera_manager_;
+	std::vector<std::shared_ptr<libcamera::Camera>> cameras_;
 	std::shared_ptr<Camera> camera_;
 	bool camera_acquired_ = false;
 	std::unique_ptr<CameraConfiguration> configuration_;
