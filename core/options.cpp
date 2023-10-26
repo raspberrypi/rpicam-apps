@@ -200,18 +200,20 @@ bool Options::Parse(int argc, char *argv[])
 	libcamera::logSetTarget(libcamera::LoggingTargetNone);
 
 	std::vector<std::shared_ptr<libcamera::Camera>> cameras = app_->GetCameras();
-	const std::string cam_id = *cameras[camera]->properties().get(libcamera::properties::Model);
-
-	if ((hdr == "sensor" || hdr == "auto") && cam_id == "imx708")
+	if (camera < cameras.size())
 	{
-		// Turn on sensor HDR.  Reset the camera manager if we have switched the value of the control.
-		if (set_subdev_hdr_ctrl(1))
+		const std::string cam_id = *cameras[camera]->properties().get(libcamera::properties::Model);
+		if ((hdr == "sensor" || hdr == "auto") && cam_id == "imx708")
 		{
-			cameras.clear();
-			app_->initCameraManager();
-			cameras = app_->GetCameras();
+			// Turn on sensor HDR.  Reset the camera manager if we have switched the value of the control.
+			if (set_subdev_hdr_ctrl(1))
+			{
+				cameras.clear();
+				app_->initCameraManager();
+				cameras = app_->GetCameras();
+			}
+			hdr = "sensor";
 		}
-		hdr = "sensor";
 	}
 
 	if (list_cameras)
