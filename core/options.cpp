@@ -196,8 +196,8 @@ bool Options::Parse(int argc, char *argv[])
 	set_subdev_hdr_ctrl(0);
 	app_->initCameraManager();
 
-	// Unconditionally disable libcamera logging for a bit.
-	libcamera::logSetTarget(libcamera::LoggingTargetNone);
+	// Unconditionally set the logging level to error for a bit.
+	libcamera::logSetLevel("*", "ERROR");
 
 	std::vector<std::shared_ptr<libcamera::Camera>> cameras = app_->GetCameras();
 	if (camera < cameras.size())
@@ -218,8 +218,6 @@ bool Options::Parse(int argc, char *argv[])
 
 	if (list_cameras)
 	{
-		// Disable any libcamera logging for this bit.
-		logSetTarget(LoggingTargetNone);
 		LibcameraApp::verbosity = 1;
 
 		if (cameras.size() != 0)
@@ -338,9 +336,9 @@ bool Options::Parse(int argc, char *argv[])
 		return false;
 	}
 
-	// Reset verbosity to the user request.
+	// Reset log level to Info.
 	if (verbose)
-		libcamera::logSetTarget(libcamera::LoggingTargetStream);
+		libcamera::logSetLevel("*", "INFO");
 
 	// Set the verbosity
 	LibcameraApp::verbosity = verbose;
