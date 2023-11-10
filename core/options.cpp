@@ -184,6 +184,11 @@ bool Options::Parse(int argc, char *argv[])
 		return false;
 	}
 
+	// We have to pass the tuning file name through an environment variable.
+	// Note that we only overwrite the variable if the option was given.
+	if (tuning_file != "-")
+		setenv("LIBCAMERA_RPI_TUNING_FILE", tuning_file.c_str(), 1);
+
 	if (hdr != "off" && hdr != "single-exp" && hdr != "sensor" && hdr != "auto")
 		throw std::runtime_error("Invalid HDR option provided: " + hdr);
 
@@ -342,11 +347,6 @@ bool Options::Parse(int argc, char *argv[])
 
 	// Set the verbosity
 	LibcameraApp::verbosity = verbose;
-
-	// We have to pass the tuning file name through an environment variable.
-	// Note that we only overwrite the variable if the option was given.
-	if (tuning_file != "-")
-		setenv("LIBCAMERA_RPI_TUNING_FILE", tuning_file.c_str(), 1);
 
 	if (sscanf(preview.c_str(), "%u,%u,%u,%u", &preview_x, &preview_y, &preview_width, &preview_height) != 4)
 		preview_x = preview_y = preview_width = preview_height = 0; // use default window
