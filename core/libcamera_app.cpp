@@ -22,6 +22,7 @@
 #include <linux/videodev2.h>
 
 #include <libcamera/base/shared_fd.h>
+#include <libcamera/orientation.h>
 
 unsigned int LibcameraApp::verbosity = 1;
 
@@ -385,7 +386,7 @@ void LibcameraApp::ConfigureViewfinder()
 		configuration_->sensorConfig->bitDepth = options_->viewfinder_mode.bit_depth;
 	}
 
-	configuration_->transform = options_->transform;
+	configuration_->orientation = libcamera::Orientation::Rotate0 * options_->transform;
 
 	post_processor_.AdjustConfig("viewfinder", &configuration_->at(0));
 
@@ -432,7 +433,7 @@ void LibcameraApp::ConfigureZsl(unsigned int still_flags)
 	if (options_->height)
 		configuration_->at(0).size.height = options_->height;
 	configuration_->at(0).colorSpace = libcamera::ColorSpace::Sycc;
-	configuration_->transform = options_->transform;
+	configuration_->orientation = libcamera::Orientation::Rotate0 * options_->transform;
 
 	post_processor_.AdjustConfig("still", &configuration_->at(0));
 
@@ -481,7 +482,7 @@ void LibcameraApp::ConfigureZsl(unsigned int still_flags)
 	configuration_->at(1).size = size;
 	configuration_->at(1).bufferCount = configuration_->at(0).bufferCount;
 
-	configuration_->transform = options_->transform;
+	configuration_->orientation = libcamera::Orientation::Rotate0 * options_->transform;
 
 	post_processor_.AdjustConfig("viewfinder", &configuration_->at(1));
 
@@ -530,7 +531,7 @@ void LibcameraApp::ConfigureStill(unsigned int flags)
 	if (options_->height)
 		configuration_->at(0).size.height = options_->height;
 	configuration_->at(0).colorSpace = libcamera::ColorSpace::Sycc;
-	configuration_->transform = options_->transform;
+	configuration_->orientation = libcamera::Orientation::Rotate0 * options_->transform;
 
 	post_processor_.AdjustConfig("still", &configuration_->at(0));
 
@@ -590,7 +591,7 @@ void LibcameraApp::ConfigureVideo(unsigned int flags)
 		cfg.colorSpace = libcamera::ColorSpace::Rec709;
 	else
 		cfg.colorSpace = libcamera::ColorSpace::Smpte170m;
-	configuration_->transform = options_->transform;
+	configuration_->orientation = libcamera::Orientation::Rotate0 * options_->transform;
 
 	post_processor_.AdjustConfig("video", &configuration_->at(0));
 
@@ -618,7 +619,7 @@ void LibcameraApp::ConfigureVideo(unsigned int flags)
 		configuration_->at(lores_index).size = lores_size;
 		configuration_->at(lores_index).bufferCount = configuration_->at(0).bufferCount;
 	}
-	configuration_->transform = options_->transform;
+	configuration_->orientation = libcamera::Orientation::Rotate0 * options_->transform;
 
 	configureDenoise(options_->denoise == "auto" ? "cdn_fast" : options_->denoise);
 	setupCapture();
