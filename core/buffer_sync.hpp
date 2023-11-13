@@ -9,12 +9,12 @@
 
 #include <libcamera/framebuffer.h>
 
-class LibcameraApp;
+class RPiCamApp;
 
 class BufferWriteSync
 {
 public:
-	BufferWriteSync(LibcameraApp *app, libcamera::FrameBuffer *fb);
+	BufferWriteSync(RPiCamApp *app, libcamera::FrameBuffer *fb);
 	~BufferWriteSync();
 
 	const std::vector<libcamera::Span<uint8_t>> &Get() const;
@@ -27,7 +27,7 @@ private:
 class BufferReadSync
 {
 public:
-	BufferReadSync(LibcameraApp *app, libcamera::FrameBuffer *fb);
+	BufferReadSync(RPiCamApp *app, libcamera::FrameBuffer *fb);
 	~BufferReadSync();
 
 	const std::vector<libcamera::Span<uint8_t>> &Get() const;

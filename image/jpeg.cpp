@@ -456,7 +456,7 @@ static void create_exif_data(std::vector<libcamera::Span<uint8_t>> const &mem, S
 		entry = exif_create_tag(exif, EXIF_IFD_EXIF, EXIF_TAG_MODEL);
 		exif_set_string(entry, cam_model.c_str());
 		entry = exif_create_tag(exif, EXIF_IFD_EXIF, EXIF_TAG_SOFTWARE);
-		exif_set_string(entry, "libcamera-apps");
+		exif_set_string(entry, "rpicam-apps");
 		entry = exif_create_tag(exif, EXIF_IFD_EXIF, EXIF_TAG_DATE_TIME);
 		std::time_t raw_time;
 		std::time(&raw_time);

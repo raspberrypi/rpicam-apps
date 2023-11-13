@@ -1,12 +1,12 @@
 boost_dep = dependency('boost', modules : ['program_options'], required : true)
 thread_dep = dependency('threads', required : true)
 
-libcamera_app_dep += [boost_dep, thread_dep]
+rpicam_app_dep += [boost_dep, thread_dep]
 
-libcamera_app_src += files([
+rpicam_app_src += files([
     'buffer_sync.cpp',
     'dma_heaps.cpp',
-    'libcamera_app.cpp',
+    'rpicam_app.cpp',
     'options.cpp',
     'post_processor.cpp',
 ])
@@ -16,8 +16,8 @@ core_headers = files([
     'completed_request.hpp',
     'dma_heaps.hpp',
     'frame_info.hpp',
-    'libcamera_app.hpp',
-    'libcamera_encoder.hpp',
+    'rpicam_app.hpp',
+    'rpicam_encoder.hpp',
     'logging.hpp',
     'metadata.hpp',
     'options.hpp',
@@ -45,6 +45,20 @@ version_cpp = vcs_tag(command : version_cmd,
                       output : 'version.cpp',
                       fallback : meson.project_version())
 
-libcamera_app_src += version_cpp
+rpicam_app_src += version_cpp
 
 install_headers(core_headers, subdir: meson.project_name() / 'core')
+
+# Install symlinks to the old header directories and names for legacy purposes.
+install_symlink('libcamera-apps',
+                install_dir: get_option('includedir'),
+                pointing_to: 'rpicam-apps')
+
+inc_install_dir = get_option('includedir') / meson.project_name() / 'core'
+install_symlink('libcamera_app.h',
+                install_dir: inc_install_dir,
+                pointing_to: 'rpicam_app.hpp')
+
+install_symlink('libcamera_encoder.h',
+                install_dir: inc_install_dir,
+                pointing_to: 'rpicam_encoder.hpp')

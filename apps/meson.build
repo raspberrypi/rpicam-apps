@@ -1,37 +1,62 @@
-libcamera_still = executable('libcamera-still', files('libcamera_still.cpp'),
-                             include_directories : include_directories('..'),
-                             dependencies: [libcamera_dep, boost_dep],
-                             link_with : libcamera_app,
-                             install : true)
+rpicam_still = executable('rpicam-still', files('rpicam_still.cpp'),
+                          include_directories : include_directories('..'),
+                          dependencies: [libcamera_dep, boost_dep],
+                          link_with : rpicam_app,
+                          install : true)
 
-libcamera_vid = executable('libcamera-vid', files('libcamera_vid.cpp'),
-                           include_directories : include_directories('..'),
-                           dependencies: [libcamera_dep, boost_dep],
-                           link_with : libcamera_app,
-                           install : true)
+rpicam_vid = executable('rpicam-vid', files('rpicam_vid.cpp'),
+                        include_directories : include_directories('..'),
+                        dependencies: [libcamera_dep, boost_dep],
+                        link_with : rpicam_app,
+                        install : true)
 
-libcamera_hello = executable('libcamera-hello', files('libcamera_hello.cpp'),
-                             include_directories : include_directories('..'),
-                             dependencies: libcamera_dep,
-                             link_with : libcamera_app,
-                             install : true)
+rpicam_hello = executable('rpicam-hello', files('rpicam_hello.cpp'),
+                          include_directories : include_directories('..'),
+                          dependencies: libcamera_dep,
+                          link_with : rpicam_app,
+                          install : true)
 
-libcamera_raw = executable('libcamera-raw', files('libcamera_raw.cpp'),
-                           include_directories : include_directories('..'),
-                           dependencies: [libcamera_dep, boost_dep],
-                           link_with : libcamera_app,
-                           install : true)
+rpicam_raw = executable('rpicam-raw', files('rpicam_raw.cpp'),
+                        include_directories : include_directories('..'),
+                        dependencies: [libcamera_dep, boost_dep],
+                        link_with : rpicam_app,
+                        install : true)
 
-libcamera_jpeg = executable('libcamera-jpeg', files('libcamera_jpeg.cpp'),
-                            include_directories : include_directories('..'),
-                            dependencies: [libcamera_dep, boost_dep],
-                            link_with : libcamera_app,
-                            install : true)
+rpicam_jpeg = executable('rpicam-jpeg', files('rpicam_jpeg.cpp'),
+                         include_directories : include_directories('..'),
+                         dependencies: [libcamera_dep, boost_dep],
+                         link_with : rpicam_app,
+                         install : true)
+
+# Install symlinks to the old app names for legacy purposes.
+install_symlink('libcamera-still',
+                install_dir: get_option('bindir'),
+                pointing_to: 'rpicam-still')
+
+install_symlink('libcamera-vid',
+                install_dir: get_option('bindir'),
+                pointing_to: 'rpicam-vid')
+
+install_symlink('libcamera-hello',
+                install_dir: get_option('bindir'),
+                pointing_to: 'rpicam-hello')
+
+install_symlink('libcamera-raw',
+                install_dir: get_option('bindir'),
+                pointing_to: 'rpicam-raw')
+
+install_symlink('libcamera-jpeg',
+                install_dir: get_option('bindir'),
+                pointing_to: 'rpicam-jpeg')    
 
 if enable_tflite
-    libcamera_detect = executable('libcamera-detect', files('libcamera_detect.cpp'),
-                                  include_directories : include_directories('..'),
-                                  dependencies: [libcamera_dep, boost_dep],
-                                  link_with : libcamera_app,
-                                  install : true)
+    rpicam_detect = executable('rpicam-detect', files('rpicam_detect.cpp'),
+                               include_directories : include_directories('..'),
+                               dependencies: [libcamera_dep, boost_dep],
+                               link_with : rpicam_app,
+                               install : true)
+
+    install_symlink('libcamera-detect',
+                    install_dir: get_option('bindir'),
+                    pointing_to: 'rpicam-detect')
 endif

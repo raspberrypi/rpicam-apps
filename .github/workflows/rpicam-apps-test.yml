@@ -1,4 +1,4 @@
-name: libcamera-app smoke tests
+name: rpicam-app smoke tests
 
 on:
   pull_request:
@@ -101,10 +101,10 @@ jobs:
       run: tar -xvf build-artifacts-gcc-release.tar --one-top-level=build
 
     - name: Print version string
-      run: ${{github.workspace}}/build/apps/libcamera-hello --version
+      run: ${{github.workspace}}/build/apps/rpicam-hello --version
 
     - name: Print linkage info
-      run: ldd ${{github.workspace}}/build/apps/libcamera-hello | grep libcamera
+      run: ldd ${{github.workspace}}/build/apps/rpicam-hello | grep libcamera
 
     - name: Test
       run: ${{github.workspace}}/utils/test.py --exe-dir ${{github.workspace}}/build/apps/ --output-dir ${{github.workspace}}/test_output --json-dir ${{github.workspace}}/assets

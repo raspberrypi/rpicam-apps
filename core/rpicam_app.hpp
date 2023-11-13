@@ -2,7 +2,7 @@
 /*
  * Copyright (C) 2020-2021, Raspberry Pi (Trading) Ltd.
  *
- * libcamera_app.hpp - base class for libcamera apps.
+ * rpicam_app.hpp - base class for libcamera apps.
  */
 
 #pragma once
@@ -43,7 +43,7 @@ struct Mode;
 namespace controls = libcamera::controls;
 namespace properties = libcamera::properties;
 
-class LibcameraApp
+class RPiCamApp
 {
 public:
 	using Stream = libcamera::Stream;
@@ -122,8 +122,8 @@ public:
 	static constexpr unsigned int FLAG_VIDEO_RAW = 1; // request raw image stream
 	static constexpr unsigned int FLAG_VIDEO_JPEG_COLOURSPACE = 2; // force JPEG colour space
 
-	LibcameraApp(std::unique_ptr<Options> const opts = nullptr);
-	virtual ~LibcameraApp();
+	RPiCamApp(std::unique_ptr<Options> const opts = nullptr);
+	virtual ~RPiCamApp();
 
 	Options *GetOptions() const { return options_.get(); }
 
@@ -169,7 +169,7 @@ public:
 	static std::vector<std::shared_ptr<libcamera::Camera>> GetCameras(const CameraManager *cm)
 	{
 		std::vector<std::shared_ptr<libcamera::Camera>> cameras = cm->cameras();
-		// Do not show USB webcams as these are not supported in libcamera-apps!
+		// Do not show USB webcams as these are not supported in rpicam-apps!
 		auto rem = std::remove_if(cameras.begin(), cameras.end(),
 								  [](auto &cam) { return cam->id().find("/usb") != std::string::npos; });
 		cameras.erase(rem, cameras.end());
