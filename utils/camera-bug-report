@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 #
-# libcamera-apps bug report generator.
+# rpicam-apps bug report generator.
 # Copyright (C) 2021, Raspberry Pi Ltd.
 #
 import argparse
@@ -74,24 +74,24 @@ def run_prog(cmd, t):
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='libcamera-apps Bug Report Generator')
+    parser = argparse.ArgumentParser(description='rpicam-apps Bug Report Generator')
     parser.add_argument('-o', help='Report filename', type=str, default='bug-report.txt')
     parser.add_argument('-t', help='Timeout (seconds) for the command to run. A value of 0 \
                                     disables the timeout.', type=float, default=0)
-    parser.add_argument('-c', help='Command to run, e.g. -c "libcamera-still -t 1000 -o test.jpg"', type=str)
+    parser.add_argument('-c', help='Command to run, e.g. -c "rpicam-still -t 1000 -o test.jpg"', type=str)
     args = parser.parse_args()
 
     # This is the app the user is actually running.
-    app = 'libcamera-hello'
+    app = 'rpicam-hello'
     if args.c:
         app = args.c.split(" ")[0]
-        # Can we identify the app?  If not, use libcamera-hello for version checks.
-        if not any([s in app for s in ['libcamera-still', 'libcamera-vid', 'libcamera-hello', 'libcamera-raw', 'libcamera-jpeg']]):
-            app = 'libcamera-hello'
+        # Can we identify the app?  If not, use rpicam-hello for version checks.
+        if not any([s in app for s in ['rpicam-still', 'rpicam-vid', 'rpicam-hello', 'rpicam-raw', 'rpicam-jpeg']]):
+            app = 'rpicam-hello'
 
     reports = []
     with open(args.o, 'wt') as file:
-        title = Report('libcamera-apps Bug Report', file)
+        title = Report('rpicam-apps Bug Report', file)
         title.add_str(f'Date: {datetime.now().strftime("%d-%m-%Y (%H:%M:%S)")}')
         title.add_str(f'Command: {" ".join(sys.argv)}\n')
         reports.append(title)
@@ -151,4 +151,4 @@ if __name__ == '__main__':
 
         print(f'\nBug report generated to {args.o}')
         print('Please upload this file when you create a new bug report at:')
-        print('https://github.com/raspberrypi/libcamera-apps/issues/')
+        print('https://github.com/raspberrypi/rpicam-apps/issues/')

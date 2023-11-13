@@ -15,7 +15,7 @@
 
 #include <libcamera/geometry.h>
 
-#include "core/libcamera_app.hpp"
+#include "core/rpicam_app.hpp"
 
 #include "post_processing_stages/post_processing_stage.hpp"
 
@@ -29,7 +29,7 @@ using Stream = libcamera::Stream;
 class FaceDetectCvStage : public PostProcessingStage
 {
 public:
-	FaceDetectCvStage(LibcameraApp *app) : PostProcessingStage(app) {}
+	FaceDetectCvStage(RPiCamApp *app) : PostProcessingStage(app) {}
 
 	char const *Name() const override;
 
@@ -206,7 +206,7 @@ void FaceDetectCvStage::Stop()
 		future_ptr_->wait();
 }
 
-static PostProcessingStage *Create(LibcameraApp *app)
+static PostProcessingStage *Create(RPiCamApp *app)
 {
 	return new FaceDetectCvStage(app);
 }

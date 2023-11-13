@@ -7,7 +7,7 @@
 
 #include <libcamera/stream.h>
 
-#include "core/libcamera_app.hpp"
+#include "core/rpicam_app.hpp"
 
 #include "post_processing_stages/post_processing_stage.hpp"
 
@@ -16,7 +16,7 @@ using Stream = libcamera::Stream;
 class NegateStage : public PostProcessingStage
 {
 public:
-	NegateStage(LibcameraApp *app) : PostProcessingStage(app) {}
+	NegateStage(RPiCamApp *app) : PostProcessingStage(app) {}
 
 	char const *Name() const override;
 
@@ -55,7 +55,7 @@ bool NegateStage::Process(CompletedRequestPtr &completed_request)
 	return false;
 }
 
-static PostProcessingStage *Create(LibcameraApp *app)
+static PostProcessingStage *Create(RPiCamApp *app)
 {
 	return new NegateStage(app);
 }

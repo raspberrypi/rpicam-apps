@@ -179,7 +179,7 @@ bool Options::Parse(int argc, char *argv[])
 
 	if (version)
 	{
-		std::cout << "libcamera-apps build: " << LibcameraAppsVersion() << std::endl;
+		std::cout << "rpicam-apps build: " << RPiCamAppsVersion() << std::endl;
 		std::cout << "libcamera build: " << libcamera::CameraManager::version() << std::endl;
 		return false;
 	}
@@ -223,7 +223,7 @@ bool Options::Parse(int argc, char *argv[])
 
 	if (list_cameras)
 	{
-		LibcameraApp::verbosity = 1;
+		RPiCamApp::verbosity = 1;
 
 		if (cameras.size() != 0)
 		{
@@ -281,7 +281,7 @@ bool Options::Parse(int argc, char *argv[])
 					unsigned int num = formats.sizes(pix).size();
 					for (const auto &size : formats.sizes(pix))
 					{
-						LibcameraApp::SensorMode sensor_mode(size, pix, 0);
+						RPiCamApp::SensorMode sensor_mode(size, pix, 0);
 						std::cout << size.toString() << " ";
 
 						config->at(0).size = size;
@@ -346,7 +346,7 @@ bool Options::Parse(int argc, char *argv[])
 		libcamera::logSetLevel("*", "INFO");
 
 	// Set the verbosity
-	LibcameraApp::verbosity = verbose;
+	RPiCamApp::verbosity = verbose;
 
 	if (sscanf(preview.c_str(), "%u,%u,%u,%u", &preview_x, &preview_y, &preview_width, &preview_height) != 4)
 		preview_x = preview_y = preview_width = preview_height = 0; // use default window

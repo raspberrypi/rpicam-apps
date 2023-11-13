@@ -2,12 +2,12 @@
 /*
  * Copyright (C) 2020, Raspberry Pi (Trading) Ltd.
  *
- * libcamera_jpeg.cpp - minimal libcamera jpeg capture app.
+ * rpicam_jpeg.cpp - minimal libcamera jpeg capture app.
  */
 
 #include <chrono>
 
-#include "core/libcamera_app.hpp"
+#include "core/rpicam_app.hpp"
 #include "core/still_options.hpp"
 
 #include "image/image.hpp"
@@ -15,11 +15,11 @@
 using namespace std::placeholders;
 using libcamera::Stream;
 
-class LibcameraJpegApp : public LibcameraApp
+class RPiCamJpegApp : public RPiCamApp
 {
 public:
-	LibcameraJpegApp()
-		: LibcameraApp(std::make_unique<StillOptions>())
+	RPiCamJpegApp()
+		: RPiCamApp(std::make_unique<StillOptions>())
 	{
 	}
 
@@ -31,7 +31,7 @@ public:
 
 // The main even loop for the application.
 
-static void event_loop(LibcameraJpegApp &app)
+static void event_loop(RPiCamJpegApp &app)
 {
 	StillOptions const *options = app.GetOptions();
 	app.OpenCamera();
@@ -41,17 +41,17 @@ static void event_loop(LibcameraJpegApp &app)
 
 	for (;;)
 	{
-		LibcameraApp::Msg msg = app.Wait();
-		if (msg.type == LibcameraApp::MsgType::Timeout)
+		RPiCamApp::Msg msg = app.Wait();
+		if (msg.type == RPiCamApp::MsgType::Timeout)
 		{
 			LOG_ERROR("ERROR: Device timeout detected, attempting a restart!!!");
 			app.StopCamera();
 			app.StartCamera();
 			continue;
 		}
-		if (msg.type == LibcameraApp::MsgType::Quit)
+		if (msg.type == RPiCamApp::MsgType::Quit)
 			return;
-		else if (msg.type != LibcameraApp::MsgType::RequestComplete)
+		else if (msg.type != RPiCamApp::MsgType::RequestComplete)
 			throw std::runtime_error("unrecognised message!");
 
 		// In viewfinder mode, simply run until the timeout. When that happens, switch to
@@ -93,7 +93,7 @@ int main(int argc, char *argv[])
 {
 	try
 	{
-		LibcameraJpegApp app;
+		RPiCamJpegApp app;
 		StillOptions *options = app.GetOptions();
 		if (options->Parse(argc, argv))
 		{

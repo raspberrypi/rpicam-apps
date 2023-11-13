@@ -7,7 +7,7 @@
 
 #include <libcamera/stream.h>
 
-#include "core/libcamera_app.hpp"
+#include "core/rpicam_app.hpp"
 
 #include "post_processing_stages/post_processing_stage.hpp"
 
@@ -21,7 +21,7 @@ using Stream = libcamera::Stream;
 class SobelCvStage : public PostProcessingStage
 {
 public:
-	SobelCvStage(LibcameraApp *app) : PostProcessingStage(app) {}
+	SobelCvStage(RPiCamApp *app) : PostProcessingStage(app) {}
 
 	char const *Name() const override;
 
@@ -93,7 +93,7 @@ bool SobelCvStage::Process(CompletedRequestPtr &completed_request)
 	return false;
 }
 
-static PostProcessingStage *Create(LibcameraApp *app)
+static PostProcessingStage *Create(RPiCamApp *app)
 {
 	return new SobelCvStage(app);
 }

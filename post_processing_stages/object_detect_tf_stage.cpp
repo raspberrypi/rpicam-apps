@@ -25,7 +25,7 @@ class ObjectDetectTfStage : public TfStage
 {
 public:
 	// The model we use expects 224x224 images.
-	ObjectDetectTfStage(LibcameraApp *app) : TfStage(app, WIDTH, HEIGHT)
+	ObjectDetectTfStage(RPiCamApp *app) : TfStage(app, WIDTH, HEIGHT)
 	{
 		config_ = std::make_unique<ObjectDetectTfConfig>();
 	}
@@ -169,7 +169,7 @@ void ObjectDetectTfStage::interpretOutputs()
 	}
 }
 
-static PostProcessingStage *Create(LibcameraApp *app)
+static PostProcessingStage *Create(RPiCamApp *app)
 {
 	return new ObjectDetectTfStage(app);
 }

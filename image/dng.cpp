@@ -430,7 +430,7 @@ void dng_save(std::vector<libcamera::Span<uint8_t>> const &mem, StreamInfo const
 		TIFFSetField(tif, TIFFTAG_ORIENTATION, ORIENTATION_TOPLEFT);
 		TIFFSetField(tif, TIFFTAG_SAMPLESPERPIXEL, 3);
 		TIFFSetField(tif, TIFFTAG_PLANARCONFIG, PLANARCONFIG_CONTIG);
-		TIFFSetField(tif, TIFFTAG_SOFTWARE, "libcamera-still");
+		TIFFSetField(tif, TIFFTAG_SOFTWARE, "rpicam-still");
 		TIFFSetField(tif, TIFFTAG_COLORMATRIX1, 9, CAM_XYZ.m);
 		TIFFSetField(tif, TIFFTAG_ASSHOTNEUTRAL, 3, NEUTRAL);
 		TIFFSetField(tif, TIFFTAG_CALIBRATIONILLUMINANT1, 21);

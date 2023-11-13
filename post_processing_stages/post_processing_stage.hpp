@@ -23,14 +23,14 @@ namespace libcamera
 struct StreamConfiguration;
 }
 
-class LibcameraApp;
+class RPiCamApp;
 
 using StreamConfiguration = libcamera::StreamConfiguration;
 
 class PostProcessingStage
 {
 public:
-	PostProcessingStage(LibcameraApp *app);
+	PostProcessingStage(RPiCamApp *app);
 
 	virtual ~PostProcessingStage();
 
@@ -70,10 +70,10 @@ protected:
 		return std::chrono::duration<double, R>(t2 - t1);
 	}
 
-	LibcameraApp *app_;
+	RPiCamApp *app_;
 };
 
-typedef PostProcessingStage *(*StageCreateFunc)(LibcameraApp *app);
+typedef PostProcessingStage *(*StageCreateFunc)(RPiCamApp *app);
 struct RegisterStage
 {
 	RegisterStage(char const *name, StageCreateFunc create_func);

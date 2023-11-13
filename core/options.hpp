@@ -291,7 +291,7 @@ struct Options
 	virtual bool Parse(int argc, char *argv[]);
 	virtual void Print() const;
 
-	void SetApp(LibcameraApp *app) { app_ = app; }
+	void SetApp(RPiCamApp *app) { app_ = app; }
 
 protected:
 	boost::program_options::options_description options_;
@@ -305,5 +305,5 @@ private:
 	std::string timeout_;
 	std::string shutter_;
 	std::string flicker_period_;
-	LibcameraApp *app_;
+	RPiCamApp *app_;
 };

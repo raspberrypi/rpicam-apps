@@ -1,4 +1,4 @@
-libcamera_app_src += files([
+rpicam_app_src += files([
     'encoder.cpp',
     'h264_encoder.cpp',
     'mjpeg_encoder.cpp',
@@ -28,9 +28,9 @@ if enable_libav
 endif
 
 if enable_libav
-        libcamera_app_src += files('libav_encoder.cpp')
+        rpicam_app_src += files('libav_encoder.cpp')
         encoder_headers += files('libav_encoder.hpp')
-        libcamera_app_dep += libav_deps
+        rpicam_app_dep += libav_deps
         cpp_arguments += '-DLIBAV_PRESENT=1'
 endif
 

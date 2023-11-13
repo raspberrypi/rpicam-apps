@@ -48,7 +48,7 @@ jobs:
         path: build-artifacts-libcamera.tar
         retention-days: 7
 
-  build-libcamera-apps:
+  build-rpicam-apps:
 
     runs-on: [ self-hosted ]
     needs: build-libcamera
@@ -80,19 +80,19 @@ jobs:
       timeout-minutes: 15
 
     - name: Tar files
-      run: tar -cvf build-artifacts-libcamera-apps.tar -C ${{github.workspace}}/build .
+      run: tar -cvf build-artifacts-rpicam-apps.tar -C ${{github.workspace}}/build .
 
     - name: Upload build files
       uses: actions/upload-artifact@v3
       with:
-        name: build-artifacts-libcamera-apps
-        path: build-artifacts-libcamera-apps.tar
+        name: build-artifacts-rpicam-apps
+        path: build-artifacts-rpicam-apps.tar
         retention-days: 7
 
   run-test:
 
     runs-on: ${{matrix.camera}}
-    needs: build-libcamera-apps
+    needs: build-rpicam-apps
 
     strategy:
       matrix:
@@ -107,14 +107,14 @@ jobs:
     - name: Create test output dir
       run: mkdir -p ${{github.workspace}}/test_output
 
-    - name: Download libcamera-apps build
+    - name: Download rpicam-apps build
       uses: actions/download-artifact@v3
       with:
-        name: build-artifacts-libcamera-apps
+        name: build-artifacts-rpicam-apps
         path: ${{github.workspace}}
 
-    - name: Untar libcamera-apps files
-      run: tar -xvf build-artifacts-libcamera-apps.tar --one-top-level=build
+    - name: Untar rpicam-apps files
+      run: tar -xvf build-artifacts-rpicam-apps.tar --one-top-level=build
 
     - name: Clean libcamera
       run: rm -rf ${{env.LIBCAMERA_SRC_DIR}} && mkdir -p ${{env.LIBCAMERA_SRC_DIR}}
@@ -129,12 +129,12 @@ jobs:
       run: tar -xvf build-artifacts-libcamera.tar -C ${{env.LIBCAMERA_SRC_DIR}} --one-top-level=install
 
     - name: Print version string
-      run: ${{github.workspace}}/build/apps/libcamera-hello --version
+      run: ${{github.workspace}}/build/apps/rpicam-hello --version
 
     - name: Print linkage info
-      run: ldd ${{github.workspace}}/build/apps/libcamera-hello | grep libcamera
+      run: ldd ${{github.workspace}}/build/apps/rpicam-hello | grep libcamera
 
-    - name: Test libcamera-apps
+    - name: Test rpicam-apps
       run: ${{github.workspace}}/utils/test.py --exe-dir ${{github.workspace}}/build/apps/ --output-dir ${{github.workspace}}/test_output --json-dir ${{github.workspace}}/assets
       timeout-minutes: 15
 
@@ -166,7 +166,7 @@ jobs:
       run: DISPLAY=:0.0 LD_LIBRARY_PATH=${{env.LIBCAMERA_LD_LIBRARY_DIR}} PYTHONPATH=${{env.LIBCAMERA_LD_LIBRARY_DIR}}/python3.11/site-packages/:${{env.PICAMERA2_SRC_DIR}} ${{env.PICAMERA2_SRC_DIR}}/tools/run_tests.py --picamera2-dir ${{env.PICAMERA2_SRC_DIR}}
       timeout-minutes: 15
 
-  update-libcamera-base:
+  update-rpicam-base:
 
     runs-on: ${{matrix.camera}}
     needs: run-picamera2-tests
