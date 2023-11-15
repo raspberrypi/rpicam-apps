@@ -7,7 +7,7 @@ on:
 env:
   GCC_COMPILER: "CC=/usr/bin/gcc CXX=/usr/bin/g++"
   CLANG_COMPILER: "CC=/usr/bin/clang-13 CXX=/usr/bin/clang++-13"
-  LIBCAMERA_LKG_DIR: "${{github.workspace}}/../libcamera_lkg"
+  LIBCAMERA_LKG_DIR: "/home/pi/libcamera_lkg"
 
 jobs:
   build-test:
