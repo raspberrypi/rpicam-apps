@@ -13,7 +13,7 @@ env:
   LIBCAMERA_SRC_DIR: "${{github.workspace}}/../libcamera"
   PICAMERA2_SRC_DIR: "${{github.workspace}}/../picamera2"
   LIBCAMERA_INSTALL_DIR: "${{github.workspace}}/../libcamera/install"
-  LIBCAMERA_LKG_DIR: "${{github.workspace}}/../libcamera_lkg"
+  LIBCAMERA_LKG_DIR: "/home/pi/libcamera_lkg"
   LIBCAMERA_LD_LIBRARY_DIR: "${{github.workspace}}/../libcamera/install/lib/aarch64-linux-gnu"
 
 jobs:
