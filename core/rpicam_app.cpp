@@ -525,6 +525,10 @@ void RPiCamApp::ConfigureStill(unsigned int flags)
 		configuration_->at(0).pixelFormat = libcamera::formats::BGR888;
 	else if (flags & FLAG_STILL_RGB)
 		configuration_->at(0).pixelFormat = libcamera::formats::RGB888;
+	else if (flags & FLAG_STILL_BGR48)
+		configuration_->at(0).pixelFormat = libcamera::formats::BGR161616;
+	else if (flags & FLAG_STILL_RGB48)
+		configuration_->at(0).pixelFormat = libcamera::formats::RGB161616;
 	else
 		configuration_->at(0).pixelFormat = libcamera::formats::YUV420;
 	if ((flags & FLAG_STILL_BUFFER_MASK) == FLAG_STILL_DOUBLE_BUFFER)
