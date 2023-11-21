@@ -387,6 +387,8 @@ def test_vid(exe_dir, output_dir):
     platform = get_platform()
     executable = os.path.join(exe_dir, 'rpicam-vid')
     output_h264 = os.path.join(output_dir, 'test.h264')
+    output_mkv = os.path.join(output_dir, 'test.mkv')
+    output_mp4 = os.path.join(output_dir, 'test.mp4')
     output_mjpeg = os.path.join(output_dir, 'test.mjpeg')
     output_circular = os.path.join(output_dir, 'circular.h264')
     output_pause = os.path.join(output_dir, 'pause.h264')
@@ -407,12 +409,28 @@ def test_vid(exe_dir, output_dir):
     check_size(output_h264, 1024, "test_vid: h264 test")
 
     # "no-raw". As above, but with no raw stream
-    print("    h264 test")
+    print("    h264 no-raw ltest")
     retcode, time_taken = run_executable([executable, '-t', '2000', '-o', output_h264, '--no-raw'],
                                          logfile)
     check_retcode(retcode, "test_vid: no-raw test")
     check_time(time_taken, 2, 6, "test_vid: no-raw test")
     check_size(output_h264, 1024, "test_vid: no-raw test")
+
+    # "libav x264 mkv test". See if the executable appears to run and write an mkv output file.
+    print("    libav libx264 mkv test")
+    retcode, time_taken = run_executable([executable, '-t', '2000', '-o', output_mkv, '--codec', 'libav',
+                                          '--libav-video-codec', 'libx264'], logfile)
+    check_retcode(retcode, "test_vid: libav libx264 mkv test")
+    check_time(time_taken, 2, 6, "test_vid: libav libx264 mkv test")
+    check_size(output_mkv, 1024, "test_vid: libav libx264 mkv test")
+
+    # "libav x264 mp4 test". As above, but with mp4
+    print("    libav libx264 mp4 test")
+    retcode, time_taken = run_executable([executable, '-t', '2000', '-o', output_mp4, '--codec', 'libav',
+                                          '--libav-video-codec', 'libx264'], logfile)
+    check_retcode(retcode, "test_vid: libav libx264 mp4 test")
+    check_time(time_taken, 2, 6, "test_vid: libav libx264 mp4 test")
+    check_size(output_mp4, 1024, "test_vid: libav libx264 mp4 test")
 
     # "mjpeg test". As above, but write an mjpeg file.
     print("    mjpeg test")
