@@ -47,6 +47,30 @@ void encoderOptionsGeneral(VideoOptions const *options, AVCodecContext *codec)
 
 	if (options->bitrate)
 		codec->bit_rate = options->bitrate.bps();
+
+	if (!options->libav_video_codec_opts.empty())
+	{
+		const std::string &opts = options->libav_video_codec_opts;
+		for (std::string::size_type i = 0, n = 0; i != std::string::npos; i = n)
+		{
+			n = opts.find(';', i);
+			const std::string opt = opts.substr(i, n - i);
+			if (n != std::string::npos)
+				n++;
+			if (opt.empty())
+				continue;
+			std::string::size_type kn = opt.find('=');
+			const std::string key = opt.substr(0, kn);
+			const std::string value = (kn != std::string::npos) ? opt.substr(kn + 1) : "";
+			int ret = av_opt_set(codec, key.c_str(), value.c_str(), AV_OPT_SEARCH_CHILDREN);
+			if (ret < 0)
+			{
+				char err[AV_ERROR_MAX_STRING_SIZE];
+				av_strerror(ret, err, sizeof(err));
+				throw std::runtime_error("libav: codec option error " + opt + ": " + err);
+			}
+		}
+	}
 }
 
 void encoderOptionsH264M2M(VideoOptions const *options, AVCodecContext *codec)
@@ -57,9 +81,6 @@ void encoderOptionsH264M2M(VideoOptions const *options, AVCodecContext *codec)
 
 void encoderOptionsLibx264(VideoOptions const *options, AVCodecContext *codec)
 {
-	if (options->bitrate)
-		codec->bit_rate = options->bitrate.bps();
-
 	codec->max_b_frames = 1;
 	codec->me_range = 16;
 	codec->me_cmp = 1; // No chroma ME
@@ -145,13 +166,13 @@ void LibAvEncoder::initVideoCodec(VideoOptions const *options, StreamInfo const 
 			info.colour_space->range == ColorSpace::Range::Full ? AVCOL_RANGE_JPEG : AVCOL_RANGE_MPEG;
 	}
 
-	// Apply general options.
-	encoderOptionsGeneral(options, codec_ctx_[Video]);
-
 	// Apply any codec specific options:
 	auto fn = optionsMap.find(options->libav_video_codec);
 	if (fn != optionsMap.end())
 		fn->second(options, codec_ctx_[Video]);
+
+	// Apply general options.
+	encoderOptionsGeneral(options, codec_ctx_[Video]);
 
 	const char *format;
 	if (options_->output.empty() && options->libav_format.empty())
