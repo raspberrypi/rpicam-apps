@@ -432,6 +432,15 @@ def test_vid(exe_dir, output_dir):
     check_time(time_taken, 2, 6, "test_vid: libav libx264 mp4 test")
     check_size(output_mp4, 1024, "test_vid: libav libx264 mp4 test")
 
+    # "libav x264 options test". See if the executable appears to run and write an h264 output file with codec options.
+    print("    libav libx264 options test")
+    retcode, time_taken = run_executable([executable, '-t', '2000', '-o', output_h264, '--codec', 'libav',
+                                          '--libav-video-codec', 'libx264',
+                                          '--libav-video-codec-opts', 'preset=ultrafast;profile=high;partitions=i8x8,i4x4'], logfile)
+    check_retcode(retcode, "test_vid: libav libx264 options test")
+    check_time(time_taken, 2, 6, "test_vid: libav libx264 options test")
+    check_size(output_h264, 1024, "test_vid: libav libx264 options test")
+
     # "mjpeg test". As above, but write an mjpeg file.
     print("    mjpeg test")
     retcode, time_taken = run_executable([executable, '-t', '2000', '--codec', 'mjpeg',
