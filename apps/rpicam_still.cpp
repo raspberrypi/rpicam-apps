@@ -211,7 +211,7 @@ static void event_loop(RPiCamStillApp &app)
 	} af_wait_state = AF_WAIT_NONE;
 	int af_wait_timeout = 0;
 
-	bool want_capture = false;
+	bool want_capture = options->immediate;
 	for (unsigned int count = 0;; count++)
 	{
 		RPiCamApp::Msg msg = app.Wait();
