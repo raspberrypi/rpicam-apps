@@ -232,6 +232,14 @@ def test_still(exe_dir, output_dir):
     check_time(time_taken, 1.2, 8, "test_still: zsl test")
     check_size(output_jpg, 1024, "test_still: zsl test")
 
+    # "immediate test". Immediate capture test
+    print("    immediate test")
+    retcode, time_taken = run_executable([executable, '-o', output_jpg, '--immediate', '--shutter', 20000,
+                                          '--gain', 1.0, '--awbgains', '1.5,1.2'], logfile)
+    check_retcode(retcode, "test_still: immediate test")
+    check_time(time_taken, 1.2, 8, "test_still: immediate test")
+    check_size(output_jpg, 1024, "test_still: immediate test")
+
     # "png test". As above, but write a png.
     print("    png test")
     retcode, time_taken = run_executable(
