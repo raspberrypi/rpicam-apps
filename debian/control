@@ -26,7 +26,7 @@ Homepage: https://github.com/raspberrypi/rpicam-apps/
 
 Package: rpicam-apps
 Architecture: armhf arm64
-Depends: ${shlibs:Depends}, ${misc:Depends}
+Depends: ${shlibs:Depends}, ${misc:Depends}, python3:any
 Conflicts: rpicam-apps-lite
 Replaces: rpicam-apps-lite, libcamera-apps (<< 1.4.1-1~)
 Breaks: libcamera-apps (<< 1.4.1-1~)
@@ -36,7 +36,7 @@ Description: rpicam-apps
 
 Package: rpicam-apps-lite
 Architecture: armhf arm64
-Depends: ${shlibs:Depends}, ${misc:Depends}
+Depends: ${shlibs:Depends}, ${misc:Depends}, python3:any
 Conflicts: rpicam-apps
 Replaces: rpicam-apps, libcamera-apps-lite (<< 1.4.1-1~)
 Breaks: libcamera-apps-lite (<< 1.4.1-1~)
