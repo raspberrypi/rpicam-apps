@@ -1,0 +1,32 @@
+name: Generate source release tarball
+run-name: Generating source release tarball
+on:
+  push:
+    tags: # vX.Y.Z
+      - 'v[0-9]+.[0-9]+.[0-9]+'
+  workflow_dispatch:
+jobs:
+  publish_tarball:
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install dependencies
+        run: | # Jammy versions of Meson and libcamera are too old
+          pip3 install --user meson
+          sudo apt-get update
+          sudo apt-get install -y ninja-build pkgconf libboost-program-options-dev libcamera-dev libexif-dev libjpeg-dev libpng-dev libtiff-dev
+          sudo cp /usr/lib/x86_64-linux-gnu/pkgconfig/{,lib}camera.pc ||:
+      - name: Check out repository code
+        uses: actions/checkout@v4
+      - name: Generate tarball
+        run: |
+          PATH="${HOME}/.local/bin:${PATH}"
+          meson setup build
+          meson dist --no-tests --include-subprojects -C build
+      - name: Release tarball
+        uses: softprops/action-gh-release@v1
+        with:
+          files: build/meson-dist/*.tar.xz
+      - if: failure()
+        run: cat build/meson-logs/meson-log.txt

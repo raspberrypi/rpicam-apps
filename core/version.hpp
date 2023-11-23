@@ -7,4 +7,4 @@
 
 #include <string>
 
-const std::string& LibcameraAppsVersion();
+const std::string& RPiCamAppsVersion();

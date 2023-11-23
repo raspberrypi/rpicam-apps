@@ -10,10 +10,10 @@
 #include <sys/mman.h>
 
 #include "core/buffer_sync.hpp"
-#include "core/libcamera_app.hpp"
+#include "core/rpicam_app.hpp"
 #include "core/logging.hpp"
 
-BufferWriteSync::BufferWriteSync(LibcameraApp *app, libcamera::FrameBuffer *fb)
+BufferWriteSync::BufferWriteSync(RPiCamApp *app, libcamera::FrameBuffer *fb)
 	: fb_(fb)
 {
 	struct dma_buf_sync dma_sync {};
@@ -51,7 +51,7 @@ const std::vector<libcamera::Span<uint8_t>> &BufferWriteSync::Get() const
 	return planes_;
 }
 
-BufferReadSync::BufferReadSync(LibcameraApp *app, libcamera::FrameBuffer *fb)
+BufferReadSync::BufferReadSync(RPiCamApp *app, libcamera::FrameBuffer *fb)
 {
 	auto it = app->mapped_buffers_.find(fb);
 	if (it == app->mapped_buffers_.end())

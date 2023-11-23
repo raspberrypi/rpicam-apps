@@ -89,11 +89,11 @@ struct VideoOptions : public Options
 			("bitrate,b", value<std::string>(&bitrate_)->default_value("0bps"),
 			 "Set the video bitrate for encoding. If no units are provided, default to bits/second.")
 			("profile", value<std::string>(&profile),
-			 "Set the encoding profile (h264 only)")
+			 "Set the encoding profile")
 			("level", value<std::string>(&level),
-			 "Set the encoding level (h264 only)")
+			 "Set the encoding level")
 			("intra,g", value<unsigned int>(&intra)->default_value(0),
-			 "Set the intra frame period (h264 only)")
+			 "Set the intra frame period")
 			("inline", value<bool>(&inline_headers)->default_value(false)->implicit_value(true),
 			 "Force PPS/SPS header with every I frame (h264 only)")
 			("codec", value<std::string>(&codec)->default_value("h264"),
@@ -126,6 +126,12 @@ struct VideoOptions : public Options
 			("libav-video-codec", value<std::string>(&libav_video_codec)->default_value("h264_v4l2m2m"),
 			 "Sets the libav video codec to use. "
 			 "To list available codecs, run  the \"ffmpeg -codecs\" command.")
+			("libav-video-codec-opts", value<std::string>(&libav_video_codec_opts),
+			 "Sets the libav video codec options to use. "
+			 "These override the internal defaults (check 'encoderOptions*()' in 'encoder/libav_encoder.cpp' for the defaults). "
+			 "Separate key and value with \"=\" and multiple options with \";\". "
+			 "e.g.: \"preset=ultrafast;profile=high;partitions=i8x8,i4x4\". "
+			 "To list available options for a given codec, run the \"ffmpeg -h encoder=libx264\" command for libx264.")
 			("libav-format", value<std::string>(&libav_format),
 			 "Sets the libav encoder output format to use. "
 			 "Leave blank to try and deduce this from the filename.\n"
@@ -164,6 +170,7 @@ struct VideoOptions : public Options
 	bool inline_headers;
 	std::string codec;
 	std::string libav_video_codec;
+	std::string libav_video_codec_opts;
 	std::string libav_format;
 	bool libav_audio;
 	std::string audio_codec;
@@ -222,7 +229,7 @@ struct VideoOptions : public Options
 
 		// From https://en.wikipedia.org/wiki/Advanced_Video_Coding#Levels
 		double mbps = ((width + 15) >> 4) * ((height + 15) >> 4) * framerate.value_or(DEFAULT_FRAMERATE);
-		if ((codec == "h264" || codec == "libav") && mbps > 245760.0)
+		if ((codec == "h264" || (codec == "libav" && libav_video_codec == "libx264")) && mbps > 245760.0)
 		{
 			LOG(1, "Overriding H.264 level 4.2");
 			level = "4.2";

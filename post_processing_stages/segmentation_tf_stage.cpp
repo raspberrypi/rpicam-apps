@@ -24,7 +24,7 @@ struct SegmentationTfConfig : public TfConfig
 class SegmentationTfStage : public TfStage
 {
 public:
-	SegmentationTfStage(LibcameraApp *app) : TfStage(app, WIDTH, HEIGHT), segmentation_(WIDTH * HEIGHT)
+	SegmentationTfStage(RPiCamApp *app) : TfStage(app, WIDTH, HEIGHT), segmentation_(WIDTH * HEIGHT)
 	{
 		config_ = std::make_unique<SegmentationTfConfig>();
 	}
@@ -150,7 +150,7 @@ void SegmentationTfStage::interpretOutputs()
 	}
 }
 
-static PostProcessingStage *Create(LibcameraApp *app)
+static PostProcessingStage *Create(RPiCamApp *app)
 {
 	return new SegmentationTfStage(app);
 }

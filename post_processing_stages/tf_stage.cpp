@@ -6,7 +6,7 @@
  */
 #include "tf_stage.hpp"
 
-TfStage::TfStage(LibcameraApp *app, int tf_w, int tf_h) : PostProcessingStage(app), tf_w_(tf_w), tf_h_(tf_h)
+TfStage::TfStage(RPiCamApp *app, int tf_w, int tf_h) : PostProcessingStage(app), tf_w_(tf_w), tf_h_(tf_h)
 {
 	if (tf_w_ <= 0 || tf_h_ <= 0)
 		throw std::runtime_error("TfStage: Bad TFLite input dimensions");

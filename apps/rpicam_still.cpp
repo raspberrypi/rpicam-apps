@@ -2,7 +2,7 @@
 /*
  * Copyright (C) 2020, Raspberry Pi (Trading) Ltd.
  *
- * libcamera_still.cpp - libcamera stills capture app.
+ * rpicam_still.cpp - libcamera stills capture app.
  */
 #include <chrono>
 #include <poll.h>
@@ -13,7 +13,7 @@
 #include <chrono>
 
 #include "core/frame_info.hpp"
-#include "core/libcamera_app.hpp"
+#include "core/rpicam_app.hpp"
 #include "core/still_options.hpp"
 
 #include "output/output.hpp"
@@ -24,10 +24,10 @@ using namespace std::chrono_literals;
 using namespace std::placeholders;
 using libcamera::Stream;
 
-class LibcameraStillApp : public LibcameraApp
+class RPiCamStillApp : public RPiCamApp
 {
 public:
-	LibcameraStillApp() : LibcameraApp(std::make_unique<StillOptions>()) {}
+	RPiCamStillApp() : RPiCamApp(std::make_unique<StillOptions>()) {}
 
 	StillOptions *GetOptions() const { return static_cast<StillOptions *>(options_.get()); }
 };
@@ -74,7 +74,7 @@ static void update_latest_link(std::string const &filename, StillOptions const *
 	}
 }
 
-static void save_image(LibcameraStillApp &app, CompletedRequestPtr &payload, Stream *stream,
+static void save_image(RPiCamStillApp &app, CompletedRequestPtr &payload, Stream *stream,
 					   std::string const &filename)
 {
 	StillOptions const *options = app.GetOptions();
@@ -94,7 +94,7 @@ static void save_image(LibcameraStillApp &app, CompletedRequestPtr &payload, Str
 	LOG(2, "Saved image " << info.width << " x " << info.height << " to file " << filename);
 }
 
-static void save_images(LibcameraStillApp &app, CompletedRequestPtr &payload)
+static void save_images(RPiCamStillApp &app, CompletedRequestPtr &payload)
 {
 	StillOptions *options = app.GetOptions();
 	std::string filename = generate_filename(options);
@@ -160,18 +160,18 @@ static int get_key_or_signal(StillOptions const *options, pollfd p[1])
 
 // The main even loop for the application.
 
-static void event_loop(LibcameraStillApp &app)
+static void event_loop(RPiCamStillApp &app)
 {
 	StillOptions const *options = app.GetOptions();
 	bool output = !options->output.empty() || options->datetime || options->timestamp; // output requested?
 	bool keypress = options->keypress || options->signal; // "signal" mode is much like "keypress" mode
-	unsigned int still_flags = LibcameraApp::FLAG_STILL_NONE;
+	unsigned int still_flags = RPiCamApp::FLAG_STILL_NONE;
 	if (options->encoding == "rgb" || options->encoding == "png")
-		still_flags |= LibcameraApp::FLAG_STILL_BGR;
+		still_flags |= RPiCamApp::FLAG_STILL_BGR;
 	else if (options->encoding == "bmp")
-		still_flags |= LibcameraApp::FLAG_STILL_RGB;
+		still_flags |= RPiCamApp::FLAG_STILL_RGB;
 	if (options->raw)
-		still_flags |= LibcameraApp::FLAG_STILL_RAW;
+		still_flags |= RPiCamApp::FLAG_STILL_RAW;
 
 	app.OpenCamera();
 
@@ -211,20 +211,20 @@ static void event_loop(LibcameraStillApp &app)
 	} af_wait_state = AF_WAIT_NONE;
 	int af_wait_timeout = 0;
 
-	bool want_capture = false;
+	bool want_capture = options->immediate;
 	for (unsigned int count = 0;; count++)
 	{
-		LibcameraApp::Msg msg = app.Wait();
-		if (msg.type == LibcameraApp::MsgType::Timeout)
+		RPiCamApp::Msg msg = app.Wait();
+		if (msg.type == RPiCamApp::MsgType::Timeout)
 		{
 			LOG_ERROR("ERROR: Device timeout detected, attempting a restart!!!");
 			app.StopCamera();
 			app.StartCamera();
 			continue;
 		}
-		if (msg.type == LibcameraApp::MsgType::Quit)
+		if (msg.type == RPiCamApp::MsgType::Quit)
 			return;
-		else if (msg.type != LibcameraApp::MsgType::RequestComplete)
+		else if (msg.type != RPiCamApp::MsgType::RequestComplete)
 			throw std::runtime_error("unrecognised message!");
 
 		CompletedRequestPtr &completed_request = std::get<CompletedRequestPtr>(msg.payload);
@@ -342,7 +342,7 @@ int main(int argc, char *argv[])
 {
 	try
 	{
-		LibcameraStillApp app;
+		RPiCamStillApp app;
 		StillOptions *options = app.GetOptions();
 		if (options->Parse(argc, argv))
 		{

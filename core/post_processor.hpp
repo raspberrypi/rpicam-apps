@@ -21,7 +21,7 @@ namespace libcamera
 struct StreamConfiguration;
 }
 
-class LibcameraApp;
+class RPiCamApp;
 
 using namespace std::chrono_literals;
 class PostProcessingStage;
@@ -32,7 +32,7 @@ typedef std::unique_ptr<PostProcessingStage> StagePtr;
 class PostProcessor
 {
 public:
-	PostProcessor(LibcameraApp *app);
+	PostProcessor(RPiCamApp *app);
 
 	~PostProcessor();
 
@@ -55,7 +55,7 @@ public:
 private:
 	PostProcessingStage *createPostProcessingStage(char const *name);
 
-	LibcameraApp *app_;
+	RPiCamApp *app_;
 	std::vector<StagePtr> stages_;
 	void outputThread();
 

@@ -2,7 +2,7 @@
 /*
  * Copyright (C) 2020, Raspberry Pi (Trading) Ltd.
  *
- * libcamera_vid.cpp - libcamera video record app.
+ * rpicam_vid.cpp - libcamera video record app.
  */
 
 #include <chrono>
@@ -11,7 +11,7 @@
 #include <sys/signalfd.h>
 #include <sys/stat.h>
 
-#include "core/libcamera_encoder.hpp"
+#include "core/rpicam_encoder.hpp"
 #include "output/output.hpp"
 
 using namespace std::placeholders;
@@ -55,14 +55,14 @@ static int get_key_or_signal(VideoOptions const *options, pollfd p[1])
 static int get_colourspace_flags(std::string const &codec)
 {
 	if (codec == "mjpeg" || codec == "yuv420")
-		return LibcameraEncoder::FLAG_VIDEO_JPEG_COLOURSPACE;
+		return RPiCamEncoder::FLAG_VIDEO_JPEG_COLOURSPACE;
 	else
-		return LibcameraEncoder::FLAG_VIDEO_NONE;
+		return RPiCamEncoder::FLAG_VIDEO_NONE;
 }
 
 // The main even loop for the application.
 
-static void event_loop(LibcameraEncoder &app)
+static void event_loop(RPiCamEncoder &app)
 {
 	VideoOptions const *options = app.GetOptions();
 	std::unique_ptr<Output> output = std::unique_ptr<Output>(Output::Create(options));
@@ -83,17 +83,17 @@ static void event_loop(LibcameraEncoder &app)
 
 	for (unsigned int count = 0; ; count++)
 	{
-		LibcameraEncoder::Msg msg = app.Wait();
-		if (msg.type == LibcameraApp::MsgType::Timeout)
+		RPiCamEncoder::Msg msg = app.Wait();
+		if (msg.type == RPiCamApp::MsgType::Timeout)
 		{
 			LOG_ERROR("ERROR: Device timeout detected, attempting a restart!!!");
 			app.StopCamera();
 			app.StartCamera();
 			continue;
 		}
-		if (msg.type == LibcameraEncoder::MsgType::Quit)
+		if (msg.type == RPiCamEncoder::MsgType::Quit)
 			return;
-		else if (msg.type != LibcameraEncoder::MsgType::RequestComplete)
+		else if (msg.type != RPiCamEncoder::MsgType::RequestComplete)
 			throw std::runtime_error("unrecognised message!");
 		int key = get_key_or_signal(options, p);
 		if (key == '\n')
@@ -124,7 +124,7 @@ int main(int argc, char *argv[])
 {
 	try
 	{
-		LibcameraEncoder app;
+		RPiCamEncoder app;
 		VideoOptions *options = app.GetOptions();
 		if (options->Parse(argc, argv))
 		{

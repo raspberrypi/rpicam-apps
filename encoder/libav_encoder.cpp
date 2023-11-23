@@ -7,6 +7,7 @@
 
 #include <fcntl.h>
 #include <poll.h>
+#include <string.h>
 #include <sys/ioctl.h>
 #include <sys/mman.h>
 
@@ -20,22 +21,66 @@
 
 namespace {
 
+void encoderOptionsGeneral(VideoOptions const *options, AVCodecContext *codec)
+{
+	codec->framerate = { (int)(options->framerate.value_or(DEFAULT_FRAMERATE) * 1000), 1000 };
+	codec->profile = FF_PROFILE_UNKNOWN;
+
+	if (!options->profile.empty())
+	{
+		const AVCodec *encoder_codec = avcodec_find_encoder_by_name(options->libav_video_codec.c_str());
+		for (const AVProfile *encoder_profile = encoder_codec->profiles;
+			 encoder_profile && encoder_profile->profile != FF_PROFILE_UNKNOWN; encoder_profile++)
+		{
+			if (!strncasecmp(options->profile.c_str(), encoder_profile->name, options->profile.size()))
+			{
+				codec->profile = encoder_profile->profile;
+				break;
+			}
+		}
+		if (codec->profile == FF_PROFILE_UNKNOWN)
+			throw std::runtime_error("libav: no such profile " + options->profile);
+	}
+
+	codec->level = options->level.empty() ? FF_LEVEL_UNKNOWN : std::stof(options->level) * 10;
+	codec->gop_size = options->intra ? options->intra : (int)(options->framerate.value_or(DEFAULT_FRAMERATE));
+
+	if (options->bitrate)
+		codec->bit_rate = options->bitrate.bps();
+
+	if (!options->libav_video_codec_opts.empty())
+	{
+		const std::string &opts = options->libav_video_codec_opts;
+		for (std::string::size_type i = 0, n = 0; i != std::string::npos; i = n)
+		{
+			n = opts.find(';', i);
+			const std::string opt = opts.substr(i, n - i);
+			if (n != std::string::npos)
+				n++;
+			if (opt.empty())
+				continue;
+			std::string::size_type kn = opt.find('=');
+			const std::string key = opt.substr(0, kn);
+			const std::string value = (kn != std::string::npos) ? opt.substr(kn + 1) : "";
+			int ret = av_opt_set(codec, key.c_str(), value.c_str(), AV_OPT_SEARCH_CHILDREN);
+			if (ret < 0)
+			{
+				char err[AV_ERROR_MAX_STRING_SIZE];
+				av_strerror(ret, err, sizeof(err));
+				throw std::runtime_error("libav: codec option error " + opt + ": " + err);
+			}
+		}
+	}
+}
+
 void encoderOptionsH264M2M(VideoOptions const *options, AVCodecContext *codec)
 {
 	codec->pix_fmt = AV_PIX_FMT_DRM_PRIME;
 	codec->max_b_frames = 0;
-
-	if (options->bitrate)
-		codec->bit_rate = options->bitrate.bps();
 }
 
 void encoderOptionsLibx264(VideoOptions const *options, AVCodecContext *codec)
 {
-	codec->pix_fmt = AV_PIX_FMT_YUV420P;
-
-	if (options->bitrate)
-		codec->bit_rate = options->bitrate.bps();
-
 	codec->max_b_frames = 1;
 	codec->me_range = 16;
 	codec->me_cmp = 1; // No chroma ME
@@ -76,8 +121,8 @@ void LibAvEncoder::initVideoCodec(VideoOptions const *options, StreamInfo const 
 	codec_ctx_[Video]->height = info.height;
 	// usec timebase
 	codec_ctx_[Video]->time_base = { 1, 1000 * 1000 };
-	codec_ctx_[Video]->framerate = { (int)(options->framerate.value_or(DEFAULT_FRAMERATE) * 1000), 1000 };
 	codec_ctx_[Video]->sw_pix_fmt = AV_PIX_FMT_YUV420P;
+	codec_ctx_[Video]->pix_fmt = AV_PIX_FMT_YUV420P;
 
 	if (info.colour_space)
 	{
@@ -121,29 +166,13 @@ void LibAvEncoder::initVideoCodec(VideoOptions const *options, StreamInfo const 
 			info.colour_space->range == ColorSpace::Range::Full ? AVCOL_RANGE_JPEG : AVCOL_RANGE_MPEG;
 	}
 
-	if (!options->profile.empty())
-	{
-		static const std::map<std::string, int> profile_map = {
-			{ "baseline", FF_PROFILE_H264_BASELINE },
-			{ "main", FF_PROFILE_H264_MAIN },
-			{ "high", FF_PROFILE_H264_HIGH }
-		};
-
-		auto it = profile_map.find(options->profile);
-		if (it == profile_map.end())
-			throw std::runtime_error("libav: no such profile " + options->profile);
-
-		codec_ctx_[Video]->profile = it->second;
-	}
-
-	codec_ctx_[Video]->level = options->level.empty() ? FF_LEVEL_UNKNOWN : std::stof(options->level) * 10;
-	codec_ctx_[Video]->gop_size = options->intra ? options->intra
-											     : (int)(options->framerate.value_or(DEFAULT_FRAMERATE));
-
 	// Apply any codec specific options:
 	auto fn = optionsMap.find(options->libav_video_codec);
 	if (fn != optionsMap.end())
 		fn->second(options, codec_ctx_[Video]);
+
+	// Apply general options.
+	encoderOptionsGeneral(options, codec_ctx_[Video]);
 
 	const char *format;
 	if (options_->output.empty() && options->libav_format.empty())

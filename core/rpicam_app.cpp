@@ -2,13 +2,13 @@
 /*
  * Copyright (C) 2021, Raspberry Pi (Trading) Ltd.
  *
- * libcamera_app.cpp - base class for libcamera apps.
+ * rpicam_app.cpp - base class for libcamera apps.
  */
 
 #include "preview/preview.hpp"
 
 #include "core/frame_info.hpp"
-#include "core/libcamera_app.hpp"
+#include "core/rpicam_app.hpp"
 #include "core/options.hpp"
 
 #include <cmath>
@@ -22,8 +22,9 @@
 #include <linux/videodev2.h>
 
 #include <libcamera/base/shared_fd.h>
+#include <libcamera/orientation.h>
 
-unsigned int LibcameraApp::verbosity = 1;
+unsigned int RPiCamApp::verbosity = 1;
 
 enum class Platform
 {
@@ -117,7 +118,7 @@ static void set_pipeline_configuration(Platform platform)
 	}
 }
 
-LibcameraApp::LibcameraApp(std::unique_ptr<Options> opts)
+RPiCamApp::RPiCamApp(std::unique_ptr<Options> opts)
 	: options_(std::move(opts)), controls_(controls::controls), post_processor_(this)
 {
 	Platform platform = get_platform();
@@ -129,21 +130,23 @@ LibcameraApp::LibcameraApp(std::unique_ptr<Options> opts)
 	}
 	else if (platform == Platform::UNKNOWN)
 	{
-		fprintf(stderr, "ERROR: libcamera-apps currently only supports the Raspberry Pi platforms.\n"
-						"Contributions for other platforms are welcome at https://github.com/raspberrypi/libcamera-apps.\n");
+		fprintf(stderr, "ERROR: rpicam-apps currently only supports the Raspberry Pi platforms.\n"
+						"Contributions for other platforms are welcome at https://github.com/raspberrypi/rpicam-apps.\n");
 		exit(-1);
 	}
 
 	if (!options_)
 		options_ = std::make_unique<Options>();
 
+	options_->SetApp(this);
+
 	set_pipeline_configuration(platform);
 }
 
-LibcameraApp::~LibcameraApp()
+RPiCamApp::~RPiCamApp()
 {
 	if (!options_->help)
-		LOG(2, "Closing Libcamera application"
+		LOG(2, "Closing RPiCam application"
 				   << "(frames displayed " << preview_frames_displayed_ << ", dropped " << preview_frames_dropped_
 				   << ")");
 	StopCamera();
@@ -151,33 +154,41 @@ LibcameraApp::~LibcameraApp()
 	CloseCamera();
 }
 
-std::string const &LibcameraApp::CameraId() const
+void RPiCamApp::initCameraManager()
+{
+	camera_manager_.reset();
+	camera_manager_ = std::make_unique<CameraManager>();
+	int ret = camera_manager_->start();
+	if (ret)
+		throw std::runtime_error("camera manager failed to start, code " + std::to_string(-ret));
+}
+
+std::string const &RPiCamApp::CameraId() const
 {
 	return camera_->id();
 }
 
-std::string LibcameraApp::CameraModel() const
+std::string RPiCamApp::CameraModel() const
 {
 	auto model = camera_->properties().get(properties::Model);
 	return model ? *model : camera_->id();
 }
 
-void LibcameraApp::OpenCamera()
+void RPiCamApp::OpenCamera()
 {
 	// Make a preview window.
 	preview_ = std::unique_ptr<Preview>(make_preview(options_.get()));
-	preview_->SetDoneCallback(std::bind(&LibcameraApp::previewDoneCallback, this, std::placeholders::_1));
+	preview_->SetDoneCallback(std::bind(&RPiCamApp::previewDoneCallback, this, std::placeholders::_1));
 
 	LOG(2, "Opening camera...");
 
-	camera_manager_ = std::make_unique<CameraManager>();
-	int ret = camera_manager_->start();
-	if (ret)
-		throw std::runtime_error("camera manager failed to start, code " + std::to_string(-ret));
+	if (!camera_manager_)
+		initCameraManager();
 
 	std::vector<std::shared_ptr<libcamera::Camera>> cameras = GetCameras();
 	if (cameras.size() == 0)
 		throw std::runtime_error("no cameras available");
+
 	if (options_->camera >= cameras.size())
 		throw std::runtime_error("selected camera is not available");
 
@@ -235,7 +246,7 @@ void LibcameraApp::OpenCamera()
 	libcamera::logSetLevel("Camera", "INFO");
 }
 
-void LibcameraApp::CloseCamera()
+void RPiCamApp::CloseCamera()
 {
 	preview_.reset();
 
@@ -251,7 +262,7 @@ void LibcameraApp::CloseCamera()
 		LOG(2, "Camera closed");
 }
 
-Mode LibcameraApp::selectMode(const Mode &mode) const
+Mode RPiCamApp::selectMode(const Mode &mode) const
 {
 	auto scoreFormat = [](double desired, double actual) -> double
 	{
@@ -300,7 +311,7 @@ Mode LibcameraApp::selectMode(const Mode &mode) const
 	return { best_mode.size.width, best_mode.size.height, best_mode.depth(), mode.packed };
 }
 
-void LibcameraApp::ConfigureViewfinder()
+void RPiCamApp::ConfigureViewfinder()
 {
 	LOG(2, "Configuring viewfinder...");
 
@@ -375,7 +386,7 @@ void LibcameraApp::ConfigureViewfinder()
 		configuration_->sensorConfig->bitDepth = options_->viewfinder_mode.bit_depth;
 	}
 
-	configuration_->transform = options_->transform;
+	configuration_->orientation = libcamera::Orientation::Rotate0 * options_->transform;
 
 	post_processor_.AdjustConfig("viewfinder", &configuration_->at(0));
 
@@ -393,7 +404,7 @@ void LibcameraApp::ConfigureViewfinder()
 	LOG(2, "Viewfinder setup complete");
 }
 
-void LibcameraApp::ConfigureZsl(unsigned int still_flags)
+void RPiCamApp::ConfigureZsl(unsigned int still_flags)
 {
 	LOG(2, "Configuring ZSL...");
 
@@ -422,7 +433,7 @@ void LibcameraApp::ConfigureZsl(unsigned int still_flags)
 	if (options_->height)
 		configuration_->at(0).size.height = options_->height;
 	configuration_->at(0).colorSpace = libcamera::ColorSpace::Sycc;
-	configuration_->transform = options_->transform;
+	configuration_->orientation = libcamera::Orientation::Rotate0 * options_->transform;
 
 	post_processor_.AdjustConfig("still", &configuration_->at(0));
 
@@ -471,7 +482,7 @@ void LibcameraApp::ConfigureZsl(unsigned int still_flags)
 	configuration_->at(1).size = size;
 	configuration_->at(1).bufferCount = configuration_->at(0).bufferCount;
 
-	configuration_->transform = options_->transform;
+	configuration_->orientation = libcamera::Orientation::Rotate0 * options_->transform;
 
 	post_processor_.AdjustConfig("viewfinder", &configuration_->at(1));
 
@@ -488,7 +499,7 @@ void LibcameraApp::ConfigureZsl(unsigned int still_flags)
 	LOG(2, "ZSL setup complete");
 }
 
-void LibcameraApp::ConfigureStill(unsigned int flags)
+void RPiCamApp::ConfigureStill(unsigned int flags)
 {
 	LOG(2, "Configuring still capture...");
 
@@ -520,7 +531,7 @@ void LibcameraApp::ConfigureStill(unsigned int flags)
 	if (options_->height)
 		configuration_->at(0).size.height = options_->height;
 	configuration_->at(0).colorSpace = libcamera::ColorSpace::Sycc;
-	configuration_->transform = options_->transform;
+	configuration_->orientation = libcamera::Orientation::Rotate0 * options_->transform;
 
 	post_processor_.AdjustConfig("still", &configuration_->at(0));
 
@@ -549,7 +560,7 @@ void LibcameraApp::ConfigureStill(unsigned int flags)
 	LOG(2, "Still capture setup complete");
 }
 
-void LibcameraApp::ConfigureVideo(unsigned int flags)
+void RPiCamApp::ConfigureVideo(unsigned int flags)
 {
 	LOG(2, "Configuring video...");
 
@@ -580,7 +591,7 @@ void LibcameraApp::ConfigureVideo(unsigned int flags)
 		cfg.colorSpace = libcamera::ColorSpace::Rec709;
 	else
 		cfg.colorSpace = libcamera::ColorSpace::Smpte170m;
-	configuration_->transform = options_->transform;
+	configuration_->orientation = libcamera::Orientation::Rotate0 * options_->transform;
 
 	post_processor_.AdjustConfig("video", &configuration_->at(0));
 
@@ -608,7 +619,7 @@ void LibcameraApp::ConfigureVideo(unsigned int flags)
 		configuration_->at(lores_index).size = lores_size;
 		configuration_->at(lores_index).bufferCount = configuration_->at(0).bufferCount;
 	}
-	configuration_->transform = options_->transform;
+	configuration_->orientation = libcamera::Orientation::Rotate0 * options_->transform;
 
 	configureDenoise(options_->denoise == "auto" ? "cdn_fast" : options_->denoise);
 	setupCapture();
@@ -624,7 +635,7 @@ void LibcameraApp::ConfigureVideo(unsigned int flags)
 	LOG(2, "Video setup complete");
 }
 
-void LibcameraApp::Teardown()
+void RPiCamApp::Teardown()
 {
 	stopPreview();
 
@@ -649,7 +660,7 @@ void LibcameraApp::Teardown()
 	streams_.clear();
 }
 
-void LibcameraApp::StartCamera()
+void RPiCamApp::StartCamera()
 {
 	// This makes all the Request objects that we shall need.
 	makeRequests();
@@ -786,7 +797,7 @@ void LibcameraApp::StartCamera()
 
 	post_processor_.Start();
 
-	camera_->requestCompleted.connect(this, &LibcameraApp::requestComplete);
+	camera_->requestCompleted.connect(this, &RPiCamApp::requestComplete);
 
 	for (std::unique_ptr<Request> &request : requests_)
 	{
@@ -797,7 +808,7 @@ void LibcameraApp::StartCamera()
 	LOG(2, "Camera started!");
 }
 
-void LibcameraApp::StopCamera()
+void RPiCamApp::StopCamera()
 {
 	{
 		// We don't want QueueRequest to run asynchronously while we stop the camera.
@@ -814,7 +825,7 @@ void LibcameraApp::StopCamera()
 	}
 
 	if (camera_)
-		camera_->requestCompleted.disconnect(this, &LibcameraApp::requestComplete);
+		camera_->requestCompleted.disconnect(this, &RPiCamApp::requestComplete);
 
 	// An application might be holding a CompletedRequest, so queueRequest will get
 	// called to delete it later, but we need to know not to try and re-queue it.
@@ -830,12 +841,12 @@ void LibcameraApp::StopCamera()
 		LOG(2, "Camera stopped!");
 }
 
-LibcameraApp::Msg LibcameraApp::Wait()
+RPiCamApp::Msg RPiCamApp::Wait()
 {
 	return msg_queue_.Wait();
 }
 
-void LibcameraApp::queueRequest(CompletedRequest *completed_request)
+void RPiCamApp::queueRequest(CompletedRequest *completed_request)
 {
 	BufferMap buffers(std::move(completed_request->buffers));
 
@@ -891,12 +902,12 @@ void LibcameraApp::queueRequest(CompletedRequest *completed_request)
 		throw std::runtime_error("failed to queue request");
 }
 
-void LibcameraApp::PostMessage(MsgType &t, MsgPayload &p)
+void RPiCamApp::PostMessage(MsgType &t, MsgPayload &p)
 {
 	msg_queue_.Post(Msg(t, std::move(p)));
 }
 
-libcamera::Stream *LibcameraApp::GetStream(std::string const &name, StreamInfo *info) const
+libcamera::Stream *RPiCamApp::GetStream(std::string const &name, StreamInfo *info) const
 {
 	auto it = streams_.find(name);
 	if (it == streams_.end())
@@ -906,32 +917,32 @@ libcamera::Stream *LibcameraApp::GetStream(std::string const &name, StreamInfo *
 	return it->second;
 }
 
-libcamera::Stream *LibcameraApp::ViewfinderStream(StreamInfo *info) const
+libcamera::Stream *RPiCamApp::ViewfinderStream(StreamInfo *info) const
 {
 	return GetStream("viewfinder", info);
 }
 
-libcamera::Stream *LibcameraApp::StillStream(StreamInfo *info) const
+libcamera::Stream *RPiCamApp::StillStream(StreamInfo *info) const
 {
 	return GetStream("still", info);
 }
 
-libcamera::Stream *LibcameraApp::RawStream(StreamInfo *info) const
+libcamera::Stream *RPiCamApp::RawStream(StreamInfo *info) const
 {
 	return GetStream("raw", info);
 }
 
-libcamera::Stream *LibcameraApp::VideoStream(StreamInfo *info) const
+libcamera::Stream *RPiCamApp::VideoStream(StreamInfo *info) const
 {
 	return GetStream("video", info);
 }
 
-libcamera::Stream *LibcameraApp::LoresStream(StreamInfo *info) const
+libcamera::Stream *RPiCamApp::LoresStream(StreamInfo *info) const
 {
 	return GetStream("lores", info);
 }
 
-libcamera::Stream *LibcameraApp::GetMainStream() const
+libcamera::Stream *RPiCamApp::GetMainStream() const
 {
 	for (auto &p : streams_)
 	{
@@ -942,12 +953,12 @@ libcamera::Stream *LibcameraApp::GetMainStream() const
 	return nullptr;
 }
 
-const libcamera::CameraManager *LibcameraApp::GetCameraManager() const
+const libcamera::CameraManager *RPiCamApp::GetCameraManager() const
 {
 	return camera_manager_.get();
 }
 
-void LibcameraApp::ShowPreview(CompletedRequestPtr &completed_request, Stream *stream)
+void RPiCamApp::ShowPreview(CompletedRequestPtr &completed_request, Stream *stream)
 {
 	std::lock_guard<std::mutex> lock(preview_item_mutex_);
 	if (!preview_item_.stream)
@@ -957,7 +968,7 @@ void LibcameraApp::ShowPreview(CompletedRequestPtr &completed_request, Stream *s
 	preview_cond_var_.notify_one();
 }
 
-void LibcameraApp::SetControls(const ControlList &controls)
+void RPiCamApp::SetControls(const ControlList &controls)
 {
 	std::lock_guard<std::mutex> lock(control_mutex_);
 
@@ -968,7 +979,7 @@ void LibcameraApp::SetControls(const ControlList &controls)
 		controls_.set(c.first, c.second);
 }
 
-StreamInfo LibcameraApp::GetStreamInfo(Stream const *stream) const
+StreamInfo RPiCamApp::GetStreamInfo(Stream const *stream) const
 {
 	StreamConfiguration const &cfg = stream->configuration();
 	StreamInfo info;
@@ -980,7 +991,7 @@ StreamInfo LibcameraApp::GetStreamInfo(Stream const *stream) const
 	return info;
 }
 
-void LibcameraApp::setupCapture()
+void RPiCamApp::setupCapture()
 {
 	// First finish setting up the configuration.
 
@@ -1007,7 +1018,7 @@ void LibcameraApp::setupCapture()
 
 		for (unsigned int i = 0; i < config.bufferCount; i++)
 		{
-			std::string name("libcamera-apps" + std::to_string(i));
+			std::string name("rpicam-apps" + std::to_string(i));
 			libcamera::UniqueFD fd = dma_heap_.alloc(name.c_str(), config.frameSize);
 
 			if (!fd.isValid())
@@ -1033,7 +1044,7 @@ void LibcameraApp::setupCapture()
 	// The requests will be made when StartCamera() is called.
 }
 
-void LibcameraApp::makeRequests()
+void RPiCamApp::makeRequests()
 {
 	std::map<Stream *, std::queue<FrameBuffer *>> free_buffers;
 
@@ -1072,7 +1083,7 @@ void LibcameraApp::makeRequests()
 	}
 }
 
-void LibcameraApp::requestComplete(Request *request)
+void RPiCamApp::requestComplete(Request *request)
 {
 	if (request->status() == Request::RequestCancelled)
 	{
@@ -1118,7 +1129,7 @@ void LibcameraApp::requestComplete(Request *request)
 	post_processor_.Process(payload); // post-processor can re-use our shared_ptr
 }
 
-void LibcameraApp::previewDoneCallback(int fd)
+void RPiCamApp::previewDoneCallback(int fd)
 {
 	std::lock_guard<std::mutex> lock(preview_mutex_);
 	auto it = preview_completed_requests_.find(fd);
@@ -1127,13 +1138,13 @@ void LibcameraApp::previewDoneCallback(int fd)
 	preview_completed_requests_.erase(it); // drop shared_ptr reference
 }
 
-void LibcameraApp::startPreview()
+void RPiCamApp::startPreview()
 {
 	preview_abort_ = false;
-	preview_thread_ = std::thread(&LibcameraApp::previewThread, this);
+	preview_thread_ = std::thread(&RPiCamApp::previewThread, this);
 }
 
-void LibcameraApp::stopPreview()
+void RPiCamApp::stopPreview()
 {
 	if (!preview_thread_.joinable()) // in case never started
 		return;
@@ -1148,7 +1159,7 @@ void LibcameraApp::stopPreview()
 	preview_completed_requests_.clear();
 }
 
-void LibcameraApp::previewThread()
+void RPiCamApp::previewThread()
 {
 	while (true)
 	{
@@ -1201,7 +1212,7 @@ void LibcameraApp::previewThread()
 	}
 }
 
-void LibcameraApp::configureDenoise(const std::string &denoise_mode)
+void RPiCamApp::configureDenoise(const std::string &denoise_mode)
 {
 	using namespace libcamera::controls::draft;
 

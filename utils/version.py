@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 
 # Copyright (C) 2021, Raspberry Pi (Trading) Limited
-# Generate version information for libcamera-apps
+# Generate version information for rpicam-apps
 
 import subprocess
 import sys

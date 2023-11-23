@@ -7,7 +7,7 @@
 
 #include <iostream>
 
-#include "core/libcamera_app.hpp"
+#include "core/rpicam_app.hpp"
 #include "core/post_processor.hpp"
 
 #include "post_processing_stages/post_processing_stage.hpp"
@@ -15,7 +15,7 @@
 #include <boost/property_tree/json_parser.hpp>
 #include <boost/property_tree/ptree.hpp>
 
-PostProcessor::PostProcessor(LibcameraApp *app) : app_(app)
+PostProcessor::PostProcessor(RPiCamApp *app) : app_(app)
 {
 }
 
