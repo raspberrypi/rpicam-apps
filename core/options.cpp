@@ -47,11 +47,9 @@ static const std::map<libcamera::PixelFormat, unsigned int> bayer_formats =
 };
 
 
-Mode::Mode(std::string const &mode_string)
+Mode::Mode(std::string const &mode_string) : Mode()
 {
-	if (mode_string.empty())
-		bit_depth = 0;
-	else
+	if (!mode_string.empty())
 	{
 		char p;
 		int n = sscanf(mode_string.c_str(), "%u:%u:%u:%c", &width, &height, &bit_depth, &p);
@@ -78,8 +76,22 @@ std::string Mode::ToString() const
 	{
 		std::stringstream ss;
 		ss << width << ":" << height << ":" << bit_depth << ":" << (packed ? "P" : "U");
+		if (framerate)
+			ss << "(" << framerate << ")";
 		return ss.str();
 	}
+}
+
+void Mode::update(const libcamera::Size &size, const std::optional<float> &fps)
+{
+	if (!width)
+		width = size.width;
+	if (!height)
+		height = size.height;
+	if (!bit_depth)
+		bit_depth = 12;
+	if (fps)
+		framerate = fps.value();
 }
 
 static int xioctl(int fd, unsigned long ctl, void *arg)
@@ -90,6 +102,31 @@ static int xioctl(int fd, unsigned long ctl, void *arg)
 		ret = ioctl(fd, ctl, arg);
 	} while (ret == -1 && errno == EINTR && num_tries-- > 0);
 	return ret;
+}
+
+static bool set_subdev_hdr_ctrl(int en)
+{
+	bool changed = false;
+	// Currently this does not exist in libcamera, so go directly to V4L2
+	// XXX it's not obvious which v4l2-subdev to use for which camera!
+	for (int i = 0; i < 8; i++)
+	{
+		std::string dev("/dev/v4l-subdev");
+		dev += (char)('0' + i);
+		int fd = open(dev.c_str(), O_RDWR, 0);
+		if (fd < 0)
+			continue;
+
+		v4l2_control ctrl { V4L2_CID_WIDE_DYNAMIC_RANGE, en };
+		if (!xioctl(fd, VIDIOC_G_CTRL, &ctrl) && ctrl.value != en)
+		{
+			ctrl.value = en;
+			if (!xioctl(fd, VIDIOC_S_CTRL, &ctrl))
+				changed = true;
+		}
+		close(fd);
+	}
+	return changed;
 }
 
 bool Options::Parse(int argc, char *argv[])
@@ -134,38 +171,6 @@ bool Options::Parse(int argc, char *argv[])
 	shutter.set(shutter_);
 	flicker_period.set(flicker_period_);
 
-	// HDR control. Set this before opening or listing any cameras.
-	// Currently this does not exist in libcamera, so go directly to V4L2
-	// XXX it's not obvious which v4l2-subdev to use for which camera!
-	{
-		bool ok = false;
-		for (int i = 0; i < 4 && !ok; i++)
-		{
-			std::string dev("/dev/v4l-subdev");
-			dev += (char)('0' + i);
-			int fd = open(dev.c_str(), O_RDWR, 0);
-			if (fd < 0)
-				continue;
-
-			v4l2_control ctrl { V4L2_CID_WIDE_DYNAMIC_RANGE, hdr };
-			ok = !xioctl(fd, VIDIOC_S_CTRL, &ctrl);
-			close(fd);
-		}
-		if (hdr && !ok)
-			LOG_ERROR("WARNING: Unable to set HDR mode");
-	}
-
-	// We have to pass the tuning file name through an environment variable.
-	// Note that we only overwrite the variable if the option was given.
-	if (tuning_file != "-")
-		setenv("LIBCAMERA_RPI_TUNING_FILE", tuning_file.c_str(), 1);
-
-	// Set the verbosity
-	LibcameraApp::verbosity = verbose;
-
-	if (verbose == 0)
-		libcamera::logSetTarget(libcamera::LoggingTargetNone);
-
 	if (help)
 	{
 		std::cout << options_;
@@ -174,23 +179,52 @@ bool Options::Parse(int argc, char *argv[])
 
 	if (version)
 	{
-		std::cout << "libcamera-apps build: " << LibcameraAppsVersion() << std::endl;
+		std::cout << "rpicam-apps build: " << RPiCamAppsVersion() << std::endl;
 		std::cout << "libcamera build: " << libcamera::CameraManager::version() << std::endl;
 		return false;
 	}
 
+	// We have to pass the tuning file name through an environment variable.
+	// Note that we only overwrite the variable if the option was given.
+	if (tuning_file != "-")
+		setenv("LIBCAMERA_RPI_TUNING_FILE", tuning_file.c_str(), 1);
+
+	if (hdr != "off" && hdr != "single-exp" && hdr != "sensor" && hdr != "auto")
+		throw std::runtime_error("Invalid HDR option provided: " + hdr);
+
+	if (!verbose || list_cameras)
+		libcamera::logSetTarget(libcamera::LoggingTargetNone);
+
+	// HDR control. Set the sensor control before opening or listing any cameras.
+	// Start by disabling HDR unconditionally. Reset the camera manager if we have
+	// actually switched the value of the control.
+	set_subdev_hdr_ctrl(0);
+	app_->initCameraManager();
+
+	// Unconditionally set the logging level to error for a bit.
+	libcamera::logSetLevel("*", "ERROR");
+
+	std::vector<std::shared_ptr<libcamera::Camera>> cameras = app_->GetCameras();
+	if (camera < cameras.size())
+	{
+		const std::string cam_id = *cameras[camera]->properties().get(libcamera::properties::Model);
+		if ((hdr == "sensor" || hdr == "auto") && cam_id == "imx708")
+		{
+			// Turn on sensor HDR.  Reset the camera manager if we have switched the value of the control.
+			if (set_subdev_hdr_ctrl(1))
+			{
+				cameras.clear();
+				app_->initCameraManager();
+				cameras = app_->GetCameras();
+			}
+			hdr = "sensor";
+		}
+	}
+
 	if (list_cameras)
 	{
-		// Disable any libcamera logging for this bit.
-		logSetTarget(LoggingTargetNone);
-		LibcameraApp::verbosity = 1;
+		RPiCamApp::verbosity = 1;
 
-		std::unique_ptr<CameraManager> cm = std::make_unique<CameraManager>();
-		int ret = cm->start();
-		if (ret)
-			throw std::runtime_error("camera manager failed to start, code " + std::to_string(-ret));
-
-		std::vector<std::shared_ptr<libcamera::Camera>> cameras = LibcameraApp::GetCameras(cm.get());
 		if (cameras.size() != 0)
 		{
 			unsigned int idx = 0;
@@ -247,10 +281,14 @@ bool Options::Parse(int argc, char *argv[])
 					unsigned int num = formats.sizes(pix).size();
 					for (const auto &size : formats.sizes(pix))
 					{
+						RPiCamApp::SensorMode sensor_mode(size, pix, 0);
 						std::cout << size.toString() << " ";
 
 						config->at(0).size = size;
 						config->at(0).pixelFormat = pix;
+						config->sensorConfig = libcamera::SensorConfiguration();
+						config->sensorConfig->outputSize = size;
+						config->sensorConfig->bitDepth = sensor_mode.depth();
 						config->validate();
 						cam->configure(config.get());
 
@@ -300,10 +338,15 @@ bool Options::Parse(int argc, char *argv[])
 			std::cout << "No cameras available!" << std::endl;
 
 		verbose = 1;
-		cameras.clear();
-		cm->stop();
 		return false;
 	}
+
+	// Reset log level to Info.
+	if (verbose)
+		libcamera::logSetLevel("*", "INFO");
+
+	// Set the verbosity
+	RPiCamApp::verbosity = verbose;
 
 	if (sscanf(preview.c_str(), "%u,%u,%u,%u", &preview_x, &preview_y, &preview_width, &preview_height) != 4)
 		preview_x = preview_y = preview_width = preview_height = 0; // use default window
@@ -419,7 +462,6 @@ void Options::Print() const
 	std::cerr << "    height: " << height << std::endl;
 	std::cerr << "    output: " << output << std::endl;
 	std::cerr << "    post_process_file: " << post_process_file << std::endl;
-	std::cerr << "    rawfull: " << rawfull << std::endl;
 	if (nopreview)
 		std::cerr << "    preview: none" << std::endl;
 	else if (fullscreen)
@@ -473,8 +515,7 @@ void Options::Print() const
 				  << afWindow_height << std::endl;
 	if (!lens_position_.empty())
 		std::cerr << "    lens-position: " << lens_position_ << std::endl;
-	if (hdr)
-		std::cerr << "    hdr: enabled" << hdr << std::endl;
+	std::cerr << "    hdr: " << hdr << std::endl;
 	std::cerr << "    mode: " << mode.ToString() << std::endl;
 	std::cerr << "    viewfinder-mode: " << viewfinder_mode.ToString() << std::endl;
 	if (buffer_count > 0)

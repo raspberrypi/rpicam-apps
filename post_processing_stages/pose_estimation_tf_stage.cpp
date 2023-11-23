@@ -16,7 +16,7 @@ class PoseEstimationTfStage : public TfStage
 {
 public:
 	// The model we use expects 257x257 images. Really.
-	PoseEstimationTfStage(LibcameraApp *app) : TfStage(app, 257, 257) { config_ = std::make_unique<TfConfig>(); }
+	PoseEstimationTfStage(RPiCamApp *app) : TfStage(app, 257, 257) { config_ = std::make_unique<TfConfig>(); }
 	char const *Name() const override { return NAME; }
 
 protected:
@@ -103,7 +103,7 @@ void PoseEstimationTfStage::interpretOutputs()
 	}
 }
 
-static PostProcessingStage *Create(LibcameraApp *app)
+static PostProcessingStage *Create(RPiCamApp *app)
 {
 	return new PoseEstimationTfStage(app);
 }

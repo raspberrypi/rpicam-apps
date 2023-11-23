@@ -7,7 +7,7 @@
 
 #include "post_processing_stage.hpp"
 
-PostProcessingStage::PostProcessingStage(LibcameraApp *app) : app_(app)
+PostProcessingStage::PostProcessingStage(RPiCamApp *app) : app_(app)
 {
 }
 

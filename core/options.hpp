@@ -27,15 +27,17 @@ static constexpr double DEFAULT_FRAMERATE = 30.0;
 
 struct Mode
 {
-	Mode() : Mode(0, 0, 0, false) {}
-	Mode(unsigned int w, unsigned int h, unsigned int b, bool p) : width(w), height(h), bit_depth(b), packed(p) {}
+	Mode() : Mode(0, 0, 0, true) {}
+	Mode(unsigned int w, unsigned int h, unsigned int b, bool p) : width(w), height(h), bit_depth(b), packed(p), framerate(0) {}
 	Mode(std::string const &mode_string);
 	unsigned int width;
 	unsigned int height;
 	unsigned int bit_depth;
 	bool packed;
+	double framerate;
 	libcamera::Size Size() const { return libcamera::Size(width, height); }
 	std::string ToString() const;
+	void update(const libcamera::Size &size, const std::optional<float> &fps);
 };
 
 template <typename DEFAULT>
@@ -92,7 +94,8 @@ struct TimeVal
 
 struct Options
 {
-	Options() : set_default_lens_position(false), af_on_capture(false), options_("Valid options are", 120, 80)
+	Options()
+		: set_default_lens_position(false), af_on_capture(false), options_("Valid options are", 120, 80), app_(nullptr)
 	{
 		using namespace boost::program_options;
 		// clang-format off
@@ -127,8 +130,6 @@ struct Options
 			 "Set the output file name")
 			("post-process-file", value<std::string>(&post_process_file),
 			 "Set the file name for configuring the post-processing")
-			("rawfull", value<bool>(&rawfull)->default_value(false)->implicit_value(true),
-			 "Force use of full resolution raw frames")
 			("nopreview,n", value<bool>(&nopreview)->default_value(false)->implicit_value(true),
 			 "Do not show a preview window")
 			("preview,p", value<std::string>(&preview)->default_value("0,0,0,0"),
@@ -189,6 +190,8 @@ struct Options
 			 "Camera mode for preview as W:H:bit-depth:packing, where packing is P (packed) or U (unpacked)")
 			("buffer-count", value<unsigned int>(&buffer_count)->default_value(0), "Number of in-flight requests (and buffers) configured for video, raw, and still.")
 			("viewfinder-buffer-count", value<unsigned int>(&viewfinder_buffer_count)->default_value(0), "Number of in-flight requests (and buffers) configured for preview window.")
+			("no-raw", value<bool>(&no_raw)->default_value(false)->implicit_value(true),
+			 "Disable requesting of a RAW stream. Will override any manual mode reqest the mode choice when setting framerate.")
 			("autofocus-mode", value<std::string>(&afMode)->default_value("default"),
 			 "Control to set the mode of the AF (autofocus) algorithm.(manual, auto, continuous)")
 			("autofocus-range", value<std::string>(&afRange)->default_value("normal"),
@@ -199,8 +202,10 @@ struct Options
 			"Sets AfMetering to  AfMeteringWindows an set region used, e.g. 0.25,0.25,0.5,0.5")
 			("lens-position", value<std::string>(&lens_position_)->default_value(""),
 			 "Set the lens to a particular focus position, expressed as a reciprocal distance (0 moves the lens to infinity), or \"default\" for the hyperfocal distance")
-			("hdr", value<bool>(&hdr)->default_value(false)->implicit_value(true),
-			 "Enable (1) or disable (0) High Dynamic Range, where supported")
+			("hdr", value<std::string>(&hdr)->default_value("off")->implicit_value("auto"),
+			 "Enable High Dynamic Range, where supported. Available values are \"off\", \"auto\", "
+			 "\"sensor\" for sensor HDR (e.g. for Camera Module 3), "
+			 "\"single-exp\" for PiSP based single exposure multiframe HDR")
 			("metadata", value<std::string>(&metadata),
 			 "Save captured image metadata to a file or \"-\" for stdout")
 			("metadata-format", value<std::string>(&metadata_format)->default_value("json"),
@@ -225,7 +230,6 @@ struct Options
 	std::string post_process_file;
 	unsigned int width;
 	unsigned int height;
-	bool rawfull;
 	bool nopreview;
 	std::string preview;
 	bool fullscreen;
@@ -280,11 +284,14 @@ struct Options
 	bool af_on_capture;
 	std::string metadata;
 	std::string metadata_format;
-	bool hdr;
+	std::string hdr;
 	TimeVal<std::chrono::microseconds> flicker_period;
+	bool no_raw;
 
 	virtual bool Parse(int argc, char *argv[]);
 	virtual void Print() const;
+
+	void SetApp(RPiCamApp *app) { app_ = app; }
 
 protected:
 	boost::program_options::options_description options_;
@@ -298,4 +305,5 @@ private:
 	std::string timeout_;
 	std::string shutter_;
 	std::string flicker_period_;
+	RPiCamApp *app_;
 };

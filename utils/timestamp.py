@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 #
-# libcamera-apps timestamp analysis tool
+# rpicam-apps timestamp analysis tool
 # Copyright (C) 2021, Raspberry Pi Ltd.
 #
 import argparse
@@ -63,8 +63,8 @@ def plot_pts(diffs, avg, title):
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='libcamera-apps timestamp analysis tool')
-    parser.add_argument('filename', help='PTS file generated from libcamera-vid (with a .txt or .pts extension)'
+    parser = argparse.ArgumentParser(description='rpicam-apps timestamp analysis tool')
+    parser.add_argument('filename', help='PTS file generated from rpicam-vid (with a .txt or .pts extension)'
                                          ' or an avi/mkv/mp4 container file', type=str)
     parser.add_argument('--plot', help='Plot timestamp graph', action='store_true')
     args = parser.parse_args()

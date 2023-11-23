@@ -2,21 +2,21 @@
 /*
  * Copyright (C) 2020, Raspberry Pi (Trading) Ltd.
  *
- * libcamera_raw.cpp - libcamera raw video record app.
+ * rpicam_raw.cpp - libcamera raw video record app.
  */
 
 #include <chrono>
 
-#include "core/libcamera_encoder.hpp"
+#include "core/rpicam_encoder.hpp"
 #include "encoder/null_encoder.hpp"
 #include "output/output.hpp"
 
 using namespace std::placeholders;
 
-class LibcameraRaw : public LibcameraEncoder
+class LibcameraRaw : public RPiCamEncoder
 {
 public:
-	LibcameraRaw() : LibcameraEncoder() {}
+	LibcameraRaw() : RPiCamEncoder() {}
 
 protected:
 	// Force the use of "null" encoder.
@@ -42,7 +42,7 @@ static void event_loop(LibcameraRaw &app)
 	{
 		LibcameraRaw::Msg msg = app.Wait();
 
-		if (msg.type == LibcameraApp::MsgType::Timeout)
+		if (msg.type == RPiCamApp::MsgType::Timeout)
 		{
 			LOG_ERROR("ERROR: Device timeout detected, attempting a restart!!!");
 			app.StopCamera();

@@ -186,7 +186,7 @@ EglPreview::EglPreview(Options const *options) : Preview(options), last_fd_(-1),
 	y_ = options_->preview_y;
 	width_ = options_->preview_width;
 	height_ = options_->preview_height;
-	makeWindow("libcamera-app");
+	makeWindow("rpicam-app");
 
 	// gl_setup() has to happen later, once we're sure we're in the display thread.
 }

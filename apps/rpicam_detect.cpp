@@ -2,14 +2,14 @@
 /*
  * Copyright (C) 2021, Raspberry Pi (Trading) Ltd.
  *
- * libcamera_detect.cpp - take pictures when objects are detected
+ * rpicam_detect.cpp - take pictures when objects are detected
  */
 
-// Example: libcamera-detect --post-process-file object_detect_tf.json --lores-width 400 --lores-height 300 -t 0 --object cat -o cat%03d.jpg
+// Example: rpicam-detect --post-process-file object_detect_tf.json --lores-width 400 --lores-height 300 -t 0 --object cat -o cat%03d.jpg
 
 #include <chrono>
 
-#include "core/libcamera_app.hpp"
+#include "core/rpicam_app.hpp"
 #include "core/still_options.hpp"
 
 #include "image/image.hpp"
@@ -41,16 +41,16 @@ struct DetectOptions : public StillOptions
 	}
 };
 
-class LibcameraDetectApp : public LibcameraApp
+class RPiCamDetectApp : public RPiCamApp
 {
 public:
-	LibcameraDetectApp() : LibcameraApp(std::make_unique<DetectOptions>()) {}
+	RPiCamDetectApp() : RPiCamApp(std::make_unique<DetectOptions>()) {}
 	DetectOptions *GetOptions() const { return static_cast<DetectOptions *>(options_.get()); }
 };
 
 // The main even loop for the application.
 
-static void event_loop(LibcameraDetectApp &app)
+static void event_loop(RPiCamDetectApp &app)
 {
 	DetectOptions *options = app.GetOptions();
 	app.OpenCamera();
@@ -61,15 +61,15 @@ static void event_loop(LibcameraDetectApp &app)
 
 	for (unsigned int count = 0;; count++)
 	{
-		LibcameraApp::Msg msg = app.Wait();
-		if (msg.type == LibcameraApp::MsgType::Timeout)
+		RPiCamApp::Msg msg = app.Wait();
+		if (msg.type == RPiCamApp::MsgType::Timeout)
 		{
 			LOG_ERROR("ERROR: Device timeout detected, attempting a restart!!!");
 			app.StopCamera();
 			app.StartCamera();
 			continue;
 		}
-		if (msg.type == LibcameraApp::MsgType::Quit)
+		if (msg.type == RPiCamApp::MsgType::Quit)
 			return;
 
 		// In viewfinder mode, simply run until the timeout, but do a capture if the object
@@ -107,7 +107,8 @@ static void event_loop(LibcameraDetectApp &app)
 
 			StreamInfo info;
 			libcamera::Stream *stream = app.StillStream(&info);
-			const std::vector<libcamera::Span<uint8_t>> mem = app.Mmap(completed_request->buffers[stream]);
+			BufferReadSync r(app, completed_request->buffers[stream]);
+			const std::vector<libcamera::Span<uint8_t>> mem = r.Get();
 
 			// Generate a filename for the output and save it.
 			char filename[128];
@@ -141,7 +142,7 @@ int main(int argc, char *argv[])
 {
 	try
 	{
-		LibcameraDetectApp app;
+		RPiCamDetectApp app;
 		DetectOptions *options = app.GetOptions();
 		if (options->Parse(argc, argv))
 		{

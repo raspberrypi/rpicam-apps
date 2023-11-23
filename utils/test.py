@@ -4,7 +4,7 @@
 #
 # Copyright (C) 2020, Raspberry Pi (Trading) Limited
 #
-# test.py - some automated testing for libcamera-apps
+# test.py - some automated testing for rpicam-apps
 
 # These tests are very far from exhaustive, for which I apologise
 # profusely, but still it's better than nothing. The rule going
@@ -12,13 +12,37 @@
 # get a test in here.
 
 import argparse
+from enum import Enum
+import fcntl
 import json
 import os
 import os.path
 import subprocess
 import sys
 from timeit import default_timer as timer
+import v4l2
 import numpy as np
+
+
+def get_platform():
+    platform = 'vc4'
+    try:
+        for num in range(5):
+            device = '/dev/video' + str(num)
+            if os.path.exists(device):
+                with open(device, 'rb+', buffering=0) as fd:
+                    caps = v4l2.v4l2_capability()
+                    fcntl.ioctl(fd, v4l2.VIDIOC_QUERYCAP, caps)
+                    decoded = caps.card.decode('utf-8')
+                    if decoded == 'rp1-cfe':
+                        platform = 'pisp'
+                        break
+                    elif decoded == 'unicam':
+                        break
+    except Exception:
+        pass
+
+    return platform
 
 
 class TestFailure(Exception):
@@ -74,7 +98,7 @@ def check_jpeg(file, preamble):
 
 
 def test_hello(exe_dir, output_dir):
-    executable = os.path.join(exe_dir, 'libcamera-hello')
+    executable = os.path.join(exe_dir, 'rpicam-hello')
     logfile = os.path.join(output_dir, 'log.txt')
     print("Testing", executable)
     check_exists(executable, 'test_hello')
@@ -108,7 +132,13 @@ def test_hello(exe_dir, output_dir):
     check_retcode(retcode, "test_hello: flips test")
     check_time(time_taken, 1.8, 6, "test_hello: flips test")
 
-    print("libcamera-hello tests passed")
+    # "no-raw". Run without a raw stream
+    print("    no-raw test")
+    retcode, time_taken = run_executable([executable, '-t', '2000', '--no-raw'], logfile)
+    check_retcode(retcode, "test_hello: no-raw test")
+    check_time(time_taken, 1.8, 6, "test_hello: no-raw test")
+
+    print("rpicam-hello tests passed")
 
 
 def check_size(file, limit, preamble):
@@ -169,7 +199,7 @@ def check_metadata_txt(file, preamble):
 
 
 def test_still(exe_dir, output_dir):
-    executable = os.path.join(exe_dir, 'libcamera-still')
+    executable = os.path.join(exe_dir, 'rpicam-still')
     output_jpg = os.path.join(output_dir, 'test.jpg')
     output_png = os.path.join(output_dir, 'test.png')
     output_bmp = os.path.join(output_dir, 'test.bmp')
@@ -187,6 +217,28 @@ def test_still(exe_dir, output_dir):
     check_retcode(retcode, "test_still: jpg test")
     check_time(time_taken, 1.2, 8, "test_still: jpg test")
     check_size(output_jpg, 1024, "test_still: jpg test")
+
+    # "no-raw test". As above but without a raw stream.
+    print("    no-raw test")
+    retcode, time_taken = run_executable([executable, '-t', '1000', '-o', output_jpg, '--no-raw'], logfile)
+    check_retcode(retcode, "test_still: no-raw test")
+    check_time(time_taken, 1.2, 8, "test_still: no-raw test")
+    check_size(output_jpg, 1024, "test_still: no-raw test")
+
+    # "zsl test". As above, but with zsl enabled
+    print("    zsl test")
+    retcode, time_taken = run_executable([executable, '-t', '1000', '-o', output_jpg, '--zsl'], logfile)
+    check_retcode(retcode, "test_still: zsl test")
+    check_time(time_taken, 1.2, 8, "test_still: zsl test")
+    check_size(output_jpg, 1024, "test_still: zsl test")
+
+    # "immediate test". Immediate capture test
+    print("    immediate test")
+    retcode, time_taken = run_executable([executable, '-o', output_jpg, '--immediate', '--shutter', '20000',
+                                          '--gain', '1.0', '--awbgains', '1.5,1.2'], logfile)
+    check_retcode(retcode, "test_still: immediate test")
+    check_time(time_taken, 0.2, 5, "test_still: immediate test")
+    check_size(output_jpg, 1024, "test_still: immediate test")
 
     # "png test". As above, but write a png.
     print("    png test")
@@ -244,7 +296,7 @@ def test_still(exe_dir, output_dir):
     check_size(output_jpg, 1024, "test_still: metadata txt test")
     check_metadata_txt(output_metadata_txt, "test_still: metadata txt test")
 
-    print("libcamera-still tests passed")
+    print("rpicam-still tests passed")
 
 
 def check_jpeg_shutter(file, shutter_string, iso_string, preamble):
@@ -268,7 +320,7 @@ def check_jpeg_shutter(file, shutter_string, iso_string, preamble):
 
 
 def test_jpeg(exe_dir, output_dir):
-    executable = os.path.join(exe_dir, 'libcamera-jpeg')
+    executable = os.path.join(exe_dir, 'rpicam-jpeg')
     output_jpg = os.path.join(output_dir, 'test.jpg')
     output_shutter = os.path.join(output_dir, 'shutter.jpg')
     logfile = os.path.join(output_dir, 'log.txt')
@@ -309,7 +361,7 @@ def test_jpeg(exe_dir, output_dir):
     check_size(output_shutter, 1024, "test_jpeg: shutter test")
     check_jpeg_shutter(output_shutter, '1/50', '200', "test_jpeg: shutter test")
 
-    print("libcamera-jpeg tests passed")
+    print("rpicam-jpeg tests passed")
 
 
 def check_timestamps(file, preamble):
@@ -332,8 +384,11 @@ def check_timestamps(file, preamble):
 
 
 def test_vid(exe_dir, output_dir):
-    executable = os.path.join(exe_dir, 'libcamera-vid')
+    platform = get_platform()
+    executable = os.path.join(exe_dir, 'rpicam-vid')
     output_h264 = os.path.join(output_dir, 'test.h264')
+    output_mkv = os.path.join(output_dir, 'test.mkv')
+    output_mp4 = os.path.join(output_dir, 'test.mp4')
     output_mjpeg = os.path.join(output_dir, 'test.mjpeg')
     output_circular = os.path.join(output_dir, 'circular.h264')
     output_pause = os.path.join(output_dir, 'pause.h264')
@@ -353,6 +408,39 @@ def test_vid(exe_dir, output_dir):
     check_time(time_taken, 2, 6, "test_vid: h264 test")
     check_size(output_h264, 1024, "test_vid: h264 test")
 
+    # "no-raw". As above, but with no raw stream
+    print("    h264 no-raw ltest")
+    retcode, time_taken = run_executable([executable, '-t', '2000', '-o', output_h264, '--no-raw'],
+                                         logfile)
+    check_retcode(retcode, "test_vid: no-raw test")
+    check_time(time_taken, 2, 6, "test_vid: no-raw test")
+    check_size(output_h264, 1024, "test_vid: no-raw test")
+
+    # "libav x264 mkv test". See if the executable appears to run and write an mkv output file.
+    print("    libav libx264 mkv test")
+    retcode, time_taken = run_executable([executable, '-t', '2000', '-o', output_mkv, '--codec', 'libav',
+                                          '--libav-video-codec', 'libx264'], logfile)
+    check_retcode(retcode, "test_vid: libav libx264 mkv test")
+    check_time(time_taken, 2, 6, "test_vid: libav libx264 mkv test")
+    check_size(output_mkv, 1024, "test_vid: libav libx264 mkv test")
+
+    # "libav x264 mp4 test". As above, but with mp4
+    print("    libav libx264 mp4 test")
+    retcode, time_taken = run_executable([executable, '-t', '2000', '-o', output_mp4, '--codec', 'libav',
+                                          '--libav-video-codec', 'libx264'], logfile)
+    check_retcode(retcode, "test_vid: libav libx264 mp4 test")
+    check_time(time_taken, 2, 6, "test_vid: libav libx264 mp4 test")
+    check_size(output_mp4, 1024, "test_vid: libav libx264 mp4 test")
+
+    # "libav x264 options test". See if the executable appears to run and write an h264 output file with codec options.
+    print("    libav libx264 options test")
+    retcode, time_taken = run_executable([executable, '-t', '2000', '-o', output_h264, '--codec', 'libav',
+                                          '--libav-video-codec', 'libx264',
+                                          '--libav-video-codec-opts', 'preset=ultrafast;profile=high;partitions=i8x8,i4x4'], logfile)
+    check_retcode(retcode, "test_vid: libav libx264 options test")
+    check_time(time_taken, 2, 6, "test_vid: libav libx264 options test")
+    check_size(output_h264, 1024, "test_vid: libav libx264 options test")
+
     # "mjpeg test". As above, but write an mjpeg file.
     print("    mjpeg test")
     retcode, time_taken = run_executable([executable, '-t', '2000', '--codec', 'mjpeg',
@@ -361,6 +449,10 @@ def test_vid(exe_dir, output_dir):
     check_retcode(retcode, "test_vid: mjpeg test")
     check_time(time_taken, 2, 6, "test_vid: mjpeg test")
     check_size(output_mjpeg, 1024, "test_vid: mjpeg test")
+
+    if platform == 'pisp':
+        print("skipping unsupported Pi 5 rpicam-vid tests")
+        return
 
     # "segment test". As above, write the output in single frame segements.
     print("    segment test")
@@ -418,11 +510,11 @@ def test_vid(exe_dir, output_dir):
     check_size(output_h264, 1024, "test_vid: metadata txt test")
     check_metadata_txt(output_metadata_txt, "test_vid: metadata txt test")
 
-    print("libcamera-vid tests passed")
+    print("rpicam-vid tests passed")
 
 
 def test_raw(exe_dir, output_dir):
-    executable = os.path.join(exe_dir, 'libcamera-raw')
+    executable = os.path.join(exe_dir, 'rpicam-raw')
     output_raw = os.path.join(output_dir, 'test.raw')
     logfile = os.path.join(output_dir, 'log.txt')
     print("Testing", executable)
@@ -437,7 +529,7 @@ def test_raw(exe_dir, output_dir):
     check_time(time_taken, 2, 8, "test_vid: raw test")
     check_size(output_raw, 1024, "test_vid: raw test")
 
-    print("libcamera-raw tests passed")
+    print("rpicam-raw tests passed")
 
 
 def test_post_processing(exe_dir, output_dir, json_dir):
@@ -447,7 +539,7 @@ def test_post_processing(exe_dir, output_dir, json_dir):
 
     # "negate test". See if negate stage appears to run.
     print("    negate test")
-    executable = os.path.join(exe_dir, 'libcamera-hello')
+    executable = os.path.join(exe_dir, 'rpicam-hello')
     check_exists(executable, 'post-processing')
     json_file = os.path.join(json_dir, 'negate.json')
     check_exists(json_file, 'post-processing')
@@ -459,7 +551,7 @@ def test_post_processing(exe_dir, output_dir, json_dir):
 
     # "hdr test". Take an HDR capture.
     print("    hdr test")
-    executable = os.path.join(exe_dir, 'libcamera-still')
+    executable = os.path.join(exe_dir, 'rpicam-still')
     check_exists(executable, 'post-processing')
     output_hdr = os.path.join(output_dir, 'hdr.jpg')
     json_file = os.path.join(json_dir, 'hdr.json')
@@ -469,12 +561,12 @@ def test_post_processing(exe_dir, output_dir, json_dir):
                                           '--post-process-file', json_file],
                                          logfile)
     check_retcode(retcode, "test_post_processing: hdr test")
-    check_time(time_taken, 6, 12, "test_post_processing: hdr test")
+    check_time(time_taken, 2, 12, "test_post_processing: hdr test")
     check_size(output_hdr, 1024, "test_post_processing: hdr test")
 
     # "sobel test". Try to run a stage that uses OpenCV.
     print("    sobel test")
-    executable = os.path.join(exe_dir, 'libcamera-hello')
+    executable = os.path.join(exe_dir, 'rpicam-hello')
     check_exists(executable, 'post-processing')
     json_file = os.path.join(json_dir, 'sobel_cv.json')
     check_exists(json_file, 'post-processing')
@@ -489,7 +581,7 @@ def test_post_processing(exe_dir, output_dir, json_dir):
 
     # "detect test". Try to run a stage that uses TFLite.
     print("    detect test")
-    executable = os.path.join(exe_dir, 'libcamera-hello')
+    executable = os.path.join(exe_dir, 'rpicam-hello')
     check_exists(executable, 'post-processing')
     json_file = os.path.join(json_dir, 'object_detect_tf.json')
     check_exists(json_file, 'post-processing')
@@ -545,7 +637,7 @@ def test_all(apps, exe_dir, output_dir, json_dir):
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description = 'libcamera-apps automated tests')
+    parser = argparse.ArgumentParser(description = 'rpicam-apps automated tests')
     parser.add_argument('--apps', '-a', action='store', default='hello,still,vid,jpeg,raw,post-processing',
                         help='List of apps to test')
     parser.add_argument('--exe-dir', '-d', action='store', default='build',

@@ -22,7 +22,7 @@
 
 #include <libcamera/stream.h>
 
-#include "core/libcamera_app.hpp"
+#include "core/rpicam_app.hpp"
 
 #include "post_processing_stages/post_processing_stage.hpp"
 
@@ -31,7 +31,7 @@ using Stream = libcamera::Stream;
 class MotionDetectStage : public PostProcessingStage
 {
 public:
-	MotionDetectStage(LibcameraApp *app) : PostProcessingStage(app) {}
+	MotionDetectStage(RPiCamApp *app) : PostProcessingStage(app) {}
 
 	char const *Name() const override;
 
@@ -133,7 +133,8 @@ bool MotionDetectStage::Process(CompletedRequestPtr &completed_request)
 	if (config_.frame_period && completed_request->sequence % config_.frame_period)
 		return false;
 
-	libcamera::Span<uint8_t> buffer = app_->Mmap(completed_request->buffers[stream_])[0];
+	BufferReadSync r(app_, completed_request->buffers[stream_]);
+	libcamera::Span<uint8_t> buffer = r.Get()[0];
 	uint8_t *image = buffer.data();
 
 	// We need to protect access to first_time_, previous_frame_ and motion_detected_.
@@ -183,7 +184,7 @@ bool MotionDetectStage::Process(CompletedRequestPtr &completed_request)
 	return false;
 }
 
-static PostProcessingStage *Create(LibcameraApp *app)
+static PostProcessingStage *Create(RPiCamApp *app)
 {
 	return new MotionDetectStage(app);
 }

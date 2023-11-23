@@ -1,4 +1,4 @@
-name: libcamera-app smoke tests
+name: rpicam-app smoke tests
 
 on:
   pull_request:
@@ -7,7 +7,7 @@ on:
 env:
   GCC_COMPILER: "CC=/usr/bin/gcc CXX=/usr/bin/g++"
   CLANG_COMPILER: "CC=/usr/bin/clang-13 CXX=/usr/bin/clang++-13"
-  LIBCAMERA_LKG_DIR: "${{github.workspace}}/../libcamera_lkg"
+  LIBCAMERA_LKG_DIR: "/home/pi/libcamera_lkg"
 
 jobs:
   build-test:
@@ -80,7 +80,7 @@ jobs:
 
     strategy:
       matrix:
-        camera: [ imx219, imx477, imx708 ]
+        camera: [ imx219, imx477, imx708, pi5-imx708-imx477 ]
 
     steps:
     - uses: actions/checkout@v3
@@ -101,14 +101,14 @@ jobs:
       run: tar -xvf build-artifacts-gcc-release.tar --one-top-level=build
 
     - name: Print version string
-      run: ${{github.workspace}}/build/apps/libcamera-hello --version
+      run: ${{github.workspace}}/build/apps/rpicam-hello --version
 
     - name: Print linkage info
-      run: ldd ${{github.workspace}}/build/apps/libcamera-hello | grep libcamera
+      run: ldd ${{github.workspace}}/build/apps/rpicam-hello | grep libcamera
 
     - name: Test
-      run: ${{github.workspace}}/utils/camera-bug-report -o ${{github.workspace}}/test_output/bug.txt -t 300 -c "${{github.workspace}}/utils/test.py --exe-dir ${{github.workspace}}/build/apps/ --output-dir ${{github.workspace}}/test_output --json-dir ${{github.workspace}}/assets"
-      timeout-minutes: 8 # Must be larger than the camera-bug-report timeout.
+      run: ${{github.workspace}}/utils/test.py --exe-dir ${{github.workspace}}/build/apps/ --output-dir ${{github.workspace}}/test_output --json-dir ${{github.workspace}}/assets
+      timeout-minutes: 8
 
     - name: Upload test output
       if: ${{ failure() }}

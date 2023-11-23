@@ -18,7 +18,7 @@
 #include "tensorflow/lite/interpreter.h"
 #include "tensorflow/lite/kernels/register.h"
 
-#include "core/libcamera_app.hpp"
+#include "core/rpicam_app.hpp"
 #include "core/stream_info.hpp"
 
 #include "post_processing_stages/post_processing_stage.hpp"
@@ -45,7 +45,7 @@ public:
 	// exception of Name(), which derived classes must still provide.
 
 	// The constructor supplies the width and height that TFLite wants.
-	TfStage(LibcameraApp *app, int tf_w, int tf_h);
+	TfStage(RPiCamApp *app, int tf_w, int tf_h);
 
 	//char const *Name() const override;
 
