@@ -1,3 +1,13 @@
+rpicam-apps (1.4.1-1) bookworm; urgency=medium
+
+  * New upstream version 1.4.1
+  * Rename package to rpicam-apps
+  * d/c: add python3 dependency for camera-bug-report
+  * d/watch: Use the Raspberry Pi Github releases
+  * Remove ldconfig triggers
+
+ -- Serge Schneider <serge@raspberrypi.com>  Thu, 23 Nov 2023 15:35:54 +0000
+
 libcamera-apps (1.2.2-1) bookworm; urgency=medium
 
   * New upstream version 1.2.2
