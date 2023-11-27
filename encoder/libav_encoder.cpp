@@ -28,13 +28,12 @@ void encoderOptionsGeneral(VideoOptions const *options, AVCodecContext *codec)
 
 	if (!options->profile.empty())
 	{
-		const AVCodec *encoder_codec = avcodec_find_encoder_by_name(options->libav_video_codec.c_str());
-		for (const AVProfile *encoder_profile = encoder_codec->profiles;
-			 encoder_profile && encoder_profile->profile != FF_PROFILE_UNKNOWN; encoder_profile++)
+		const AVCodecDescriptor *desc = avcodec_descriptor_get(codec->codec_id);
+		for (const AVProfile *profile = desc->profiles; profile && profile->profile != FF_PROFILE_UNKNOWN; profile++)
 		{
-			if (!strncasecmp(options->profile.c_str(), encoder_profile->name, options->profile.size()))
+			if (!strncasecmp(options->profile.c_str(), profile->name, options->profile.size()))
 			{
-				codec->profile = encoder_profile->profile;
+				codec->profile = profile->profile;
 				break;
 			}
 		}
