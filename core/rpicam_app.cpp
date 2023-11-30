@@ -216,9 +216,13 @@ void RPiCamApp::OpenCamera()
 	std::unique_ptr<CameraConfiguration> config = camera_->generateConfiguration({ libcamera::StreamRole::Raw });
 	const libcamera::StreamFormats &formats = config->at(0).formats();
 
+	bool log_env_set = getenv("LIBCAMERA_LOG_LEVELS");
 	// Suppress log messages when enumerating camera modes.
-	libcamera::logSetLevel("RPI", "ERROR");
-	libcamera::logSetLevel("Camera", "ERROR");
+	if (!log_env_set)
+	{
+		libcamera::logSetLevel("RPI", "ERROR");
+		libcamera::logSetLevel("Camera", "ERROR");
+	}
 
 	for (const auto &pix : formats.pixelformats())
 	{
@@ -242,8 +246,11 @@ void RPiCamApp::OpenCamera()
 		}
 	}
 
-	libcamera::logSetLevel("RPI", "INFO");
-	libcamera::logSetLevel("Camera", "INFO");
+	if (!log_env_set)
+	{
+		libcamera::logSetLevel("RPI", "INFO");
+		libcamera::logSetLevel("Camera", "INFO");
+	}
 }
 
 void RPiCamApp::CloseCamera()

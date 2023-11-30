@@ -201,8 +201,10 @@ bool Options::Parse(int argc, char *argv[])
 	set_subdev_hdr_ctrl(0);
 	app_->initCameraManager();
 
+	bool log_env_set = getenv("LIBCAMERA_LOG_LEVELS");
 	// Unconditionally set the logging level to error for a bit.
-	libcamera::logSetLevel("*", "ERROR");
+	if (!log_env_set)
+		libcamera::logSetLevel("*", "ERROR");
 
 	std::vector<std::shared_ptr<libcamera::Camera>> cameras = app_->GetCameras();
 	if (camera < cameras.size())
@@ -342,7 +344,7 @@ bool Options::Parse(int argc, char *argv[])
 	}
 
 	// Reset log level to Info.
-	if (verbose)
+	if (verbose && !log_env_set)
 		libcamera::logSetLevel("*", "INFO");
 
 	// Set the verbosity
