@@ -107,7 +107,7 @@ static void event_loop(RPiCamDetectApp &app)
 
 			StreamInfo info;
 			libcamera::Stream *stream = app.StillStream(&info);
-			BufferReadSync r(app, completed_request->buffers[stream]);
+			BufferReadSync r(&app, completed_request->buffers[stream]);
 			const std::vector<libcamera::Span<uint8_t>> mem = r.Get();
 
 			// Generate a filename for the output and save it.
