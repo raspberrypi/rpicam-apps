@@ -1002,6 +1002,8 @@ void RPiCamApp::setupCapture()
 {
 	// First finish setting up the configuration.
 
+	for (auto &config : *configuration_)
+		config.stride = 0;
 	CameraConfiguration::Status validation = configuration_->validate();
 	if (validation == CameraConfiguration::Invalid)
 		throw std::runtime_error("failed to valid stream configurations");
