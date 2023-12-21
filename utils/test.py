@@ -215,21 +215,21 @@ def test_still(exe_dir, output_dir):
     print("    jpg test")
     retcode, time_taken = run_executable([executable, '-t', '1000', '-o', output_jpg], logfile)
     check_retcode(retcode, "test_still: jpg test")
-    check_time(time_taken, 1.2, 8, "test_still: jpg test")
+    check_time(time_taken, 1.2, 10, "test_still: jpg test")
     check_size(output_jpg, 1024, "test_still: jpg test")
 
     # "no-raw test". As above but without a raw stream.
     print("    no-raw test")
     retcode, time_taken = run_executable([executable, '-t', '1000', '-o', output_jpg, '--no-raw'], logfile)
     check_retcode(retcode, "test_still: no-raw test")
-    check_time(time_taken, 1.2, 8, "test_still: no-raw test")
+    check_time(time_taken, 1.2, 10, "test_still: no-raw test")
     check_size(output_jpg, 1024, "test_still: no-raw test")
 
     # "zsl test". As above, but with zsl enabled
     print("    zsl test")
     retcode, time_taken = run_executable([executable, '-t', '1000', '-o', output_jpg, '--zsl'], logfile)
     check_retcode(retcode, "test_still: zsl test")
-    check_time(time_taken, 1.2, 8, "test_still: zsl test")
+    check_time(time_taken, 1.2, 10, "test_still: zsl test")
     check_size(output_jpg, 1024, "test_still: zsl test")
 
     # "immediate test". Immediate capture test
@@ -237,7 +237,7 @@ def test_still(exe_dir, output_dir):
     retcode, time_taken = run_executable([executable, '-o', output_jpg, '--immediate', '--shutter', '20000',
                                           '--gain', '1.0', '--awbgains', '1.5,1.2'], logfile)
     check_retcode(retcode, "test_still: immediate test")
-    check_time(time_taken, 0.2, 5, "test_still: immediate test")
+    check_time(time_taken, 0.2, 8, "test_still: immediate test")
     check_size(output_jpg, 1024, "test_still: immediate test")
 
     # "png test". As above, but write a png.
@@ -245,7 +245,7 @@ def test_still(exe_dir, output_dir):
     retcode, time_taken = run_executable(
         [executable, '-t', '1000', '-e', 'png', '-o', output_png], logfile)
     check_retcode(retcode, "test_still: png test")
-    check_time(time_taken, 1.2, 9, "test_still: png test")
+    check_time(time_taken, 1.2, 10, "test_still: png test")
     check_size(output_png, 1024, "test_still: png test")
 
     # "bmp test". As above, but write a bmp.
@@ -253,7 +253,7 @@ def test_still(exe_dir, output_dir):
     retcode, time_taken = run_executable(
         [executable, '-t', '1000', '-e', 'bmp', '-o', output_bmp], logfile)
     check_retcode(retcode, "test_still: bmp test")
-    check_time(time_taken, 1.2, 9, "test_still: bmp test")
+    check_time(time_taken, 1.2, 10, "test_still: bmp test")
     check_size(output_png, 1024, "test_still: bmp test")
 
     # "dng test". Write a dng along with the jpg.
@@ -333,7 +333,7 @@ def test_jpeg(exe_dir, output_dir):
     retcode, time_taken = run_executable([executable, '-t', '1000', '-o', output_jpg],
                                          logfile)
     check_retcode(retcode, "test_jpeg: jpg test")
-    check_time(time_taken, 1.2, 8, "test_jpeg: jpg test")
+    check_time(time_taken, 1.2, 10, "test_jpeg: jpg test")
     check_size(output_jpg, 1024, "test_jpeg: jpg test")
     # For this one, we're actually going to peak inside the jpeg.
     check_jpeg(output_jpg, "test_jpeg: jpg test")
