@@ -1,0 +1,18 @@
+{
+    "imx500_mobilenet":
+    {
+        "header" :
+        {
+            "id" : "00",
+            "version" : "01.00.00"
+        },
+        "max_detections" : 5,
+        "threshold" : 0.6,
+        "class_file" : "/home/pi/rpicam-apps/post_processing_stages/imx500_mobilenet_class80.txt"
+    },
+
+    "object_detect_draw_cv":
+    {
+    	"line_thickness" : 2
+    }
+}
