@@ -25,6 +25,8 @@
 using Stream = libcamera::Stream;
 namespace controls = libcamera::controls;
 
+#define NAME "imx500_mobilenet"
+
 // Derived from SSDMobilnetV1 DNN Model
 static constexpr unsigned int PplTotalDetections = 10;
 // bbox(10*4)+class(10)+scores(10)+numDetections(1) = 61
@@ -121,18 +123,9 @@ public:
 	bool Process(CompletedRequestPtr &completed_request) override;
 
 private:
-	int parseHeader(const uint8_t *src, uint32_t stride);
-	int parseApParams();
-	int populateOutputBodyInfo();
-	int parseOutputTensorBody(const uint8_t *src, uint32_t stride);
-	ObjectDetectionSsdData processOutputTensor();
+	int processOutputTensor(ObjectDetectionSsdData &data, const OutputTensorInfo &outputBodyInfo) const;
 
 	Stream *stream_;
-	DnnHeader dnnHeader_;
-	std::vector<uint8_t> apParams_;
-	std::string networkType_;
-	std::vector<OutputTensorApParams> outputApParams_;
-	OutputTensorInfo outputBodyInfo_;
 
 	// Config params
 	unsigned int maxDetections_;
@@ -140,138 +133,55 @@ private:
 	std::vector<std::string> classes_;
 };
 
-#define NAME "imx500_mobilenet"
-
-char const *MobileNet::Name() const
-{
-	return NAME;
-}
-
-void MobileNet::Read(boost::property_tree::ptree const &params)
-{
-	maxDetections_ = params.get<unsigned int>("max_detections");
-	threshold_ = params.get<float>("threshold", 0.3f);
-
-	std::string classFile = params.get<std::string>("class_file");
-	std::ifstream f(classFile);
-
-	std::string c;
-	while (std::getline(f, c))
-		classes_.push_back(c);
-}
-
-void MobileNet::Configure()
-{
-	stream_ = app_->GetMainStream();
-}
-
-bool MobileNet::Process(CompletedRequestPtr &completed_request)
-{
-	auto output = completed_request->metadata.get(controls::rpi::Imx500OutputTensor);
-	if (!output)
-	{
-		LOG_ERROR("No output tensor found in metadata!");
-		return false;
-	}
-
-	const uint8_t *src = output->data();
-	uint32_t stride = 4064; //(((stream_->configuration().size.width * 10) >> 3) + 15) & ~15;
-	int ret = parseHeader(src, stride);
-	if (ret)
-	{
-		LOG_ERROR("Header param parsing failed!");
-		return false;
-	}
-
-	ret = parseApParams();
-	if (ret)
-	{
-		LOG_ERROR("AP param parsing failed!");
-		return false;
-	}
-
-	ret = populateOutputBodyInfo();
-	if (ret)
-	{
-		LOG_ERROR("Failed to populate OutputBodyInfo!");
-		return false;
-	}
-
-	ret = parseOutputTensorBody(src + stride, stride);
-	if (ret)
-	{
-		LOG_ERROR("Output tensor body parsing failed!");
-		return false;
-	}
-
-	ObjectDetectionSsdData data = processOutputTensor();
-	if (data.numDetections)
-	{
-		std::vector<Detection> detections;
-
-		for (unsigned int i = 0; i < data.numDetections; i++)
-		{
-			assert(data.vClasses[i] < classes_.size());
-			detections.emplace_back(data.vClasses[i], classes_[data.vClasses[i]], data.vScores[i], data.vBbox[i].mXmin,
-									data.vBbox[i].mYmin, data.vBbox[i].mXmax - data.vBbox[i].mXmin,
-									data.vBbox[i].mYmax - data.vBbox[i].mYmin);
-		}
-
-		completed_request->post_process_metadata.Set("object_detect.results", detections);
-	}
-
-	return false;
-}
-
-int MobileNet::parseHeader(const uint8_t *src, uint32_t stride)
+static int parseHeader(DnnHeader &dnnHeader, std::vector<uint8_t> &apParams, const uint8_t *src, uint32_t stride)
 {
 	constexpr unsigned int DnnHeaderSize = 12;
 	constexpr unsigned int MipiPhSize = 0;
 
-	dnnHeader_ = *(DnnHeader *)src;
+	dnnHeader = *(DnnHeader *)src;
 
-	LOG(2, "Header: valid " << (bool)dnnHeader_.frameValid << " count " << (int)dnnHeader_.frameCount << " max len "
-							<< dnnHeader_.maxLineLen << " ap param size " << dnnHeader_.apParamSize << " network id "
-							<< dnnHeader_.networkId << " tensor type " << (int)dnnHeader_.tensorType);
+	LOG(2, "Header: valid " << (bool)dnnHeader.frameValid << " count " << (int)dnnHeader.frameCount << " max len "
+							<< dnnHeader.maxLineLen << " ap param size " << dnnHeader.apParamSize << " network id "
+							<< dnnHeader.networkId << " tensor type " << (int)dnnHeader.tensorType);
 
-	if (!dnnHeader_.frameValid)
+	if (!dnnHeader.frameValid)
 		return -1;
 
-	apParams_.resize(dnnHeader_.apParamSize, 0);
+	apParams.resize(dnnHeader.apParamSize, 0);
 
 	uint32_t i = DnnHeaderSize;
-	for (unsigned int j = 0; j < dnnHeader_.apParamSize; j++)
+	for (unsigned int j = 0; j < dnnHeader.apParamSize; j++)
 	{
 		if (stride && i >= stride)
 		{
 			i = 0;
 			src += stride + MipiPhSize;
 		}
-		apParams_[j] = src[i++];
+		apParams[j] = src[i++];
 	}
 
 	return 0;
 }
 
-int MobileNet::parseApParams()
+int parseApParams(std::vector<OutputTensorApParams> &outputApParams, const std::vector<uint8_t> &apParams,
+				  const DnnHeader &dnnHeader)
 {
 	const apParams::fb::FBApParams *fbApParams;
 	const apParams::fb::FBNetwork *fbNetwork;
 	const apParams::fb::FBOutputTensor *fbOutputTensor;
 
-	fbApParams = apParams::fb::GetFBApParams(apParams_.data());
+	fbApParams = apParams::fb::GetFBApParams(apParams.data());
 	LOG(2, "Networks size: " << fbApParams->networks()->size());
 
-	outputApParams_.clear();
+	outputApParams.clear();
 
 	for (unsigned int i = 0; i < fbApParams->networks()->size(); i++)
 	{
 		fbNetwork = (apParams::fb::FBNetwork *)(fbApParams->networks()->Get(i));
-		if (fbNetwork->id() != dnnHeader_.networkId)
+		if (fbNetwork->id() != dnnHeader.networkId)
 			continue;
 
-		networkType_ = fbNetwork->type()->c_str();
-		LOG(2, "Network: " << networkType_ << ", i/p size: " << fbNetwork->inputTensors()->size()
+		LOG(2, "Network: " << fbNetwork->type()->c_str() << ", i/p size: " << fbNetwork->inputTensors()->size()
 						   << ", o/p size: " << fbNetwork->outputTensors()->size());
 
 		for (unsigned int j = 0; j < fbNetwork->outputTensors()->size(); j++)
@@ -306,7 +216,7 @@ int MobileNet::parseApParams()
 			outApParam.format = fbOutputTensor->format();
 
 			/* Add the element to vector */
-			outputApParams_.push_back(outApParam);
+			outputApParams.push_back(outApParam);
 		}
 
 		break;
@@ -315,11 +225,11 @@ int MobileNet::parseApParams()
 	return 0;
 }
 
-int MobileNet::populateOutputBodyInfo()
+int populateOutputBodyInfo(OutputTensorInfo &outputBodyInfo, const std::vector<OutputTensorApParams> &outputApParams)
 {
 	// Calculate total output size
 	unsigned int totalOutSize = 0;
-	for (auto const &ap : outputApParams_)
+	for (auto const &ap : outputApParams)
 	{
 		unsigned int totalDimensionSize = 1;
 		for (auto &dim : ap.vecDim)
@@ -358,9 +268,8 @@ int MobileNet::populateOutputBodyInfo()
 	}
 
 	// Set FrameOutputTensorInfo
-	outputBodyInfo_ = {};
-	outputBodyInfo_.address.resize(totalOutSize, 0.0f);
-	unsigned int numOutputTensors = outputApParams_.size();
+	outputBodyInfo.address.resize(totalOutSize, 0.0f);
+	unsigned int numOutputTensors = outputApParams.size();
 
 	/* CodeSonar Check */
 	if (!numOutputTensors)
@@ -375,9 +284,9 @@ int MobileNet::populateOutputBodyInfo()
 		return -1;
 	}
 
-	outputBodyInfo_.totalSize = totalOutSize;
-	outputBodyInfo_.tensorNum = numOutputTensors;
-	outputBodyInfo_.tensorDataNum.resize(numOutputTensors, 0);
+	outputBodyInfo.totalSize = totalOutSize;
+	outputBodyInfo.tensorNum = numOutputTensors;
+	outputBodyInfo.tensorDataNum.resize(numOutputTensors, 0);
 
 	return 0;
 }
@@ -393,34 +302,36 @@ float getVal8(const uint8_t *src, const OutputTensorApParams &param)
 #define bytes_to_uint16(MSB, LSB) (((uint16_t)((unsigned char)MSB)) & 255) << 8 | (((unsigned char)LSB) & 255)
 #define bytes_to_int16(MSB, LSB) (((int16_t)((unsigned char)MSB)) & 255) << 8 | (((unsigned char)LSB) & 255)
 
-int MobileNet::parseOutputTensorBody(const uint8_t *src, uint32_t stride)
+int parseOutputTensorBody(OutputTensorInfo &outputBodyInfo, const uint8_t *src,
+						  const std::vector<OutputTensorApParams> &outputApParams, const DnnHeader &dnnHeader,
+						  const uint32_t stride)
 {
-	float *dst = outputBodyInfo_.address.data();
+	float *dst = outputBodyInfo.address.data();
 	int ret = 0;
 
-	if (outputBodyInfo_.totalSize > (UINT32_MAX / sizeof(float)))
+	if (outputBodyInfo.totalSize > (UINT32_MAX / sizeof(float)))
 	{
 		LOG_ERROR("totalSize is greater than maximum size");
 		return -1;
 	}
 
-	std::vector<float> tmpDst(outputBodyInfo_.totalSize, 0.0f);
-	std::vector<uint16_t> numLinesVec(outputApParams_.size());
-	std::vector<uint32_t> outSizes(outputApParams_.size());
-	std::vector<uint32_t> offsets(outputApParams_.size());
-	std::vector<const uint8_t *> srcArr(outputApParams_.size());
+	std::vector<float> tmpDst(outputBodyInfo.totalSize, 0.0f);
+	std::vector<uint16_t> numLinesVec(outputApParams.size());
+	std::vector<uint32_t> outSizes(outputApParams.size());
+	std::vector<uint32_t> offsets(outputApParams.size());
+	std::vector<const uint8_t *> srcArr(outputApParams.size());
 	std::vector<std::vector<Dimensions>> serializedDims;
 	std::vector<std::vector<Dimensions>> actualDims;
 
 	const uint8_t *src1 = src;
 	uint32_t offset = 0;
-	for (unsigned int tensorIdx = 0; tensorIdx < outputApParams_.size(); tensorIdx++)
+	for (unsigned int tensorIdx = 0; tensorIdx < outputApParams.size(); tensorIdx++)
 	{
 		offsets[tensorIdx] = offset;
 		srcArr[tensorIdx] = src1;
 		uint32_t tensorDataNum = 0;
 
-		const OutputTensorApParams &param = outputApParams_.at(tensorIdx);
+		const OutputTensorApParams &param = outputApParams.at(tensorIdx);
 		uint32_t outputTensorSize = 0;
 		uint32_t tensorOutSize = (param.bitsPerElement / 8);
 		std::vector<Dimensions> serializedDim(param.numDimensions);
@@ -442,7 +353,7 @@ int MobileNet::parseOutputTensorBody(const uint8_t *src, uint32_t stride)
 			serializedDim[param.vecDim.at(idx).serializationIndex].serializationIndex = (uint8_t)idx;
 		}
 
-		uint16_t numLines = (uint16_t)std::ceil(tensorOutSize / (float)dnnHeader_.maxLineLen);
+		uint16_t numLines = (uint16_t)std::ceil(tensorOutSize / (float)dnnHeader.maxLineLen);
 		outputTensorSize = tensorOutSize;
 		numLinesVec[tensorIdx] = numLines;
 		outSizes[tensorIdx] = tensorOutSize;
@@ -453,15 +364,15 @@ int MobileNet::parseOutputTensorBody(const uint8_t *src, uint32_t stride)
 		src1 += numLines * stride;
 		tensorDataNum = (outputTensorSize / (param.bitsPerElement / 8));
 		offset += tensorDataNum;
-		outputBodyInfo_.tensorDataNum[tensorIdx] = tensorDataNum;
-		if (offset > outputBodyInfo_.totalSize)
+		outputBodyInfo.tensorDataNum[tensorIdx] = tensorDataNum;
+		if (offset > outputBodyInfo.totalSize)
 		{
 			LOG_ERROR("Error in parsing output tensor offset " << offset << " > output_size");
 			return -1;
 		}
 	}
 
-	std::vector<uint32_t> idxs(outputApParams_.size());
+	std::vector<uint32_t> idxs(outputApParams.size());
 	for (unsigned int i = 0; i < idxs.size(); i++)
 		idxs[i] = i;
 
@@ -479,14 +390,14 @@ int MobileNet::parseOutputTensorBody(const uint8_t *src, uint32_t stride)
 	{
 		uint32_t tensorIdx = idxs[i];
 		futures.emplace_back(std::async(
-			[&tmpDst, &outSizes, &numLinesVec, &actualDims, &serializedDims, stride, dst, this]
+			[&tmpDst, &outSizes, &numLinesVec, &actualDims, &serializedDims, &outputApParams, &dnnHeader, stride, dst]
 			(int tensorIdx, const uint8_t *src, int offset) -> int
 			{
 				uint32_t outputTensorSize = outSizes[tensorIdx];
 				uint16_t numLines = numLinesVec[tensorIdx];
 				bool sortingRequired = false;
 
-				const OutputTensorApParams &param = this->outputApParams_[tensorIdx];
+				const OutputTensorApParams &param = outputApParams[tensorIdx];
 				const std::vector<Dimensions> &serializedDim = serializedDims[tensorIdx];
 				const std::vector<Dimensions> &actualDim = actualDims[tensorIdx];
 
@@ -509,7 +420,7 @@ int MobileNet::parseOutputTensorBody(const uint8_t *src, uint32_t stride)
 					for (unsigned int i = 0; i < numLines; i++)
 					{
 						int lineIndex = 0;
-						while (lineIndex < this->dnnHeader_.maxLineLen)
+						while (lineIndex < dnnHeader.maxLineLen)
 						{
 							if (param.format == TYPE_SIGNED)
 								tmpDst[offset + elementIndex] = getVal8<int8_t>(src + lineIndex, param);
@@ -530,7 +441,7 @@ int MobileNet::parseOutputTensorBody(const uint8_t *src, uint32_t stride)
 					for (int i = 0; i < numLines; i++)
 					{
 						int lineIndex = 0;
-						while (lineIndex < this->dnnHeader_.maxLineLen)
+						while (lineIndex < dnnHeader.maxLineLen)
 						{
 							if (param.format == TYPE_SIGNED)
 							{
@@ -690,16 +601,116 @@ static int createObjectDetectionSsdData(ObjectDetectionSsdOutputTensor &output, 
 	return 0;
 }
 
-static ObjectDetectionSsdData analyseObjectDetectionSsdOutput(const ObjectDetectionSsdOutputTensor &tensor,
-															  unsigned int maxDetections, float threshold,
-															  libcamera::Size dim)
+char const *MobileNet::Name() const
 {
+	return NAME;
+}
+
+void MobileNet::Read(boost::property_tree::ptree const &params)
+{
+	maxDetections_ = params.get<unsigned int>("max_detections");
+	threshold_ = params.get<float>("threshold", 0.3f);
+
+	std::string classFile = params.get<std::string>("class_file");
+	std::ifstream f(classFile);
+
+	std::string c;
+	while (std::getline(f, c))
+		classes_.push_back(c);
+}
+
+void MobileNet::Configure()
+{
+	stream_ = app_->GetMainStream();
+}
+
+bool MobileNet::Process(CompletedRequestPtr &completed_request)
+{
+	DnnHeader dnnHeader;
+	std::vector<uint8_t> apParams;
+	std::vector<OutputTensorApParams> outputApParams;
+	OutputTensorInfo outputBodyInfo;
 	ObjectDetectionSsdData data;
+
+	auto output = completed_request->metadata.get(controls::rpi::Imx500OutputTensor);
+	if (!output)
+	{
+		LOG_ERROR("No output tensor found in metadata!");
+		return false;
+	}
+
+	const uint8_t *src = output->data();
+	uint32_t stride = 4064; //(((stream_->configuration().size.width * 10) >> 3) + 15) & ~15;
+	int ret = parseHeader(dnnHeader, apParams, src, stride);
+	if (ret)
+	{
+		LOG_ERROR("Header param parsing failed!");
+		return false;
+	}
+
+	ret = parseApParams(outputApParams, apParams, dnnHeader);
+	if (ret)
+	{
+		LOG_ERROR("AP param parsing failed!");
+		return false;
+	}
+
+	ret = populateOutputBodyInfo(outputBodyInfo, outputApParams);
+	if (ret)
+	{
+		LOG_ERROR("Failed to populate OutputBodyInfo!");
+		return false;
+	}
+
+	ret = parseOutputTensorBody(outputBodyInfo, src + stride, outputApParams, dnnHeader, stride);
+	if (ret)
+	{
+		LOG_ERROR("Output tensor body parsing failed!");
+		return false;
+	}
+
+	ret = processOutputTensor(data, outputBodyInfo);
+	if (!ret && data.numDetections)
+	{
+		std::vector<Detection> detections;
+
+		for (unsigned int i = 0; i < data.numDetections; i++)
+		{
+			assert(data.vClasses[i] < classes_.size());
+			detections.emplace_back(data.vClasses[i], classes_[data.vClasses[i]], data.vScores[i], data.vBbox[i].mXmin,
+									data.vBbox[i].mYmin, data.vBbox[i].mXmax - data.vBbox[i].mXmin,
+									data.vBbox[i].mYmax - data.vBbox[i].mYmin);
+		}
+
+		completed_request->post_process_metadata.Set("object_detect.results", detections);
+	}
+
+	return false;
+}
+
+int MobileNet::processOutputTensor(ObjectDetectionSsdData &data, const OutputTensorInfo &outputBodyInfo) const
+{
+	ObjectDetectionSsdOutputTensor tensor;
+
+	if (outputBodyInfo.totalSize != PplDnnOutputTensorSize)
+	{
+		LOG_ERROR("Invalid totalSize " << outputBodyInfo.totalSize);
+		return -1;
+	}
+
+	int ret = createObjectDetectionSsdData(tensor, outputBodyInfo.address, PplTotalDetections);
+	if (ret)
+	{
+		LOG_ERROR("Failed to create SSD data");
+		return -1;
+	}
+
+	libcamera::Size dim = stream_->configuration().size;
 
 	for (unsigned int i = 0; i < tensor.numDetections; i++)
 	{
 		// Filter detections
-		if (tensor.scores[i] < threshold)
+		if (tensor.scores[i] < threshold_)
 			continue;
 
 		data.vScores.push_back(tensor.scores[i]);
@@ -718,12 +729,12 @@ static ObjectDetectionSsdData analyseObjectDetectionSsdOutput(const ObjectDetect
 
 	data.numDetections = data.vClasses.size();
 
-	if (data.numDetections > maxDetections)
+	if (data.numDetections > maxDetections_)
 	{
-		data.numDetections = maxDetections;
-		data.vBbox.resize(maxDetections);
-		data.vClasses.resize(maxDetections);
-		data.vScores.resize(maxDetections);
+		data.numDetections = maxDetections_;
+		data.vBbox.resize(maxDetections_);
+		data.vClasses.resize(maxDetections_);
+		data.vScores.resize(maxDetections_);
 	}
 
 	LOG(2, "Number of detections: " << data.numDetections);
@@ -738,29 +749,7 @@ static ObjectDetectionSsdData analyseObjectDetectionSsdOutput(const ObjectDetect
 			   << ", class " << (int)data.vClasses[i]);
 	}
 
-	return data;
-}
-
-ObjectDetectionSsdData MobileNet::processOutputTensor()
-{
-	ObjectDetectionSsdOutputTensor output;
-	ObjectDetectionSsdData data;
-
-	if (outputBodyInfo_.totalSize != PplDnnOutputTensorSize)
-	{
-		LOG_ERROR("Invalid totalSize " << outputBodyInfo_.totalSize);
-		return {};
-	}
-
-	int ret = createObjectDetectionSsdData(output, outputBodyInfo_.address, PplTotalDetections);
-	if (ret)
-	{
-		LOG_ERROR("Failed to create SSD data");
-		return {};
-	}
-
-	libcamera::Size dim = stream_->configuration().size;
-	return analyseObjectDetectionSsdOutput(output, maxDetections_, threshold_, dim);
+	return 0;
 }
 
 static PostProcessingStage *Create(RPiCamApp *app)
