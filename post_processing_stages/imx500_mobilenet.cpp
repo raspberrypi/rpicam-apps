@@ -101,14 +101,6 @@ struct PplBbox
 	uint16_t mYmax;
 };
 
-struct ObjectDetectionSsdData
-{
-	unsigned int numDetections = 0;
-	std::vector<PplBbox> vBbox;
-	std::vector<float> vScores;
-	std::vector<uint8_t> vClasses;
-};
-
 class MobileNet : public PostProcessingStage
 {
 public:
@@ -123,7 +115,7 @@ public:
 	bool Process(CompletedRequestPtr &completed_request) override;
 
 private:
-	int processOutputTensor(ObjectDetectionSsdData &data, const OutputTensorInfo &outputBodyInfo) const;
+	int processOutputTensor(std::vector<Detection> &objects, const OutputTensorInfo &outputBodyInfo) const;
 
 	Stream *stream_;
 
@@ -132,6 +124,33 @@ private:
 	float threshold_;
 	std::vector<std::string> classes_;
 };
+
+char const *MobileNet::Name() const
+{
+	return NAME;
+}
+
+void MobileNet::Read(boost::property_tree::ptree const &params)
+{
+	maxDetections_ = params.get<unsigned int>("max_detections");
+	threshold_ = params.get<float>("threshold", 0.3f);
+
+	std::string classFile = params.get<std::string>("class_file");
+	std::ifstream f(classFile);
+	if (f.is_open())
+	{
+		std::string c;
+		while (std::getline(f, c))
+			classes_.push_back(c);
+	}
+	else
+		LOG_ERROR("Failed to open class file!");
+}
+
+void MobileNet::Configure()
+{
+	stream_ = app_->GetMainStream();
+}
 
 static int parseHeader(DnnHeader &dnnHeader, std::vector<uint8_t> &apParams, const uint8_t *src, uint32_t stride)
 {
@@ -601,36 +620,12 @@ static int createObjectDetectionSsdData(ObjectDetectionSsdOutputTensor &output, 
 	return 0;
 }
 
-char const *MobileNet::Name() const
-{
-	return NAME;
-}
-
-void MobileNet::Read(boost::property_tree::ptree const &params)
-{
-	maxDetections_ = params.get<unsigned int>("max_detections");
-	threshold_ = params.get<float>("threshold", 0.3f);
-
-	std::string classFile = params.get<std::string>("class_file");
-	std::ifstream f(classFile);
-
-	std::string c;
-	while (std::getline(f, c))
-		classes_.push_back(c);
-}
-
-void MobileNet::Configure()
-{
-	stream_ = app_->GetMainStream();
-}
-
 bool MobileNet::Process(CompletedRequestPtr &completed_request)
 {
 	DnnHeader dnnHeader;
 	std::vector<uint8_t> apParams;
 	std::vector<OutputTensorApParams> outputApParams;
 	OutputTensorInfo outputBodyInfo;
-	ObjectDetectionSsdData data;
 
 	auto output = completed_request->metadata.get(controls::rpi::Imx500OutputTensor);
 	if (!output)
@@ -669,26 +664,15 @@ bool MobileNet::Process(CompletedRequestPtr &completed_request)
 		return false;
 	}
 
-	ret = processOutputTensor(data, outputBodyInfo);
-	if (!ret && data.numDetections)
-	{
-		std::vector<Detection> detections;
-
-		for (unsigned int i = 0; i < data.numDetections; i++)
-		{
-			assert(data.vClasses[i] < classes_.size());
-			detections.emplace_back(data.vClasses[i], classes_[data.vClasses[i]], data.vScores[i], data.vBbox[i].mXmin,
-									data.vBbox[i].mYmin, data.vBbox[i].mXmax - data.vBbox[i].mXmin,
-									data.vBbox[i].mYmax - data.vBbox[i].mYmin);
-		}
-
-		completed_request->post_process_metadata.Set("object_detect.results", detections);
-	}
+	std::vector<Detection> objects;
+	ret = processOutputTensor(objects, outputBodyInfo);
+	if (!ret && objects.size())
+		completed_request->post_process_metadata.Set("object_detect.results", objects);
 
 	return false;
 }
 
-int MobileNet::processOutputTensor(ObjectDetectionSsdData &data, const OutputTensorInfo &outputBodyInfo) const
+int MobileNet::processOutputTensor(std::vector<Detection> &objects, const OutputTensorInfo &outputBodyInfo) const
 {
 	ObjectDetectionSsdOutputTensor tensor;
 
@@ -705,15 +689,12 @@ int MobileNet::processOutputTensor(ObjectDetectionSsdData &data, const OutputTen
 		return -1;
 	}
 
-	libcamera::Size dim = stream_->configuration().size;
-
-	for (unsigned int i = 0; i < tensor.numDetections; i++)
+	const libcamera::Size dim = stream_->configuration().size;
+	for (unsigned int i = 0; i < std::min(tensor.numDetections, maxDetections_); i++)
 	{
 		// Filter detections
 		if (tensor.scores[i] < threshold_)
 			continue;
-
-		data.vScores.push_back(tensor.scores[i]);
 
 		// Extract bounding box co-ordinates
 		PplBbox bbox;
@@ -721,33 +702,15 @@ int MobileNet::processOutputTensor(ObjectDetectionSsdData &data, const OutputTen
 		bbox.mYmin = (uint16_t)(round((tensor.bboxes[i].yMin) * (dim.height - 1)));
 		bbox.mXmax = (uint16_t)(round((tensor.bboxes[i].xMax) * (dim.width - 1)));
 		bbox.mYmax = (uint16_t)(round((tensor.bboxes[i].yMax) * (dim.height - 1)));
-		data.vBbox.push_back(bbox);
 
-		// Extract classes
-		data.vClasses.push_back((uint8_t)tensor.classes[i]);
+		uint8_t classIndex = (uint8_t)tensor.classes[i];
+		objects.emplace_back(classIndex, classes_[classIndex], tensor.scores[i], bbox.mXmin, bbox.mYmin,
+							 bbox.mXmax - bbox.mXmin, bbox.mYmax - bbox.mYmin);
 	}
 
-	data.numDetections = data.vClasses.size();
-
-	if (data.numDetections > maxDetections_)
-	{
-		data.numDetections = maxDetections_;
-		data.vBbox.resize(maxDetections_);
-		data.vClasses.resize(maxDetections_);
-		data.vScores.resize(maxDetections_);
-	}
-
-	LOG(2, "Number of detections: " << data.numDetections);
-	for (unsigned i = 0; i < data.numDetections; i++)
-	{
-		LOG(2, "[" << i << "] = ["
-			   << data.vBbox[i].mXmin << ", "
-			   << data.vBbox[i].mXmax << ", "
-			   << data.vBbox[i].mYmin << ", "
-			   << data.vBbox[i].mYmax << "]"
-			   << ", score " << data.vScores[i]
-			   << ", class " << (int)data.vClasses[i]);
-	}
+	LOG(1, "Number of objects detected: " << objects.size());
+	for (unsigned i = 0; i < objects.size(); i++)
+		LOG(2, "[" << i << "] : " << objects[i].toString());
 
 	return 0;
 }
