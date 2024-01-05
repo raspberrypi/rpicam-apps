@@ -28,9 +28,11 @@ namespace controls = libcamera::controls;
 #define NAME "imx500_mobilenet"
 
 // Derived from SSDMobilnetV1 DNN Model
-static constexpr unsigned int PplTotalDetections = 10;
+static constexpr unsigned int TotalDetections = 10;
 // bbox(10*4)+class(10)+scores(10)+numDetections(1) = 61
-static constexpr unsigned int PplDnnOutputTensorSize = 61;
+static constexpr unsigned int DnnOutputTensorSize = 61;
+// setup in the IMX500 driver
+static constexpr unsigned int TensorStride = 4064;
 
 enum TensorDataType
 {
@@ -79,10 +81,10 @@ struct OutputTensorInfo
 // MobileNet SSD specific structures
 struct Bbox
 {
-	float xMin;
-	float yMin;
-	float xMax;
-	float yMax;
+	float x0;
+	float y0;
+	float x1;
+	float y1;
 };
 
 struct ObjectDetectionSsdOutputTensor
@@ -91,14 +93,6 @@ struct ObjectDetectionSsdOutputTensor
 	std::vector<Bbox> bboxes;
 	std::vector<float> scores;
 	std::vector<float> classes;
-};
-
-struct PplBbox
-{
-	uint16_t mXmin;
-	uint16_t mYmin;
-	uint16_t mXmax;
-	uint16_t mYmax;
 };
 
 class MobileNet : public PostProcessingStage
@@ -133,7 +127,7 @@ char const *MobileNet::Name() const
 void MobileNet::Read(boost::property_tree::ptree const &params)
 {
 	maxDetections_ = params.get<unsigned int>("max_detections");
-	threshold_ = params.get<float>("threshold", 0.3f);
+	threshold_ = params.get<float>("threshold", 0.5f);
 
 	std::string classFile = params.get<std::string>("class_file");
 	std::ifstream f(classFile);
@@ -152,7 +146,7 @@ void MobileNet::Configure()
 	stream_ = app_->GetMainStream();
 }
 
-static int parseHeader(DnnHeader &dnnHeader, std::vector<uint8_t> &apParams, const uint8_t *src, uint32_t stride)
+static int parseHeader(DnnHeader &dnnHeader, std::vector<uint8_t> &apParams, const uint8_t *src)
 {
 	constexpr unsigned int DnnHeaderSize = 12;
 	constexpr unsigned int MipiPhSize = 0;
@@ -171,10 +165,10 @@ static int parseHeader(DnnHeader &dnnHeader, std::vector<uint8_t> &apParams, con
 	uint32_t i = DnnHeaderSize;
 	for (unsigned int j = 0; j < dnnHeader.apParamSize; j++)
 	{
-		if (stride && i >= stride)
+		if (i >= TensorStride)
 		{
 			i = 0;
-			src += stride + MipiPhSize;
+			src += TensorStride + MipiPhSize;
 		}
 		apParams[j] = src[i++];
 	}
@@ -327,8 +321,7 @@ float getVal16(const uint8_t *src, const OutputTensorApParams &param)
 }
 
 int parseOutputTensorBody(OutputTensorInfo &outputBodyInfo, const uint8_t *src,
-						  const std::vector<OutputTensorApParams> &outputApParams, const DnnHeader &dnnHeader,
-						  const uint32_t stride)
+						  const std::vector<OutputTensorApParams> &outputApParams, const DnnHeader &dnnHeader)
 {
 	float *dst = outputBodyInfo.address.data();
 	int ret = 0;
@@ -385,7 +378,7 @@ int parseOutputTensorBody(OutputTensorInfo &outputBodyInfo, const uint8_t *src,
 		serializedDims.push_back(serializedDim);
 		actualDims.push_back(actualDim);
 
-		src1 += numLines * stride;
+		src1 += numLines * TensorStride;
 		tensorDataNum = (outputTensorSize / (param.bitsPerElement / 8));
 		offset += tensorDataNum;
 		outputBodyInfo.tensorDataNum[tensorIdx] = tensorDataNum;
@@ -414,8 +407,8 @@ int parseOutputTensorBody(OutputTensorInfo &outputBodyInfo, const uint8_t *src,
 	{
 		uint32_t tensorIdx = idxs[i];
 		futures.emplace_back(std::async(
-			[&tmpDst, &outSizes, &numLinesVec, &actualDims, &serializedDims, &outputApParams, &dnnHeader, stride, dst]
-			(int tensorIdx, const uint8_t *src, int offset) -> int
+			[&tmpDst, &outSizes, &numLinesVec, &actualDims, &serializedDims, &outputApParams, &dnnHeader, dst]
+				(int tensorIdx, const uint8_t *src, int offset) -> int
 			{
 				uint32_t outputTensorSize = outSizes[tensorIdx];
 				uint16_t numLines = numLinesVec[tensorIdx];
@@ -455,7 +448,7 @@ int parseOutputTensorBody(OutputTensorInfo &outputBodyInfo, const uint8_t *src,
 							if (elementIndex == outputTensorSize)
 								break;
 						}
-						src += stride;
+						src += TensorStride;
 						if (elementIndex == outputTensorSize)
 							break;
 					}
@@ -476,7 +469,7 @@ int parseOutputTensorBody(OutputTensorInfo &outputBodyInfo, const uint8_t *src,
 							if (elementIndex >= (outputTensorSize >> 1))
 								break;
 						}
-						src += stride;
+						src += TensorStride;
 						if (elementIndex >= (outputTensorSize >> 1))
 							break;
 					}
@@ -543,33 +536,32 @@ int parseOutputTensorBody(OutputTensorInfo &outputBodyInfo, const uint8_t *src,
 	return ret;
 }
 
-static int createObjectDetectionSsdData(ObjectDetectionSsdOutputTensor &output, const std::vector<float> &data,
-										unsigned int totalDetections)
+static int createObjectDetectionSsdData(ObjectDetectionSsdOutputTensor &output, const std::vector<float> &data)
 {
 	unsigned int count = 0;
 
-	if ((count + (totalDetections * 4)) > PplDnnOutputTensorSize)
+	if ((count + (TotalDetections * 4)) > DnnOutputTensorSize)
 	{
 		LOG_ERROR("Invalid count index " << count);
 		return -1;
 	}
 
 	// Extract bounding box co-ordinates
-	for (unsigned int i = 0; i < totalDetections; i++)
+	for (unsigned int i = 0; i < TotalDetections; i++)
 	{
 		Bbox bbox;
-		bbox.yMin = data.at(count + i);
-		bbox.xMin = data.at(count + i + (1 * totalDetections));
-		bbox.yMax = data.at(count + i + (2 * totalDetections));
-		bbox.xMax = data.at(count + i + (3 * totalDetections));
+		bbox.y0 = data.at(count + i);
+		bbox.x0 = data.at(count + i + (1 * TotalDetections));
+		bbox.y1 = data.at(count + i + (2 * TotalDetections));
+		bbox.x1 = data.at(count + i + (3 * TotalDetections));
 		output.bboxes.push_back(bbox);
 	}
-	count += (totalDetections * 4);
+	count += (TotalDetections * 4);
 
 	// Extract class indices
-	for (unsigned int i = 0; i < totalDetections; i++)
+	for (unsigned int i = 0; i < TotalDetections; i++)
 	{
-		if (count > PplDnnOutputTensorSize)
+		if (count > DnnOutputTensorSize)
 		{
 			LOG_ERROR("Invalid count index " << count);
 			return -1;
@@ -580,9 +572,9 @@ static int createObjectDetectionSsdData(ObjectDetectionSsdOutputTensor &output, 
 	}
 
 	// Extract scores
-	for (unsigned int i = 0; i < totalDetections; i++)
+	for (unsigned int i = 0; i < TotalDetections; i++)
 	{
-		if (count > PplDnnOutputTensorSize)
+		if (count > DnnOutputTensorSize)
 		{
 			LOG_ERROR("Invalid count index " << count);
 			return -1;
@@ -592,7 +584,7 @@ static int createObjectDetectionSsdData(ObjectDetectionSsdOutputTensor &output, 
 		count++;
 	}
 
-	if (count > PplDnnOutputTensorSize)
+	if (count > DnnOutputTensorSize)
 	{
 		LOG_ERROR("Invalid count index " << count);
 		return -1;
@@ -600,10 +592,10 @@ static int createObjectDetectionSsdData(ObjectDetectionSsdOutputTensor &output, 
 
 	// Extract number of detections
 	unsigned int numDetections = data.at(count);
-	if (numDetections > totalDetections)
+	if (numDetections > TotalDetections)
 	{
-		LOG(1, "Unexpected value for numDetections: " << numDetections << ", setting it to " << totalDetections);
-		numDetections = totalDetections;
+		LOG(1, "Unexpected value for numDetections: " << numDetections << ", setting it to " << TotalDetections);
+		numDetections = TotalDetections;
 	}
 
 	output.numDetections = numDetections;
@@ -625,8 +617,7 @@ bool MobileNet::Process(CompletedRequestPtr &completed_request)
 	}
 
 	const uint8_t *src = output->data();
-	uint32_t stride = 4064; //(((stream_->configuration().size.width * 10) >> 3) + 15) & ~15;
-	int ret = parseHeader(dnnHeader, apParams, src, stride);
+	int ret = parseHeader(dnnHeader, apParams, src);
 	if (ret)
 	{
 		LOG_ERROR("Header param parsing failed!");
@@ -647,7 +638,7 @@ bool MobileNet::Process(CompletedRequestPtr &completed_request)
 		return false;
 	}
 
-	ret = parseOutputTensorBody(outputBodyInfo, src + stride, outputApParams, dnnHeader, stride);
+	ret = parseOutputTensorBody(outputBodyInfo, src + TensorStride, outputApParams, dnnHeader);
 	if (ret)
 	{
 		LOG_ERROR("Output tensor body parsing failed!");
@@ -666,13 +657,13 @@ int MobileNet::processOutputTensor(std::vector<Detection> &objects, const Output
 {
 	ObjectDetectionSsdOutputTensor tensor;
 
-	if (outputBodyInfo.totalSize != PplDnnOutputTensorSize)
+	if (outputBodyInfo.totalSize != DnnOutputTensorSize)
 	{
 		LOG_ERROR("Invalid totalSize " << outputBodyInfo.totalSize);
 		return -1;
 	}
 
-	int ret = createObjectDetectionSsdData(tensor, outputBodyInfo.address, PplTotalDetections);
+	int ret = createObjectDetectionSsdData(tensor, outputBodyInfo.address);
 	if (ret)
 	{
 		LOG_ERROR("Failed to create SSD data");
@@ -687,15 +678,13 @@ int MobileNet::processOutputTensor(std::vector<Detection> &objects, const Output
 			continue;
 
 		// Extract bounding box co-ordinates
-		PplBbox bbox;
-		bbox.mXmin = (uint16_t)(round((tensor.bboxes[i].xMin) * (dim.width - 1)));
-		bbox.mYmin = (uint16_t)(round((tensor.bboxes[i].yMin) * (dim.height - 1)));
-		bbox.mXmax = (uint16_t)(round((tensor.bboxes[i].xMax) * (dim.width - 1)));
-		bbox.mYmax = (uint16_t)(round((tensor.bboxes[i].yMax) * (dim.height - 1)));
+		unsigned int x0 = std::round((tensor.bboxes[i].x0) * (dim.width - 1));
+		unsigned int x1 = std::round((tensor.bboxes[i].x1) * (dim.width - 1));
+		unsigned int y0 = std::round((tensor.bboxes[i].y0) * (dim.height - 1));
+		unsigned int y1 = std::round((tensor.bboxes[i].y1) * (dim.height - 1));
 
 		uint8_t classIndex = (uint8_t)tensor.classes[i];
-		objects.emplace_back(classIndex, classes_[classIndex], tensor.scores[i], bbox.mXmin, bbox.mYmin,
-							 bbox.mXmax - bbox.mXmin, bbox.mYmax - bbox.mYmin);
+		objects.emplace_back(classIndex, classes_[classIndex], tensor.scores[i], x0, y0, x1 - x0, y1 - y0);
 	}
 
 	LOG(1, "Number of objects detected: " << objects.size());
