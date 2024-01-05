@@ -406,7 +406,7 @@ int parseOutputTensorBody(OutputTensorInfo &outputBodyInfo, const uint8_t *src,
 	for (unsigned int i = 0; i < idxs.size(); i++)
 	{
 		uint32_t tensorIdx = idxs[i];
-		futures.emplace_back(std::async(
+		futures.emplace_back(std::async(std::launch::async,
 			[&tmpDst, &outSizes, &numLinesVec, &actualDims, &serializedDims, &outputApParams, &dnnHeader, dst]
 				(int tensorIdx, const uint8_t *src, int offset) -> int
 			{
@@ -673,8 +673,10 @@ int MobileNet::processOutputTensor(std::vector<Detection> &objects, const Output
 	const libcamera::Size dim = stream_->configuration().size;
 	for (unsigned int i = 0; i < std::min(tensor.numDetections, maxDetections_); i++)
 	{
+		uint8_t classIndex = (uint8_t)tensor.classes[i];
+
 		// Filter detections
-		if (tensor.scores[i] < threshold_)
+		if (tensor.scores[i] < threshold_ || classIndex >= classes_.size())
 			continue;
 
 		// Extract bounding box co-ordinates
@@ -683,7 +685,6 @@ int MobileNet::processOutputTensor(std::vector<Detection> &objects, const Output
 		unsigned int y0 = std::round((tensor.bboxes[i].y0) * (dim.height - 1));
 		unsigned int y1 = std::round((tensor.bboxes[i].y1) * (dim.height - 1));
 
-		uint8_t classIndex = (uint8_t)tensor.classes[i];
 		objects.emplace_back(classIndex, classes_[classIndex], tensor.scores[i], x0, y0, x1 - x0, y1 - y0);
 	}
 

@@ -3,7 +3,7 @@
     {
         "max_detections" : 5,
         "threshold" : 0.6,
-        "class_file" : "/home/pi/rpicam-apps/post_processing_stages/imx500_mobilenet_class80.txt"
+        "class_file" : "/home/pi/rpicam-apps/assets/imx500_mobilenet_class80.txt"
     },
 
     "object_detect_draw_cv":
