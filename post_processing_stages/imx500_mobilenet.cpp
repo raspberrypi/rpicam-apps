@@ -313,13 +313,18 @@ int populateOutputBodyInfo(OutputTensorInfo &outputBodyInfo, const std::vector<O
 template <typename T>
 float getVal8(const uint8_t *src, const OutputTensorApParams &param)
 {
-	T temp = (T)*src;
+	T temp = (T) *src;
 	float value = (temp - param.shift) * param.scale;
 	return value;
 }
 
-#define bytes_to_uint16(MSB, LSB) (((uint16_t)((unsigned char)MSB)) & 255) << 8 | (((unsigned char)LSB) & 255)
-#define bytes_to_int16(MSB, LSB) (((int16_t)((unsigned char)MSB)) & 255) << 8 | (((unsigned char)LSB) & 255)
+template <typename T>
+float getVal16(const uint8_t *src, const OutputTensorApParams &param)
+{
+	T temp = (((T) *(src + 1)) & 0xff) << 8 | (*src & 0xff);
+	float value = (temp - param.shift) * param.scale;
+	return value;
+}
 
 int parseOutputTensorBody(OutputTensorInfo &outputBodyInfo, const uint8_t *src,
 						  const std::vector<OutputTensorApParams> &outputApParams, const DnnHeader &dnnHeader,
@@ -457,25 +462,15 @@ int parseOutputTensorBody(OutputTensorInfo &outputBodyInfo, const uint8_t *src,
 				}
 				else if (param.bitsPerElement == 16)
 				{
-					for (int i = 0; i < numLines; i++)
+					for (unsigned int i = 0; i < numLines; i++)
 					{
 						int lineIndex = 0;
 						while (lineIndex < dnnHeader.maxLineLen)
 						{
 							if (param.format == TYPE_SIGNED)
-							{
-								int16_t temp =
-									bytes_to_int16((int8_t) * (src + lineIndex + 1), (int8_t) * (src + lineIndex));
-								float value = (temp - param.shift) * param.scale;
-								tmpDst[offset + elementIndex] = value;
-							}
+								tmpDst[offset + elementIndex] = getVal16<int16_t>(src + lineIndex, param);
 							else
-							{
-								uint16_t temp =
-									bytes_to_uint16((uint8_t) * (src + lineIndex + 1), (uint8_t) * (src + lineIndex));
-								float value = (temp - param.shift) * param.scale;
-								tmpDst[offset + elementIndex] = value;
-							}
+								tmpDst[offset + elementIndex] = getVal16<uint16_t>(src + lineIndex, param);
 							elementIndex++;
 							lineIndex += 2;
 							if (elementIndex >= (outputTensorSize >> 1))
@@ -485,11 +480,6 @@ int parseOutputTensorBody(OutputTensorInfo &outputBodyInfo, const uint8_t *src,
 						if (elementIndex >= (outputTensorSize >> 1))
 							break;
 					}
-				}
-				else
-				{
-					LOG_ERROR("Invalid bitsPerElement value =" << param.bitsPerElement);
-					return -1;
 				}
 
 				// Sorting in order according to AP Params. Not supported if larger than 3D
