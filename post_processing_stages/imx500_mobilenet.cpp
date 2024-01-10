@@ -71,11 +71,15 @@ private:
 	int processOutputTensor(std::vector<Detection> &objects, const std::vector<float> &outputTensor) const;
 
 	Stream *stream_;
+	std::ofstream inputTensorFile_;
+	unsigned int saveFrames_;
 
 	// Config params
 	unsigned int maxDetections_;
 	float threshold_;
 	std::vector<std::string> classes_;
+	std::string inputTensorSaveFile_;
+	unsigned int numInputTensorsSaved_;
 };
 
 char const *MobileNet::Name() const
@@ -98,11 +102,19 @@ void MobileNet::Read(boost::property_tree::ptree const &params)
 	}
 	else
 		LOG_ERROR("Failed to open class file!");
+
+	std::string inputTensorSaveFile_ = params.get<std::string>("input_tensor_save_file", "");
+	if (!inputTensorSaveFile_.empty())
+	{
+		inputTensorFile_ = std::ofstream(inputTensorSaveFile_, std::ios::out | std::ios::binary);
+		numInputTensorsSaved_ = params.get<unsigned int>("num_input_tensors_saved", 1);
+	}
 }
 
 void MobileNet::Configure()
 {
 	stream_ = app_->GetMainStream();
+	saveFrames_ = numInputTensorsSaved_;
 }
 
 bool MobileNet::Process(CompletedRequestPtr &completed_request)
@@ -120,6 +132,14 @@ bool MobileNet::Process(CompletedRequestPtr &completed_request)
 	int ret = processOutputTensor(objects, outputTensor);
 	if (!ret && objects.size())
 		completed_request->post_process_metadata.Set("object_detect.results", objects);
+
+	auto input = completed_request->metadata.get(controls::rpi::Imx500InputTensor);
+	if (input && inputTensorFile_.is_open() && saveFrames_)
+	{
+		inputTensorFile_.write(reinterpret_cast<const char *>(input->data()), input->size());
+		if (--saveFrames_ == 0)
+			inputTensorFile_.close();
+	}
 
 	return false;
 }
