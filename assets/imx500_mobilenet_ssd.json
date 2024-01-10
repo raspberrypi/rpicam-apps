@@ -1,9 +1,9 @@
 {
-    "imx500_mobilenet":
+    "imx500_mobilenet_ssd":
     {
         "max_detections" : 5,
         "threshold" : 0.6,
-        "class_file" : "/home/pi/rpicam-apps/assets/imx500_mobilenet_class80.txt",
+        "class_file" : "/home/pi/rpicam-apps/assets/imx500_mobilenet_ssd_class80.txt",
         "input_tensor_save_file": "/home/pi/input_tensor.raw",
         "num_input_tensors_saved": 10
     },

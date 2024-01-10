@@ -1,7 +1,7 @@
 rpicam_app_src += files([
     'hdr_stage.cpp',
     'histogram.cpp',
-    'imx500_mobilenet.cpp',
+    'imx500_mobilenet_ssd.cpp',
     'motion_detect_stage.cpp',
     'negate_stage.cpp',
     'post_processing_stage.cpp',

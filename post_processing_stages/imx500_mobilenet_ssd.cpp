@@ -2,7 +2,7 @@
 /*
  * Copyright (C) 2023, Raspberry Pi Ltd
  *
- * imx500_mobilenet.cpp - IMX500 inference for MobileNet SSD
+ * imx500_mobilenet_ssd.cpp - IMX500 inference for MobileNetSsd SSD
  */
 
 #include <algorithm>
@@ -19,24 +19,15 @@
 #include "post_processing_stages/object_detect.hpp"
 #include "post_processing_stages/post_processing_stage.hpp"
 
-
 using Stream = libcamera::Stream;
 namespace controls = libcamera::controls;
 
-#define NAME "imx500_mobilenet"
+#define NAME "imx500_mobilenet_ssd"
 
 // Derived from SSDMobilnetV1 DNN Model
 static constexpr unsigned int TotalDetections = 10;
 // bbox(10 * 4) + class(10) + scores(10) + numDetections(1) = 61
 static constexpr unsigned int DnnOutputTensorSize = 61;
-
-struct IMX500OutputTensorInfo
-{
-	uint32_t totalSize;
-	uint32_t tensorNum;
-	std::vector<float> address;
-	std::vector<uint32_t> tensorDataNum;
-};
 
 struct Bbox
 {
@@ -54,10 +45,10 @@ struct ObjectDetectionSsdOutputTensor
 	std::vector<float> classes;
 };
 
-class MobileNet : public PostProcessingStage
+class MobileNetSsd : public PostProcessingStage
 {
 public:
-	MobileNet(RPiCamApp *app) : PostProcessingStage(app) {}
+	MobileNetSsd(RPiCamApp *app) : PostProcessingStage(app) {}
 
 	char const *Name() const override;
 
@@ -82,12 +73,12 @@ private:
 	unsigned int numInputTensorsSaved_;
 };
 
-char const *MobileNet::Name() const
+char const *MobileNetSsd::Name() const
 {
 	return NAME;
 }
 
-void MobileNet::Read(boost::property_tree::ptree const &params)
+void MobileNetSsd::Read(boost::property_tree::ptree const &params)
 {
 	maxDetections_ = params.get<unsigned int>("max_detections");
 	threshold_ = params.get<float>("threshold", 0.5f);
@@ -111,13 +102,13 @@ void MobileNet::Read(boost::property_tree::ptree const &params)
 	}
 }
 
-void MobileNet::Configure()
+void MobileNetSsd::Configure()
 {
 	stream_ = app_->GetMainStream();
 	saveFrames_ = numInputTensorsSaved_;
 }
 
-bool MobileNet::Process(CompletedRequestPtr &completed_request)
+bool MobileNetSsd::Process(CompletedRequestPtr &completed_request)
 {
 	auto output = completed_request->metadata.get(controls::rpi::Imx500OutputTensor);
 	if (!output)
@@ -210,7 +201,7 @@ static int createObjectDetectionSsdData(ObjectDetectionSsdOutputTensor &ssd, con
 	return 0;
 }
 
-int MobileNet::processOutputTensor(std::vector<Detection> &objects, const std::vector<float> &outputTensor) const
+int MobileNetSsd::processOutputTensor(std::vector<Detection> &objects, const std::vector<float> &outputTensor) const
 {
 	ObjectDetectionSsdOutputTensor ssd;
 
@@ -254,7 +245,7 @@ int MobileNet::processOutputTensor(std::vector<Detection> &objects, const std::v
 
 static PostProcessingStage *Create(RPiCamApp *app)
 {
-	return new MobileNet(app);
+	return new MobileNetSsd(app);
 }
 
 static RegisterStage reg(NAME, &Create);
