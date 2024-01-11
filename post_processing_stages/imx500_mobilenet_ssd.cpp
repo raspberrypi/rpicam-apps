@@ -13,6 +13,7 @@
 #include <vector>
 
 #include <libcamera/control_ids.h>
+#include <libcamera/geometry.h>
 #include <libcamera/stream.h>
 
 #include "core/rpicam_app.hpp"
@@ -20,6 +21,8 @@
 #include "post_processing_stages/post_processing_stage.hpp"
 
 using Stream = libcamera::Stream;
+using Rectangle = libcamera::Rectangle;
+using Size = libcamera::Size;
 namespace controls = libcamera::controls;
 
 #define NAME "imx500_mobilenet_ssd"
@@ -28,6 +31,8 @@ namespace controls = libcamera::controls;
 static constexpr unsigned int TotalDetections = 10;
 // bbox(10 * 4) + class(10) + scores(10) + numDetections(1) = 61
 static constexpr unsigned int DnnOutputTensorSize = 61;
+static constexpr Size InputTensorSize { 300, 300 };
+static constexpr Size FullSensorSize { 4056, 3040 };
 
 struct Bbox
 {
@@ -59,9 +64,11 @@ public:
 	bool Process(CompletedRequestPtr &completed_request) override;
 
 private:
-	int processOutputTensor(std::vector<Detection> &objects, const std::vector<float> &outputTensor) const;
+	int processOutputTensor(std::vector<Detection> &objects, const std::vector<float> &outputTensor,
+							const Rectangle &scalerCrop) const;
 
-	Stream *stream_;
+	Stream *outputStream_;
+	Stream *rawStream_;
 	std::ofstream inputTensorFile_;
 	unsigned int saveFrames_;
 
@@ -104,12 +111,20 @@ void MobileNetSsd::Read(boost::property_tree::ptree const &params)
 
 void MobileNetSsd::Configure()
 {
-	stream_ = app_->GetMainStream();
+	outputStream_ = app_->GetMainStream();
+	rawStream_ = app_->RawStream();
 	saveFrames_ = numInputTensorsSaved_;
 }
 
 bool MobileNetSsd::Process(CompletedRequestPtr &completed_request)
 {
+	auto scalerCrop = completed_request->metadata.get(controls::ScalerCrop);
+	if (!rawStream_ || !scalerCrop)
+	{
+		LOG_ERROR("Must have RAW stream and scaler crop available to get sensor dimensions!");
+		return false;
+	}
+
 	auto output = completed_request->metadata.get(controls::rpi::Imx500OutputTensor);
 	if (!output)
 	{
@@ -120,7 +135,7 @@ bool MobileNetSsd::Process(CompletedRequestPtr &completed_request)
 	std::vector<float> outputTensor(output->data(), output->data() + output->size());
 	std::vector<Detection> objects;
 
-	int ret = processOutputTensor(objects, outputTensor);
+	int ret = processOutputTensor(objects, outputTensor, *scalerCrop);
 	if (!ret && objects.size())
 		completed_request->post_process_metadata.Set("object_detect.results", objects);
 
@@ -201,7 +216,8 @@ static int createObjectDetectionSsdData(ObjectDetectionSsdOutputTensor &ssd, con
 	return 0;
 }
 
-int MobileNetSsd::processOutputTensor(std::vector<Detection> &objects, const std::vector<float> &outputTensor) const
+int MobileNetSsd::processOutputTensor(std::vector<Detection> &objects, const std::vector<float> &outputTensor,
+									  const Rectangle &scalerCrop) const
 {
 	ObjectDetectionSsdOutputTensor ssd;
 
@@ -218,7 +234,6 @@ int MobileNetSsd::processOutputTensor(std::vector<Detection> &objects, const std
 		return -1;
 	}
 
-	const libcamera::Size dim = stream_->configuration().size;
 	for (unsigned int i = 0; i < std::min(ssd.numDetections, maxDetections_); i++)
 	{
 		uint8_t classIndex = (uint8_t)ssd.classes[i];
@@ -227,18 +242,38 @@ int MobileNetSsd::processOutputTensor(std::vector<Detection> &objects, const std
 		if (ssd.scores[i] < threshold_ || classIndex >= classes_.size())
 			continue;
 
-		// Extract bounding box co-ordinates
-		unsigned int x0 = std::round((ssd.bboxes[i].x0) * (dim.width - 1));
-		unsigned int x1 = std::round((ssd.bboxes[i].x1) * (dim.width - 1));
-		unsigned int y0 = std::round((ssd.bboxes[i].y0) * (dim.height - 1));
-		unsigned int y1 = std::round((ssd.bboxes[i].y1) * (dim.height - 1));
+		// Extract bounding box co-ordinates in the inference image co-ordinates.
+		int x0 = std::round((ssd.bboxes[i].x0) * (InputTensorSize.width - 1));
+		int x1 = std::round((ssd.bboxes[i].x1) * (InputTensorSize.width - 1));
+		int y0 = std::round((ssd.bboxes[i].y0) * (InputTensorSize.height - 1));
+		int y1 = std::round((ssd.bboxes[i].y1) * (InputTensorSize.height - 1));
 
-		objects.emplace_back(classIndex, classes_[classIndex], ssd.scores[i], x0, y0, x1 - x0, y1 - y0);
+		// Convert the inference image co-ordinates into the final ISP output co-ordinates.
+		const Size ispOutputSize = outputStream_->configuration().size;
+		const Size sensorOutputSize = rawStream_->configuration().size;
+		Rectangle sensorCrop = scalerCrop.scaledBy(sensorOutputSize, FullSensorSize);
+
+		// Object on inference image
+		const Rectangle obj { x0, y0, (unsigned int)x1 - x0, (unsigned int)y1 - y0 };
+		// -> on sensor image
+		const Rectangle objSensor = obj.scaledBy(sensorOutputSize, InputTensorSize);
+		// -> bounded to the ISP crop on the sensor image
+		const Rectangle objBound = objSensor.boundedTo(sensorCrop);
+		// -> translated by the start of the crop offset
+		const Rectangle objTranslated = objBound.translatedBy(-sensorCrop.topLeft());
+		// -> and finally scaled to the ISP output.
+		const Rectangle objScaled = objTranslated.scaledBy(ispOutputSize, sensorOutputSize);
+
+		LOG(2, obj << " -> (sensor) " << objSensor << " -> (bound) " << objBound
+				   << " -> (translate) " << objTranslated << " -> (scaled) " << objScaled);
+
+		objects.emplace_back(classIndex, classes_[classIndex], ssd.scores[i],
+							 objScaled.x, objScaled.y, objScaled.width, objScaled.height);
 	}
 
 	LOG(1, "Number of objects detected: " << objects.size());
 	for (unsigned i = 0; i < objects.size(); i++)
-		LOG(2, "[" << i << "] : " << objects[i].toString());
+		LOG(1, "[" << i << "] : " << objects[i].toString());
 
 	return 0;
 }
