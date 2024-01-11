@@ -9,6 +9,7 @@
 #include <array>
 #include <cmath>
 #include <fstream>
+#include <mutex>
 #include <string>
 #include <vector>
 
@@ -32,7 +33,6 @@ static constexpr unsigned int TotalDetections = 10;
 // bbox(10 * 4) + class(10) + scores(10) + numDetections(1) = 61
 static constexpr unsigned int DnnOutputTensorSize = 61;
 static constexpr Size InputTensorSize { 300, 300 };
-static constexpr Size FullSensorSize { 4056, 3040 };
 
 struct Bbox
 {
@@ -66,18 +66,33 @@ public:
 private:
 	int processOutputTensor(std::vector<Detection> &objects, const std::vector<float> &outputTensor,
 							const Rectangle &scalerCrop) const;
+	void filterOutputObjects(std::vector<Detection> &objects);
 
 	Stream *outputStream_;
 	Stream *rawStream_;
 	std::ofstream inputTensorFile_;
 	unsigned int saveFrames_;
+	Rectangle fullSensorResolution_;
+
+	struct LtObject
+	{
+		Detection params;
+		unsigned int visible;
+		bool matched;
+	};
+
+	std::vector<LtObject> ltObjects_;
+	std::mutex ltLock_;
 
 	// Config params
 	unsigned int maxDetections_;
 	float threshold_;
 	std::vector<std::string> classes_;
-	std::string inputTensorSaveFile_;
 	unsigned int numInputTensorsSaved_;
+	bool temporalFiltering_;
+	float tolerance_;
+	float factor_;
+	unsigned int visibleFrames_;
 };
 
 char const *MobileNetSsd::Name() const
@@ -101,12 +116,22 @@ void MobileNetSsd::Read(boost::property_tree::ptree const &params)
 	else
 		LOG_ERROR("Failed to open class file!");
 
-	std::string inputTensorSaveFile_ = params.get<std::string>("input_tensor_save_file", "");
-	if (!inputTensorSaveFile_.empty())
+	if (params.find("save_input_tensor") != params.not_found())
 	{
-		inputTensorFile_ = std::ofstream(inputTensorSaveFile_, std::ios::out | std::ios::binary);
-		numInputTensorsSaved_ = params.get<unsigned int>("num_input_tensors_saved", 1);
+		std::string filename = params.get<std::string>("save_input_tensor.filename");
+		numInputTensorsSaved_ = params.get<unsigned int>("save_input_tensor.num_tensors", 1);
+		inputTensorFile_ = std::ofstream(filename, std::ios::out | std::ios::binary);
 	}
+
+	if (params.find("temporal_filter") != params.not_found())
+	{
+		temporalFiltering_ = true;
+		tolerance_ = params.get<float>("temporal_filter.tolerance", 0.05);
+		factor_ = params.get<float>("temporal_filter.factor", 0.2);
+		visibleFrames_ = params.get<unsigned int>("temporal_filter.visible_frames", 5);
+	}
+	else
+		temporalFiltering_ = false;
 }
 
 void MobileNetSsd::Configure()
@@ -114,6 +139,7 @@ void MobileNetSsd::Configure()
 	outputStream_ = app_->GetMainStream();
 	rawStream_ = app_->RawStream();
 	saveFrames_ = numInputTensorsSaved_;
+	fullSensorResolution_ = *app_->GetProperties().get(properties::ScalerCropMaximum);
 }
 
 bool MobileNetSsd::Process(CompletedRequestPtr &completed_request)
@@ -136,11 +162,28 @@ bool MobileNetSsd::Process(CompletedRequestPtr &completed_request)
 	std::vector<Detection> objects;
 
 	int ret = processOutputTensor(objects, outputTensor, *scalerCrop);
-	if (!ret && objects.size())
-		completed_request->post_process_metadata.Set("object_detect.results", objects);
+	if (!ret)
+	{
+		if (temporalFiltering_)
+		{
+			std::scoped_lock<std::mutex> l(ltLock_);
+			std::vector<Detection> ltObjs;
+
+			filterOutputObjects(objects);
+			if (ltObjects_.size())
+			{
+				objects.clear();
+				for (auto const &obj : ltObjects_)
+					objects.push_back(obj.params);
+			}
+		}
+
+		if (objects.size())
+			completed_request->post_process_metadata.Set("object_detect.results", objects);
+	}
 
 	auto input = completed_request->metadata.get(controls::rpi::Imx500InputTensor);
-	if (input && inputTensorFile_.is_open() && saveFrames_)
+	if (input && inputTensorFile_.is_open())
 	{
 		inputTensorFile_.write(reinterpret_cast<const char *>(input->data()), input->size());
 		if (--saveFrames_ == 0)
@@ -251,7 +294,7 @@ int MobileNetSsd::processOutputTensor(std::vector<Detection> &objects, const std
 		// Convert the inference image co-ordinates into the final ISP output co-ordinates.
 		const Size ispOutputSize = outputStream_->configuration().size;
 		const Size sensorOutputSize = rawStream_->configuration().size;
-		Rectangle sensorCrop = scalerCrop.scaledBy(sensorOutputSize, FullSensorSize);
+		const Rectangle sensorCrop = scalerCrop.scaledBy(sensorOutputSize, fullSensorResolution_.size());
 
 		// Object on inference image
 		const Rectangle obj { x0, y0, (unsigned int)x1 - x0, (unsigned int)y1 - y0 };
@@ -276,6 +319,55 @@ int MobileNetSsd::processOutputTensor(std::vector<Detection> &objects, const std
 		LOG(1, "[" << i << "] : " << objects[i].toString());
 
 	return 0;
+}
+
+void MobileNetSsd::filterOutputObjects(std::vector<Detection> &objects)
+{
+	const Size ispOutputSize = outputStream_->configuration().size;
+
+	for (auto &ltObject : ltObjects_)
+		ltObject.matched = false;
+
+	for (auto const &object : objects)
+	{
+		bool matched = false;
+		for (auto &ltObject : ltObjects_)
+		{
+			// Try and match a detected object in our long term list.
+			if (object.category == ltObject.params.category &&
+				std::abs(object.box.x - ltObject.params.box.x) < tolerance_ * ispOutputSize.width &&
+				std::abs(object.box.y - ltObject.params.box.y) < tolerance_ * ispOutputSize.height &&
+				std::abs((int)object.box.width - (int)ltObject.params.box.width) < tolerance_ * ispOutputSize.width &&
+				std::abs((int)object.box.height - (int)ltObject.params.box.height) < tolerance_ * ispOutputSize.height)
+			{
+				ltObject.matched = true;
+				ltObject.visible = visibleFrames_;
+				ltObject.params.confidence = object.confidence;
+				ltObject.params.box.x = factor_ * object.box.x + (1 - factor_) * ltObject.params.box.x;
+				ltObject.params.box.y = factor_ * object.box.y + (1 - factor_) * ltObject.params.box.y;
+				ltObject.params.box.width = factor_ * object.box.width + (1 - factor_) * ltObject.params.box.width;
+				ltObject.params.box.height = factor_ * object.box.height + (1 - factor_) * ltObject.params.box.height;
+				matched = true;
+				break;
+			}
+		}
+
+		// Add the object to the long term list if not found.
+		if (!matched)
+			ltObjects_.push_back({ object, visibleFrames_, 1 });
+	}
+
+	// Decrement the visible count of unmatched objects in the long term list.
+	for (auto &ltObject : ltObjects_)
+	{
+		if (!ltObject.matched)
+			ltObject.visible--;
+	}
+
+	// Remove now invisible objects from the long term list.
+	ltObjects_.erase(std::remove_if(ltObjects_.begin(), ltObjects_.end(),
+						[] (const LtObject &obj) { return !obj.matched && !obj.visible; }),
+					 ltObjects_.end());
 }
 
 static PostProcessingStage *Create(RPiCamApp *app)

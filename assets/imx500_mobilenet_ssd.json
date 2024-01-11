@@ -2,14 +2,26 @@
     "imx500_mobilenet_ssd":
     {
         "max_detections" : 5,
-        "threshold" : 0.56,
-        "class_file" : "/home/pi/rpicam-apps/assets/imx500_mobilenet_ssd_class80.txt",
-        "input_tensor_save_file": "/home/pi/input_tensor.raw",
-        "num_input_tensors_saved": 10
+        "threshold" : 0.6,
+        "class_file" : "/home/pi/rpicam-apps/assets/imx500_mobilenet_class80.txt",
+
+        "save_input_tensor":
+        {
+            "filename": "/home/pi/input_tensor.raw",
+            "num_tensors": 10
+        },
+
+        "temporal_filter":
+        {
+            "tolerance": 0.1,
+            "factor": 0.2,
+            "visible_frames": 4
+        }
     },
 
     "object_detect_draw_cv":
     {
-    	"line_thickness" : 2
+        "line_thickness" : 2
     }
+    
 }
