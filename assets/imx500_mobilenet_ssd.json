@@ -15,7 +15,8 @@
         {
             "tolerance": 0.1,
             "factor": 0.2,
-            "visible_frames": 4
+            "visible_frames": 4,
+            "hidden_frames": 2
         }
     },
 

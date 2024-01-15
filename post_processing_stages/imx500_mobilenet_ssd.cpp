@@ -71,6 +71,7 @@ private:
 	{
 		Detection params;
 		unsigned int visible;
+		unsigned int hidden;
 		bool matched;
 	};
 
@@ -86,6 +87,7 @@ private:
 	float tolerance_;
 	float factor_;
 	unsigned int visibleFrames_;
+	unsigned int hiddenFrames_;
 };
 
 char const *MobileNetSsd::Name() const
@@ -115,6 +117,7 @@ void MobileNetSsd::Read(boost::property_tree::ptree const &params)
 		tolerance_ = params.get<float>("temporal_filter.tolerance", 0.05);
 		factor_ = params.get<float>("temporal_filter.factor", 0.2);
 		visibleFrames_ = params.get<unsigned int>("temporal_filter.visible_frames", 5);
+		hiddenFrames_ = params.get<unsigned int>("temporal_filter.hidden_frames", 2);
 	}
 	else
 		temporalFiltering_ = false;
@@ -162,7 +165,10 @@ bool MobileNetSsd::Process(CompletedRequestPtr &completed_request)
 			{
 				objects.clear();
 				for (auto const &obj : ltObjects_)
-					objects.push_back(obj.params);
+				{
+					if (!obj.hidden)
+						objects.push_back(obj.params);
+				}
 			}
 		}
 
@@ -307,21 +313,23 @@ void MobileNetSsd::filterOutputObjects(std::vector<Detection> &objects)
 				std::abs((int)object.box.width - (int)ltObject.params.box.width) < tolerance_ * ispOutputSize.width &&
 				std::abs((int)object.box.height - (int)ltObject.params.box.height) < tolerance_ * ispOutputSize.height)
 			{
-				ltObject.matched = true;
-				ltObject.visible = visibleFrames_;
+				ltObject.matched = matched = true;
 				ltObject.params.confidence = object.confidence;
 				ltObject.params.box.x = factor_ * object.box.x + (1 - factor_) * ltObject.params.box.x;
 				ltObject.params.box.y = factor_ * object.box.y + (1 - factor_) * ltObject.params.box.y;
 				ltObject.params.box.width = factor_ * object.box.width + (1 - factor_) * ltObject.params.box.width;
 				ltObject.params.box.height = factor_ * object.box.height + (1 - factor_) * ltObject.params.box.height;
-				matched = true;
+				// Reset the visibility counter for when the object next disappears.
+				ltObject.visible = visibleFrames_;
+				// Decrement the hidden counter until the object becomes visible in the list.
+				ltObject.hidden = std::max(0, (int)ltObject.hidden - 1);
 				break;
 			}
 		}
 
-		// Add the object to the long term list if not found.
+		// Add the object to the long term list if not found.  This object will remain hidden for hiddenFrames_ frames.
 		if (!matched)
-			ltObjects_.push_back({ object, visibleFrames_, 1 });
+			ltObjects_.push_back({ object, visibleFrames_, hiddenFrames_, 1 });
 	}
 
 	// Decrement the visible count of unmatched objects in the long term list.
