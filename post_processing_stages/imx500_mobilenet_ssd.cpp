@@ -1,27 +1,26 @@
 /* SPDX-License-Identifier: BSD-2-Clause */
 /*
- * Copyright (C) 2023, Raspberry Pi Ltd
+ * Copyright (C) 2024, Raspberry Pi Ltd
  *
- * imx500_mobilenet_ssd.cpp - IMX500 inference for MobileNetSsd SSD
+ * imx500_mobilenet_ssd.cpp - IMX500 inference for MobileNetSSD
  */
 
 #include <algorithm>
 #include <array>
 #include <cmath>
-#include <fstream>
 #include <mutex>
 #include <string>
 #include <vector>
 
 #include <libcamera/control_ids.h>
 #include <libcamera/geometry.h>
-#include <libcamera/stream.h>
 
 #include "core/rpicam_app.hpp"
 #include "post_processing_stages/object_detect.hpp"
 #include "post_processing_stages/post_processing_stage.hpp"
 
-using Stream = libcamera::Stream;
+#include "imx500_post_processing_stage.hpp"
+
 using Rectangle = libcamera::Rectangle;
 using Size = libcamera::Size;
 namespace controls = libcamera::controls;
@@ -50,10 +49,10 @@ struct ObjectDetectionSsdOutputTensor
 	std::vector<float> classes;
 };
 
-class MobileNetSsd : public PostProcessingStage
+class MobileNetSsd : public IMX500PostProcessingStage
 {
 public:
-	MobileNetSsd(RPiCamApp *app) : PostProcessingStage(app) {}
+	MobileNetSsd(RPiCamApp *app) : IMX500PostProcessingStage(app) {}
 
 	char const *Name() const override;
 
@@ -67,12 +66,6 @@ private:
 	int processOutputTensor(std::vector<Detection> &objects, const std::vector<float> &outputTensor,
 							const Rectangle &scalerCrop) const;
 	void filterOutputObjects(std::vector<Detection> &objects);
-
-	Stream *outputStream_;
-	Stream *rawStream_;
-	std::ofstream inputTensorFile_;
-	unsigned int saveFrames_;
-	Rectangle fullSensorResolution_;
 
 	struct LtObject
 	{
@@ -116,13 +109,6 @@ void MobileNetSsd::Read(boost::property_tree::ptree const &params)
 	else
 		LOG_ERROR("Failed to open class file!");
 
-	if (params.find("save_input_tensor") != params.not_found())
-	{
-		std::string filename = params.get<std::string>("save_input_tensor.filename");
-		numInputTensorsSaved_ = params.get<unsigned int>("save_input_tensor.num_tensors", 1);
-		inputTensorFile_ = std::ofstream(filename, std::ios::out | std::ios::binary);
-	}
-
 	if (params.find("temporal_filter") != params.not_found())
 	{
 		temporalFiltering_ = true;
@@ -132,14 +118,14 @@ void MobileNetSsd::Read(boost::property_tree::ptree const &params)
 	}
 	else
 		temporalFiltering_ = false;
+
+	IMX500PostProcessingStage::Read(params);
 }
 
 void MobileNetSsd::Configure()
 {
-	outputStream_ = app_->GetMainStream();
-	rawStream_ = app_->RawStream();
-	saveFrames_ = numInputTensorsSaved_;
-	fullSensorResolution_ = *app_->GetProperties().get(properties::ScalerCropMaximum);
+	// Nothing to do here except call the base class Configure().
+	IMX500PostProcessingStage::Configure();
 }
 
 bool MobileNetSsd::Process(CompletedRequestPtr &completed_request)
@@ -166,6 +152,8 @@ bool MobileNetSsd::Process(CompletedRequestPtr &completed_request)
 	{
 		if (temporalFiltering_)
 		{
+			// Process() can be concurrently called through different threads for consecutive CompletedRequests if
+			// things are running behind.  So protect access to the ltObjects_ state object.
 			std::scoped_lock<std::mutex> l(ltLock_);
 			std::vector<Detection> ltObjs;
 
@@ -182,13 +170,7 @@ bool MobileNetSsd::Process(CompletedRequestPtr &completed_request)
 			completed_request->post_process_metadata.Set("object_detect.results", objects);
 	}
 
-	auto input = completed_request->metadata.get(controls::rpi::Imx500InputTensor);
-	if (input && inputTensorFile_.is_open())
-	{
-		inputTensorFile_.write(reinterpret_cast<const char *>(input->data()), input->size());
-		if (--saveFrames_ == 0)
-			inputTensorFile_.close();
-	}
+	IMX500PostProcessingStage::SaveInputTensor(completed_request);
 
 	return false;
 }
@@ -292,23 +274,8 @@ int MobileNetSsd::processOutputTensor(std::vector<Detection> &objects, const std
 		int y1 = std::round((ssd.bboxes[i].y1) * (InputTensorSize.height - 1));
 
 		// Convert the inference image co-ordinates into the final ISP output co-ordinates.
-		const Size ispOutputSize = outputStream_->configuration().size;
-		const Size sensorOutputSize = rawStream_->configuration().size;
-		const Rectangle sensorCrop = scalerCrop.scaledBy(sensorOutputSize, fullSensorResolution_.size());
-
-		// Object on inference image
 		const Rectangle obj { x0, y0, (unsigned int)x1 - x0, (unsigned int)y1 - y0 };
-		// -> on sensor image
-		const Rectangle objSensor = obj.scaledBy(sensorOutputSize, InputTensorSize);
-		// -> bounded to the ISP crop on the sensor image
-		const Rectangle objBound = objSensor.boundedTo(sensorCrop);
-		// -> translated by the start of the crop offset
-		const Rectangle objTranslated = objBound.translatedBy(-sensorCrop.topLeft());
-		// -> and finally scaled to the ISP output.
-		const Rectangle objScaled = objTranslated.scaledBy(ispOutputSize, sensorOutputSize);
-
-		LOG(2, obj << " -> (sensor) " << objSensor << " -> (bound) " << objBound
-				   << " -> (translate) " << objTranslated << " -> (scaled) " << objScaled);
+		const Rectangle objScaled = ConvertInferenceCoordinates(obj, scalerCrop, InputTensorSize);
 
 		objects.emplace_back(classIndex, classes_[classIndex], ssd.scores[i],
 							 objScaled.x, objScaled.y, objScaled.width, objScaled.height);

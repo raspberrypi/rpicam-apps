@@ -5,6 +5,8 @@
  * post_processing_stage.hpp - Post processing stage base class definition.
  */
 
+#pragma once
+
 #include <chrono>
 #include <map>
 #include <string>
