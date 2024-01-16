@@ -34,12 +34,12 @@ public:
 													 const libcamera::Size &inputTensorSize) const;
 
 protected:
-	libcamera::Rectangle fullSensorResolution_;
-	libcamera::Stream *outputStream_;
-	libcamera::Stream *rawStream_;
+	libcamera::Rectangle full_sensor_resolution_;
+	libcamera::Stream *output_stream_;
+	libcamera::Stream *raw_stream_;
 
 private:
-	std::ofstream inputTensorFile_;
-	unsigned int numInputTensorsSaved_;
-	unsigned int saveFrames_;
+	std::ofstream input_tensor_file_;
+	unsigned int num_input_tensors_saved_;
+	unsigned int save_frames_;
 };
