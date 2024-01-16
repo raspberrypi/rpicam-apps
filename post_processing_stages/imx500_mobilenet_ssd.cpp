@@ -325,22 +325,29 @@ void MobileNetSsd::filterOutputObjects(std::vector<Detection> &objects)
 			}
 		}
 
-		// Add the object to the long term list if not found.  This object will remain hidden for hidden_frames_ frames.
+		// Add the object to the long term list if not found.  This object will remain hidden for hidden_frames_
+		// consecutive frames.
 		if (!matched)
 			lt_objects_.push_back({ object, visible_frames_, hidden_frames_, 1 });
 	}
 
-	// Decrement the visible count of unmatched objects in the long term list.
 	for (auto &lt_obj : lt_objects_)
 	{
 		if (!lt_obj.matched)
-			lt_obj.visible--;
+		{
+			// If a non matched object in the long term list is still hidden, set visible count to 0 so that it must be
+			// matched for hidden_frames_ consecutive frames before becoming visible. Otherwise, decrement the visible
+			// count of unmatched objects in the long term list.
+			if (lt_obj.hidden)
+				lt_obj.visible = 0;
+			else
+				lt_obj.visible--;
 	}
 
 	// Remove now invisible objects from the long term list.
 	lt_objects_.erase(std::remove_if(lt_objects_.begin(), lt_objects_.end(),
 						[] (const LtObject &obj) { return !obj.matched && !obj.visible; }),
-					 lt_objects_.end());
+					  lt_objects_.end());
 }
 
 static PostProcessingStage *Create(RPiCamApp *app)
