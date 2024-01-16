@@ -28,10 +28,10 @@ namespace controls = libcamera::controls;
 #define NAME "imx500_mobilenet_ssd"
 
 // Derived from SSDMobilnetV1 DNN Model
-static constexpr unsigned int TotalDetections = 10;
-// bbox(10 * 4) + class(10) + scores(10) + numDetections(1) = 61
-static constexpr unsigned int DnnOutputTensorSize = 61;
-static constexpr Size InputTensorSize { 300, 300 };
+static constexpr unsigned int TOTAL_DETECTIONS = 10;
+// bbox(10 * 4) + class(10) + scores(10) + num_detections(1) = 61
+static constexpr unsigned int DNN_OUTPUT_TENSOR_SIZE = 61;
+static constexpr Size INPUT_TENSOR_SIZE { 300, 300 };
 
 struct Bbox
 {
@@ -43,7 +43,7 @@ struct Bbox
 
 struct ObjectDetectionSsdOutputTensor
 {
-	unsigned int numDetections = 0;
+	unsigned int num_detections = 0;
 	std::vector<Bbox> bboxes;
 	std::vector<float> scores;
 	std::vector<float> classes;
@@ -63,8 +63,8 @@ public:
 	bool Process(CompletedRequestPtr &completed_request) override;
 
 private:
-	int processOutputTensor(std::vector<Detection> &objects, const std::vector<float> &outputTensor,
-							const Rectangle &scalerCrop) const;
+	int processOutputTensor(std::vector<Detection> &objects, const std::vector<float> &output_tensor,
+							const Rectangle &scaler_crop) const;
 	void filterOutputObjects(std::vector<Detection> &objects);
 
 	struct LtObject
@@ -75,19 +75,18 @@ private:
 		bool matched;
 	};
 
-	std::vector<LtObject> ltObjects_;
-	std::mutex ltLock_;
+	std::vector<LtObject> lt_objects_;
+	std::mutex lt_lock_;
 
 	// Config params
-	unsigned int maxDetections_;
+	unsigned int max_detections_;
 	float threshold_;
 	std::vector<std::string> classes_;
-	unsigned int numInputTensorsSaved_;
-	bool temporalFiltering_;
+	bool temporal_filtering_;
 	float tolerance_;
 	float factor_;
-	unsigned int visibleFrames_;
-	unsigned int hiddenFrames_;
+	unsigned int visible_frames_;
+	unsigned int hidden_frames_;
 };
 
 char const *MobileNetSsd::Name() const
@@ -97,11 +96,11 @@ char const *MobileNetSsd::Name() const
 
 void MobileNetSsd::Read(boost::property_tree::ptree const &params)
 {
-	maxDetections_ = params.get<unsigned int>("max_detections");
+	max_detections_ = params.get<unsigned int>("max_detections");
 	threshold_ = params.get<float>("threshold", 0.5f);
 
-	std::string classFile = params.get<std::string>("class_file");
-	std::ifstream f(classFile);
+	std::string class_file = params.get<std::string>("class_file");
+	std::ifstream f(class_file);
 	if (f.is_open())
 	{
 		std::string c;
@@ -113,14 +112,14 @@ void MobileNetSsd::Read(boost::property_tree::ptree const &params)
 
 	if (params.find("temporal_filter") != params.not_found())
 	{
-		temporalFiltering_ = true;
+		temporal_filtering_ = true;
 		tolerance_ = params.get<float>("temporal_filter.tolerance", 0.05);
 		factor_ = params.get<float>("temporal_filter.factor", 0.2);
-		visibleFrames_ = params.get<unsigned int>("temporal_filter.visible_frames", 5);
-		hiddenFrames_ = params.get<unsigned int>("temporal_filter.hidden_frames", 2);
+		visible_frames_ = params.get<unsigned int>("temporal_filter.visible_frames", 5);
+		hidden_frames_ = params.get<unsigned int>("temporal_filter.hidden_frames", 2);
 	}
 	else
-		temporalFiltering_ = false;
+		temporal_filtering_ = false;
 
 	IMX500PostProcessingStage::Read(params);
 }
@@ -133,8 +132,8 @@ void MobileNetSsd::Configure()
 
 bool MobileNetSsd::Process(CompletedRequestPtr &completed_request)
 {
-	auto scalerCrop = completed_request->metadata.get(controls::ScalerCrop);
-	if (!rawStream_ || !scalerCrop)
+	auto scaler_crop = completed_request->metadata.get(controls::ScalerCrop);
+	if (!raw_stream_ || !scaler_crop)
 	{
 		LOG_ERROR("Must have RAW stream and scaler crop available to get sensor dimensions!");
 		return false;
@@ -147,24 +146,23 @@ bool MobileNetSsd::Process(CompletedRequestPtr &completed_request)
 		return false;
 	}
 
-	std::vector<float> outputTensor(output->data(), output->data() + output->size());
+	std::vector<float> output_tensor(output->data(), output->data() + output->size());
 	std::vector<Detection> objects;
 
-	int ret = processOutputTensor(objects, outputTensor, *scalerCrop);
+	int ret = processOutputTensor(objects, output_tensor, *scaler_crop);
 	if (!ret)
 	{
-		if (temporalFiltering_)
+		if (temporal_filtering_)
 		{
 			// Process() can be concurrently called through different threads for consecutive CompletedRequests if
-			// things are running behind.  So protect access to the ltObjects_ state object.
-			std::scoped_lock<std::mutex> l(ltLock_);
-			std::vector<Detection> ltObjs;
+			// things are running behind.  So protect access to the lt_objects_ state object.
+			std::scoped_lock<std::mutex> l(lt_lock_);
 
 			filterOutputObjects(objects);
-			if (ltObjects_.size())
+			if (lt_objects_.size())
 			{
 				objects.clear();
-				for (auto const &obj : ltObjects_)
+				for (auto const &obj : lt_objects_)
 				{
 					if (!obj.hidden)
 						objects.push_back(obj.params);
@@ -185,28 +183,28 @@ static int createObjectDetectionSsdData(ObjectDetectionSsdOutputTensor &ssd, con
 {
 	unsigned int count = 0;
 
-	if ((count + (TotalDetections * 4)) > DnnOutputTensorSize)
+	if ((count + (TOTAL_DETECTIONS * 4)) > DNN_OUTPUT_TENSOR_SIZE)
 	{
 		LOG_ERROR("Invalid count index " << count);
 		return -1;
 	}
 
 	// Extract bounding box co-ordinates
-	for (unsigned int i = 0; i < TotalDetections; i++)
+	for (unsigned int i = 0; i < TOTAL_DETECTIONS; i++)
 	{
 		Bbox bbox;
 		bbox.y0 = data.at(count + i);
-		bbox.x0 = data.at(count + i + (1 * TotalDetections));
-		bbox.y1 = data.at(count + i + (2 * TotalDetections));
-		bbox.x1 = data.at(count + i + (3 * TotalDetections));
+		bbox.x0 = data.at(count + i + (1 * TOTAL_DETECTIONS));
+		bbox.y1 = data.at(count + i + (2 * TOTAL_DETECTIONS));
+		bbox.x1 = data.at(count + i + (3 * TOTAL_DETECTIONS));
 		ssd.bboxes.push_back(bbox);
 	}
-	count += (TotalDetections * 4);
+	count += (TOTAL_DETECTIONS * 4);
 
 	// Extract class indices
-	for (unsigned int i = 0; i < TotalDetections; i++)
+	for (unsigned int i = 0; i < TOTAL_DETECTIONS; i++)
 	{
-		if (count > DnnOutputTensorSize)
+		if (count > DNN_OUTPUT_TENSOR_SIZE)
 		{
 			LOG_ERROR("Invalid count index " << count);
 			return -1;
@@ -217,9 +215,9 @@ static int createObjectDetectionSsdData(ObjectDetectionSsdOutputTensor &ssd, con
 	}
 
 	// Extract scores
-	for (unsigned int i = 0; i < TotalDetections; i++)
+	for (unsigned int i = 0; i < TOTAL_DETECTIONS; i++)
 	{
-		if (count > DnnOutputTensorSize)
+		if (count > DNN_OUTPUT_TENSOR_SIZE)
 		{
 			LOG_ERROR("Invalid count index " << count);
 			return -1;
@@ -229,62 +227,62 @@ static int createObjectDetectionSsdData(ObjectDetectionSsdOutputTensor &ssd, con
 		count++;
 	}
 
-	if (count > DnnOutputTensorSize)
+	if (count > DNN_OUTPUT_TENSOR_SIZE)
 	{
 		LOG_ERROR("Invalid count index " << count);
 		return -1;
 	}
 
 	// Extract number of detections
-	unsigned int numDetections = data.at(count);
-	if (numDetections > TotalDetections)
+	unsigned int num_detections = data.at(count);
+	if (num_detections > TOTAL_DETECTIONS)
 	{
-		LOG(1, "Unexpected value for numDetections: " << numDetections << ", setting it to " << TotalDetections);
-		numDetections = TotalDetections;
+		LOG(1, "Unexpected value for num_detections: " << num_detections << ", setting it to " << TOTAL_DETECTIONS);
+		num_detections = TOTAL_DETECTIONS;
 	}
 
-	ssd.numDetections = numDetections;
+	ssd.num_detections = num_detections;
 	return 0;
 }
 
-int MobileNetSsd::processOutputTensor(std::vector<Detection> &objects, const std::vector<float> &outputTensor,
-									  const Rectangle &scalerCrop) const
+int MobileNetSsd::processOutputTensor(std::vector<Detection> &objects, const std::vector<float> &output_tensor,
+									  const Rectangle &scaler_crop) const
 {
 	ObjectDetectionSsdOutputTensor ssd;
 
-	if (outputTensor.size() != DnnOutputTensorSize)
+	if (output_tensor.size() != DNN_OUTPUT_TENSOR_SIZE)
 	{
-		LOG_ERROR("Invalid tensor size " << outputTensor.size() << ", expected " << DnnOutputTensorSize);
+		LOG_ERROR("Invalid tensor size " << output_tensor.size() << ", expected " << DNN_OUTPUT_TENSOR_SIZE);
 		return -1;
 	}
 
-	int ret = createObjectDetectionSsdData(ssd, outputTensor);
+	int ret = createObjectDetectionSsdData(ssd, output_tensor);
 	if (ret)
 	{
 		LOG_ERROR("Failed to create SSD data");
 		return -1;
 	}
 
-	for (unsigned int i = 0; i < std::min(ssd.numDetections, maxDetections_); i++)
+	for (unsigned int i = 0; i < std::min(ssd.num_detections, max_detections_); i++)
 	{
-		uint8_t classIndex = (uint8_t)ssd.classes[i];
+		uint8_t class_index = (uint8_t)ssd.classes[i];
 
 		// Filter detections
-		if (ssd.scores[i] < threshold_ || classIndex >= classes_.size())
+		if (ssd.scores[i] < threshold_ || class_index >= classes_.size())
 			continue;
 
 		// Extract bounding box co-ordinates in the inference image co-ordinates.
-		int x0 = std::round((ssd.bboxes[i].x0) * (InputTensorSize.width - 1));
-		int x1 = std::round((ssd.bboxes[i].x1) * (InputTensorSize.width - 1));
-		int y0 = std::round((ssd.bboxes[i].y0) * (InputTensorSize.height - 1));
-		int y1 = std::round((ssd.bboxes[i].y1) * (InputTensorSize.height - 1));
+		int x0 = std::round((ssd.bboxes[i].x0) * (INPUT_TENSOR_SIZE.width - 1));
+		int x1 = std::round((ssd.bboxes[i].x1) * (INPUT_TENSOR_SIZE.width - 1));
+		int y0 = std::round((ssd.bboxes[i].y0) * (INPUT_TENSOR_SIZE.height - 1));
+		int y1 = std::round((ssd.bboxes[i].y1) * (INPUT_TENSOR_SIZE.height - 1));
 
 		// Convert the inference image co-ordinates into the final ISP output co-ordinates.
 		const Rectangle obj { x0, y0, (unsigned int)x1 - x0, (unsigned int)y1 - y0 };
-		const Rectangle objScaled = ConvertInferenceCoordinates(obj, scalerCrop, InputTensorSize);
+		const Rectangle obj_scaled = ConvertInferenceCoordinates(obj, scaler_crop, INPUT_TENSOR_SIZE);
 
-		objects.emplace_back(classIndex, classes_[classIndex], ssd.scores[i],
-							 objScaled.x, objScaled.y, objScaled.width, objScaled.height);
+		objects.emplace_back(class_index, classes_[class_index], ssd.scores[i],
+							 obj_scaled.x, obj_scaled.y, obj_scaled.width, obj_scaled.height);
 	}
 
 	LOG(1, "Number of objects detected: " << objects.size());
@@ -296,53 +294,53 @@ int MobileNetSsd::processOutputTensor(std::vector<Detection> &objects, const std
 
 void MobileNetSsd::filterOutputObjects(std::vector<Detection> &objects)
 {
-	const Size ispOutputSize = outputStream_->configuration().size;
+	const Size isp_output_size = output_stream_->configuration().size;
 
-	for (auto &ltObject : ltObjects_)
-		ltObject.matched = false;
+	for (auto &lt_obj : lt_objects_)
+		lt_obj.matched = false;
 
 	for (auto const &object : objects)
 	{
 		bool matched = false;
-		for (auto &ltObject : ltObjects_)
+		for (auto &lt_obj : lt_objects_)
 		{
 			// Try and match a detected object in our long term list.
-			if (object.category == ltObject.params.category &&
-				std::abs(object.box.x - ltObject.params.box.x) < tolerance_ * ispOutputSize.width &&
-				std::abs(object.box.y - ltObject.params.box.y) < tolerance_ * ispOutputSize.height &&
-				std::abs((int)object.box.width - (int)ltObject.params.box.width) < tolerance_ * ispOutputSize.width &&
-				std::abs((int)object.box.height - (int)ltObject.params.box.height) < tolerance_ * ispOutputSize.height)
+			if (object.category == lt_obj.params.category &&
+				std::abs(object.box.x - lt_obj.params.box.x) < tolerance_ * isp_output_size.width &&
+				std::abs(object.box.y - lt_obj.params.box.y) < tolerance_ * isp_output_size.height &&
+				std::abs((int)object.box.width - (int)lt_obj.params.box.width) < tolerance_ * isp_output_size.width &&
+				std::abs((int)object.box.height - (int)lt_obj.params.box.height) < tolerance_ * isp_output_size.height)
 			{
-				ltObject.matched = matched = true;
-				ltObject.params.confidence = object.confidence;
-				ltObject.params.box.x = factor_ * object.box.x + (1 - factor_) * ltObject.params.box.x;
-				ltObject.params.box.y = factor_ * object.box.y + (1 - factor_) * ltObject.params.box.y;
-				ltObject.params.box.width = factor_ * object.box.width + (1 - factor_) * ltObject.params.box.width;
-				ltObject.params.box.height = factor_ * object.box.height + (1 - factor_) * ltObject.params.box.height;
+				lt_obj.matched = matched = true;
+				lt_obj.params.confidence = object.confidence;
+				lt_obj.params.box.x = factor_ * object.box.x + (1 - factor_) * lt_obj.params.box.x;
+				lt_obj.params.box.y = factor_ * object.box.y + (1 - factor_) * lt_obj.params.box.y;
+				lt_obj.params.box.width = factor_ * object.box.width + (1 - factor_) * lt_obj.params.box.width;
+				lt_obj.params.box.height = factor_ * object.box.height + (1 - factor_) * lt_obj.params.box.height;
 				// Reset the visibility counter for when the object next disappears.
-				ltObject.visible = visibleFrames_;
+				lt_obj.visible = visible_frames_;
 				// Decrement the hidden counter until the object becomes visible in the list.
-				ltObject.hidden = std::max(0, (int)ltObject.hidden - 1);
+				lt_obj.hidden = std::max(0, (int)lt_obj.hidden - 1);
 				break;
 			}
 		}
 
-		// Add the object to the long term list if not found.  This object will remain hidden for hiddenFrames_ frames.
+		// Add the object to the long term list if not found.  This object will remain hidden for hidden_frames_ frames.
 		if (!matched)
-			ltObjects_.push_back({ object, visibleFrames_, hiddenFrames_, 1 });
+			lt_objects_.push_back({ object, visible_frames_, hidden_frames_, 1 });
 	}
 
 	// Decrement the visible count of unmatched objects in the long term list.
-	for (auto &ltObject : ltObjects_)
+	for (auto &lt_obj : lt_objects_)
 	{
-		if (!ltObject.matched)
-			ltObject.visible--;
+		if (!lt_obj.matched)
+			lt_obj.visible--;
 	}
 
 	// Remove now invisible objects from the long term list.
-	ltObjects_.erase(std::remove_if(ltObjects_.begin(), ltObjects_.end(),
+	lt_objects_.erase(std::remove_if(lt_objects_.begin(), lt_objects_.end(),
 						[] (const LtObject &obj) { return !obj.matched && !obj.visible; }),
-					 ltObjects_.end());
+					 lt_objects_.end());
 }
 
 static PostProcessingStage *Create(RPiCamApp *app)

@@ -18,49 +18,49 @@ void IMX500PostProcessingStage::Read(boost::property_tree::ptree const &params)
 	if (params.find("save_input_tensor") != params.not_found())
 	{
 		std::string filename = params.get<std::string>("save_input_tensor.filename");
-		numInputTensorsSaved_ = params.get<unsigned int>("save_input_tensor.num_tensors", 1);
-		inputTensorFile_ = std::ofstream(filename, std::ios::out | std::ios::binary);
+		num_input_tensors_saved_ = params.get<unsigned int>("save_input_tensor.num_tensors", 1);
+		input_tensor_file_ = std::ofstream(filename, std::ios::out | std::ios::binary);
 	}
 }
 
 void IMX500PostProcessingStage::Configure()
 {
-	outputStream_ = app_->GetMainStream();
-	rawStream_ = app_->RawStream();
-	saveFrames_ = numInputTensorsSaved_;
-	fullSensorResolution_ = *app_->GetProperties().get(properties::ScalerCropMaximum);
+	output_stream_ = app_->GetMainStream();
+	raw_stream_ = app_->RawStream();
+	save_frames_ = num_input_tensors_saved_;
+	full_sensor_resolution_ = *app_->GetProperties().get(properties::ScalerCropMaximum);
 }
 
 void IMX500PostProcessingStage::SaveInputTensor(CompletedRequestPtr &completed_request)
 {
 	auto input = completed_request->metadata.get(controls::rpi::Imx500InputTensor);
-	if (input && inputTensorFile_.is_open())
+	if (input && input_tensor_file_.is_open())
 	{
-		inputTensorFile_.write(reinterpret_cast<const char *>(input->data()), input->size());
-		if (--saveFrames_ == 0)
-			inputTensorFile_.close();
+		input_tensor_file_.write(reinterpret_cast<const char *>(input->data()), input->size());
+		if (--save_frames_ == 0)
+			input_tensor_file_.close();
 	}
 }
 
-Rectangle IMX500PostProcessingStage::ConvertInferenceCoordinates(const Rectangle &obj, const Rectangle &scalerCrop,
-																 const Size &inputTensorSize) const
+Rectangle IMX500PostProcessingStage::ConvertInferenceCoordinates(const Rectangle &obj, const Rectangle &scaler_crop,
+																 const Size &input_tensor_size) const
 {
 	// Convert the inference image co-ordinates into the final ISP output co-ordinates.
-	const Size &ispOutputSize = outputStream_->configuration().size;
-	const Size &sensorOutputSize = rawStream_->configuration().size;
-	const Rectangle sensorCrop = scalerCrop.scaledBy(sensorOutputSize, fullSensorResolution_.size());
+	const Size &isp_output_size = output_stream_->configuration().size;
+	const Size &sensor_output_size = raw_stream_->configuration().size;
+	const Rectangle sensor_crop = scaler_crop.scaledBy(sensor_output_size, full_sensor_resolution_.size());
 
 	// Object on inference image -> sensor image
-	const Rectangle objSensor = obj.scaledBy(sensorOutputSize, inputTensorSize);
+	const Rectangle obj_sensor = obj.scaledBy(sensor_output_size, input_tensor_size);
 	// -> bounded to the ISP crop on the sensor image
-	const Rectangle objBound = objSensor.boundedTo(sensorCrop);
+	const Rectangle obj_bound = obj_sensor.boundedTo(sensor_crop);
 	// -> translated by the start of the crop offset
-	const Rectangle objTranslated = objBound.translatedBy(-sensorCrop.topLeft());
+	const Rectangle obc_translated = obj_bound.translatedBy(-sensor_crop.topLeft());
 	// -> and finally scaled to the ISP output.
-	const Rectangle objScaled = objTranslated.scaledBy(ispOutputSize, sensorOutputSize);
+	const Rectangle obj_scaled = obc_translated.scaledBy(isp_output_size, sensor_output_size);
 
-	LOG(2, obj << " -> (sensor) " << objSensor << " -> (bound) " << objBound
-			   << " -> (translate) " << objTranslated << " -> (scaled) " << objScaled);
+	LOG(2, obj << " -> (sensor) " << obj_sensor << " -> (bound) " << obj_bound
+			   << " -> (translate) " << obc_translated << " -> (scaled) " << obj_scaled);
 	
-	return objScaled;
+	return obj_scaled;
 }
