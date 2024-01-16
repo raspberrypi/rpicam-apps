@@ -342,6 +342,7 @@ void MobileNetSsd::filterOutputObjects(std::vector<Detection> &objects)
 				lt_obj.visible = 0;
 			else
 				lt_obj.visible--;
+		}
 	}
 
 	// Remove now invisible objects from the long term list.
