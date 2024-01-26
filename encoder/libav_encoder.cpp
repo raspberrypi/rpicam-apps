@@ -173,17 +173,31 @@ void LibAvEncoder::initVideoCodec(VideoOptions const *options, StreamInfo const 
 	// Apply general options.
 	encoderOptionsGeneral(options, codec_ctx_[Video]);
 
-	const char *format;
-	if (options_->output.empty() && options->libav_format.empty())
-		format = "h264";
-	else if (options->libav_format.empty())
-		format = nullptr;
+	const std::string tcp { "tcp://" };
+	const std::string udp { "udp://" };
+
+	// Setup an appropriate stream/container format.
+	const char *format = nullptr;
+	if (options->libav_format.empty())
+	{
+		// Check if output_file_ starts with a "tcp://" or "udp://" url.
+		// C++ 20 has a convenient starts_with() function for this which we may eventually use.		
+		if (options->output.empty() ||
+			options->output.find(tcp.c_str(), 0, tcp.length()) != std::string::npos ||
+			options->output.find(udp.c_str(), 0, udp.length()) != std::string::npos)
+		{
+			if (options->libav_video_codec == "h264_v4l2m2m" || options->libav_video_codec == "libx264")
+				format = "h264";
+			else
+				throw std::runtime_error("libav: please specify output format with the --libav-format argument");
+		}
+	}
 	else
 		format = options->libav_format.c_str();
 	assert(out_fmt_ctx_ == nullptr);
 	avformat_alloc_output_context2(&out_fmt_ctx_, nullptr, format, options->output.c_str());
 	if (!out_fmt_ctx_)
-		throw std::runtime_error("libav: cannot allocate output context");
+		throw std::runtime_error("libav: cannot allocate output context, try setting with --libav-format");
 
 	if (out_fmt_ctx_->oformat->flags & AVFMT_GLOBALHEADER)
 		codec_ctx_[Video]->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
