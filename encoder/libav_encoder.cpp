@@ -182,9 +182,9 @@ void LibAvEncoder::initVideoCodec(VideoOptions const *options, StreamInfo const 
 	{
 		// Check if output_file_ starts with a "tcp://" or "udp://" url.
 		// C++ 20 has a convenient starts_with() function for this which we may eventually use.		
-		if (options->output.empty() ||
-			options->output.find(tcp.c_str(), 0, tcp.length()) != std::string::npos ||
-			options->output.find(udp.c_str(), 0, udp.length()) != std::string::npos)
+		if (output_file_.empty() ||
+			output_file_.find(tcp.c_str(), 0, tcp.length()) != std::string::npos ||
+			output_file_.find(udp.c_str(), 0, udp.length()) != std::string::npos)
 		{
 			if (options->libav_video_codec == "h264_v4l2m2m" || options->libav_video_codec == "libx264")
 				format = "h264";
@@ -194,8 +194,19 @@ void LibAvEncoder::initVideoCodec(VideoOptions const *options, StreamInfo const 
 	}
 	else
 		format = options->libav_format.c_str();
+
+	// Legacy handling of the --listen parameter.  If missing from the url string, add "?listen=1" to the end.
+	if (options->listen && output_file_.find(tcp.c_str(), 0, tcp.length()) != std::string::npos)
+	{
+		const std::string listen { "?listen=1" };
+		// Check if output_file_ ends with "?listen=1" parameter.
+		// C++ 20 has a convenient ends_with() function for this which we may eventually use.
+		if (output_file_.find(listen, output_file_.length() - listen.length()) == std::string::npos)
+			output_file_ += listen;
+	}
+
 	assert(out_fmt_ctx_ == nullptr);
-	avformat_alloc_output_context2(&out_fmt_ctx_, nullptr, format, options->output.c_str());
+	avformat_alloc_output_context2(&out_fmt_ctx_, nullptr, format, output_file_.c_str());
 	if (!out_fmt_ctx_)
 		throw std::runtime_error("libav: cannot allocate output context, try setting with --libav-format");
 
@@ -318,8 +329,8 @@ void LibAvEncoder::initAudioOutCodec(VideoOptions const *options, StreamInfo con
 }
 
 LibAvEncoder::LibAvEncoder(VideoOptions const *options, StreamInfo const &info)
-	: Encoder(options), output_ready_(false), abort_video_(false), abort_audio_(false),
-	  video_start_ts_(0), audio_samples_(0), in_fmt_ctx_(nullptr), out_fmt_ctx_(nullptr)
+	: Encoder(options), output_ready_(false), abort_video_(false), abort_audio_(false), video_start_ts_(0),
+	  audio_samples_(0), in_fmt_ctx_(nullptr), out_fmt_ctx_(nullptr), output_file_(options->output)
 {
 	avdevice_register_all();
 
@@ -334,7 +345,7 @@ LibAvEncoder::LibAvEncoder(VideoOptions const *options, StreamInfo const &info)
 		av_dump_format(in_fmt_ctx_, 0, options_->audio_device.c_str(), 0);
 	}
 
-	av_dump_format(out_fmt_ctx_, 0, options_->output.c_str(), 1);
+	av_dump_format(out_fmt_ctx_, 0, output_file_.c_str(), 1);
 
 	LOG(2, "libav: codec init completed");
 
@@ -435,7 +446,7 @@ void LibAvEncoder::initOutput()
 	char err[64];
 	if (!(out_fmt_ctx_->flags & AVFMT_NOFILE))
 	{
-		std::string filename = options_->output.empty() ? "/dev/null" : options_->output;
+		std::string filename = output_file_.empty() ? "/dev/null" : output_file_;
 
 		// libav uses "pipe:" for stdout
 		if (filename == "-")
@@ -445,7 +456,7 @@ void LibAvEncoder::initOutput()
 		if (ret < 0)
 		{
 			av_strerror(ret, err, sizeof(err));
-			throw std::runtime_error("libav: unable to open output mux for " + options_->output + ": " + err);
+			throw std::runtime_error("libav: unable to open output mux for " + output_file_ + ": " + err);
 		}
 	}
 
@@ -453,7 +464,7 @@ void LibAvEncoder::initOutput()
 	if (ret < 0)
 	{
 		av_strerror(ret, err, sizeof(err));
-		throw std::runtime_error("libav: unable write output mux header for " + options_->output + ": " + err);
+		throw std::runtime_error("libav: unable write output mux header for " + output_file_ + ": " + err);
 	}
 }
 
@@ -505,7 +516,11 @@ void LibAvEncoder::encode(AVPacket *pkt, unsigned int stream_id)
 		// This would be different if one used av_write_frame().
 		ret = av_interleaved_write_frame(out_fmt_ctx_, pkt);
 		if (ret < 0)
-			throw std::runtime_error("libav: error writing output: " + std::to_string(ret));
+		{
+			char err[AV_ERROR_MAX_STRING_SIZE];
+			av_strerror(ret, err, sizeof(err));
+			throw std::runtime_error("libav: error writing output: " + std::string(err));
+		}
 	}
 }
 
