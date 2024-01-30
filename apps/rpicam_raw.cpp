@@ -79,6 +79,8 @@ int main(int argc, char *argv[])
 		VideoOptions *options = app.GetOptions();
 		if (options->Parse(argc, argv))
 		{
+			// Disable any codec (h.264/libav) based operations.
+			options->codec = "yuv420";
 			options->denoise = "cdn_off";
 			options->nopreview = true;
 			if (options->verbose >= 2)
