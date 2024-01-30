@@ -1,3 +1,10 @@
+rpicam-apps (1.4.2-1) bookworm; urgency=medium
+
+  * New upstream version 1.4.2
+  * d/w: fix match pattern
+
+ -- Serge Schneider <serge@raspberrypi.com>  Tue, 30 Jan 2024 13:23:20 +0000
+
 rpicam-apps (1.4.1-1) bookworm; urgency=medium
 
   * New upstream version 1.4.1
