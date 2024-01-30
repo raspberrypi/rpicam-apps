@@ -21,7 +21,7 @@
 #include "libav_encoder.hpp"
 #endif
 
-Encoder *h264_codec_select(VideoOptions *options, const StreamInfo &info)
+bool bcm2835_encoder_available()
 {
 	const char hw_codec[] = "/dev/video11";
 	struct v4l2_capability caps;
@@ -32,8 +32,15 @@ Encoder *h264_codec_select(VideoOptions *options, const StreamInfo &info)
 		int ret = ioctl(fd, VIDIOC_QUERYCAP, &caps);
 		close(fd);
 		if (!ret && !strncmp((char *)caps.card, "bcm2835-codec-encode", sizeof(caps.card)))
-			return new H264Encoder(options, info);
+			return true;
 	}
+	return false;
+}
+
+static Encoder *h264_codec_select(VideoOptions *options, const StreamInfo &info)
+{
+	if (bcm2835_encoder_available())
+		return new H264Encoder(options, info);
 
 #if LIBAV_PRESENT
 	// No hardware codec available, use x264 through libav.
@@ -44,6 +51,20 @@ Encoder *h264_codec_select(VideoOptions *options, const StreamInfo &info)
 	throw std::runtime_error("Unable to find an appropriate H.264 codec");
 }
 
+#if LIBAV_PRESENT
+static Encoder *libav_codec_select(VideoOptions *options, const StreamInfo &info)
+{
+	if (options->libav_video_codec == "h264_v4l2m2m")
+	{
+		if (bcm2835_encoder_available())
+				return new LibAvEncoder(options, info);
+		// No h264_v4l2m2m libav codec available, use libx264 if nothing else is provided.
+		options->libav_video_codec = "libx264";
+	}
+	return new LibAvEncoder(options, info);
+}
+#endif
+
 Encoder *Encoder::Create(VideoOptions *options, const StreamInfo &info)
 {
 	if (strcasecmp(options->codec.c_str(), "yuv420") == 0)
@@ -52,7 +73,7 @@ Encoder *Encoder::Create(VideoOptions *options, const StreamInfo &info)
 		return h264_codec_select(options, info);
 #if LIBAV_PRESENT
 	else if (strcasecmp(options->codec.c_str(), "libav") == 0)
-		return new LibAvEncoder(options, info);
+		return libav_codec_select(options, info);
 #endif
 	else if (strcasecmp(options->codec.c_str(), "mjpeg") == 0)
 		return new MjpegEncoder(options);

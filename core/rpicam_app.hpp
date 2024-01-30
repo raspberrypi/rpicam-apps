@@ -162,6 +162,10 @@ public:
 
 	void SetControls(const ControlList &controls);
 	StreamInfo GetStreamInfo(Stream const *stream) const;
+	const ControlList &GetProperties() const
+	{
+		return camera_->properties();
+	}
 
 	static unsigned int verbosity;
 	static unsigned int GetVerbosity() { return verbosity; }
