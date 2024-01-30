@@ -17,6 +17,7 @@
 extern "C"
 {
 #include "libavcodec/avcodec.h"
+#include "libavcodec/codec_desc.h"
 #include "libavdevice/avdevice.h"
 #include "libavformat/avformat.h"
 #include "libavutil/audio_fifo.h"
@@ -74,4 +75,6 @@ private:
 
 	std::mutex drm_queue_lock_;
 	std::queue<std::unique_ptr<AVDRMFrameDescriptor>> drm_frame_queue_;
+
+	std::string output_file_;
 };

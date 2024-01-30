@@ -46,13 +46,16 @@ def outliers(diffs, frac, avg):
     return f'{sum(d < (1 - frac) * avg or d > (1 + frac) * avg for d in diffs)} ({frac * 100}%)'
 
 
-def plot_pts(diffs, avg, title):
+def plot_pts(diffs, avg, title, narrow):
     fig, ax = plt.subplots()
     ax.plot(diffs, label='Frame times')
     ax.plot([0, len(diffs)], [avg, avg], 'g--', label='Average')
     # Find an plot the max value
     max_val, idx = max((val, idx) for (idx, val) in enumerate(diffs))
     ax.plot([idx], [max_val], 'rx', label='Maximum')
+    if narrow:
+        cap = 2 * min(diffs)
+        max_val = max(val for val in diffs if val < cap)
     ax.axis([0, len(diffs), min(diffs) * 0.995, max_val * 1.005])
     ax.legend()
     plt.title(title)
@@ -67,6 +70,7 @@ if __name__ == '__main__':
     parser.add_argument('filename', help='PTS file generated from rpicam-vid (with a .txt or .pts extension)'
                                          ' or an avi/mkv/mp4 container file', type=str)
     parser.add_argument('--plot', help='Plot timestamp graph', action='store_true')
+    parser.add_argument('--narrow', help='Narrow the y-axis by hiding outliers', action='store_true')
     args = parser.parse_args()
 
     if args.filename.lower().endswith(('.txt', '.pts')):
@@ -88,6 +92,6 @@ if __name__ == '__main__':
 
     if args.plot:
         if plot_available:
-            plot_pts(diffs, avg, f'{args.filename}')
+            plot_pts(diffs, avg, f'{args.filename}', args.narrow)
         else:
             print('\nError: matplotlib is not installed, please install with "pip3 install matplotlib"')
