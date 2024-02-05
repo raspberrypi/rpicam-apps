@@ -285,9 +285,9 @@ int MobileNetSsd::processOutputTensor(std::vector<Detection> &objects, const std
 							 obj_scaled.x, obj_scaled.y, obj_scaled.width, obj_scaled.height);
 	}
 
-	LOG(1, "Number of objects detected: " << objects.size());
+	LOG(2, "Number of objects detected: " << objects.size());
 	for (unsigned i = 0; i < objects.size(); i++)
-		LOG(1, "[" << i << "] : " << objects[i].toString());
+		LOG(2, "[" << i << "] : " << objects[i].toString());
 
 	return 0;
 }

@@ -8,6 +8,7 @@
 #pragma once
 
 #include <fstream>
+#include <mutex>
 
 #include <boost/property_tree/ptree.hpp>
 
@@ -42,4 +43,6 @@ private:
 	std::ofstream input_tensor_file_;
 	unsigned int num_input_tensors_saved_;
 	unsigned int save_frames_;
+	bool input_tensor_signed_;
+	std::mutex lock_;
 };

@@ -8,7 +8,8 @@
         "save_input_tensor":
         {
             "filename": "/home/pi/input_tensor.raw",
-            "num_tensors": 10
+            "num_tensors": 10,
+            "is_signed": true
         },
 
         "temporal_filter":

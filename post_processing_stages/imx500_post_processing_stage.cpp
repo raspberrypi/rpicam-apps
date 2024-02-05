@@ -19,6 +19,7 @@ void IMX500PostProcessingStage::Read(boost::property_tree::ptree const &params)
 	{
 		std::string filename = params.get<std::string>("save_input_tensor.filename");
 		num_input_tensors_saved_ = params.get<unsigned int>("save_input_tensor.num_tensors", 1);
+		input_tensor_signed_ = params.get<bool>("save_input_tensor.is_signed");
 		input_tensor_file_ = std::ofstream(filename, std::ios::out | std::ios::binary);
 	}
 }
@@ -34,9 +35,24 @@ void IMX500PostProcessingStage::Configure()
 void IMX500PostProcessingStage::SaveInputTensor(CompletedRequestPtr &completed_request)
 {
 	auto input = completed_request->metadata.get(controls::rpi::Imx500InputTensor);
+
 	if (input && input_tensor_file_.is_open())
 	{
-		input_tensor_file_.write(reinterpret_cast<const char *>(input->data()), input->size());
+		// There is a chance that this may be called through multiple threads, so serialize the file access.
+		std::scoped_lock<std::mutex> l(mutex_);
+
+		if (input_tensor_signed_)
+		{
+			for (unsigned int i = 0; i < input->size(); i++)
+			{
+				int16_t sample = static_cast<int8_t>(input->data()[i]);
+				sample = std::clamp<int16_t>(sample + 128, 0, 255);
+				input_tensor_file_.put(static_cast<uint8_t>(sample));
+			}
+		}
+		else
+			input_tensor_file_.write(reinterpret_cast<const char *>(input->data()), input->size());
+
 		if (--save_frames_ == 0)
 			input_tensor_file_.close();
 	}
