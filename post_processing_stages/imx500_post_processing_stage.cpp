@@ -73,12 +73,12 @@ Rectangle IMX500PostProcessingStage::ConvertInferenceCoordinates(const Rectangle
 	// -> bounded to the ISP crop on the sensor image
 	const Rectangle obj_bound = obj_sensor.boundedTo(sensor_crop);
 	// -> translated by the start of the crop offset
-	const Rectangle obc_translated = obj_bound.translatedBy(-sensor_crop.topLeft());
+	const Rectangle obj_translated = obj_bound.translatedBy(-sensor_crop.topLeft());
 	// -> and finally scaled to the ISP output.
-	const Rectangle obj_scaled = obc_translated.scaledBy(isp_output_size, sensor_output_size);
+	const Rectangle obj_scaled = obj_translated.scaledBy(isp_output_size, sensor_crop.size());
 
 	LOG(2, obj << " -> (sensor) " << obj_sensor << " -> (bound) " << obj_bound
-			   << " -> (translate) " << obc_translated << " -> (scaled) " << obj_scaled);
+			   << " -> (translate) " << obj_translated << " -> (scaled) " << obj_scaled);
 	
 	return obj_scaled;
 }
