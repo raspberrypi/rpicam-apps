@@ -39,7 +39,7 @@ void IMX500PostProcessingStage::SaveInputTensor(CompletedRequestPtr &completed_r
 	if (input && input_tensor_file_.is_open())
 	{
 		// There is a chance that this may be called through multiple threads, so serialize the file access.
-		std::scoped_lock<std::mutex> l(mutex_);
+		std::scoped_lock<std::mutex> l(lock_);
 
 		if (input_tensor_signed_)
 		{
