@@ -174,9 +174,7 @@ bool MobileNetSsd::Process(CompletedRequestPtr &completed_request)
 			completed_request->post_process_metadata.Set("object_detect.results", objects);
 	}
 
-	IMX500PostProcessingStage::SaveInputTensor(completed_request);
-
-	return false;
+	return IMX500PostProcessingStage::Process(completed_request);
 }
 
 static int createObjectDetectionSsdData(ObjectDetectionSsdOutputTensor &ssd, const std::vector<float> &data)
