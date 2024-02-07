@@ -32,7 +32,7 @@ void IMX500PostProcessingStage::Configure()
 	full_sensor_resolution_ = *app_->GetProperties().get(properties::ScalerCropMaximum);
 }
 
-void IMX500PostProcessingStage::SaveInputTensor(CompletedRequestPtr &completed_request)
+bool IMX500PostProcessingStage::Process(CompletedRequestPtr &completed_request)
 {
 	auto input = completed_request->metadata.get(controls::rpi::Imx500InputTensor);
 
@@ -56,6 +56,8 @@ void IMX500PostProcessingStage::SaveInputTensor(CompletedRequestPtr &completed_r
 		if (--save_frames_ == 0)
 			input_tensor_file_.close();
 	}
+
+	return false;
 }
 
 Rectangle IMX500PostProcessingStage::ConvertInferenceCoordinates(const Rectangle &obj, const Rectangle &scaler_crop,

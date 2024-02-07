@@ -28,7 +28,7 @@ public:
 
 	void Configure() override;
 
-	void SaveInputTensor(CompletedRequestPtr &completed_request);
+	bool Process(CompletedRequestPtr &completed_request) override;
 
 	libcamera::Rectangle ConvertInferenceCoordinates(const libcamera::Rectangle &obj,
 													 const libcamera::Rectangle &scalerCrop,
