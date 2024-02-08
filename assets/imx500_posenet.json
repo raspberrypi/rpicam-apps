@@ -1,0 +1,15 @@
+{
+    "imx500_posenet":
+    {
+        "save_input_tensorx":
+        {
+            "filename": "/home/pi/posenet_input_tensor.raw",
+            "num_tensors": 10,
+            "is_signed": false
+        }
+    },
+    "plot_pose_cv":
+    {
+        "confidence_threshold" : 0.6
+    }    
+}
