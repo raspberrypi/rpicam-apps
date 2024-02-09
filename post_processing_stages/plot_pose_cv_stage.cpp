@@ -95,25 +95,33 @@ bool PlotPoseCvStage::Process(CompletedRequestPtr &completed_request)
 	uint32_t *ptr = (uint32_t *)buffer.data();
 	StreamInfo info = app_->GetStreamInfo(stream_);
 
-	std::vector<cv::Rect> rects;
-	std::vector<libcamera::Point> lib_locations;
-	std::vector<Point> cv_locations;
-	std::vector<float> confidences;
 
+
+	std::vector<std::vector<libcamera::Point>> lib_locations;
+	std::vector<std::vector<float>> confidences;
 	completed_request->post_process_metadata.Get("pose_estimation.locations", lib_locations);
 	completed_request->post_process_metadata.Get("pose_estimation.confidences", confidences);
 
-	if (!confidences.empty() && !lib_locations.empty())
+	unsigned int i = 0;
+	for (auto const &loc : lib_locations)
 	{
-		Mat image(info.height, info.width, CV_8U, ptr, info.stride);
-		for (libcamera::Point lib_location : lib_locations)
+		std::vector<cv::Rect> rects;
+		std::vector<Point> cv_locations;
+
+		std::vector<float> &conf = confidences[i];
+
+		if (!conf.empty() && !loc.empty())
 		{
-			Point cv_location;
-			cv_location.x = lib_location.x;
-			cv_location.y = lib_location.y;
-			cv_locations.push_back(cv_location);
+			Mat image(info.height, info.width, CV_8U, ptr, info.stride);
+			for (libcamera::Point lib_location : loc)
+			{
+				Point cv_location;
+				cv_location.x = lib_location.x;
+				cv_location.y = lib_location.y;
+				cv_locations.push_back(cv_location);
+			}
+			drawFeatures(image, cv_locations, conf);
 		}
-		drawFeatures(image, cv_locations, confidences);
 	}
 	return false;
 }

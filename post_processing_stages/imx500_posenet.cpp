@@ -2,7 +2,7 @@
 /*
  * Copyright (C) 2024, Raspberry Pi Ltd
  *
- * imx500_mobilenet_ssd.cpp - IMX500 inference for PoseNet
+ * imx500_posenet.cpp - IMX500 inference for PoseNet
  */
 
 #include <algorithm>
@@ -425,11 +425,11 @@ void backtrack_decode_pose(const std::vector<float> &scores, const std::vector<f
 			if (keypoint_decoded[child_id])
 				continue;
 
-			// The mid-offsets block is organized as 4 blocks of kNumEdges:
+			// The mid-offsets block is organized as 4 blocks of NUM_EDGES:
 			// [fwd Y offsets][fwd X offsets][bwd Y offsets][bwd X offsets]
-			// OTOH edge_id is [0,kNumEdges) for forward edges and
-			// [kNumEdges, 2*kNumEdges) for backward edges.
-			// Thus if the edge is a backward edge (>kNumEdges) then we need
+			// OTOH edge_id is [0,NUM_EDGES) for forward edges and
+			// [NUM_EDGES, 2*NUM_EDGES) for backward edges.
+			// Thus if the edge is a backward edge (>NUM_EDGES) then we need
 			// to start 16 indices later to be correctly aligned with the mid-offsets.
 			if (edge_id > NUM_EDGES)
 				edge_id += NUM_EDGES;
@@ -565,13 +565,19 @@ bool PoseNet::Process(CompletedRequestPtr &completed_request)
 
 	if (results.size())
 	{
-		std::vector<libcamera::Point> locations;
-		std::vector<float> confidences;
+		std::vector<std::vector<libcamera::Point>> locations;
+		std::vector<std::vector<float>> confidences;
 
-		for (auto const &s : results[0].pose_keypoint_scores)
-			confidences.push_back(s);
-		for (auto const &k : results[0].pose_keypoints)
-			locations.emplace_back(k.x, k.y);
+		for (auto const &result : results)
+		{
+			locations.push_back({});
+			confidences.push_back({});
+
+			for (auto const &s : result.pose_keypoint_scores)
+				confidences.back().push_back(s);
+			for (auto const &k : result.pose_keypoints)
+				locations.back().emplace_back(k.x, k.y);
+		}
 
 		completed_request->post_process_metadata.Set("pose_estimation.locations", locations);
 		completed_request->post_process_metadata.Set("pose_estimation.confidences", confidences);
