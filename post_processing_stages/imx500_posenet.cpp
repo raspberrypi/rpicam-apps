@@ -41,11 +41,6 @@ constexpr unsigned int NUM_HEATMAPS = NUM_KEYPOINTS * MAP_SIZE.width * MAP_SIZE.
 constexpr unsigned int NUM_SHORT_OFFSETS = 2 * NUM_KEYPOINTS * MAP_SIZE.width * MAP_SIZE.height;
 constexpr unsigned int NUM_MID_OFFSETS = 64 * MAP_SIZE.width * MAP_SIZE.height;
 
-constexpr float score_threshold_ = 0.5f;
-constexpr unsigned int max_detections_ = 10;
-constexpr unsigned int offset_refinement_steps_ = 5;
-constexpr float nms_radius_ = 10.0f / STRIDE;
-
 enum KeypointType
 {
 	Nose,
@@ -388,7 +383,7 @@ Point find_displaced_position(const std::vector<float> &short_offsets, const std
 void backtrack_decode_pose(const std::vector<float> &scores, const std::vector<float> &short_offsets,
 						   const std::vector<float> &mid_offsets, const KeypointWithScore &root,
 						   const AdjacencyList &adjacency_list, PoseKeypoints &pose_keypoints,
-						   PoseKeypointScores &keypoint_scores)
+						   PoseKeypointScores &keypoint_scores, unsigned int offset_refinement_steps)
 {
 	const float root_score = sample_tensor_at_single_channel(scores, root.point, root.id, NUM_KEYPOINTS);
 
@@ -435,7 +430,7 @@ void backtrack_decode_pose(const std::vector<float> &scores, const std::vector<f
 				edge_id += NUM_EDGES;
 
 			const Point child_point = find_displaced_position(short_offsets, mid_offsets, current_keypoint.point,
-															  edge_id, child_id, offset_refinement_steps_);
+															  edge_id, child_id, offset_refinement_steps);
 			const float child_score = sample_tensor_at_single_channel(scores, child_point, NUM_KEYPOINTS, child_id);
 			decode_queue.emplace(child_point, child_id, child_score);
 		}
@@ -513,6 +508,30 @@ private:
 	std::vector<PoseResults> decodeAllPoses(const std::vector<float> &scores, const std::vector<float> &short_offsets,
 											const std::vector<float> &mid_offsets);
 	void translateCoordinates(std::vector<PoseResults> &results, const Rectangle &scaler_crop) const;
+	void filterOutputObjects(const std::vector<PoseResults> &results);
+
+	struct LtResults
+	{
+		PoseResults results;
+		unsigned int visible;
+		unsigned int hidden;
+		bool matched;
+	};
+
+	std::vector<LtResults> lt_results_;
+	std::mutex lt_lock_;
+
+	// Config params:
+	float threshold_;
+	unsigned int max_detections_;
+	unsigned int offset_refinement_steps_;
+	float nms_radius_;
+	bool temporal_filtering_;
+
+	float tolerance_;
+	float factor_;
+	unsigned int visible_frames_;
+	unsigned int hidden_frames_;
 };
 
 char const *PoseNet::Name() const
@@ -522,6 +541,22 @@ char const *PoseNet::Name() const
 
 void PoseNet::Read(boost::property_tree::ptree const &params)
 {
+	max_detections_ = params.get<unsigned int>("max_detections", 10);
+	threshold_ = params.get<float>("threshold", 0.5f);
+	offset_refinement_steps_ = params.get<unsigned int>("offset_refinement_steps", 5);
+	nms_radius_ = params.get<float>("nms_radius", 10) / STRIDE;
+
+	if (params.find("temporal_filter") != params.not_found())
+	{
+		temporal_filtering_ = true;
+		tolerance_ = params.get<float>("temporal_filter.tolerance", 0.05);
+		factor_ = params.get<float>("temporal_filter.factor", 0.2);
+		visible_frames_ = params.get<unsigned int>("temporal_filter.visible_frames", 5);
+		hidden_frames_ = params.get<unsigned int>("temporal_filter.hidden_frames", 2);
+	}
+	else
+		temporal_filtering_ = false;
+
 	IMX500PostProcessingStage::Read(params);
 }
 
@@ -563,11 +598,32 @@ bool PoseNet::Process(CompletedRequestPtr &completed_request)
 	std::vector<PoseResults> results = decodeAllPoses(scores, short_offsets, mid_offsets);
 	translateCoordinates(results, *scaler_crop);
 
-	if (results.size())
-	{
-		std::vector<std::vector<libcamera::Point>> locations;
-		std::vector<std::vector<float>> confidences;
+	std::vector<std::vector<libcamera::Point>> locations;
+	std::vector<std::vector<float>> confidences;
 
+	if (temporal_filtering_)
+	{
+		// Process() can be concurrently called through different threads for consecutive CompletedRequests if
+		// things are running behind.  So protect access to the lt_results_ state object.
+		std::scoped_lock<std::mutex> l(lt_lock_);
+
+		filterOutputObjects(results);
+		for (auto const &lt_r : lt_results_)
+		{
+			if (lt_r.hidden)
+				continue;
+
+			locations.push_back({});
+			confidences.push_back({});
+
+			for (auto const &s : lt_r.results.pose_keypoint_scores)
+				confidences.back().push_back(s);
+			for (auto const &k : lt_r.results.pose_keypoints)
+				locations.back().emplace_back(k.x, k.y);
+		}
+	}
+	else if (results.size())
+	{
 		for (auto const &result : results)
 		{
 			locations.push_back({});
@@ -578,7 +634,10 @@ bool PoseNet::Process(CompletedRequestPtr &completed_request)
 			for (auto const &k : result.pose_keypoints)
 				locations.back().emplace_back(k.x, k.y);
 		}
+	}
 
+	if (locations.size() && locations.size() == confidences.size())
+	{
 		completed_request->post_process_metadata.Set("pose_estimation.locations", locations);
 		completed_request->post_process_metadata.Set("pose_estimation.confidences", confidences);
 	}
@@ -607,7 +666,7 @@ std::vector<PoseResults> PoseNet::decodeAllPoses(const std::vector<float> &score
 												 const std::vector<float> &short_offsets,
 												 const std::vector<float> &mid_offsets)
 {
-	const float min_score_logit = log_odds(score_threshold_);
+	const float min_score_logit = log_odds(threshold_);
 
 	KeypointQueue queue = build_keypoint_queue(scores, short_offsets, min_score_logit);
 	AdjacencyList adjacency_list = build_agency_list();
@@ -642,7 +701,8 @@ std::vector<PoseResults> PoseNet::decodeAllPoses(const std::vector<float> &score
 			next_scores[k] = -1E5;
 		}
 
-		backtrack_decode_pose(scores, short_offsets, mid_offsets, root, adjacency_list, next_pose, next_scores);
+		backtrack_decode_pose(scores, short_offsets, mid_offsets, root, adjacency_list, next_pose, next_scores,
+							  offset_refinement_steps_);
 
 		// Convert keypoint-level scores from log-odds to probabilities and compute
 		// an initial instance-level score as the average of the scores of the top-k
@@ -658,7 +718,7 @@ std::vector<PoseResults> PoseNet::decodeAllPoses(const std::vector<float> &score
 
 		instance_score /= NUM_KEYPOINTS;
 
-		if (instance_score >= score_threshold_)
+		if (instance_score >= threshold_)
 		{
 			pose_counter++;
 			all_instance_scores.push_back(instance_score);
@@ -681,7 +741,7 @@ std::vector<PoseResults> PoseNet::decodeAllPoses(const std::vector<float> &score
 	std::vector<PoseResults> results;
 	for (int index : decreasing_indices)
 	{
-		if (all_instance_scores[index] < score_threshold_)
+		if (all_instance_scores[index] < threshold_)
 			break;
 
 		// New result.
@@ -714,6 +774,81 @@ void PoseNet::translateCoordinates(std::vector<PoseResults> &results, const Rect
 			keypoint.y = translated.y;
 		}
 	}
+}
+
+void PoseNet::filterOutputObjects(const std::vector<PoseResults> &results)
+{
+	const Size isp_output_size = output_stream_->configuration().size;
+
+	for (auto &lt_r : lt_results_)
+		lt_r.matched = false;
+
+	for (auto const &r : results)
+	{
+		bool matched = false;
+		for (auto &lt_r : lt_results_)
+		{
+			// Try and match a detected object in our long term list.
+			bool found = true;
+			for (unsigned int i = 0; i < NUM_KEYPOINTS; i++)
+			{
+				if (std::abs(lt_r.results.pose_keypoints[i].x - r.pose_keypoints[i].x) >
+						tolerance_ * isp_output_size.width ||
+					std::abs(lt_r.results.pose_keypoints[i].y - r.pose_keypoints[i].y) >
+						tolerance_ * isp_output_size.height)
+				{
+					found = false;
+					break;
+				}
+			}
+
+			if (found)
+			{
+				lt_r.matched = matched = true;
+				lt_r.results.pose_score = r.pose_score;
+
+				for (unsigned int i = 0; i < NUM_KEYPOINTS; i++)
+				{
+					lt_r.results.pose_keypoint_scores[i] =
+						factor_ * r.pose_keypoint_scores[i] + (1 - factor_) * lt_r.results.pose_keypoint_scores[i];
+					lt_r.results.pose_keypoints[i].x =
+						factor_ * r.pose_keypoints[i].x + (1 - factor_) * lt_r.results.pose_keypoints[i].x;
+					lt_r.results.pose_keypoints[i].y =
+						factor_ * r.pose_keypoints[i].y + (1 - factor_) * lt_r.results.pose_keypoints[i].y;
+				}
+
+				// Reset the visibility counter for when the result next disappears.
+				lt_r.visible = visible_frames_;
+				// Decrement the hidden counter until the result becomes visible in the list.
+				lt_r.hidden = std::max(0, (int)lt_r.hidden - 1);
+				break;
+			}
+		}
+
+		// Add the result to the long term list if not found.  This result will remain hidden for hidden_frames_
+		// consecutive frames.
+		if (!matched)
+			lt_results_.push_back({ r, visible_frames_, hidden_frames_, true });
+	}
+
+	for (auto &lt_r : lt_results_)
+	{
+		if (!lt_r.matched)
+		{
+			// If a non matched result in the long term list is still hidden, set visible count to 0 so that it must be
+			// matched for hidden_frames_ consecutive frames before becoming visible. Otherwise, decrement the visible
+			// count of unmatched objects in the long term list.
+			if (lt_r.hidden)
+				lt_r.visible = 0;
+			else
+				lt_r.visible--;
+		}
+	}
+
+	// Remove now invisible objects from the long term list.
+	lt_results_.erase(std::remove_if(lt_results_.begin(), lt_results_.end(),
+						[] (const LtResults &obj) { return !obj.matched && !obj.visible; }),
+					  lt_results_.end());
 }
 
 PostProcessingStage *Create(RPiCamApp *app)
