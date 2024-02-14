@@ -20,7 +20,7 @@ jobs:
         build_type: [ release, debug ]
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
       with:
         fetch-depth: 1
         clean: true
@@ -39,7 +39,7 @@ jobs:
       run: tar -cvf build-artifacts-${{matrix.compiler}}-${{matrix.build_type}}.tar -C ${{github.workspace}}/build .
 
     - name: Upload build files
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: build-artifacts-${{matrix.compiler}}-${{matrix.build_type}}
         path: build-artifacts-${{matrix.compiler}}-${{matrix.build_type}}.tar
@@ -50,7 +50,7 @@ jobs:
     runs-on: [ self-hosted ]
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
       with:
         fetch-depth: 1
         clean: true
@@ -67,7 +67,7 @@ jobs:
       run: tar -cvf build-artifacts-gcc-lite.tar -C ${{github.workspace}}/build .
 
     - name: Upload build files
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: build-artifacts-gcc-lite
         path: build-artifacts-gcc-lite.tar
@@ -83,7 +83,7 @@ jobs:
         camera: [ imx219, imx477, imx708, pi5-imx708-imx477 ]
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
       with:
         fetch-depth: 1
         clean: true
@@ -92,7 +92,7 @@ jobs:
       run: mkdir -p ${{github.workspace}}/test_output
 
     - name: Download build
-      uses: actions/download-artifact@v3
+      uses: actions/download-artifact@v4
       with:
         name: build-artifacts-gcc-release
         path: ${{github.workspace}}
@@ -112,7 +112,7 @@ jobs:
 
     - name: Upload test output
       if: ${{ failure() }}
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: test-artifacts-${{matrix.camera}}
         path: ${{github.workspace}}/test_output/
