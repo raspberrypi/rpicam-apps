@@ -199,10 +199,12 @@ def check_metadata_txt(file, preamble):
 
 
 def test_still(exe_dir, output_dir):
+    platform = get_platform()
     executable = os.path.join(exe_dir, 'rpicam-still')
     output_jpg = os.path.join(output_dir, 'test.jpg')
     output_png = os.path.join(output_dir, 'test.png')
     output_bmp = os.path.join(output_dir, 'test.bmp')
+    output_rgb48 = os.path.join(output_dir, 'test.rgb')
     output_dng = os.path.join(output_dir, 'test.dng')
     output_metadata = os.path.join(output_dir, 'metadata.json')
     output_metadata_txt = os.path.join(output_dir, 'metadata.txt')
@@ -255,6 +257,15 @@ def test_still(exe_dir, output_dir):
     check_retcode(retcode, "test_still: bmp test")
     check_time(time_taken, 1.2, 10, "test_still: bmp test")
     check_size(output_png, 1024, "test_still: bmp test")
+
+    if platform == 'pisp':
+        # "rgb48 test". Writes a 16bpp RGB raw image.
+        print("    48bpp test")
+        retcode, time_taken = run_executable(
+            [executable, '-t', '1000', '-e', 'rgb48', '-o', output_rgb48], logfile)
+        check_retcode(retcode, "test_still: rgb48 test")
+        check_time(time_taken, 1.2, 10, "test_still: rgb48 test")
+        check_size(output_rgb48, 1024 * 1024, "test_still: rgb48 test")
 
     # "dng test". Write a dng along with the jpg.
     print("    dng test")

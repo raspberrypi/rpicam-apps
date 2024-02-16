@@ -39,7 +39,7 @@ struct StillOptions : public Options
 			("thumb", value<std::string>(&thumb)->default_value("320:240:70"),
 			 "Set thumbnail parameters as width:height:quality, or none")
 			("encoding,e", value<std::string>(&encoding)->default_value("jpg"),
-			 "Set the desired output encoding, either jpg, png, rgb, bmp or yuv420")
+			 "Set the desired output encoding, either jpg, png, rgb/rgb24, rgb48, bmp or yuv420")
 			("raw,r", value<bool>(&raw)->default_value(false)->implicit_value(true),
 			 "Also save raw file in DNG format")
 			("latest", value<std::string>(&latest),
@@ -88,8 +88,10 @@ struct StillOptions : public Options
 			encoding = "jpg";
 		else if (strcasecmp(encoding.c_str(), "yuv420") == 0)
 			encoding = "yuv420";
-		else if (strcasecmp(encoding.c_str(), "rgb") == 0)
-			encoding = "rgb";
+		else if (strcasecmp(encoding.c_str(), "rgb") == 0 || strcasecmp(encoding.c_str(), "rgb24") == 0)
+			encoding = "rgb24";
+		else if (strcasecmp(encoding.c_str(), "rgb48") == 0)
+			encoding = "rgb48";
 		else if (strcasecmp(encoding.c_str(), "png") == 0)
 			encoding = "png";
 		else if (strcasecmp(encoding.c_str(), "bmp") == 0)
