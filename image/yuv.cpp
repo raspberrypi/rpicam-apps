@@ -115,7 +115,7 @@ static void yuyv_save(std::vector<libcamera::Span<uint8_t>> const &mem, StreamIn
 static void rgb_save(std::vector<libcamera::Span<uint8_t>> const &mem, StreamInfo const &info,
 					 std::string const &filename, StillOptions const *options)
 {
-	if (options->encoding != "rgb")
+	if (options->encoding != "rgb24" && options->encoding != "rgb48")
 		throw std::runtime_error("encoding should be set to rgb");
 	FILE *fp = filename == "-" ? stdout : fopen(filename.c_str(), "w");
 	if (!fp)
@@ -123,9 +123,12 @@ static void rgb_save(std::vector<libcamera::Span<uint8_t>> const &mem, StreamInf
 	try
 	{
 		uint8_t *ptr = (uint8_t *)mem[0].data();
+		unsigned int wr_stride = 3 * info.width;
+		if (options->encoding == "rgb48")
+			wr_stride *= 2;
 		for (unsigned int j = 0; j < info.height; j++, ptr += info.stride)
 		{
-			if (fwrite(ptr, 3 * info.width, 1, fp) != 1)
+			if (fwrite(ptr, wr_stride, 1, fp) != 1)
 				throw std::runtime_error("failed to write file " + filename);
 		}
 		if (fp != stdout)
@@ -146,7 +149,8 @@ void yuv_save(std::vector<libcamera::Span<uint8_t>> const &mem, StreamInfo const
 		yuyv_save(mem, info, filename, options);
 	else if (info.pixel_format == libcamera::formats::YUV420)
 		yuv420_save(mem, info, filename, options);
-	else if (info.pixel_format == libcamera::formats::BGR888 || info.pixel_format == libcamera::formats::RGB888)
+	else if (info.pixel_format == libcamera::formats::BGR888 || info.pixel_format == libcamera::formats::RGB888 ||
+			 info.pixel_format == libcamera::formats::BGR161616 || info.pixel_format == libcamera::formats::RGB161616)
 		rgb_save(mem, info, filename, options);
 	else
 		throw std::runtime_error("unrecognised YUV/RGB save format");

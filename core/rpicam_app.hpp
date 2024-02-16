@@ -111,12 +111,14 @@ public:
 
 	// Some flags that can be used to give hints to the camera configuration.
 	static constexpr unsigned int FLAG_STILL_NONE = 0;
-	static constexpr unsigned int FLAG_STILL_BGR = 1; // supply BGR images, not YUV
-	static constexpr unsigned int FLAG_STILL_RGB = 2; // supply RGB images, not YUV
-	static constexpr unsigned int FLAG_STILL_RAW = 4; // request raw image stream
-	static constexpr unsigned int FLAG_STILL_DOUBLE_BUFFER = 8; // double-buffer stream
-	static constexpr unsigned int FLAG_STILL_TRIPLE_BUFFER = 16; // triple-buffer stream
-	static constexpr unsigned int FLAG_STILL_BUFFER_MASK = 24; // mask for buffer flags
+	static constexpr unsigned int FLAG_STILL_BGR = 1; // supply BGR 24bpp images, not YUV
+	static constexpr unsigned int FLAG_STILL_BGR48 = 2; // supply BGR 48bpp images, not YUV
+	static constexpr unsigned int FLAG_STILL_RGB = 4; // supply RGB images, not YUV
+	static constexpr unsigned int FLAG_STILL_RGB48 = 8; // supply RGB 48bpp images, not YUV
+	static constexpr unsigned int FLAG_STILL_RAW = 16; // request raw image stream
+	static constexpr unsigned int FLAG_STILL_DOUBLE_BUFFER = 32; // double-buffer stream
+	static constexpr unsigned int FLAG_STILL_TRIPLE_BUFFER = 64; // triple-buffer stream
+	static constexpr unsigned int FLAG_STILL_BUFFER_MASK = 96; // mask for buffer flags
 
 	static constexpr unsigned int FLAG_VIDEO_NONE = 0;
 	static constexpr unsigned int FLAG_VIDEO_RAW = 1; // request raw image stream

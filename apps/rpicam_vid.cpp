@@ -45,7 +45,7 @@ static int get_key_or_signal(VideoOptions const *options, pollfd p[1])
 	{
 		if (signal_received == SIGUSR1)
 			key = '\n';
-		else if (signal_received == SIGUSR2)
+		else if ((signal_received == SIGUSR2) || (signal_received == SIGPIPE))
 			key = 'x';
 		signal_received = 0;
 	}
@@ -79,6 +79,10 @@ static void event_loop(RPiCamEncoder &app)
 	signal(SIGUSR1, default_signal_handler);
 	signal(SIGUSR2, default_signal_handler);
 	signal(SIGINT, default_signal_handler);
+	// SIGPIPE gets raised when trying to write to an already closed socket. This can happen, when
+	// you're using TCP to stream to VLC and the user presses the stop button in VLC. Catching the
+	// signal to be able to react on it, otherwise the app terminates.
+	signal(SIGPIPE, default_signal_handler);
 	pollfd p[1] = { { STDIN_FILENO, POLLIN, 0 } };
 
 	for (unsigned int count = 0; ; count++)
