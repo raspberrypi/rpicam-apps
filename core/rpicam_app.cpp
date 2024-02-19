@@ -38,7 +38,7 @@ enum class Platform
 Platform get_platform()
 {
 	bool unknown = false;
-	for (unsigned int device_num = 0; device_num < 5; device_num++)
+	for (unsigned int device_num = 0; device_num < 256; device_num++)
 	{
 		char device_name[16];
 		snprintf(device_name, sizeof(device_name), "/dev/video%u", device_num);
