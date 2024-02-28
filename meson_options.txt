@@ -33,3 +33,13 @@ option('neon_flags',
         choices: ['arm64', 'armv8-neon', 'auto'],
         value : 'auto',
         description : 'User selectable arm-neon optimisation flags')
+
+option('enable_hailo',
+        type : 'feature',
+        value : 'auto',
+        description : 'Enable Hailo postprocessing support')
+
+option('download_hailo_models',
+        type : 'boolean',
+        value : true,
+        description : 'Download and install the Hailo postprocessing models')
