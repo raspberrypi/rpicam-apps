@@ -79,5 +79,6 @@ summary({
             'qt preview' : enable_qt,
             'OpenCV postprocessing' : enable_opencv,
             'TFLite postprocessing' : enable_tflite,
+            'Hailo postprocessing' : enable_hailo,
         },
         bool_yn : true, section : 'Build configuration')

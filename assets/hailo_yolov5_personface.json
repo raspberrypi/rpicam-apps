@@ -1,0 +1,22 @@
+{
+    "hailo_yolo_inference":
+    {
+        "hef_file": "/usr/share/hailo-models/yolov5s_personface_h8l_pi.hef",
+        "hailopp_config_file": "/usr/share/hailo-models/yolov5_personface.json",
+        "max_detections": 5,
+        "threshold": 0.5,
+
+        "temporal_filter":
+        {
+            "tolerance": 0.1,
+            "factor": 0.70,
+            "visible_frames": 10,
+            "hidden_frames": 5
+        }
+    },
+
+    "object_detect_draw_cv":
+    {
+        "line_thickness" : 2
+    }
+}
