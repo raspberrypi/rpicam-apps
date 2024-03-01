@@ -302,10 +302,10 @@ bool Options::Parse(int argc, char *argv[])
 						}
 
 						auto fd_ctrl = cam->controls().find(&controls::FrameDurationLimits);
-						auto crop_ctrl = cam->properties().get(properties::ScalerCropMaximum);
+						auto crop_ctrl = cam->controls().at(&controls::ScalerCrop).max().get<Rectangle>();
 						double fps = fd_ctrl == cam->controls().end() ? NAN : (1e6 / fd_ctrl->second.min().get<int64_t>());
 						std::cout << std::fixed << std::setprecision(2) << "["
-								  << fps << " fps - " << crop_ctrl->toString() << " crop" << "]";
+								  << fps << " fps - " << crop_ctrl.toString() << " crop" << "]";
 						if (--num)
 						{
 							std::cout << std::endl;

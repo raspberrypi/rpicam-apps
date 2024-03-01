@@ -680,7 +680,7 @@ void RPiCamApp::StartCamera()
 	// We don't overwrite anything the application may have set before calling us.
 	if (!controls_.get(controls::ScalerCrop) && options_->roi_width != 0 && options_->roi_height != 0)
 	{
-		Rectangle sensor_area = *camera_->properties().get(properties::ScalerCropMaximum);
+		Rectangle sensor_area = camera_->controls().at(&controls::ScalerCrop).max().get<Rectangle>();
 		int x = options_->roi_x * sensor_area.width;
 		int y = options_->roi_y * sensor_area.height;
 		int w = options_->roi_width * sensor_area.width;
@@ -694,7 +694,7 @@ void RPiCamApp::StartCamera()
 	if (!controls_.get(controls::AfWindows) && !controls_.get(controls::AfMetering) && options_->afWindow_width != 0 &&
 		options_->afWindow_height != 0)
 	{
-		Rectangle sensor_area = *camera_->properties().get(properties::ScalerCropMaximum);
+		Rectangle sensor_area = camera_->controls().at(&controls::ScalerCrop).max().get<Rectangle>();
 		int x = options_->afWindow_x * sensor_area.width;
 		int y = options_->afWindow_y * sensor_area.height;
 		int w = options_->afWindow_width * sensor_area.width;
