@@ -332,6 +332,10 @@ LibAvEncoder::LibAvEncoder(VideoOptions const *options, StreamInfo const &info)
 	: Encoder(options), output_ready_(false), abort_video_(false), abort_audio_(false), video_start_ts_(0),
 	  audio_samples_(0), in_fmt_ctx_(nullptr), out_fmt_ctx_(nullptr), output_file_(options->output)
 {
+	if (options->circular || options->segment || !options->save_pts.empty() || options->split)
+		LOG_ERROR("\nERROR: Pi 5 and libav encoder does not currently support the circular, segment, save_pts or "
+				  "split command line options, they will be ignored!\n");
+
 	avdevice_register_all();
 
 	if (options->verbose >= 2)
