@@ -85,6 +85,7 @@ static libcamera::PixelFormat mode_to_pixel_format(Mode const &mode)
 		{ Mode(0, 0, 10, true), libcamera::formats::SBGGR10_CSI2P },
 		{ Mode(0, 0, 12, false), libcamera::formats::SBGGR12 },
 		{ Mode(0, 0, 12, true), libcamera::formats::SBGGR12_CSI2P },
+		{ Mode(0, 0, 16, false), libcamera::formats::SBGGR16 },
 	};
 
 	auto it = std::find_if(table.begin(), table.end(), [&mode] (auto &m) { return mode.bit_depth == m.first.bit_depth && mode.packed == m.first.packed; });
