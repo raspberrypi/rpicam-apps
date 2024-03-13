@@ -193,6 +193,8 @@ EglPreview::EglPreview(Options const *options) : Preview(options), last_fd_(-1),
 
 EglPreview::~EglPreview()
 {
+	EglPreview::Reset();
+	eglDestroyContext(egl_display_, egl_context_);
 }
 
 static void no_border(Display *display, Window window)
