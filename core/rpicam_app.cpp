@@ -59,9 +59,9 @@ Platform get_platform()
 		if (!strncmp((char *)caps.driver, "uvcvideo", sizeof(caps.card)))
 			continue;
 
-		if (!strncmp((char *)caps.card, "unicam", sizeof(caps.card)))
+		if (!strncmp((char *)caps.card, "bcm2835-isp", sizeof(caps.card)))
 			return Platform::VC4;
-		else if (!strncmp((char *)caps.card, "rp1-cfe", sizeof(caps.card)))
+		else if (!strncmp((char *)caps.card, "pispbe", sizeof(caps.card)))
 			return Platform::PISP;
 		else if (!strncmp((char *)caps.card, "bm2835 mmal", sizeof(caps.card)))
 			return Platform::LEGACY;
