@@ -13,8 +13,6 @@
 #include "net_output.hpp"
 #include "output.hpp"
 
-extern bool bcm2835_encoder_available();
-
 Output::Output(VideoOptions const *options)
 	: options_(options), fp_timestamps_(nullptr), state_(WAITING_KEYFRAME), time_offset_(0), last_timestamp_(0),
 	  buf_metadata_(std::cout.rdbuf()), of_metadata_()
@@ -103,7 +101,7 @@ void Output::outputBuffer(void *mem, size_t size, int64_t timestamp_us, uint32_t
 
 Output *Output::Create(VideoOptions const *options)
 {
-	if (options->codec == "libav" || (options->codec == "h264" && !bcm2835_encoder_available()))
+	if (options->codec == "libav" || (options->codec == "h264" && options->GetPlatform() != Platform::VC4))
 		return new Output(options);
 
 	if (strncmp(options->output.c_str(), "udp://", 6) == 0 || strncmp(options->output.c_str(), "tcp://", 6) == 0)
