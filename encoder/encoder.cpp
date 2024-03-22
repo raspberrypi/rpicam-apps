@@ -25,11 +25,12 @@ bool bcm2835_encoder_available()
 {
 	const char hw_codec[] = "/dev/video11";
 	struct v4l2_capability caps;
+	unsigned long request = VIDIOC_QUERYCAP;
 	memset(&caps, 0, sizeof(caps));
 	int fd = open(hw_codec, O_RDWR, 0);
 	if (fd)
 	{
-		int ret = ioctl(fd, VIDIOC_QUERYCAP, &caps);
+		int ret = ioctl(fd, request, &caps);
 		close(fd);
 		if (!ret && !strncmp((char *)caps.card, "bcm2835-codec-encode", sizeof(caps.card)))
 			return true;
