@@ -21,26 +21,9 @@
 #include "libav_encoder.hpp"
 #endif
 
-bool bcm2835_encoder_available()
-{
-	const char hw_codec[] = "/dev/video11";
-	struct v4l2_capability caps;
-	unsigned long request = VIDIOC_QUERYCAP;
-	memset(&caps, 0, sizeof(caps));
-	int fd = open(hw_codec, O_RDWR, 0);
-	if (fd)
-	{
-		int ret = ioctl(fd, request, &caps);
-		close(fd);
-		if (!ret && !strncmp((char *)caps.card, "bcm2835-codec-encode", sizeof(caps.card)))
-			return true;
-	}
-	return false;
-}
-
 static Encoder *h264_codec_select(VideoOptions *options, const StreamInfo &info)
 {
-	if (bcm2835_encoder_available())
+	if (options->GetPlatform() == Platform::VC4)
 		return new H264Encoder(options, info);
 
 #if LIBAV_PRESENT
@@ -57,7 +40,7 @@ static Encoder *libav_codec_select(VideoOptions *options, const StreamInfo &info
 {
 	if (options->libav_video_codec == "h264_v4l2m2m")
 	{
-		if (bcm2835_encoder_available())
+		if (options->GetPlatform() == Platform::VC4)
 				return new LibAvEncoder(options, info);
 		// No h264_v4l2m2m libav codec available, use libx264 if nothing else is provided.
 		options->libav_video_codec = "libx264";
