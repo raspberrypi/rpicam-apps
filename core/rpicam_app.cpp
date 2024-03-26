@@ -1154,9 +1154,7 @@ void RPiCamApp::previewThread()
 		libcamera::Span span = r.Get()[0];
 
 		// Fill the frame info with the ControlList items and ancillary bits.
-		FrameInfo frame_info(item.completed_request->metadata);
-		frame_info.fps = item.completed_request->framerate;
-		frame_info.sequence = item.completed_request->sequence;
+		FrameInfo frame_info(item.completed_request);
 
 		int fd = buffer->planes()[0].fd.get();
 		{

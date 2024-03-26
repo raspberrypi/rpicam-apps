@@ -12,12 +12,19 @@
 #include <libcamera/control_ids.h>
 #include <libcamera/controls.h>
 
+#include "completed_request.hpp"
+
 struct FrameInfo
 {
-	FrameInfo(libcamera::ControlList &ctrls)
+	FrameInfo(const CompletedRequestPtr &completed_request)
 		: exposure_time(0.0), digital_gain(0.0), colour_gains({ { 0.0f, 0.0f } }), focus(0.0), aelock(false),
 		  lens_position(-1.0), af_state(0)
 	{
+		const libcamera::ControlList &ctrls = completed_request->metadata;
+
+		sequence = completed_request->sequence;
+		fps = completed_request->framerate;
+
 		auto exp = ctrls.get(libcamera::controls::ExposureTime);
 		if (exp)
 			exposure_time = *exp;
@@ -53,7 +60,7 @@ struct FrameInfo
 			af_state = *afs;
 	}
 
-	std::string ToString(std::string &info_string) const
+	std::string ToString(const std::string &info_string) const
 	{
 		std::string parsed(info_string);
 
