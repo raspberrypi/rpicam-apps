@@ -250,7 +250,7 @@ static void event_loop(RPiCamStillApp &app)
 
 			if (af_wait_state != AF_WAIT_NONE)
 			{
-				FrameInfo fi(completed_request->metadata);
+				FrameInfo fi(completed_request);
 				bool scanning = fi.af_state == libcamera::controls::AfStateScanning;
 				if (scanning || (af_wait_state == AF_WAIT_SCANNING && ++af_wait_timeout >= 16))
 					af_wait_state = AF_WAIT_FINISHED;
