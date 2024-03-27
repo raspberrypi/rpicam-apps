@@ -20,6 +20,8 @@
 #include "core/frame_info.hpp"
 #include "core/logging.hpp"
 
+#include "post_processing_stages/object_detect.hpp"
+
 using namespace std::placeholders;
 
 static const std::map<libcamera::PixelFormat, unsigned int> bayer_formats =
@@ -133,6 +135,8 @@ struct ProdOptions : public VideoOptions
 			 "Sets the black level for quad test (in 16-bits)")
 			("temp", value<bool>(&check_temp)->default_value(false)->implicit_value(true),
 			 "Report min and max sensor temperature")
+			("imx500-inference-test", value<bool>(&imx500_inference_test)->default_value(false)->implicit_value(true),
+			 "Run the imx500 inference test")
 			;
 		// clang-format on
 	}
@@ -143,6 +147,7 @@ struct ProdOptions : public VideoOptions
 	bool quad_test;
 	bool hist;
 	bool check_temp;
+	bool imx500_inference_test;
 	int32_t focus_steps;
 	int32_t focus_min;
 	int32_t focus_max;
@@ -187,8 +192,10 @@ public:
 	bool run_focus_test(CompletedRequestPtr req, unsigned int count);
 	void run_dust_test(CompletedRequestPtr req);
 	void run_quad_test(CompletedRequestPtr req);
+	void run_imx500_inference_test(CompletedRequestPtr req);
 	void record_temp(int t);
 	void report_temp();
+	void report_imx500_inference();
 
 	std::vector<uint16_t> linebuf_;
 	std::vector<std::map<int, float>> foms_;
@@ -199,6 +206,8 @@ public:
 	unsigned int focus_cycles_;
 	std::string lens_device_;
 	int temp_min_, temp_max_;
+	int num_person_detected_ = 0;
+	int num_person_undetected_ = 0;
 };
 
 void RPicamProd::run_calibration(CompletedRequestPtr req)
@@ -766,6 +775,23 @@ void RPicamProd::run_quad_test(CompletedRequestPtr req)
 	delete [] rowsums;
 }
 
+void RPicamProd::run_imx500_inference_test(CompletedRequestPtr req)
+{
+	std::vector<Detection> detections;
+	req->post_process_metadata.Get("object_detect.results", detections);
+
+	for (auto const &d : detections)
+	{
+		if (d.name == "person")
+		{
+			num_person_detected_++;
+			return;
+		}
+	}
+
+	num_person_undetected_++;
+}
+
 void RPicamProd::record_temp(int t)
 {
 	if (t < temp_min_)
@@ -778,6 +804,12 @@ void RPicamProd::report_temp()
 {
 	std::cout << "Temperature: min " << temp_min_ << " max " << temp_max_ << " diff " << (temp_max_ - temp_min_)
 			  << std::endl;
+}
+
+void RPicamProd::report_imx500_inference()
+{
+	std::cout << "Frames with detected person: " << num_person_detected_
+			  << " / undetected person: " << num_person_undetected_ << std::endl;
 }
 
 // The main even loop for the application.
@@ -842,11 +874,17 @@ static void event_loop(RPicamProd &app)
 				app.record_temp(*tctl);
 		}
 
+		if (options->imx500_inference_test)
+			app.run_imx500_inference_test(req);
+
 		app.ShowPreview(req, app.VideoStream());
 	}
 
 	if (options->check_temp)
 		app.report_temp();
+
+	if (options->imx500_inference_test)
+		app.report_imx500_inference();
 
 	std::cout << std::endl;
 
@@ -875,12 +913,19 @@ int main(int argc, char *argv[])
 				options->mode = Mode(options->mode_string);
 				options->focus_test = false;
 				options->dust_test = false;
+				options->imx500_inference_test = false;
 			}
 			else if (options->dust_test || options->cal)
 			{
 				options->mode_string = "10000:10000:12:U";
 				options->mode = Mode(options->mode_string);
 				options->focus_test = false;
+			}
+			else if (options->imx500_inference_test)
+			{
+				options->post_process_file = "/home/pi/rpicam-apps/assets/imx500_mobilenet_ssd.json";
+				options->focus_test = false;
+				options->dust_test = false;
 			}
 
 			if (options->focus_test)
