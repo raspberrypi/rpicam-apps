@@ -22,7 +22,10 @@
 class IMX500PostProcessingStage : public PostProcessingStage
 {
 public:
-	IMX500PostProcessingStage(RPiCamApp *app) : PostProcessingStage(app) {}
+	IMX500PostProcessingStage(RPiCamApp *app)
+		: PostProcessingStage(app)
+	{
+	}
 
 	void Read(boost::property_tree::ptree const &params) override;
 
@@ -43,6 +46,9 @@ private:
 	std::ofstream input_tensor_file_;
 	unsigned int num_input_tensors_saved_;
 	unsigned int save_frames_;
-	bool input_tensor_signed_;
+	std::vector<int32_t> norm_val_;
+	std::vector<uint8_t> norm_shift_;
+	std::vector<int16_t> div_val_;
+	unsigned int div_shift_;
 	std::mutex lock_;
 };

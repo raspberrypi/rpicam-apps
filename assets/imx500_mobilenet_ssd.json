@@ -9,7 +9,8 @@
         {
             "filename": "/home/pi/input_tensor.raw",
             "num_tensors": 10,
-            "is_signed": true
+            "norm_val": [384, 384, 384, 0],
+            "norm_shift": [0, 0, 0, 0]
         },
 
         "temporal_filter":

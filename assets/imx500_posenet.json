@@ -6,11 +6,10 @@
         "offset_refinement_steps": 5,
         "nms_radius": 10.0,
 
-        "save_input_tensorx":
+        "save_input_tensor":
         {
             "filename": "/home/pi/posenet_input_tensor.raw",
-            "num_tensors": 10,
-            "is_signed": false
+            "num_tensors": 10
         },
 
         "temporal_filter":
