@@ -19,8 +19,8 @@ namespace
 {
 
 template <typename T>
-static std::vector<T> get_json_array(const boost::property_tree::ptree &pt, const std::string &key,
-									 const std::vector<T> &default_value)
+std::vector<T> get_json_array(const boost::property_tree::ptree &pt, const std::string &key,
+							  const std::vector<T> &default_value)
 {
 	std::vector<T> vec;
 
@@ -36,7 +36,7 @@ static std::vector<T> get_json_array(const boost::property_tree::ptree &pt, cons
 	return vec;
 }
 
-static inline int16_t conv_reg_signed(int16_t reg)
+inline int16_t conv_reg_signed(int16_t reg)
 {
 	constexpr unsigned int ROT_DNN_NORM_SIGNED_SHT = 8;
 	constexpr unsigned int ROT_DNN_NORM_MASK = 0x01FF;
