@@ -5,6 +5,8 @@
  * imx500_post_rpocessing_stage.cpp - IMX500 post processing stage base class
  */
 
+#include <boost/property_tree/ptree.hpp>
+
 #include "imx500_post_processing_stage.hpp"
 
 #include <libcamera/control_ids.h>
@@ -13,14 +15,54 @@ using Stream = libcamera::Stream;
 using Rectangle = libcamera::Rectangle;
 using Size = libcamera::Size;
 
+namespace
+{
+
+template <typename T>
+static std::vector<T> get_json_array(const boost::property_tree::ptree &pt, const std::string &key,
+									 const std::vector<T> &default_value)
+{
+	std::vector<T> vec;
+
+	if (pt.find(key) != pt.not_found())
+	{
+		for (auto &v : pt.get_child(key))
+			vec.push_back(v.second.get_value<T>());
+	}
+
+	for (unsigned int i = vec.size(); i < default_value.size(); i++)
+		vec.push_back(default_value[i]);
+
+	return vec;
+}
+
+static inline int16_t conv_reg_signed(int16_t reg)
+{
+	constexpr unsigned int ROT_DNN_NORM_SIGNED_SHT = 8;
+	constexpr unsigned int ROT_DNN_NORM_MASK = 0x01FF;
+
+	if (!((reg >> ROT_DNN_NORM_SIGNED_SHT) & 1))
+		return reg;
+	else
+		return -((~reg + 1) & ROT_DNN_NORM_MASK);
+}
+
+} // namespace
+
 void IMX500PostProcessingStage::Read(boost::property_tree::ptree const &params)
 {
 	if (params.find("save_input_tensor") != params.not_found())
 	{
-		std::string filename = params.get<std::string>("save_input_tensor.filename");
-		num_input_tensors_saved_ = params.get<unsigned int>("save_input_tensor.num_tensors", 1);
-		input_tensor_signed_ = params.get<bool>("save_input_tensor.is_signed");
+		auto const &pt = params.get_child("save_input_tensor");
+
+		std::string filename = pt.get<std::string>("filename");
+		num_input_tensors_saved_ = pt.get<unsigned int>("num_tensors", 1);
 		input_tensor_file_ = std::ofstream(filename, std::ios::out | std::ios::binary);
+
+		norm_val_ = get_json_array<int32_t>(pt, "norm_val", { 0, 0, 0, 0 });
+		norm_shift_ = get_json_array<uint8_t>(pt, "norm_shift", { 0, 0, 0, 0 });
+		div_val_ = get_json_array<int16_t>(pt, "div_val", { 1, 1, 1, 1 });
+		div_shift_ = pt.get<unsigned int>("div_shift", 0);
 	}
 }
 
@@ -41,17 +83,14 @@ bool IMX500PostProcessingStage::Process(CompletedRequestPtr &completed_request)
 		// There is a chance that this may be called through multiple threads, so serialize the file access.
 		std::scoped_lock<std::mutex> l(lock_);
 
-		if (input_tensor_signed_)
+		for (unsigned int i = 0; i < input->size(); i++)
 		{
-			for (unsigned int i = 0; i < input->size(); i++)
-			{
-				int16_t sample = static_cast<int8_t>(input->data()[i]);
-				sample = std::clamp<int16_t>(sample + 128, 0, 255);
-				input_tensor_file_.put(static_cast<uint8_t>(sample));
-			}
+			const unsigned int channel = i % 3; // Assume RGB interleaved format.
+			int16_t sample = static_cast<int8_t>(input->data()[i]);
+			sample = (sample << norm_shift_[channel]) - conv_reg_signed(norm_val_[channel]);
+			sample = ((sample << div_shift_) / div_val_[channel]) & 0xFF;
+			input_tensor_file_.put(static_cast<uint8_t>(sample));
 		}
-		else
-			input_tensor_file_.write(reinterpret_cast<const char *>(input->data()), input->size());
 
 		if (--save_frames_ == 0)
 			input_tensor_file_.close();
