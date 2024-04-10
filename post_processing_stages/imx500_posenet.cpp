@@ -780,8 +780,6 @@ void PoseNet::filterOutputObjects(const std::vector<PoseResults> &results)
 {
 	const Size isp_output_size = output_stream_->configuration().size;
 
-	std::cout << "new frame num results " << results.size() << " num lt " << lt_results_.size() << "\n";
-
 	for (auto &lt_r : lt_results_)
 		lt_r.matched = false;
 
@@ -809,7 +807,6 @@ void PoseNet::filterOutputObjects(const std::vector<PoseResults> &results)
 				lt_r.matched = matched = true;
 				lt_r.results.pose_score = r.pose_score;
 
-				std::cout << "pose scores: ";
 				for (unsigned int i = 0; i < NUM_KEYPOINTS; i++)
 				{
 					lt_r.results.pose_keypoint_scores[i] =
@@ -818,26 +815,20 @@ void PoseNet::filterOutputObjects(const std::vector<PoseResults> &results)
 						factor_ * r.pose_keypoints[i].x + (1 - factor_) * lt_r.results.pose_keypoints[i].x;
 					lt_r.results.pose_keypoints[i].y =
 						factor_ * r.pose_keypoints[i].y + (1 - factor_) * lt_r.results.pose_keypoints[i].y;
-					std::cout << lt_r.results.pose_keypoint_scores[i] << " ";
 				}
-
-				std::cout << "\n";
 
 				// Reset the visibility counter for when the result next disappears.
 				lt_r.visible = visible_frames_;
 				// Decrement the hidden counter until the result becomes visible in the list.
 				lt_r.hidden = std::max(0, (int)lt_r.hidden - 1);
-				std::cout << "Found existing in the lt list vis " << lt_r.visible << " hidden " << lt_r.hidden << "\n";
 				break;
 			}
 		}
 
 		// Add the result to the long term list if not found.  This result will remain hidden for hidden_frames_
 		// consecutive frames.
-		if (!matched) {
+		if (!matched)
 			lt_results_.push_back({ r, visible_frames_, hidden_frames_, true });
-			std::cout << "Adding to the lt list vis " << visible_frames_ << " hidden " << hidden_frames_ << "\n";
-		}
 	}
 
 	for (auto &lt_r : lt_results_)
@@ -847,21 +838,16 @@ void PoseNet::filterOutputObjects(const std::vector<PoseResults> &results)
 			// If a non matched result in the long term list is still hidden, set visible count to 0 so that it must be
 			// matched for hidden_frames_ consecutive frames before becoming visible. Otherwise, decrement the visible
 			// count of unmatched objects in the long term list.
-			if (lt_r.hidden) {
-				std::cout << "hidden flag, set visible to 0\n";
+			if (lt_r.hidden)
 				lt_r.visible = 0;
-			}
-			else {
+			else
 				lt_r.visible--;
-				std::cout << "dec visible to " << lt_r.visible << "\n";
-			}
 		}
 	}
 
 	// Remove now invisible objects from the long term list.
 	lt_results_.erase(std::remove_if(lt_results_.begin(), lt_results_.end(),
-						[] (const LtResults &obj) { if (!obj.matched && !obj.visible) std::cout << " removing from lt list\n";
-							return !obj.matched && !obj.visible; }),
+						[] (const LtResults &obj) { return !obj.matched && !obj.visible; }),
 					  lt_results_.end());
 }
 
