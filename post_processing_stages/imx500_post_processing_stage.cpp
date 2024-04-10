@@ -5,6 +5,9 @@
  * imx500_post_rpocessing_stage.cpp - IMX500 post processing stage base class
  */
 
+#include <filesystem>
+#include <string>
+
 #include <boost/property_tree/ptree.hpp>
 
 #include "imx500_post_processing_stage.hpp"
@@ -15,8 +18,12 @@ using Stream = libcamera::Stream;
 using Rectangle = libcamera::Rectangle;
 using Size = libcamera::Size;
 
+namespace fs = std::filesystem;
+
 namespace
 {
+
+const fs::path network_firmware_symlink { "/lib/firmware/imx500_network.fpk" };
 
 template <typename T>
 std::vector<T> get_json_array(const boost::property_tree::ptree &pt, const std::string &key,
@@ -63,6 +70,34 @@ void IMX500PostProcessingStage::Read(boost::property_tree::ptree const &params)
 		norm_shift_ = get_json_array<uint8_t>(pt, "norm_shift", { 0, 0, 0, 0 });
 		div_val_ = get_json_array<int16_t>(pt, "div_val", { 1, 1, 1, 1 });
 		div_shift_ = pt.get<unsigned int>("div_shift", 0);
+	}
+
+	if (params.find("network_file") != params.not_found())
+	{
+		// network_firmware_symlink points to another symlink (e.g. /home/pi/imx500_network_firmware/imx500_network.fpk)
+		// accessable by the user. This accessable symlink needs to point to the network fpk file that will eventually
+		// be pushed into the IMX500 by the kernel driver.
+		std::string network_file = params.get<std::string>("network_file");
+		if (!fs::exists(network_file))
+			throw std::runtime_error(network_file + " not found!");
+
+		// Check if network_firmware_symlink points to another symlink.
+		if (!fs::is_symlink(network_firmware_symlink) ||
+			!fs::is_symlink(fs::read_symlink(network_firmware_symlink)))
+		{
+			LOG(1, network_firmware_symlink.c_str()
+				   << " is not a symlink, or its target itself is not a symlink."
+				   << " The \"network_file\" config param will be ignored.");
+			return;
+		}
+
+		// Update the user accessable symlink to the user requested firmware if needed.
+		fs::path local_symlink = fs::read_symlink(network_firmware_symlink);
+		if (!fs::equivalent(fs::read_symlink(local_symlink), network_file))
+		{
+			fs::remove(local_symlink);
+			fs::create_symlink(network_file, local_symlink);
+		}
 	}
 }
 
