@@ -4,6 +4,7 @@
         "max_detections" : 5,
         "threshold" : 0.6,
         "class_file" : "/home/pi/rpicam-apps/assets/imx500_mobilenet_ssd_class80.txt",
+        "network_file": "/home/pi/imx500_network_firmware/imx500_network_mobilenet_ssd.fpk",
 
         "save_input_tensor":
         {

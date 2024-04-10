@@ -5,6 +5,7 @@
         "threshold" : 0.4,
         "offset_refinement_steps": 5,
         "nms_radius": 10.0,
+        "network_file": "/home/pi/imx500_network_firmware/imx500_network_posenet.fpk",        
 
         "save_input_tensor":
         {

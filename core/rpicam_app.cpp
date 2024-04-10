@@ -134,6 +134,16 @@ void RPiCamApp::OpenCamera()
 	preview_ = std::unique_ptr<Preview>(make_preview(options_.get()));
 	preview_->SetDoneCallback(std::bind(&RPiCamApp::previewDoneCallback, this, std::placeholders::_1));
 
+	if (!options_->post_process_file.empty())
+	{
+		post_processor_.LoadModules(options_->post_process_libs);		
+		post_processor_.Read(options_->post_process_file);
+		camera_manager_.reset();
+	}
+	// The queue takes over ownership from the post-processor.
+	post_processor_.SetCallback(
+		[this](CompletedRequestPtr &r) { this->msg_queue_.Post(Msg(MsgType::RequestComplete, std::move(r))); });
+
 	LOG(2, "Opening camera...");
 
 	if (!camera_manager_)
@@ -156,15 +166,6 @@ void RPiCamApp::OpenCamera()
 	camera_acquired_ = true;
 
 	LOG(2, "Acquired camera " << cam_id);
-
-	if (!options_->post_process_file.empty())
-	{
-		post_processor_.LoadModules(options_->post_process_libs);
-		post_processor_.Read(options_->post_process_file);
-	}
-	// The queue takes over ownership from the post-processor.
-	post_processor_.SetCallback(
-		[this](CompletedRequestPtr &r) { this->msg_queue_.Post(Msg(MsgType::RequestComplete, std::move(r))); });
 
 	// We're going to make a list of all the available sensor modes, but we only populate
 	// the framerate field if the user has requested a framerate (as this requires us actually
