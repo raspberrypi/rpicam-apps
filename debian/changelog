@@ -1,3 +1,9 @@
+rpicam-apps (1.4.4-1) bookworm; urgency=medium
+
+  * New upstream version 1.4.4
+
+ -- Serge Schneider <serge@raspberrypi.com>  Thu, 18 Apr 2024 14:33:06 +0100
+
 rpicam-apps (1.4.3-1) bookworm; urgency=medium
 
   * New upstream version 1.4.3
