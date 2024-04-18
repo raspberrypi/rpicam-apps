@@ -102,15 +102,14 @@ if __name__ == '__main__':
         reports.append(hwinfo)
 
         config = Report('Configuration', file)
-        config.add_cmd('cat /boot/cmdline.txt')
-        config.add_cmd('cat /boot/config.txt')
+        config.add_cmd('cat /boot/firmware/cmdline.txt')
+        config.add_cmd('cat /boot/firmware/config.txt')
         reports.append(config)
 
         logs = Report('Logs', file)
         logs.add_cmd('dmesg')
-        logs.add_cmd('sudo vcdbg log msg')
-        logs.add_cmd('sudo vcdbg log assert')
-        logs.add_cmd('sudo vcdbg log ex')
+        logs.add_cmd('sudo vclog log --msg')
+        logs.add_cmd('sudo vclog log --assert')
         reports.append(logs)
 
         mem = Report('Memory', file)

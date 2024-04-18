@@ -70,10 +70,10 @@ static const std::map<PixelFormat, BayerFormat> bayer_formats =
 	{ formats::R12, { "BGGR-12", 12, TIFF_BGGR, false, false } },
 
 	/* PiSP compressed formats. */
-	{ formats::RGGB16_PISP_COMP1, { "RGGB-16-PISP", 16, TIFF_RGGB, false, true } },
-	{ formats::GRBG16_PISP_COMP1, { "GRBG-16-PISP", 16, TIFF_GRBG, false, true } },
-	{ formats::GBRG16_PISP_COMP1, { "GBRG-16-PISP", 16, TIFF_GBRG, false, true } },
-	{ formats::BGGR16_PISP_COMP1, { "BGGR-16-PISP", 16, TIFF_BGGR, false, true } },
+	{ formats::RGGB_PISP_COMP1, { "RGGB-16-PISP", 16, TIFF_RGGB, false, true } },
+	{ formats::GRBG_PISP_COMP1, { "GRBG-16-PISP", 16, TIFF_GRBG, false, true } },
+	{ formats::GBRG_PISP_COMP1, { "GBRG-16-PISP", 16, TIFF_GBRG, false, true } },
+	{ formats::BGGR_PISP_COMP1, { "BGGR-16-PISP", 16, TIFF_BGGR, false, true } },
 };
 
 static void unpack_10bit(uint8_t const *src, StreamInfo const &info, uint16_t *dest)
