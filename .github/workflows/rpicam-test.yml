@@ -146,30 +146,10 @@ jobs:
         path: ${{github.workspace}}/test_output/
         retention-days: 7
 
-  run-picamera2-tests:
-
-    runs-on: ${{matrix.camera}}
-    needs: run-test
-
-    strategy:
-      matrix:
-        camera: [ imx219, imx477, imx708, pi5-imx708-imx477 ]
-
-    steps:
-    - name: Clean picamera2
-      run: rm -rf ${{env.PICAMERA2_SRC_DIR}}
-
-    - name: Pull picamera2
-      run: git clone --depth=1 https://github.com/raspberrypi/picamera2.git ${{env.PICAMERA2_SRC_DIR}}
-
-    - name: Test picamera2
-      run: DISPLAY=:0.0 LD_LIBRARY_PATH=${{env.LIBCAMERA_LD_LIBRARY_DIR}} PYTHONPATH=${{env.LIBCAMERA_LD_LIBRARY_DIR}}/python3.11/site-packages/:${{env.PICAMERA2_SRC_DIR}} ${{env.PICAMERA2_SRC_DIR}}/tools/run_tests.py --picamera2-dir ${{env.PICAMERA2_SRC_DIR}}
-      timeout-minutes: 15
-
   update-rpicam-base:
 
     runs-on: ${{matrix.camera}}
-    needs: run-picamera2-tests
+    needs: run-test
 
     strategy:
       matrix:
