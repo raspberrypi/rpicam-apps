@@ -98,17 +98,7 @@ void MobileNetSsd::Read(boost::property_tree::ptree const &params)
 {
 	max_detections_ = params.get<unsigned int>("max_detections");
 	threshold_ = params.get<float>("threshold", 0.5f);
-
-	std::string class_file = params.get<std::string>("class_file");
-	std::ifstream f(class_file);
-	if (f.is_open())
-	{
-		std::string c;
-		while (std::getline(f, c))
-			classes_.push_back(c);
-	}
-	else
-		LOG_ERROR("Failed to open class file!");
+	classes_ = PostProcessingStage::GetJsonArray<std::string>(params, "classes");
 
 	if (params.find("temporal_filter") != params.not_found())
 	{

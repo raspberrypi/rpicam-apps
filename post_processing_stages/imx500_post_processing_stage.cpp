@@ -25,24 +25,6 @@ namespace
 
 const fs::path network_firmware_symlink { "/lib/firmware/imx500_network.fpk" };
 
-template <typename T>
-std::vector<T> get_json_array(const boost::property_tree::ptree &pt, const std::string &key,
-							  const std::vector<T> &default_value)
-{
-	std::vector<T> vec;
-
-	if (pt.find(key) != pt.not_found())
-	{
-		for (auto &v : pt.get_child(key))
-			vec.push_back(v.second.get_value<T>());
-	}
-
-	for (unsigned int i = vec.size(); i < default_value.size(); i++)
-		vec.push_back(default_value[i]);
-
-	return vec;
-}
-
 inline int16_t conv_reg_signed(int16_t reg)
 {
 	constexpr unsigned int ROT_DNN_NORM_SIGNED_SHT = 8;
@@ -66,9 +48,9 @@ void IMX500PostProcessingStage::Read(boost::property_tree::ptree const &params)
 		num_input_tensors_saved_ = pt.get<unsigned int>("num_tensors", 1);
 		input_tensor_file_ = std::ofstream(filename, std::ios::out | std::ios::binary);
 
-		norm_val_ = get_json_array<int32_t>(pt, "norm_val", { 0, 0, 0, 0 });
-		norm_shift_ = get_json_array<uint8_t>(pt, "norm_shift", { 0, 0, 0, 0 });
-		div_val_ = get_json_array<int16_t>(pt, "div_val", { 1, 1, 1, 1 });
+		norm_val_ = PostProcessingStage::GetJsonArray<int32_t>(pt, "norm_val", { 0, 0, 0, 0 });
+		norm_shift_ = PostProcessingStage::GetJsonArray<uint8_t>(pt, "norm_shift", { 0, 0, 0, 0 });
+		div_val_ = PostProcessingStage::GetJsonArray<int16_t>(pt, "div_val", { 1, 1, 1, 1 });
 		div_shift_ = pt.get<unsigned int>("div_shift", 0);
 	}
 
