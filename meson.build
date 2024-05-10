@@ -31,6 +31,7 @@ elif neon == 'armv8-neon'
     cpp_arguments += ['-mfpu=neon-fp-armv8', '-ftree-vectorize']
 endif
 
+dl_dep = dependency('dl', required : true)
 libcamera_dep = dependency('libcamera', required : true)
 
 summary({
@@ -40,7 +41,7 @@ summary({
         section : 'libcamera')
 
 rpicam_app_src = []
-rpicam_app_dep = [libcamera_dep]
+rpicam_app_dep = [libcamera_dep, dl_dep]
 
 subdir('core')
 subdir('encoder')
