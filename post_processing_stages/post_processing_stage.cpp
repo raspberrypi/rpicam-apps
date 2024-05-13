@@ -244,15 +244,18 @@ std::vector<uint8_t> PostProcessingStage::Yuv420ToRgb(const uint8_t *src, Stream
 	return output;
 }
 
-static std::map<std::string, StageCreateFunc> *stages_ptr;
+static std::map<std::string, StageCreateFunc> &stages()
+{
+	static std::map<std::string, StageCreateFunc> stages;
+	return stages;
+}
+
 std::map<std::string, StageCreateFunc> const &GetPostProcessingStages()
 {
-	return *stages_ptr;
+	return stages();
 }
 
 RegisterStage::RegisterStage(char const *name, StageCreateFunc create_func)
 {
-	static std::map<std::string, StageCreateFunc> stages;
-	stages_ptr = &stages;
-	stages[std::string(name)] = create_func;
+	stages()[std::string(name)] = create_func;
 }
