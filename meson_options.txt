@@ -19,13 +19,13 @@ option('enable_qt',
         description : 'Enable QT preview window support')
 
 option('enable_opencv',
-        type : 'boolean',
-        value : true,
+        type : 'feature',
+        value : 'disabled',
         description : 'Enable OpenCV postprocessing support')
 
 option('enable_tflite',
-        type : 'boolean',
-        value : false,
+        type : 'feature',
+        value : 'disabled',
         description : 'Enable Tensorflow Lite postprocessing support')
 
 option('neon_flags',

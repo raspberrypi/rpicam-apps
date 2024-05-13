@@ -56,7 +56,7 @@ jobs:
         clean: true
 
     - name: Configure meson
-      run: meson setup ${{github.workspace}}/build --pkg-config-path=${{env.LIBCAMERA_LKG_DIR}}/lib/aarch64-linux-gnu/pkgconfig/ -Dbuildtype=release -Denable_drm=false -Denable_egl=false -Denable_qt=false -Denable_opencv=false -Denable_tflite=false -Denable_libav=false
+      run: meson setup ${{github.workspace}}/build --pkg-config-path=${{env.LIBCAMERA_LKG_DIR}}/lib/aarch64-linux-gnu/pkgconfig/ -Dbuildtype=release -Denable_drm=false -Denable_egl=false -Denable_qt=false -Denable_opencv='disabled' -Denable_tflite='disabled' -Denable_libav=false
       timeout-minutes: 5
 
     - name: Build
