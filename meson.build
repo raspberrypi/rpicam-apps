@@ -48,10 +48,12 @@ subdir('encoder')
 subdir('image')
 subdir('output')
 subdir('preview')
-subdir('post_processing_stages')
 subdir('utils')
 
 add_project_arguments(cpp_arguments, language : 'cpp')
+
+# Must be put after add_project_arguments as it defines shared library targets.
+subdir('post_processing_stages')
 
 rpicam_app = library(
     'rpicam_app',
