@@ -9,6 +9,7 @@
 #include <filesystem>
 #include <iostream>
 
+#include "core/options.hpp"
 #include "core/rpicam_app.hpp"
 #include "core/post_processor.hpp"
 
@@ -70,7 +71,18 @@ const void *PostProcessingLib::GetSymbol(const std::string &symbol)
 
 PostProcessor::PostProcessor(RPiCamApp *app) : app_(app)
 {
-	const fs::path path(POSTPROC_LIB_DIR);
+}
+
+PostProcessor::~PostProcessor()
+{
+	// Must clear stages_ before dynamic_stages_ as the latter will unload the necessary symbols.
+	stages_.clear();
+	dynamic_stages_.clear();
+}
+
+void PostProcessor::LoadModules(const std::string &lib_dir)
+{
+	const fs::path path(!lib_dir.empty() ? lib_dir : POSTPROC_LIB_DIR);
 	const std::string ext(".so");
 
 	if (!fs::exists(path))
@@ -83,10 +95,6 @@ PostProcessor::PostProcessor(RPiCamApp *app) : app_(app)
 		if (p.path().extension() == ext)
 			dynamic_stages_.emplace_back(p.path().string());
 	}
-}
-
-PostProcessor::~PostProcessor()
-{
 }
 
 void PostProcessor::Read(std::string const &filename)

@@ -158,7 +158,10 @@ void RPiCamApp::OpenCamera()
 	LOG(2, "Acquired camera " << cam_id);
 
 	if (!options_->post_process_file.empty())
+	{
+		post_processor_.LoadModules(options_->post_process_libs);
 		post_processor_.Read(options_->post_process_file);
+	}
 	// The queue takes over ownership from the post-processor.
 	post_processor_.SetCallback(
 		[this](CompletedRequestPtr &r) { this->msg_queue_.Post(Msg(MsgType::RequestComplete, std::move(r))); });

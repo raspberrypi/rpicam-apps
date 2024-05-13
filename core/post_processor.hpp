@@ -54,6 +54,8 @@ public:
 
 	~PostProcessor();
 
+	void LoadModules(const std::string &lib_dir);
+
 	void Read(std::string const &filename);
 
 	void SetCallback(PostProcessorCallback callback);
