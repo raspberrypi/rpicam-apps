@@ -114,6 +114,7 @@ struct Options
 	std::string config_file;
 	std::string output;
 	std::string post_process_file;
+	std::string post_process_libs;
 	unsigned int width;
 	unsigned int height;
 	bool nopreview;
