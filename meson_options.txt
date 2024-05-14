@@ -1,21 +1,21 @@
 option('enable_libav',
-        type : 'boolean',
-        value : true,
+        type : 'feature',
+        value : 'auto',
         description : 'Enable the libav encoder for video/audio capture')
 
 option('enable_drm',
-        type : 'boolean',
-        value : true,
+        type : 'feature',
+        value : 'auto',
         description : 'Enable DRM preview window support')
 
 option('enable_egl',
-        type : 'boolean',
-        value : true,
+        type : 'feature',
+        value : 'auto',
         description : 'Enable EGL preview window support')
 
 option('enable_qt',
-        type : 'boolean',
-        value : true,
+        type : 'feature',
+        value : 'auto',
         description : 'Enable QT preview window support')
 
 option('enable_opencv',
