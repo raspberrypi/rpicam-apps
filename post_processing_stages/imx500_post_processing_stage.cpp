@@ -81,6 +81,10 @@ void IMX500PostProcessingStage::Read(boost::property_tree::ptree const &params)
 			fs::create_symlink(network_file, local_symlink);
 		}
 	}
+
+	LOG(1, "\n------------------------------------------------------------------------------------------------------------------\n"
+		   "NOTE: Loading network firmware onto the IMX500 can take several minutes, please do not close down the application."
+		   "\n------------------------------------------------------------------------------------------------------------------\n");
 }
 
 void IMX500PostProcessingStage::Configure()
