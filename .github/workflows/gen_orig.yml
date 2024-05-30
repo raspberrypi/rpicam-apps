@@ -24,9 +24,11 @@ jobs:
           PATH="${HOME}/.local/bin:${PATH}"
           meson setup build
           meson dist --no-tests --include-subprojects -C build
+          ./utils/download-hailo-models.sh hailo-models
+          XZ_OPT=-9 tar -cJf hailo-models-${GITHUB_REF_NAME:1}.tar.xz hailo-models
       - name: Release tarball
         uses: softprops/action-gh-release@v1
         with:
-          files: build/meson-dist/*.tar.xz
+          files: build/meson-dist/*.tar.xz hailo-models-*.tar.xz
       - if: failure()
         run: cat build/meson-logs/meson-log.txt
