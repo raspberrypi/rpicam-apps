@@ -1,3 +1,13 @@
+rpicam-apps (1.5.0-1) bookworm; urgency=medium
+
+  * New upstream version 1.5.0
+  * d/rules: switch from true/false to enabled/disabled
+  * Enable OpenCV postprocessing in full build
+  * Enable Hailo support
+  * d/rules: fix clean target
+
+ -- Serge Schneider <serge@raspberrypi.com>  Fri, 31 May 2024 11:29:14 +0100
+
 rpicam-apps (1.4.4-1) bookworm; urgency=medium
 
   * New upstream version 1.4.4
