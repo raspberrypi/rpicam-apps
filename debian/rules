@@ -2,8 +2,8 @@
 #export DH_VERBOSE = 1
 
 CONFIG_COMMON := -Denable_opencv=disabled -Denable_tflite=disabled
-CONFIG_FULL := -Denable_libav=enabled -Denable_drm=enabled -Denable_egl=enabled -Denable_qt=enabled
-CONFIG_LITE := -Denable_egl=disabled -Denable_qt=disabled -Denable_libav=disabled
+CONFIG_FULL := -Denable_libav=enabled -Denable_drm=enabled -Denable_egl=enabled -Denable_qt=enabled -Denable_opencv=enabled
+CONFIG_LITE := -Denable_egl=disabled -Denable_qt=disabled -Denable_libav=disabled -Denable_opencv=disabled
 
 %:
 	dh $@ --buildsystem=meson

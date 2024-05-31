@@ -20,6 +20,7 @@ Build-Depends: debhelper (>= 11),
  libavcodec-dev,
  libavdevice-dev,
  libavformat-dev,
+ libopencv-dev,
  libswresample-dev
 Standards-Version: 4.1.3
 Homepage: https://github.com/raspberrypi/rpicam-apps/
