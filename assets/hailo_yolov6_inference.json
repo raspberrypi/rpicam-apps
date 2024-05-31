@@ -1,0 +1,21 @@
+{
+    "hailo_yolo_inference":
+    {
+        "hef_file": "/usr/share/hailo-models/yolov6n.hef",
+        "max_detections": 20,
+        "threshold": 0.4,
+
+        "temporal_filter":
+        {
+            "tolerance": 0.1,
+            "factor": 0.75,
+            "visible_frames": 6,
+            "hidden_frames": 3
+        }
+    },
+
+    "object_detect_draw_cv":
+    {
+        "line_thickness" : 2
+    }
+}

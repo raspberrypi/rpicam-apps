@@ -543,7 +543,7 @@ def test_raw(exe_dir, output_dir):
     print("rpicam-raw tests passed")
 
 
-def test_post_processing(exe_dir, output_dir, json_dir):
+def test_post_processing(exe_dir, output_dir, json_dir, postproc_dir):
     logfile = os.path.join(output_dir, 'log.txt')
     print("Testing post-processing")
     clean_dir(output_dir)
@@ -554,9 +554,10 @@ def test_post_processing(exe_dir, output_dir, json_dir):
     check_exists(executable, 'post-processing')
     json_file = os.path.join(json_dir, 'negate.json')
     check_exists(json_file, 'post-processing')
-    retcode, time_taken = run_executable([executable, '-t', '2000',
-                                          '--post-process-file', json_file],
-                                         logfile)
+    args = [executable, '-t', '2000', '--post-process-file', json_file]
+    if postproc_dir:
+        args += ['--post-process-libs', postproc_dir]
+    retcode, time_taken = run_executable(args, logfile)
     check_retcode(retcode, "test_post_processing: negate test")
     check_time(time_taken, 2, 8, "test_post_processing: negate test")
 
@@ -622,7 +623,7 @@ def test_post_processing(exe_dir, output_dir, json_dir):
     print("post-processing tests passed")
 
 
-def test_all(apps, exe_dir, output_dir, json_dir):
+def test_all(apps, exe_dir, output_dir, json_dir, postproc_dir):
     try:
         if 'hello' in apps:
             test_hello(exe_dir, output_dir)
@@ -635,7 +636,7 @@ def test_all(apps, exe_dir, output_dir, json_dir):
         if 'raw' in apps:
             test_raw(exe_dir, output_dir)
         if 'post-processing' in apps:
-            test_post_processing(exe_dir, output_dir, json_dir)
+            test_post_processing(exe_dir, output_dir, json_dir, postproc_dir)
 
         print("All tests passed")
         clean_dir(output_dir)
@@ -657,10 +658,13 @@ if __name__ == '__main__':
                         help='Directory name for output files')
     parser.add_argument('--json-dir', '-j', action='store', default='.',
                         help='Directory name for JSON post-processing files')
+    parser.add_argument('--post-process-libs', '-p', action='store', default=None,
+                        help='Directory name custom post-processing libraries')
     args = parser.parse_args()
     apps = args.apps.split(',')
     exe_dir = args.exe_dir.rstrip('/')
     output_dir = args.output_dir
     json_dir = args.json_dir
-    print("Exe_dir:", exe_dir, "Output_dir:", output_dir, "Json_dir:", json_dir)
-    test_all(apps, exe_dir, output_dir, json_dir)
+    postproc_dir = args.post_process_libs
+    print("Exe_dir:", exe_dir, "Output_dir:", output_dir, "Json_dir:", json_dir, "Postproc_dir:", postproc_dir)
+    test_all(apps, exe_dir, output_dir, json_dir, postproc_dir)

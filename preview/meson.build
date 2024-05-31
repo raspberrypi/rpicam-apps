@@ -7,38 +7,34 @@ preview_headers = files([
     'preview.hpp',
 ])
 
-enable_drm = get_option('enable_drm')
-drm_deps = dependency('libdrm', required : false)
+enable_drm = false
+drm_deps = dependency('libdrm', required : get_option('enable_drm'))
 
-if enable_drm and drm_deps.found()
+if drm_deps.found()
     rpicam_app_dep += drm_deps
     rpicam_app_src += files('drm_preview.cpp')
     cpp_arguments += '-DLIBDRM_PRESENT=1'
-else
-    enable_drm = false
+    enable_drm = true
 endif
 
-enable_egl = get_option('enable_egl')
-x11_deps = dependency('x11', required : false)
-epoxy_deps = dependency('epoxy', required : false)
+enable_egl = false
+x11_deps = dependency('x11', required : get_option('enable_egl'))
+epoxy_deps = dependency('epoxy', required : get_option('enable_egl'))
 
-if enable_egl and x11_deps.found() and epoxy_deps.found()
+if x11_deps.found() and epoxy_deps.found()
     rpicam_app_dep += [x11_deps, epoxy_deps]
     rpicam_app_src += files('egl_preview.cpp')
     cpp_arguments += '-DLIBEGL_PRESENT=1'
-else
-    enable_egl = false
+    enable_egl = true
 endif
 
-enable_qt = get_option('enable_qt')
-qt_dep = dependency('qt5', modules : ['Core', 'Widgets'], required : false)
-
-if enable_qt and qt_dep.found()
+enable_qt = false
+qt_dep = dependency('qt5', modules : ['Core', 'Widgets'], required : get_option('enable_qt'))
+if qt_dep.found()
     rpicam_app_dep += qt_dep
     rpicam_app_src += files('qt_preview.cpp')
     cpp_arguments += '-DQT_PRESENT=1'
-else
-    enable_qt = false
+    enable_qt = true
 endif
 
 install_headers(preview_headers, subdir: meson.project_name() / 'preview')
