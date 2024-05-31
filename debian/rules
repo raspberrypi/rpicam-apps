@@ -38,6 +38,10 @@ ifeq ($(DEB_HOST_ARCH),arm64)
 	mv debian/rpicam-apps/usr/share/hailo-models debian/rpicam-apps-hailo-postprocess/usr/share/
 endif
 
+override_dh_clean:
+	dh_clean
+	dh_clean build_lite/
+
 # Hailo packages are broken, so work around their limitations until they're fixed
 override_dh_shlibdeps:
 	dh_shlibdeps -Xhailo-postproc.so
