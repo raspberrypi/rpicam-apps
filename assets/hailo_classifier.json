@@ -1,0 +1,16 @@
+{
+    "hailo_classifier":
+    {
+        "hef_file": "/usr/share/hailo-models/resnet_v1_50_h8l.hef"
+    },
+
+    "annotate_cv" :
+    {
+	    "text": "",
+        "fg" : 255,
+        "bg" : 0,
+        "scale" : 1.0,
+        "thickness" : 2,
+        "alpha" : 0.3
+    }
+}

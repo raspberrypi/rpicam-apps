@@ -249,7 +249,6 @@ private:
 	Mode selectMode(const Mode &mode) const;
 
 	std::unique_ptr<CameraManager> camera_manager_;
-	std::vector<std::shared_ptr<libcamera::Camera>> cameras_;
 	std::shared_ptr<Camera> camera_;
 	bool camera_acquired_ = false;
 	std::unique_ptr<CameraConfiguration> configuration_;

@@ -12,20 +12,18 @@ encoder_headers = files([
     'null_encoder.hpp',
 ])
 
-enable_libav = get_option('enable_libav')
 libav_dep_names = ['libavcodec', 'libavdevice', 'libavformat', 'libavutil', 'libswresample']
 libav_deps = []
 
-if enable_libav
-    foreach name : libav_dep_names
-        dep = dependency(name, required : false)
-        if not dep.found()
-            enable_libav = false
-            break
-        endif
-        libav_deps += dep
-    endforeach
-endif
+enable_libav = true
+foreach name : libav_dep_names
+    dep = dependency(name, required : get_option('enable_libav'))
+    if not dep.found()
+        enable_libav = false
+        break
+    endif
+    libav_deps += dep
+endforeach
 
 if enable_libav
         rpicam_app_src += files('libav_encoder.cpp')

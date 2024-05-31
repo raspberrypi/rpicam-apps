@@ -204,6 +204,8 @@ Options::Options()
 			"Set the output file name")
 		("post-process-file", value<std::string>(&post_process_file),
 			"Set the file name for configuring the post-processing")
+		("post-process-libs", value<std::string>(&post_process_libs),
+			"Set a custom location for the post-processing library .so files")
 		("nopreview,n", value<bool>(&nopreview)->default_value(false)->implicit_value(true),
 			"Do not show a preview window")
 		("preview,p", value<std::string>(&preview)->default_value("0,0,0,0"),
@@ -631,6 +633,7 @@ void Options::Print() const
 	std::cerr << "    height: " << height << std::endl;
 	std::cerr << "    output: " << output << std::endl;
 	std::cerr << "    post_process_file: " << post_process_file << std::endl;
+	std::cerr << "    post_process_libs: " << post_process_libs << std::endl;
 	if (nopreview)
 		std::cerr << "    preview: none" << std::endl;
 	else if (fullscreen)

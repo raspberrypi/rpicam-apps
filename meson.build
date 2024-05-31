@@ -1,6 +1,6 @@
 project('rpicam-apps', 'c', 'cpp',
         meson_version : '>= 0.64.0',
-        version : '1.4.4',
+        version : '1.5.0',
         default_options : [
             'werror=true',
             'warning_level=3',
@@ -31,6 +31,7 @@ elif neon == 'armv8-neon'
     cpp_arguments += ['-mfpu=neon-fp-armv8', '-ftree-vectorize']
 endif
 
+dl_dep = dependency('dl', required : true)
 libcamera_dep = dependency('libcamera', required : true)
 
 summary({
@@ -40,17 +41,19 @@ summary({
         section : 'libcamera')
 
 rpicam_app_src = []
-rpicam_app_dep = [libcamera_dep]
+rpicam_app_dep = [libcamera_dep, dl_dep]
 
 subdir('core')
 subdir('encoder')
 subdir('image')
 subdir('output')
 subdir('preview')
-subdir('post_processing_stages')
 subdir('utils')
 
 add_project_arguments(cpp_arguments, language : 'cpp')
+
+# Must be put after add_project_arguments as it defines shared library targets.
+subdir('post_processing_stages')
 
 rpicam_app = library(
     'rpicam_app',
@@ -76,5 +79,6 @@ summary({
             'qt preview' : enable_qt,
             'OpenCV postprocessing' : enable_opencv,
             'TFLite postprocessing' : enable_tflite,
+            'Hailo postprocessing' : enable_hailo,
         },
         bool_yn : true, section : 'Build configuration')
