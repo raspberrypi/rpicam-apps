@@ -1,9 +1,18 @@
 #!/usr/bin/make -f
 #export DH_VERBOSE = 1
 
-CONFIG_COMMON := -Denable_opencv=disabled -Denable_tflite=disabled
+CONFIG_COMMON := -Denable_opencv=disabled -Denable_tflite=disabled -Ddownload_hailo_models=false
 CONFIG_FULL := -Denable_libav=enabled -Denable_drm=enabled -Denable_egl=enabled -Denable_qt=enabled -Denable_opencv=enabled
 CONFIG_LITE := -Denable_egl=disabled -Denable_qt=disabled -Denable_libav=disabled -Denable_opencv=disabled
+
+POSTPROC_PATH := usr/lib/$(DEB_HOST_MULTIARCH)/rpicam-apps-postproc
+
+ifeq ($(DEB_HOST_ARCH),arm64)
+	CONFIG_FULL += -Denable_hailo=enabled
+	CONFIG_LITE += -Denable_hailo=disabled
+else
+	CONFIG_COMMON += -Denable_hailo=disabled
+endif
 
 %:
 	dh $@ --buildsystem=meson
@@ -23,3 +32,12 @@ override_dh_auto_test:
 override_dh_auto_install:
 	dh_auto_install --builddirectory=build_lite --destdir=debian/rpicam-apps-lite/
 	dh_auto_install --destdir=debian/rpicam-apps/
+ifeq ($(DEB_HOST_ARCH),arm64)
+	mkdir -p debian/rpicam-apps-hailo-postprocess/$(POSTPROC_PATH)/ debian/rpicam-apps-hailo-postprocess/usr/share/
+	mv debian/rpicam-apps/$(POSTPROC_PATH)/hailo-postproc.so debian/rpicam-apps-hailo-postprocess/$(POSTPROC_PATH)/
+	mv debian/rpicam-apps/usr/share/hailo-models debian/rpicam-apps-hailo-postprocess/usr/share/
+endif
+
+# Hailo packages are broken, so work around their limitations until they're fixed
+override_dh_shlibdeps:
+	dh_shlibdeps -Xhailo-postproc.so

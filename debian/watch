@@ -3,3 +3,8 @@ opts="searchmode=plain,\
 uversionmangle=s/%2B/+/g" \
 https://api.github.com/repos/raspberrypi/@PACKAGE@/releases?per_page=50 \
 https://github\.com/[^/]+/[^/]+/releases/download/[^/]+/@PACKAGE@-([^"]+)\.tar\.xz
+opts="searchmode=plain,\
+uversionmangle=s/%2B/+/g, \
+component=hailo-models" \
+https://api.github.com/repos/raspberrypi/@PACKAGE@/releases?per_page=50 \
+https://github\.com/[^/]+/[^/]+/releases/download/[^/]+/hailo-models-([^"]+)\.tar\.xz

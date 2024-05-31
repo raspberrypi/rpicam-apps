@@ -21,6 +21,8 @@ Build-Depends: debhelper (>= 11),
  libavdevice-dev,
  libavformat-dev,
  libopencv-dev,
+ hailort [arm64],
+ hailo-tappas-core-3.28.2 [arm64],
  libswresample-dev
 Standards-Version: 4.1.3
 Homepage: https://github.com/raspberrypi/rpicam-apps/
@@ -34,6 +36,14 @@ Breaks: libcamera-apps (<< 1.4.1-1~)
 Description: rpicam-apps
  Small suite of libcamera-based apps that aim to copy the functionality of the
  existing "raspicam" apps
+
+Package: rpicam-apps-hailo-postprocess
+Architecture: arm64
+Depends: ${shlibs:Depends}, ${misc:Depends}, rpicam-apps, hailort,
+ hailo-tappas-core-3.28.2
+Description: rpicam-apps-hailo
+ Small suite of libcamera-based apps that aim to copy the functionality of the
+ existing "raspicam" apps. This package adds Hailo postprocessing support
 
 Package: rpicam-apps-lite
 Architecture: armhf arm64
