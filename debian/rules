@@ -1,9 +1,9 @@
 #!/usr/bin/make -f
 #export DH_VERBOSE = 1
 
-CONFIG_COMMON := -Denable_opencv=false -Denable_tflite=false
-CONFIG_FULL := -Denable_libav=true -Denable_drm=true -Denable_egl=true -Denable_qt=true
-CONFIG_LITE := -Denable_egl=false -Denable_qt=false -Denable_libav=false
+CONFIG_COMMON := -Denable_opencv=disabled -Denable_tflite=disabled
+CONFIG_FULL := -Denable_libav=enabled -Denable_drm=enabled -Denable_egl=enabled -Denable_qt=enabled
+CONFIG_LITE := -Denable_egl=disabled -Denable_qt=disabled -Denable_libav=disabled
 
 %:
 	dh $@ --buildsystem=meson
