@@ -35,6 +35,10 @@ static const std::map<libcamera::PixelFormat, unsigned int> bayer_formats =
 	{ libcamera::formats::SGRBG12, 12 },
 	{ libcamera::formats::SBGGR12, 12 },
 	{ libcamera::formats::SGBRG12, 12 },
+	{ libcamera::formats::SRGGB16, 16 },
+	{ libcamera::formats::SGRBG16, 16 },
+	{ libcamera::formats::SBGGR16, 16 },
+	{ libcamera::formats::SGBRG16, 16 },
 };
 
 static int xioctl(int fd, unsigned long ctl, void *arg)
