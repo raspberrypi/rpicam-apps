@@ -1,3 +1,9 @@
+rpicam-apps (1.5.0-2) bookworm; urgency=medium
+
+  * Rebuild with libcamera 0.3 release
+
+ -- Serge Schneider <serge@raspberrypi.com>  Mon, 17 Jun 2024 12:47:17 +0100
+
 rpicam-apps (1.5.0-1) bookworm; urgency=medium
 
   * New upstream version 1.5.0
