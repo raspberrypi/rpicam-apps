@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1-or-later */
+/* SPDX-License-Identifier: BSD-2-Clause */
 /*
  * Copyright (C) 2023, Raspberry Pi Ltd
  *
