@@ -768,7 +768,9 @@ void PoseNet::translateCoordinates(std::vector<PoseResults> &results, const Rect
 	{
 		for (auto &keypoint : r.pose_keypoints)
 		{
-			std::vector<float> coords{ keypoint.x, keypoint.y, 1, 1 };
+			std::vector<float> coords{ keypoint.x / (INPUT_TENSOR_SIZE.width - 1),
+									   keypoint.y / (INPUT_TENSOR_SIZE.height - 1),
+									   0, 0 };
 			Rectangle translated = ConvertInferenceCoordinates(coords, scaler_crop);
 			keypoint.x = translated.x;
 			keypoint.y = translated.y;
