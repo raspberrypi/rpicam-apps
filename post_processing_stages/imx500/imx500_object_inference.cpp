@@ -2,12 +2,11 @@
 /*
  * Copyright (C) 2024, Raspberry Pi Ltd
  *
- * imx500_mobilenet_ssd.cpp - IMX500 inference for MobileNetSSD
+ * imx500_object_inference.cpp - IMX500 inference for various networks
  */
 
 #include <algorithm>
 #include <array>
-#include <cmath>
 #include <mutex>
 #include <string>
 #include <vector>
@@ -25,13 +24,7 @@ using Rectangle = libcamera::Rectangle;
 using Size = libcamera::Size;
 namespace controls = libcamera::controls;
 
-#define NAME "imx500_mobilenet_ssd"
-
-// Derived from SSDMobilnetV1 DNN Model
-static constexpr unsigned int TOTAL_DETECTIONS = 10;
-// bbox(10 * 4) + class(10) + scores(10) + num_detections(1) = 61
-static constexpr unsigned int DNN_OUTPUT_TENSOR_SIZE = 61;
-static constexpr Size INPUT_TENSOR_SIZE { 300, 300 };
+#define NAME "imx500_object_inference"
 
 struct Bbox
 {
@@ -41,7 +34,7 @@ struct Bbox
 	float y1;
 };
 
-struct ObjectDetectionSsdOutputTensor
+struct ObjectDetectionOutput
 {
 	unsigned int num_detections = 0;
 	std::vector<Bbox> bboxes;
@@ -49,10 +42,10 @@ struct ObjectDetectionSsdOutputTensor
 	std::vector<float> classes;
 };
 
-class MobileNetSsd : public IMX500PostProcessingStage
+class ObjectInference : public IMX500PostProcessingStage
 {
 public:
-	MobileNetSsd(RPiCamApp *app) : IMX500PostProcessingStage(app) {}
+	ObjectInference(RPiCamApp *app) : IMX500PostProcessingStage(app) {}
 
 	char const *Name() const override;
 
@@ -64,7 +57,7 @@ public:
 
 private:
 	int processOutputTensor(std::vector<Detection> &objects, const std::vector<float> &output_tensor,
-							const Rectangle &scaler_crop) const;
+							const IMX500OutputTensorInfo &output_tensor_info, const Rectangle &scaler_crop) const;
 	void filterOutputObjects(std::vector<Detection> &objects);
 
 	struct LtObject
@@ -89,12 +82,12 @@ private:
 	unsigned int hidden_frames_;
 };
 
-char const *MobileNetSsd::Name() const
+char const *ObjectInference::Name() const
 {
 	return NAME;
 }
 
-void MobileNetSsd::Read(boost::property_tree::ptree const &params)
+void ObjectInference::Read(boost::property_tree::ptree const &params)
 {
 	max_detections_ = params.get<unsigned int>("max_detections");
 	threshold_ = params.get<float>("threshold", 0.5f);
@@ -114,13 +107,13 @@ void MobileNetSsd::Read(boost::property_tree::ptree const &params)
 	IMX500PostProcessingStage::Read(params);
 }
 
-void MobileNetSsd::Configure()
+void ObjectInference::Configure()
 {
 	// Nothing to do here except call the base class Configure().
 	IMX500PostProcessingStage::Configure();
 }
 
-bool MobileNetSsd::Process(CompletedRequestPtr &completed_request)
+bool ObjectInference::Process(CompletedRequestPtr &completed_request)
 {
 	auto scaler_crop = completed_request->metadata.get(controls::ScalerCrop);
 	if (!raw_stream_ || !scaler_crop)
@@ -130,24 +123,22 @@ bool MobileNetSsd::Process(CompletedRequestPtr &completed_request)
 	}
 
 	auto output = completed_request->metadata.get(controls::rpi::Imx500OutputTensor);
-	if (!output)
-	{
-		LOG_ERROR("No output tensor found in metadata!");
-		return false;
-	}
-
-	std::vector<float> output_tensor(output->data(), output->data() + output->size());
+	auto info = completed_request->metadata.get(controls::rpi::Imx500OutputTensorInfo);
 	std::vector<Detection> objects;
 
-	int ret = processOutputTensor(objects, output_tensor, *scaler_crop);
-	if (!ret)
+	// Process() can be concurrently called through different threads for consecutive CompletedRequests if
+	// things are running behind.  So protect access to the lt_objects_ state object.
+	std::scoped_lock<std::mutex> l(lt_lock_);
+
+	if (output && info)
 	{
+		std::vector<float> output_tensor(output->data(), output->data() + output->size());
+		IMX500OutputTensorInfo output_tensor_info = *reinterpret_cast<const IMX500OutputTensorInfo *>(info->data());
+
+		processOutputTensor(objects, output_tensor, output_tensor_info, *scaler_crop);
+
 		if (temporal_filtering_)
 		{
-			// Process() can be concurrently called through different threads for consecutive CompletedRequests if
-			// things are running behind.  So protect access to the lt_objects_ state object.
-			std::scoped_lock<std::mutex> l(lt_lock_);
-
 			filterOutputObjects(objects);
 			if (lt_objects_.size())
 			{
@@ -159,117 +150,116 @@ bool MobileNetSsd::Process(CompletedRequestPtr &completed_request)
 				}
 			}
 		}
-
-		if (objects.size())
-			completed_request->post_process_metadata.Set("object_detect.results", objects);
+		else
+		{
+			// If no temporal filtering, make sure we fill lt_objects_ with the current result as it may be used if
+			// there is no output tensor on subsequent frames.
+			for (auto const &obj : objects)
+				lt_objects_.push_back({ obj, 0, 0, 0 });
+		}
 	}
+	else
+	{
+		// No output tensor, so simply reuse the results from the lt_objects_.
+		for (auto const &obj : lt_objects_)
+		{
+			if (!obj.hidden)
+				objects.push_back(obj.params);
+		}
+	}
+
+	if (objects.size())
+		completed_request->post_process_metadata.Set("object_detect.results", objects);
 
 	return IMX500PostProcessingStage::Process(completed_request);
 }
 
-static int createObjectDetectionSsdData(ObjectDetectionSsdOutputTensor &ssd, const std::vector<float> &data)
+static int createObjectDetectionData(ObjectDetectionOutput &output, const std::vector<float> &data,
+									 unsigned int total_detections)
 {
 	unsigned int count = 0;
 
-	if ((count + (TOTAL_DETECTIONS * 4)) > DNN_OUTPUT_TENSOR_SIZE)
-	{
-		LOG_ERROR("Invalid count index " << count);
-		return -1;
-	}
-
 	// Extract bounding box co-ordinates
-	for (unsigned int i = 0; i < TOTAL_DETECTIONS; i++)
+	for (unsigned int i = 0; i < total_detections; i++)
 	{
 		Bbox bbox;
 		bbox.y0 = data.at(count + i);
-		bbox.x0 = data.at(count + i + (1 * TOTAL_DETECTIONS));
-		bbox.y1 = data.at(count + i + (2 * TOTAL_DETECTIONS));
-		bbox.x1 = data.at(count + i + (3 * TOTAL_DETECTIONS));
-		ssd.bboxes.push_back(bbox);
+		bbox.x0 = data.at(count + i + (1 * total_detections));
+		bbox.y1 = data.at(count + i + (2 * total_detections));
+		bbox.x1 = data.at(count + i + (3 * total_detections));
+		output.bboxes.push_back(bbox);
 	}
-	count += (TOTAL_DETECTIONS * 4);
-
-	// Extract class indices
-	for (unsigned int i = 0; i < TOTAL_DETECTIONS; i++)
-	{
-		if (count > DNN_OUTPUT_TENSOR_SIZE)
-		{
-			LOG_ERROR("Invalid count index " << count);
-			return -1;
-		}
-
-		ssd.classes.push_back(data.at(count));
-		count++;
-	}
+	count += (total_detections * 4);
 
 	// Extract scores
-	for (unsigned int i = 0; i < TOTAL_DETECTIONS; i++)
+	for (unsigned int i = 0; i < total_detections; i++)
 	{
-		if (count > DNN_OUTPUT_TENSOR_SIZE)
-		{
-			LOG_ERROR("Invalid count index " << count);
-			return -1;
-		}
-
-		ssd.scores.push_back(data.at(count));
+		output.scores.push_back(data.at(count));
 		count++;
 	}
 
-	if (count > DNN_OUTPUT_TENSOR_SIZE)
+	// Extract class indices
+	for (unsigned int i = 0; i < total_detections; i++)
 	{
-		LOG_ERROR("Invalid count index " << count);
-		return -1;
+		output.classes.push_back(data.at(count));
+		count++;
 	}
 
 	// Extract number of detections
 	unsigned int num_detections = data.at(count);
-	if (num_detections > TOTAL_DETECTIONS)
+	if (num_detections > total_detections)
 	{
-		LOG(1, "Unexpected value for num_detections: " << num_detections << ", setting it to " << TOTAL_DETECTIONS);
-		num_detections = TOTAL_DETECTIONS;
+		LOG(1, "Unexpected value for num_detections: " << num_detections << ", setting it to " << total_detections);
+		num_detections = total_detections;
 	}
 
-	ssd.num_detections = num_detections;
+	output.num_detections = num_detections;
 	return 0;
 }
 
-int MobileNetSsd::processOutputTensor(std::vector<Detection> &objects, const std::vector<float> &output_tensor,
-									  const Rectangle &scaler_crop) const
+int ObjectInference::processOutputTensor(std::vector<Detection> &objects, const std::vector<float> &output_tensor,
+										 const IMX500OutputTensorInfo &output_tensor_info,
+										 const Rectangle &scaler_crop) const
 {
-	ObjectDetectionSsdOutputTensor ssd;
-
-	if (output_tensor.size() != DNN_OUTPUT_TENSOR_SIZE)
+	if (output_tensor_info.num_tensors != 4)
 	{
-		LOG_ERROR("Invalid tensor size " << output_tensor.size() << ", expected " << DNN_OUTPUT_TENSOR_SIZE);
+		LOG_ERROR("Invalid number of tensors " << output_tensor_info.num_tensors << ", expected 4");
 		return -1;
 	}
 
-	int ret = createObjectDetectionSsdData(ssd, output_tensor);
+	const unsigned int total_detections = output_tensor_info.info[0].tensor_data_num / 4;
+	ObjectDetectionOutput output;
+
+	// 4x coords + 1x labels + 1x confidences + 1 total detections
+	if (output_tensor.size() != 6 * total_detections + 1)
+	{
+		LOG_ERROR("Invalid tensor size " << output_tensor.size() << ", expected " << 6 * total_detections + 1);
+		return -1;
+	}
+
+	int ret = createObjectDetectionData(output, output_tensor, total_detections);
 	if (ret)
 	{
-		LOG_ERROR("Failed to create SSD data");
+		LOG_ERROR("Failed to create object detection data");
 		return -1;
 	}
 
-	for (unsigned int i = 0; i < std::min(ssd.num_detections, max_detections_); i++)
+	for (unsigned int i = 0; i < std::min(output.num_detections, max_detections_); i++)
 	{
-		uint8_t class_index = (uint8_t)ssd.classes[i];
+		uint8_t class_index = (uint8_t)output.classes[i];
 
 		// Filter detections
-		if (ssd.scores[i] < threshold_ || class_index >= classes_.size())
+		if (output.scores[i] < threshold_ || class_index >= classes_.size())
 			continue;
 
-		// Extract bounding box co-ordinates in the inference image co-ordinates.
-		int x0 = std::round((ssd.bboxes[i].x0) * (INPUT_TENSOR_SIZE.width - 1));
-		int x1 = std::round((ssd.bboxes[i].x1) * (INPUT_TENSOR_SIZE.width - 1));
-		int y0 = std::round((ssd.bboxes[i].y0) * (INPUT_TENSOR_SIZE.height - 1));
-		int y1 = std::round((ssd.bboxes[i].y1) * (INPUT_TENSOR_SIZE.height - 1));
+		// Extract bounding box co-ordinates in the inference image co-ordinates and convert to the final ISP output
+		// co-ordinates.
+		std::vector<float> coords{ output.bboxes[i].x0, output.bboxes[i].y0,
+							  	   output.bboxes[i].x1 - output.bboxes[i].x0,
+							       output.bboxes[i].y1 - output.bboxes[i].y0 };
+		const Rectangle obj_scaled = ConvertInferenceCoordinates(coords, scaler_crop);
 
-		// Convert the inference image co-ordinates into the final ISP output co-ordinates.
-		const Rectangle obj { x0, y0, (unsigned int)x1 - x0, (unsigned int)y1 - y0 };
-		const Rectangle obj_scaled = ConvertInferenceCoordinates(obj, scaler_crop, INPUT_TENSOR_SIZE);
-
-		objects.emplace_back(class_index, classes_[class_index], ssd.scores[i],
+		objects.emplace_back(class_index, classes_[class_index], output.scores[i],
 							 obj_scaled.x, obj_scaled.y, obj_scaled.width, obj_scaled.height);
 	}
 
@@ -280,7 +270,7 @@ int MobileNetSsd::processOutputTensor(std::vector<Detection> &objects, const std
 	return 0;
 }
 
-void MobileNetSsd::filterOutputObjects(std::vector<Detection> &objects)
+void ObjectInference::filterOutputObjects(std::vector<Detection> &objects)
 {
 	const Size isp_output_size = output_stream_->configuration().size;
 
@@ -341,7 +331,7 @@ void MobileNetSsd::filterOutputObjects(std::vector<Detection> &objects)
 
 static PostProcessingStage *Create(RPiCamApp *app)
 {
-	return new MobileNetSsd(app);
+	return new ObjectInference(app);
 }
 
 static RegisterStage reg(NAME, &Create);

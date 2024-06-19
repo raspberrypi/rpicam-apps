@@ -768,8 +768,8 @@ void PoseNet::translateCoordinates(std::vector<PoseResults> &results, const Rect
 	{
 		for (auto &keypoint : r.pose_keypoints)
 		{
-			Rectangle rect(std::round(keypoint.x), std::round(keypoint.y), 1, 1);
-			Rectangle translated = ConvertInferenceCoordinates(rect, scaler_crop, INPUT_TENSOR_SIZE);
+			std::vector<float> coords{ keypoint.x, keypoint.y, 1, 1 };
+			Rectangle translated = ConvertInferenceCoordinates(coords, scaler_crop);
 			keypoint.x = translated.x;
 			keypoint.y = translated.y;
 		}

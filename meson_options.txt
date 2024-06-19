@@ -43,3 +43,8 @@ option('download_hailo_models',
         type : 'boolean',
         value : true,
         description : 'Download and install the Hailo postprocessing models')
+
+option('enable_imx500',
+        type : 'boolean',
+        value : false,
+        description : 'Enable IMX500 postprocessing support')

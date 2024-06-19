@@ -22,6 +22,25 @@
 class IMX500PostProcessingStage : public PostProcessingStage
 {
 public:
+
+	static constexpr unsigned int max_num_tensors = 8;
+	static constexpr unsigned int network_name_len = 64;
+
+	struct OutputTensorInfo
+	{
+		uint32_t tensor_data_num;
+		uint16_t size;
+		uint8_t ordinal;
+		uint8_t serialization_index;
+	};
+
+	struct IMX500OutputTensorInfo
+	{
+		char network_name[network_name_len];
+		uint32_t num_tensors;
+		OutputTensorInfo info[max_num_tensors];
+	};
+
 	IMX500PostProcessingStage(RPiCamApp *app)
 		: PostProcessingStage(app)
 	{
@@ -33,9 +52,8 @@ public:
 
 	bool Process(CompletedRequestPtr &completed_request) override;
 
-	libcamera::Rectangle ConvertInferenceCoordinates(const libcamera::Rectangle &obj,
-													 const libcamera::Rectangle &scalerCrop,
-													 const libcamera::Size &inputTensorSize) const;
+	libcamera::Rectangle ConvertInferenceCoordinates(const std::vector<float> &coords,
+													 const libcamera::Rectangle &scalerCrop) const;
 
 protected:
 	libcamera::Rectangle full_sensor_resolution_;

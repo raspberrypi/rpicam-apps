@@ -5,6 +5,7 @@
  * imx500_post_rpocessing_stage.cpp - IMX500 post processing stage base class
  */
 
+#include <cmath>
 #include <filesystem>
 #include <string>
 
@@ -120,16 +121,26 @@ bool IMX500PostProcessingStage::Process(CompletedRequestPtr &completed_request)
 	return false;
 }
 
-Rectangle IMX500PostProcessingStage::ConvertInferenceCoordinates(const Rectangle &obj, const Rectangle &scaler_crop,
-																 const Size &input_tensor_size) const
+Rectangle IMX500PostProcessingStage::ConvertInferenceCoordinates(const std::vector<float> &coords,
+																 const Rectangle &scaler_crop) const
 {
 	// Convert the inference image co-ordinates into the final ISP output co-ordinates.
 	const Size &isp_output_size = output_stream_->configuration().size;
 	const Size &sensor_output_size = raw_stream_->configuration().size;
 	const Rectangle sensor_crop = scaler_crop.scaledBy(sensor_output_size, full_sensor_resolution_.size());
 
+	if (coords.size() != 4)
+		return {};
+
+	// Object scaled to the full sensor resolution
+	Rectangle obj;
+	obj.x = std::round(coords[0] * (full_sensor_resolution_.width - 1));
+	obj.y = std::round(coords[1] * (full_sensor_resolution_.height - 1));
+	obj.width = std::round(coords[2] * (full_sensor_resolution_.width - 1));
+	obj.height = std::round(coords[3] * (full_sensor_resolution_.height - 1));
+
 	// Object on inference image -> sensor image
-	const Rectangle obj_sensor = obj.scaledBy(sensor_output_size, input_tensor_size);
+	const Rectangle obj_sensor = obj.scaledBy(sensor_output_size, full_sensor_resolution_.size());
 	// -> bounded to the ISP crop on the sensor image
 	const Rectangle obj_bound = obj_sensor.boundedTo(sensor_crop);
 	// -> translated by the start of the crop offset
