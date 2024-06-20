@@ -117,7 +117,6 @@ static void event_loop(RPiCamEncoder &app)
 			app.StopEncoder();
 			return;
 		}
-
 		CompletedRequestPtr &completed_request = std::get<CompletedRequestPtr>(msg.payload);
 		app.EncodeBuffer(completed_request, app.VideoStream());
 		app.ShowPreview(completed_request, app.VideoStream());
