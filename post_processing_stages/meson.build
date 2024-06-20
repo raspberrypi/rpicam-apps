@@ -4,6 +4,10 @@ conf_data = configuration_data()
 conf_data.set('POSTPROC_LIB_DIR', '"' + posproc_libdir + '"')
 configure_file(output : 'postproc_lib.h', configuration : conf_data)
 
+# JSON (and other assets)
+assets_dir = meson.project_source_root() / 'assets'
+postproc_assets = []
+
 # Core postprocessing framework files.
 rpicam_app_src += files([
     'histogram.cpp',
@@ -16,6 +20,13 @@ core_postproc_src = files([
     'hdr_stage.cpp',
     'motion_detect_stage.cpp',
     'negate_stage.cpp',
+])
+
+# Core assets
+postproc_assets += files([
+    assets_dir / 'hdr.json',
+    assets_dir / 'motion_detect.json',
+    assets_dir / 'negate.json',
 ])
 
 core_postproc_lib = shared_module('core-postproc', core_postproc_src,
@@ -39,6 +50,13 @@ if opencv_dep.found()
         'object_detect_draw_cv_stage.cpp',
     ])
 
+    # OpenCV assets
+    postproc_assets += files([
+        assets_dir / 'sobel_cv.json',
+        assets_dir / 'face_detect_cv.json',
+        assets_dir / 'annotate_cv.json',
+    ])
+
     opencv_postproc_lib = shared_module('opencv-postproc', opencv_postproc_src,
                                         include_directories : '../..',
                                         dependencies : [libcamera_dep, opencv_dep],
@@ -57,9 +75,17 @@ if tflite_dep.found()
     tflite_postproc_src = files([
         'tf_stage.cpp',
         'object_classify_tf_stage.cpp',
-        'pose_estimation_tf_stage.cpp',
         'object_detect_tf_stage.cpp',
+        'pose_estimation_tf_stage.cpp',
         'segmentation_tf_stage.cpp',
+    ])
+
+    # TFlite assets
+    postproc_assets += files([
+        assets_dir / 'object_classify_tf.json',
+        assets_dir / 'object_detect_tf.json',
+        assets_dir / 'pose_estimation_tf.json',
+        assets_dir / 'segmentation_tf.json',
     ])
 
     tflite_postproc_lib = shared_module('tflite-postproc', tflite_postproc_src,
@@ -93,3 +119,4 @@ post_processing_headers = files([
 ])
 
 install_headers(post_processing_headers, subdir: meson.project_name() / 'post_processing_stages')
+install_data(postproc_assets, install_dir : get_option('datadir') / 'rpi-camera-assets')
