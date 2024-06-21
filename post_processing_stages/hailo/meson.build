@@ -22,11 +22,11 @@ hailo_postprocessing_src = files([
 ])
 
 postproc_assets += files([
-    asset_dir / 'hailo_classifier.json',
-    asset_dir / 'hailo_yolov5_personface.json',
-    asset_dir / 'hailo_yolov5_inference.json',
-    asset_dir / 'hailo_yolov8_inference.json',
-    asset_dir / 'hailo_yolox_inference.json',
+    assets_dir / 'hailo_classifier.json',
+    assets_dir / 'hailo_yolov5_personface.json',
+    assets_dir / 'hailo_yolov5_inference.json',
+    assets_dir / 'hailo_yolov8_inference.json',
+    assets_dir / 'hailo_yolox_inference.json',
 ])
 
 if opencv_dep.found()
@@ -38,8 +38,8 @@ if opencv_dep.found()
     ])
 
     postproc_assets += files([
-        asset_dir / 'hailo_yolov8_pose.json',
-        asset_dir / 'hailo_yolov5_segmentation.json',
+        assets_dir / 'hailo_yolov8_pose.json',
+        assets_dir / 'hailo_yolov5_segmentation.json',
     ])
 
     hailo_deps + opencv_dep

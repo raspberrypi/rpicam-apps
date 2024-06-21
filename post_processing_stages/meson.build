@@ -5,7 +5,7 @@ conf_data.set('POSTPROC_LIB_DIR', '"' + posproc_libdir + '"')
 configure_file(output : 'postproc_lib.h', configuration : conf_data)
 
 # JSON (and other assets)
-asset_dir = meson.project_source_root() / 'assets'
+assets_dir = meson.project_source_root() / 'assets'
 postproc_assets = []
 
 # Core postprocessing framework files.
@@ -24,9 +24,9 @@ core_postproc_src = files([
 
 # Core assets
 postproc_assets += files([
-    asset_dir / 'hdr.json',
-    asset_dir / 'motion_detect.json',
-    asset_dir / 'negate.json',
+    assets_dir / 'hdr.json',
+    assets_dir / 'motion_detect.json',
+    assets_dir / 'negate.json',
 ])
 
 core_postproc_lib = shared_module('core-postproc', core_postproc_src,
@@ -52,9 +52,9 @@ if opencv_dep.found()
 
     # OpenCV assets
     postproc_assets += files([
-        asset_dir / 'sobel_cv.json',
-        asset_dir / 'face_detect_cv.json',
-        asset_dir / 'annotate_cv.json',
+        assets_dir / 'sobel_cv.json',
+        assets_dir / 'face_detect_cv.json',
+        assets_dir / 'annotate_cv.json',
     ])
 
     opencv_postproc_lib = shared_module('opencv-postproc', opencv_postproc_src,
@@ -82,10 +82,10 @@ if tflite_dep.found()
 
     # TFlite assets
     postproc_assets += files([
-        asset_dir / 'object_classify_tf.json',
-        asset_dir / 'object_detect_tf.json',
-        asset_dir / 'pose_estimation_tf.json',
-        asset_dir / 'segmentation_tf.json',
+        assets_dir / 'object_classify_tf.json',
+        assets_dir / 'object_detect_tf.json',
+        assets_dir / 'pose_estimation_tf.json',
+        assets_dir / 'segmentation_tf.json',
     ])
 
     tflite_postproc_lib = shared_module('tflite-postproc', tflite_postproc_src,

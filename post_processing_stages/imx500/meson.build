@@ -8,8 +8,8 @@ imx500_postprocessing_src = files([
 ])
 
 postproc_assets += files([
-    asset_dir / 'imx500_mobilenet_ssd.json',
-    asset_dir / 'imx500_posenet.json',
+    assets_dir / 'imx500_mobilenet_ssd.json',
+    assets_dir / 'imx500_posenet.json',
 ])
 
 imx500_postprocessing_lib = shared_module('imx500-postproc', imx500_postprocessing_src,
