@@ -102,6 +102,11 @@ protected:
 		return std::string(HAILO_POSTPROC_LIB_DIR) + "/" + lib;
 	}
 
+	const libcamera::Size &InputTensorSize() const
+	{
+		return input_tensor_size_;
+	}
+
 	hailo_status DispatchJob(const uint8_t *input, hailort::AsyncInferJob &job, std::vector<OutTensor> &output_tensors);
 	HailoROIPtr MakeROI(const std::vector<OutTensor> &output_tensors) const;
 
@@ -125,4 +130,5 @@ private:
 	std::string hef_file_;
 	hailort::ConfiguredInferModel::Bindings bindings_;
 	std::chrono::time_point<std::chrono::steady_clock> last_frame_;
+	libcamera::Size input_tensor_size_;
 };
