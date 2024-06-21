@@ -26,8 +26,6 @@ using PostProcFuncPtr = void (*)(HailoROIPtr);
 #define NAME "hailo_classifier"
 #define POSTPROC_LIB "libclassification.so"
 
-static constexpr Size INPUT_TENSOR_SIZE { 224, 224 };
-
 class HailoClassifier : public HailoPostProcessingStage
 {
 public:
@@ -90,8 +88,8 @@ bool HailoClassifier::Process(CompletedRequestPtr &completed_request)
 	if (low_res_info_.pixel_format == libcamera::formats::YUV420)
 	{
 		StreamInfo rgb_info;
-		rgb_info.width = INPUT_TENSOR_SIZE.width;
-		rgb_info.height = INPUT_TENSOR_SIZE.height;
+		rgb_info.width = InputTensorSize().width;
+		rgb_info.height = InputTensorSize().height;
 		rgb_info.stride = rgb_info.width * 3;
 
 		input = allocator_.Allocate(rgb_info.stride * rgb_info.height);

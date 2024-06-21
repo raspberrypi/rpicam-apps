@@ -145,6 +145,9 @@ int HailoPostProcessingStage::configureHailoRT()
 	}
 	bindings_ = std::move(bindings_exp.release());
 
+	hailo_3d_image_shape_t shape = infer_model_->inputs()[0].shape();
+	input_tensor_size_ = libcamera::Size(shape.width, shape.height);
+
 	return 0;
 }
 

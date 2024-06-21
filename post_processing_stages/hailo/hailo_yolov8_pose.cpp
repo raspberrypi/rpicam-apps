@@ -24,13 +24,6 @@ using PostProcFuncPtr = std::pair<std::vector<KeyPt>, std::vector<PairPairs>>(*)
 #define NAME "hailo_yolo_pose"
 #define POSTPROC_LIB "libyolov8pose_post.so"
 
-namespace
-{
-
-constexpr Size INPUT_TENSOR_SIZE { 640, 640 };
-
-} // namespace
-
 class YoloPose : public HailoPostProcessingStage
 {
 public:
@@ -78,9 +71,9 @@ bool YoloPose::Process(CompletedRequestPtr &completed_request)
 		return false;
 	}
 
-	if (low_res_info_.width != INPUT_TENSOR_SIZE.width || low_res_info_.height != INPUT_TENSOR_SIZE.height)
+	if (low_res_info_.width != InputTensorSize().width || low_res_info_.height != InputTensorSize().height)
 	{
-		LOG_ERROR("Wrong low res size, expecting " << INPUT_TENSOR_SIZE.toString());
+		LOG_ERROR("Wrong low res size, expecting " << InputTensorSize().toString());
 		return false;
 	}
 
@@ -92,8 +85,8 @@ bool YoloPose::Process(CompletedRequestPtr &completed_request)
 	if (low_res_info_.pixel_format == libcamera::formats::YUV420)
 	{
 		StreamInfo rgb_info;
-		rgb_info.width = INPUT_TENSOR_SIZE.width;
-		rgb_info.height = INPUT_TENSOR_SIZE.height;
+		rgb_info.width = InputTensorSize().width;
+		rgb_info.height = InputTensorSize().height;
 		rgb_info.stride = rgb_info.width * 3;
 
 		input = allocator_.Allocate(rgb_info.stride * rgb_info.height);
