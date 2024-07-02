@@ -1,5 +1,6 @@
 hailo_tappas_lib_dir = hailo_tappas_dep.get_variable('tappas_libdir')
 hailo_tappas_posproc_libdir = hailo_tappas_lib_dir / 'post-process'
+assets_dir = '/home/matteius/Projects/rpicam-apps-opensensor/assets' 
 
 hailo_conf_data = configuration_data()
 hailo_conf_data.set('HAILO_POSTPROC_LIB_DIR', '"' + hailo_tappas_posproc_libdir + '"')
@@ -21,7 +22,7 @@ hailo_postprocessing_src = files([
     'hailo_classifier.cpp',
 ])
 
-postproc_assets += files([
+postproc_assets = files([
     assets_dir / 'hailo_classifier.json',
     assets_dir / 'hailo_yolov5_personface.json',
     assets_dir / 'hailo_yolov6_inference.json',
