@@ -186,13 +186,15 @@ EglPreview::EglPreview(Options const *options) : Preview(options), last_fd_(-1),
 	y_ = options_->preview_y;
 	width_ = options_->preview_width;
 	height_ = options_->preview_height;
-	makeWindow("libcamera-app");
+	makeWindow("rpicam-app");
 
 	// gl_setup() has to happen later, once we're sure we're in the display thread.
 }
 
 EglPreview::~EglPreview()
 {
+	EglPreview::Reset();
+	eglDestroyContext(egl_display_, egl_context_);
 }
 
 static void no_border(Display *display, Window window)
@@ -345,7 +347,7 @@ static void get_colour_space_info(std::optional<libcamera::ColorSpace> const &cs
 	encoding = EGL_ITU_REC601_EXT;
 	range = EGL_YUV_NARROW_RANGE_EXT;
 
-	if (cs == libcamera::ColorSpace::Jpeg)
+	if (cs == libcamera::ColorSpace::Sycc)
 		range = EGL_YUV_FULL_RANGE_EXT;
 	else if (cs == libcamera::ColorSpace::Smpte170m)
 		/* all good */;

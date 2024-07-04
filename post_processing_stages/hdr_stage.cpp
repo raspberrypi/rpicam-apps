@@ -11,10 +11,10 @@
 // HDR method will want several under-exposed images.
 
 // For a DRC capture, use something like:
-// libcamera-still -o test.jpg --post-process-file drc.json
+// rpicam-still -o test.jpg --post-process-file drc.json
 
 // HDR will accumulate multiple frames faster without colour denoise, so maybe:
-// libcamera-still -o test.jpg --ev -2 --denoise cdn_off --post-process-file hdr.json
+// rpicam-still -o test.jpg --ev -2 --denoise cdn_off --post-process-file hdr.json
 
 // Obviously this runs as a post-processing stage on fully-processed 8-bit images. Normally
 // I'd rather do HDR in the raw domain where the signals are still linear, and there are
@@ -24,7 +24,7 @@
 
 #include <libcamera/stream.h>
 
-#include "core/libcamera_app.hpp"
+#include "core/rpicam_app.hpp"
 #include "core/still_options.hpp"
 #include "core/stream_info.hpp"
 
@@ -377,7 +377,7 @@ void HdrImage::Scale(double factor)
 class HdrStage : public PostProcessingStage
 {
 public:
-	HdrStage(LibcameraApp *app) : PostProcessingStage(app) {}
+	HdrStage(RPiCamApp *app) : PostProcessingStage(app) {}
 
 	char const *Name() const override;
 
@@ -474,7 +474,8 @@ bool HdrStage::Process(CompletedRequestPtr &completed_request)
 	if (frame_num_ >= config_.num_frames)
 		return false;
 
-	std::vector<libcamera::Span<uint8_t>> const &buffers = app_->Mmap(completed_request->buffers[stream_]);
+	BufferWriteSync w(app_, completed_request->buffers[stream_]);
+	std::vector<libcamera::Span<uint8_t>> const &buffers = w.Get();
 	libcamera::Span<uint8_t> buffer = buffers[0];
 	uint8_t *image = buffer.data();
 
@@ -491,7 +492,7 @@ bool HdrStage::Process(CompletedRequestPtr &completed_request)
 		filename[sizeof(filename) - 1] = 0;
 		StillOptions const *options = dynamic_cast<StillOptions *>(app_->GetOptions());
 		if (options)
-			jpeg_save(buffers, info_, completed_request->metadata, filename, app_->CameraId(), options);
+			jpeg_save(buffers, info_, completed_request->metadata, filename, app_->CameraModel(), options);
 		else
 			LOG(1, "No still options - unable to save JPEG");
 	}
@@ -515,7 +516,7 @@ bool HdrStage::Process(CompletedRequestPtr &completed_request)
 	return false;
 }
 
-static PostProcessingStage *Create(LibcameraApp *app)
+static PostProcessingStage *Create(RPiCamApp *app)
 {
 	return new HdrStage(app);
 }

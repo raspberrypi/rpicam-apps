@@ -22,8 +22,8 @@ struct StillOptions : public Options
 			 "Set the JPEG quality parameter")
 			("exif,x", value<std::vector<std::string>>(&exif),
 			 "Add these extra EXIF tags to the output file")
-			("timelapse", value<uint64_t>(&timelapse)->default_value(0),
-			 "Time interval (in ms) between timelapse captures")
+			("timelapse", value<std::string>(&timelapse_)->default_value("0ms"),
+			 "Time interval between timelapse captures. If no units are provided default to ms.")
 			("framestart", value<uint32_t>(&framestart)->default_value(0),
 			 "Initial frame counter value for timelapse captures")
 			("datetime", value<bool>(&datetime)->default_value(false)->implicit_value(true),
@@ -39,22 +39,24 @@ struct StillOptions : public Options
 			("thumb", value<std::string>(&thumb)->default_value("320:240:70"),
 			 "Set thumbnail parameters as width:height:quality, or none")
 			("encoding,e", value<std::string>(&encoding)->default_value("jpg"),
-			 "Set the desired output encoding, either jpg, png, rgb, bmp or yuv420")
+			 "Set the desired output encoding, either jpg, png, rgb/rgb24, rgb48, bmp or yuv420")
 			("raw,r", value<bool>(&raw)->default_value(false)->implicit_value(true),
 			 "Also save raw file in DNG format")
 			("latest", value<std::string>(&latest),
 			 "Create a symbolic link with this name to most recent saved file")
 			("immediate", value<bool>(&immediate)->default_value(false)->implicit_value(true),
 			 "Perform first capture immediately, with no preview phase")
-			("metadata", value<std::string>(&metadata),
-			 "Save capture image metadata to a file or \"-\" for stdout")
+			("autofocus-on-capture", value<bool>(&af_on_capture)->default_value(false)->implicit_value(true),
+			 "Switch to AfModeAuto and trigger a scan just before capturing a still")
+			("zsl", value<bool>(&zsl)->default_value(false)->implicit_value(true),
+			 "Switch to AfModeAuto and trigger a scan just before capturing a still")
 			;
 		// clang-format on
 	}
 
 	int quality;
 	std::vector<std::string> exif;
-	uint64_t timelapse;
+	TimeVal<std::chrono::milliseconds> timelapse;
 	uint32_t framestart;
 	bool datetime;
 	bool timestamp;
@@ -67,12 +69,15 @@ struct StillOptions : public Options
 	bool raw;
 	std::string latest;
 	bool immediate;
-	std::string metadata;
+	bool zsl;
 
 	virtual bool Parse(int argc, char *argv[]) override
 	{
 		if (Options::Parse(argc, argv) == false)
 			return false;
+
+		timelapse.set(timelapse_);
+
 		if ((keypress || signal) && timelapse)
 			throw std::runtime_error("keypress/signal and timelapse options are mutually exclusive");
 		if (strcasecmp(thumb.c_str(), "none") == 0)
@@ -83,8 +88,10 @@ struct StillOptions : public Options
 			encoding = "jpg";
 		else if (strcasecmp(encoding.c_str(), "yuv420") == 0)
 			encoding = "yuv420";
-		else if (strcasecmp(encoding.c_str(), "rgb") == 0)
-			encoding = "rgb";
+		else if (strcasecmp(encoding.c_str(), "rgb") == 0 || strcasecmp(encoding.c_str(), "rgb24") == 0)
+			encoding = "rgb24";
+		else if (strcasecmp(encoding.c_str(), "rgb48") == 0)
+			encoding = "rgb48";
 		else if (strcasecmp(encoding.c_str(), "png") == 0)
 			encoding = "png";
 		else if (strcasecmp(encoding.c_str(), "bmp") == 0)
@@ -100,7 +107,7 @@ struct StillOptions : public Options
 		std::cerr << "    quality: " << quality << std::endl;
 		std::cerr << "    raw: " << raw << std::endl;
 		std::cerr << "    restart: " << restart << std::endl;
-		std::cerr << "    timelapse: " << timelapse << std::endl;
+		std::cerr << "    timelapse: " << timelapse.get() << "ms" << std::endl;
 		std::cerr << "    framestart: " << framestart << std::endl;
 		std::cerr << "    datetime: " << datetime << std::endl;
 		std::cerr << "    timestamp: " << timestamp << std::endl;
@@ -111,8 +118,12 @@ struct StillOptions : public Options
 		std::cerr << "    thumbnail quality: " << thumb_quality << std::endl;
 		std::cerr << "    latest: " << latest << std::endl;
 		std::cerr << "    immediate " << immediate << std::endl;
-		std::cerr << "    metadata " << metadata << std::endl;
+		std::cerr << "    AF on capture: " << af_on_capture << std::endl;
+		std::cerr << "    Zero shutter lag: " << zsl << std::endl;
 		for (auto &s : exif)
 			std::cerr << "    EXIF: " << s << std::endl;
 	}
+
+private:
+	std::string timelapse_;
 };

@@ -8,7 +8,7 @@
 
 static const std::string versionString {"@VER@"};
 
-const std::string& LibcameraAppsVersion()
+const std::string& RPiCamAppsVersion()
 {
     return versionString;
 }

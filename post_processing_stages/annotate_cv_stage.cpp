@@ -12,7 +12,7 @@
 #include <libcamera/stream.h>
 
 #include "core/frame_info.hpp"
-#include "core/libcamera_app.hpp"
+#include "core/rpicam_app.hpp"
 
 #include "post_processing_stages/post_processing_stage.hpp"
 
@@ -26,7 +26,7 @@ using Stream = libcamera::Stream;
 class AnnotateCvStage : public PostProcessingStage
 {
 public:
-	AnnotateCvStage(LibcameraApp *app) : PostProcessingStage(app) {}
+	AnnotateCvStage(RPiCamApp *app) : PostProcessingStage(app) {}
 
 	char const *Name() const override;
 
@@ -82,9 +82,9 @@ void AnnotateCvStage::Configure()
 
 bool AnnotateCvStage::Process(CompletedRequestPtr &completed_request)
 {
-	libcamera::Span<uint8_t> buffer = app_->Mmap(completed_request->buffers[stream_])[0];
-	FrameInfo info(completed_request->metadata);
-	info.sequence = completed_request->sequence;
+	BufferWriteSync w(app_, completed_request->buffers[stream_]);
+	libcamera::Span<uint8_t> buffer = w.Get()[0];
+	FrameInfo info(completed_request);
 
 	// Other post-processing stages can supply metadata to update the text.
 	completed_request->post_process_metadata.Get("annotate.text", text_);
@@ -113,7 +113,7 @@ bool AnnotateCvStage::Process(CompletedRequestPtr &completed_request)
 	return false;
 }
 
-static PostProcessingStage *Create(LibcameraApp *app)
+static PostProcessingStage *Create(RPiCamApp *app)
 {
 	return new AnnotateCvStage(app);
 }

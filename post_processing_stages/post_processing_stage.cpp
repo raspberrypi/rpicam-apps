@@ -7,7 +7,7 @@
 
 #include "post_processing_stage.hpp"
 
-PostProcessingStage::PostProcessingStage(LibcameraApp *app) : app_(app)
+PostProcessingStage::PostProcessingStage(RPiCamApp *app) : app_(app)
 {
 }
 
@@ -44,7 +44,12 @@ void PostProcessingStage::Teardown()
 std::vector<uint8_t> PostProcessingStage::Yuv420ToRgb(const uint8_t *src, StreamInfo &src_info, StreamInfo &dst_info)
 {
 	std::vector<uint8_t> output(dst_info.height * dst_info.stride);
+	Yuv420ToRgb(output.data(), src, src_info, dst_info);
+	return output;
+}
 
+void PostProcessingStage::Yuv420ToRgb(uint8_t *dst, const uint8_t *src, StreamInfo &src_info, StreamInfo &dst_info)
+{
 	assert(src_info.width >= dst_info.width && src_info.height >= dst_info.height);
 	int off_x = ((src_info.width - dst_info.width) / 2) & ~1, off_y = ((src_info.height - dst_info.height) / 2) & ~1;
 	int src_Y_size = src_info.height * src_info.stride, src_U_size = (src_info.height / 2) * (src_info.stride / 2);
@@ -59,7 +64,7 @@ std::vector<uint8_t> PostProcessingStage::Yuv420ToRgb(const uint8_t *src, Stream
 		const uint8_t *src_U = src + src_Y_size + ((y + off_y) / 2) * (src_info.stride / 2) + off_x / 2;
 		const uint8_t *src_V = src_U + src_U_size;
 		const uint8_t *src_Y1 = src_Y0 + src_info.stride;
-		uint8_t *dst0 = &output[y * dst_info.stride];
+		uint8_t *dst0 = &dst[y * dst_info.stride];
 		uint8_t *dst1 = dst0 + dst_info.stride;
 
 		unsigned int x = 0;
@@ -213,7 +218,7 @@ std::vector<uint8_t> PostProcessingStage::Yuv420ToRgb(const uint8_t *src, Stream
 		const uint8_t *src_Y0 = src + (y + off_y) * src_info.stride + off_x;
 		const uint8_t *src_U = src + src_Y_size + ((y + off_y) / 2) * (src_info.stride / 2) + off_x / 2;
 		const uint8_t *src_V = src_U + src_U_size;
-		uint8_t *dst0 = &output[y * dst_info.stride];
+		uint8_t *dst0 = &dst[y * dst_info.stride];
 
 		unsigned int x = 0;
 		for (; x < dst_info.width; x++)
@@ -240,19 +245,20 @@ std::vector<uint8_t> PostProcessingStage::Yuv420ToRgb(const uint8_t *src, Stream
 			*(dst0++) = B0;
 		}
 	}
-
-	return output;
 }
 
-static std::map<std::string, StageCreateFunc> *stages_ptr;
+static std::map<std::string, StageCreateFunc> &stages()
+{
+	static std::map<std::string, StageCreateFunc> stages;
+	return stages;
+}
+
 std::map<std::string, StageCreateFunc> const &GetPostProcessingStages()
 {
-	return *stages_ptr;
+	return stages();
 }
 
 RegisterStage::RegisterStage(char const *name, StageCreateFunc create_func)
 {
-	static std::map<std::string, StageCreateFunc> stages;
-	stages_ptr = &stages;
-	stages[std::string(name)] = create_func;
+	stages()[std::string(name)] = create_func;
 }

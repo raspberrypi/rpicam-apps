@@ -55,7 +55,7 @@ H264Encoder::H264Encoder(VideoOptions const *options, StreamInfo const &info)
 	if (options->bitrate)
 	{
 		ctrl.id = V4L2_CID_MPEG_VIDEO_BITRATE;
-		ctrl.value = options->bitrate;
+		ctrl.value = options->bitrate.bps();
 		if (xioctl(fd_, VIDIOC_S_CTRL, &ctrl) < 0)
 			throw std::runtime_error("failed to set bitrate");
 	}
@@ -130,6 +130,17 @@ H264Encoder::H264Encoder(VideoOptions const *options, StreamInfo const &info)
 	fmt.fmt.pix_mp.plane_fmt[0].sizeimage = 512 << 10;
 	if (xioctl(fd_, VIDIOC_S_FMT, &fmt) < 0)
 		throw std::runtime_error("failed to set capture format");
+
+	double frate = options->framerate.value_or(DEFAULT_FRAMERATE);
+	if (frate > 0.0)
+	{
+		struct v4l2_streamparm parm = {};
+		parm.type = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE;
+		parm.parm.output.timeperframe.numerator = 90000.0 / frate;
+		parm.parm.output.timeperframe.denominator = 90000;
+		if (xioctl(fd_, VIDIOC_S_PARM, &parm) < 0)
+			throw std::runtime_error("failed to set streamparm");
+	}
 
 	// Request that the necessary buffers are allocated. The output queue
 	// (input to the encoder) shares buffers from our caller, these must be

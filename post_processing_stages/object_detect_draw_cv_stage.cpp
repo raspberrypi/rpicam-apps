@@ -7,7 +7,7 @@
 
 #include "opencv2/imgproc.hpp"
 
-#include "core/libcamera_app.hpp"
+#include "core/rpicam_app.hpp"
 
 #include "post_processing_stages/post_processing_stage.hpp"
 
@@ -21,7 +21,7 @@ using Stream = libcamera::Stream;
 class ObjectDetectDrawCvStage : public PostProcessingStage
 {
 public:
-	ObjectDetectDrawCvStage(LibcameraApp *app) : PostProcessingStage(app) {}
+	ObjectDetectDrawCvStage(RPiCamApp *app) : PostProcessingStage(app) {}
 
 	char const *Name() const override;
 
@@ -46,8 +46,7 @@ char const *ObjectDetectDrawCvStage::Name() const
 
 void ObjectDetectDrawCvStage::Configure()
 {
-	// Only draw on image if a low res stream was specified.
-	stream_ = app_->LoresStream() ? app_->GetMainStream() : nullptr;
+	stream_ = app_->GetMainStream();
 }
 
 void ObjectDetectDrawCvStage::Read(boost::property_tree::ptree const &params)
@@ -61,7 +60,8 @@ bool ObjectDetectDrawCvStage::Process(CompletedRequestPtr &completed_request)
 	if (!stream_)
 		return false;
 
-	libcamera::Span<uint8_t> buffer = app_->Mmap(completed_request->buffers[stream_])[0];
+	BufferWriteSync w(app_, completed_request->buffers[stream_]);
+	libcamera::Span<uint8_t> buffer = w.Get()[0];
 	uint32_t *ptr = (uint32_t *)buffer.data();
 	StreamInfo info = app_->GetStreamInfo(stream_);
 
@@ -89,7 +89,7 @@ bool ObjectDetectDrawCvStage::Process(CompletedRequestPtr &completed_request)
 	return false;
 }
 
-static PostProcessingStage *Create(LibcameraApp *app)
+static PostProcessingStage *Create(RPiCamApp *app)
 {
 	return new ObjectDetectDrawCvStage(app);
 }

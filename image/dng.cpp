@@ -5,6 +5,7 @@
  * dng.cpp - Save raw image as DNG file.
  */
 
+#include <limits>
 #include <map>
 
 #include <libcamera/control_ids.h>
@@ -14,6 +15,10 @@
 
 #include "core/still_options.hpp"
 #include "core/stream_info.hpp"
+
+#ifndef MAKE_STRING
+#define MAKE_STRING "Raspberry Pi"
+#endif
 
 using namespace libcamera;
 
@@ -27,26 +32,56 @@ struct BayerFormat
 	char const *name;
 	int bits;
 	char const *order;
+	bool packed;
+	bool compressed;
 };
 
 static const std::map<PixelFormat, BayerFormat> bayer_formats =
 {
-	{ formats::SRGGB10_CSI2P, { "RGGB-10", 10, TIFF_RGGB } },
-	{ formats::SGRBG10_CSI2P, { "GRBG-10", 10, TIFF_GRBG } },
-	{ formats::SBGGR10_CSI2P, { "BGGR-10", 10, TIFF_BGGR } },
-	{ formats::SGBRG10_CSI2P, { "GBRG-10", 10, TIFF_GBRG } },
-	{ formats::SRGGB12_CSI2P, { "RGGB-12", 12, TIFF_RGGB } },
-	{ formats::SGRBG12_CSI2P, { "GRBG-12", 12, TIFF_GRBG } },
-	{ formats::SBGGR12_CSI2P, { "BGGR-12", 12, TIFF_BGGR } },
-	{ formats::SGBRG12_CSI2P, { "GBRG-12", 12, TIFF_GBRG } },
+	{ formats::SRGGB10_CSI2P, { "RGGB-10", 10, TIFF_RGGB, true, false } },
+	{ formats::SGRBG10_CSI2P, { "GRBG-10", 10, TIFF_GRBG, true, false } },
+	{ formats::SBGGR10_CSI2P, { "BGGR-10", 10, TIFF_BGGR, true, false } },
+	{ formats::SGBRG10_CSI2P, { "GBRG-10", 10, TIFF_GBRG, true, false } },
+
+	{ formats::SRGGB10, { "RGGB-10", 10, TIFF_RGGB, false, false } },
+	{ formats::SGRBG10, { "GRBG-10", 10, TIFF_GRBG, false, false } },
+	{ formats::SBGGR10, { "BGGR-10", 10, TIFF_BGGR, false, false } },
+	{ formats::SGBRG10, { "GBRG-10", 10, TIFF_GBRG, false, false } },
+
+	{ formats::SRGGB12_CSI2P, { "RGGB-12", 12, TIFF_RGGB, true, false } },
+	{ formats::SGRBG12_CSI2P, { "GRBG-12", 12, TIFF_GRBG, true, false } },
+	{ formats::SBGGR12_CSI2P, { "BGGR-12", 12, TIFF_BGGR, true, false } },
+	{ formats::SGBRG12_CSI2P, { "GBRG-12", 12, TIFF_GBRG, true, false } },
+
+	{ formats::SRGGB12, { "RGGB-12", 12, TIFF_RGGB, false, false } },
+	{ formats::SGRBG12, { "GRBG-12", 12, TIFF_GRBG, false, false } },
+	{ formats::SBGGR12, { "BGGR-12", 12, TIFF_BGGR, false, false } },
+	{ formats::SGBRG12, { "GBRG-12", 12, TIFF_GBRG, false, false } },
+
+	{ formats::SRGGB16, { "RGGB-16", 16, TIFF_RGGB, false, false } },
+	{ formats::SGRBG16, { "GRBG-16", 16, TIFF_GRBG, false, false } },
+	{ formats::SBGGR16, { "BGGR-16", 16, TIFF_BGGR, false, false } },
+	{ formats::SGBRG16, { "GBRG-16", 16, TIFF_GBRG, false, false } },
+
+	{ formats::R10_CSI2P, { "BGGR-10", 10, TIFF_BGGR, true, false } },
+	{ formats::R10, { "BGGR-10", 10, TIFF_BGGR, false, false } },
+	// Currently not in the main libcamera branch
+	//{ formats::R12_CSI2P, { "BGGR-12", 12, TIFF_BGGR, true } },
+	{ formats::R12, { "BGGR-12", 12, TIFF_BGGR, false, false } },
+
+	/* PiSP compressed formats. */
+	{ formats::RGGB_PISP_COMP1, { "RGGB-16-PISP", 16, TIFF_RGGB, false, true } },
+	{ formats::GRBG_PISP_COMP1, { "GRBG-16-PISP", 16, TIFF_GRBG, false, true } },
+	{ formats::GBRG_PISP_COMP1, { "GBRG-16-PISP", 16, TIFF_GBRG, false, true } },
+	{ formats::BGGR_PISP_COMP1, { "BGGR-16-PISP", 16, TIFF_BGGR, false, true } },
 };
 
-static void unpack_10bit(uint8_t *src, StreamInfo const &info, uint16_t *dest)
+static void unpack_10bit(uint8_t const *src, StreamInfo const &info, uint16_t *dest)
 {
 	unsigned int w_align = info.width & ~3;
 	for (unsigned int y = 0; y < info.height; y++, src += info.stride)
 	{
-		uint8_t *ptr = src;
+		uint8_t const *ptr = src;
 		unsigned int x;
 		for (x = 0; x < w_align; x += 4, ptr += 5)
 		{
@@ -60,12 +95,12 @@ static void unpack_10bit(uint8_t *src, StreamInfo const &info, uint16_t *dest)
 	}
 }
 
-static void unpack_12bit(uint8_t *src, StreamInfo const &info, uint16_t *dest)
+static void unpack_12bit(uint8_t const *src, StreamInfo const &info, uint16_t *dest)
 {
 	unsigned int w_align = info.width & ~1;
 	for (unsigned int y = 0; y < info.height; y++, src += info.stride)
 	{
-		uint8_t *ptr = src;
+		uint8_t const *ptr = src;
 		unsigned int x;
 		for (x = 0; x < w_align; x += 2, ptr += 3)
 		{
@@ -74,6 +109,141 @@ static void unpack_12bit(uint8_t *src, StreamInfo const &info, uint16_t *dest)
 		}
 		if (x < info.width)
 			*dest++ = (ptr[x & 1] << 4) | ((ptr[2] >> ((x & 1) << 2)) & 15);
+	}
+}
+
+static void unpack_16bit(uint8_t const *src, StreamInfo const &info, uint16_t *dest)
+{
+	/* Assume the pixels in memory are already in native byte order */
+	unsigned int w = info.width;
+	for (unsigned int y = 0; y < info.height; y++)
+	{
+		memcpy(dest, src, 2 * w);
+		dest += w;
+		src += info.stride;
+	}
+}
+
+// We always use these compression parameters.
+#define COMPRESS_OFFSET 2048
+#define COMPRESS_MODE 1
+
+static uint16_t postprocess(uint16_t a)
+{
+	if (COMPRESS_MODE & 2)
+	{
+		if (COMPRESS_MODE == 3 && a < 0x4000)
+			a = a >> 2;
+		else if (a < 0x1000)
+			a = a >> 4;
+		else if (a < 0x1800)
+			a = (a - 0x800) >> 3;
+		else if (a < 0x3000)
+			a = (a - 0x1000) >> 2;
+		else if (a < 0x6000)
+			a = (a - 0x2000) >> 1;
+		else if (a < 0xC000)
+			a = (a - 0x4000);
+		else
+			a = 2 * (a - 0x8000);
+	}
+
+	return std::min(0xFFFF, a + COMPRESS_OFFSET);
+}
+
+static uint16_t dequantize(uint16_t q, int qmode)
+{
+	switch (qmode)
+	{
+	case 0:
+		return (q < 320) ? 16 * q : 32 * (q - 160);
+
+	case 1:
+		return 64 * q;
+
+	case 2:
+		return 128 * q;
+
+	default:
+		return (q < 94) ? 256 * q : std::min(0xFFFF, 512 * (q - 47));
+	}
+}
+
+static void subBlockFunction(uint16_t *d, uint32_t w)
+{
+	int q[4];
+
+	int qmode = (w & 3);
+	if (qmode < 3)
+	{
+		int field0 = (w >> 2) & 511;
+		int field1 = (w >> 11) & 127;
+		int field2 = (w >> 18) & 127;
+		int field3 = (w >> 25) & 127;
+		if (qmode == 2 && field0 >= 384)
+		{
+			q[1] = field0;
+			q[2] = field1 + 384;
+		}
+		else
+		{
+			q[1] = (field1 >= 64) ? field0 : field0 + 64 - field1;
+			q[2] = (field1 >= 64) ? field0 + field1 - 64 : field0;
+		}
+		int p1 = std::max(0, q[1] - 64);
+		if (qmode == 2)
+			p1 = std::min(384, p1);
+		int p2 = std::max(0, q[2] - 64);
+		if (qmode == 2)
+			p2 = std::min(384, p2);
+		q[0] = p1 + field2;
+		q[3] = p2 + field3;
+	}
+	else
+	{
+		int pack0 = (w >> 2) & 32767;
+		int pack1 = (w >> 17) & 32767;
+		q[0] = (pack0 & 15) + 16 * ((pack0 >> 8) / 11);
+		q[1] = (pack0 >> 4) % 176;
+		q[2] = (pack1 & 15) + 16 * ((pack1 >> 8) / 11);
+		q[3] = (pack1 >> 4) % 176;
+	}
+
+	d[0] = dequantize(q[0], qmode);
+	d[2] = dequantize(q[1], qmode);
+	d[4] = dequantize(q[2], qmode);
+	d[6] = dequantize(q[3], qmode);
+}
+
+static void uncompress(uint8_t const *src, StreamInfo const &info, uint16_t *dest)
+{
+	// In all cases, the *decompressed* image must be a multiple of 8 columns wide.
+	unsigned int buf_stride_pixels = (info.width + 7) & ~7;
+	for (unsigned int y = 0; y < info.height; ++y)
+	{
+		uint16_t *dp = dest + y * buf_stride_pixels;
+		uint8_t const *sp = src + y * info.stride;
+
+		for (unsigned int x = 0; x < info.width; x+=8)
+		{
+			if (COMPRESS_MODE & 1)
+			{
+				uint32_t w0 = 0, w1 = 0;
+				for (int b = 0; b < 4; ++b)
+					w0 |= (*sp++) << (b * 8);
+				for (int b = 0; b < 4; ++b)
+					w1 |= (*sp++) << (b * 8);
+				subBlockFunction(dp, w0);
+				subBlockFunction(dp + 1, w1);
+				for (int i = 0; i < 8; ++i, ++dp)
+					*dp = postprocess(*dp);
+			}
+			else
+			{
+				for (int i = 0; i < 8; ++i)
+					*dp++ = postprocess((*sp++) << 8);
+			}
+		}
 	}
 }
 
@@ -126,9 +296,8 @@ Matrix(float m0, float m1, float m2,
 	}
 };
 
-void dng_save(std::vector<libcamera::Span<uint8_t>> const &mem, StreamInfo const &info,
-			  ControlList const &metadata, std::string const &filename,
-			  std::string const &cam_name, StillOptions const *options)
+void dng_save(std::vector<libcamera::Span<uint8_t>> const &mem, StreamInfo const &info, ControlList const &metadata,
+			  std::string const &filename, std::string const &cam_model, StillOptions const *options)
 {
 	// Check the Bayer format and unpack it to u16.
 
@@ -138,16 +307,31 @@ void dng_save(std::vector<libcamera::Span<uint8_t>> const &mem, StreamInfo const
 	BayerFormat const &bayer_format = it->second;
 	LOG(1, "Bayer format is " << bayer_format.name);
 
-	std::vector<uint16_t> buf(info.width * info.height);
-	if (bayer_format.bits == 10)
-		unpack_10bit((uint8_t *)mem[0].data(), info, &buf[0]);
-	else if (bayer_format.bits == 12)
-		unpack_12bit((uint8_t *)mem[0].data(), info, &buf[0]);
+	// Decompression will require a buffer that's 8 pixels aligned.
+	unsigned int buf_stride_pixels = info.width;
+	unsigned int buf_stride_pixels_padded = (buf_stride_pixels + 7) & ~7;
+	std::vector<uint16_t> buf(buf_stride_pixels_padded * info.height);
+	if (bayer_format.compressed)
+	{
+		uncompress(mem[0].data(), info, &buf[0]);
+		buf_stride_pixels = buf_stride_pixels_padded;
+	}
+	else if (bayer_format.packed)
+	{
+		switch (bayer_format.bits)
+		{
+		case 10:
+			unpack_10bit(mem[0].data(), info, &buf[0]);
+			break;
+		case 12:
+			unpack_12bit(mem[0].data(), info, &buf[0]);
+			break;
+		}
+	}
 	else
-		throw std::runtime_error("unsupported bit depth " + std::to_string(bayer_format.bits));
+		unpack_16bit(mem[0].data(), info, &buf[0]);
 
 	// We need to fish out some metadata values for the DNG.
-
 	float black = 4096 * (1 << bayer_format.bits) / 65536.0;
 	float black_levels[] = { black, black, black, black };
 	auto bl = metadata.get(controls::SensorBlackLevels);
@@ -224,6 +408,7 @@ void dng_save(std::vector<libcamera::Span<uint8_t>> const &mem, StreamInfo const
 		const short cfa_repeat_pattern_dim[] = { 2, 2 };
 		uint32_t white = (1 << bayer_format.bits) - 1;
 		toff_t offset_subifd = 0, offset_exififd = 0;
+		std::string unique_model = std::string(MAKE_STRING " ") + cam_model;
 
 		tif = TIFFOpen(filename.c_str(), "w");
 		if (!tif)
@@ -237,15 +422,15 @@ void dng_save(std::vector<libcamera::Span<uint8_t>> const &mem, StreamInfo const
 		TIFFSetField(tif, TIFFTAG_BITSPERSAMPLE, 8);
 		TIFFSetField(tif, TIFFTAG_COMPRESSION, COMPRESSION_NONE);
 		TIFFSetField(tif, TIFFTAG_PHOTOMETRIC, PHOTOMETRIC_RGB);
-		TIFFSetField(tif, TIFFTAG_MAKE, "Raspberry Pi");
-		TIFFSetField(tif, TIFFTAG_MODEL, cam_name.c_str());
+		TIFFSetField(tif, TIFFTAG_MAKE, MAKE_STRING);
+		TIFFSetField(tif, TIFFTAG_MODEL, cam_model.c_str());
 		TIFFSetField(tif, TIFFTAG_DNGVERSION, "\001\001\000\000");
 		TIFFSetField(tif, TIFFTAG_DNGBACKWARDVERSION, "\001\000\000\000");
-		TIFFSetField(tif, TIFFTAG_UNIQUECAMERAMODEL, cam_name.c_str());
+		TIFFSetField(tif, TIFFTAG_UNIQUECAMERAMODEL, unique_model.c_str());
 		TIFFSetField(tif, TIFFTAG_ORIENTATION, ORIENTATION_TOPLEFT);
 		TIFFSetField(tif, TIFFTAG_SAMPLESPERPIXEL, 3);
 		TIFFSetField(tif, TIFFTAG_PLANARCONFIG, PLANARCONFIG_CONTIG);
-		TIFFSetField(tif, TIFFTAG_SOFTWARE, "libcamera-still");
+		TIFFSetField(tif, TIFFTAG_SOFTWARE, "rpicam-still");
 		TIFFSetField(tif, TIFFTAG_COLORMATRIX1, 9, CAM_XYZ.m);
 		TIFFSetField(tif, TIFFTAG_ASSHOTNEUTRAL, 3, NEUTRAL);
 		TIFFSetField(tif, TIFFTAG_CALIBRATIONILLUMINANT1, 21);
@@ -259,10 +444,12 @@ void dng_save(std::vector<libcamera::Span<uint8_t>> const &mem, StreamInfo const
 		{
 			for (unsigned int x = 0; x < (info.width >> 4); x++)
 			{
-				unsigned int off = (y * info.width + x) << 4;
-				int grey = buf[off] + buf[off + 1] + buf[off + info.width] + buf[off + info.width + 1];
-				grey = white * sqrt(grey / (double)white); // fake "gamma"
-				thumb_buf[3 * x] = thumb_buf[3 * x + 1] = thumb_buf[3 * x + 2] = grey >> (bayer_format.bits - 6);
+				unsigned int off = (y * buf_stride_pixels + x) << 4;
+				uint32_t grey =
+					buf[off] + buf[off + 1] + buf[off + buf_stride_pixels] + buf[off + buf_stride_pixels + 1];
+				grey = (grey << 14) >> bayer_format.bits;
+				grey = sqrt((double)grey); // simple "gamma correction"
+				thumb_buf[3 * x] = thumb_buf[3 * x + 1] = thumb_buf[3 * x + 2] = grey;
 			}
 			if (TIFFWriteScanline(tif, &thumb_buf[0], y, 0) != 1)
 				throw std::runtime_error("error writing DNG thumbnail data");
@@ -291,7 +478,7 @@ void dng_save(std::vector<libcamera::Span<uint8_t>> const &mem, StreamInfo const
 
 		for (unsigned int y = 0; y < info.height; y++)
 		{
-			if (TIFFWriteScanline(tif, &buf[info.width * y], y, 0) != 1)
+			if (TIFFWriteScanline(tif, &buf[buf_stride_pixels * y], y, 0) != 1)
 				throw std::runtime_error("error writing DNG image data");
 		}
 
@@ -313,6 +500,13 @@ void dng_save(std::vector<libcamera::Span<uint8_t>> const &mem, StreamInfo const
 
 		TIFFSetField(tif, EXIFTAG_ISOSPEEDRATINGS, 1, &iso);
 		TIFFSetField(tif, EXIFTAG_EXPOSURETIME, exp_time);
+
+		auto lp = metadata.get(libcamera::controls::LensPosition);
+		if (lp)
+		{
+			double dist = (*lp > 0.0) ? (1.0 / *lp) : std::numeric_limits<double>::infinity();
+			TIFFSetField(tif, EXIFTAG_SUBJECTDISTANCE, dist);
+		}
 
 		TIFFCheckpointDirectory(tif);
 		offset_exififd = TIFFCurrentDirOffset(tif);

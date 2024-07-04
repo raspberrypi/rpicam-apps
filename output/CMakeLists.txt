@@ -22,3 +22,4 @@ target_include_directories(outputs PUBLIC ${REDIS_PLUS_PLUS_HEADER})
 
 find_library(REDIS_PLUS_PLUS_LIB redis++)
 target_link_libraries(outputs ${REDIS_PLUS_PLUS_LIB})
+

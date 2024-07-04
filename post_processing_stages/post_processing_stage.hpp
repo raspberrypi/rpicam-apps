@@ -23,14 +23,14 @@ namespace libcamera
 struct StreamConfiguration;
 }
 
-class LibcameraApp;
+class RPiCamApp;
 
 using StreamConfiguration = libcamera::StreamConfiguration;
 
 class PostProcessingStage
 {
 public:
-	PostProcessingStage(LibcameraApp *app);
+	PostProcessingStage(RPiCamApp *app);
 
 	virtual ~PostProcessingStage();
 
@@ -56,6 +56,7 @@ public:
 	// Convert YUV420 image to RGB. We crop from the centre of the image if the src
 	// image is larger than the destination.
 	static std::vector<uint8_t> Yuv420ToRgb(const uint8_t *src, StreamInfo &src_info, StreamInfo &dst_info);
+	static void Yuv420ToRgb(uint8_t *dst, const uint8_t *src, StreamInfo &src_info, StreamInfo &dst_info);
 
 protected:
 	// Helper to calculate the execution time of any callable object and return it in as a std::chrono::duration.
@@ -70,10 +71,10 @@ protected:
 		return std::chrono::duration<double, R>(t2 - t1);
 	}
 
-	LibcameraApp *app_;
+	RPiCamApp *app_;
 };
 
-typedef PostProcessingStage *(*StageCreateFunc)(LibcameraApp *app);
+typedef PostProcessingStage *(*StageCreateFunc)(RPiCamApp *app);
 struct RegisterStage
 {
 	RegisterStage(char const *name, StageCreateFunc create_func);

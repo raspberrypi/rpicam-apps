@@ -15,7 +15,7 @@
 #include <libcamera/geometry.h>
 #include <libcamera/stream.h>
 
-#include "core/libcamera_app.hpp"
+#include "core/rpicam_app.hpp"
 
 #include "post_processing_stages/post_processing_stage.hpp"
 
@@ -51,7 +51,7 @@ constexpr int FEATURE_SIZE = 17;
 class PlotPoseCvStage : public PostProcessingStage
 {
 public:
-	PlotPoseCvStage(LibcameraApp *app) : PostProcessingStage(app) {}
+	PlotPoseCvStage(RPiCamApp *app) : PostProcessingStage(app) {}
 
 	char const *Name() const override;
 
@@ -90,7 +90,8 @@ bool PlotPoseCvStage::Process(CompletedRequestPtr &completed_request)
 	if (!stream_)
 		return false;
 
-	libcamera::Span<uint8_t> buffer = app_->Mmap(completed_request->buffers[stream_])[0];
+	BufferWriteSync w(app_, completed_request->buffers[stream_]);
+	libcamera::Span<uint8_t> buffer = w.Get()[0];
 	uint32_t *ptr = (uint32_t *)buffer.data();
 	StreamInfo info = app_->GetStreamInfo(stream_);
 
@@ -180,7 +181,7 @@ void PlotPoseCvStage::drawFeatures(Mat &img, std::vector<cv::Point> locations, s
 	}
 }
 
-static PostProcessingStage *Create(LibcameraApp *app)
+static PostProcessingStage *Create(RPiCamApp *app)
 {
 	return new PlotPoseCvStage(app);
 }
