@@ -65,10 +65,12 @@ void Output::OutputReady(void *mem, size_t size, int64_t timestamp_us, bool keyf
 		state_ = RUNNING, flags |= FLAG_RESTART;
 	if (state_ != RUNNING)
 		return;
+
 	// Frig the timestamps to be continuous after a pause.
 	if (flags & FLAG_RESTART)
 		time_offset_ = timestamp_us - last_timestamp_;
 	last_timestamp_ = timestamp_us - time_offset_;
+
 	outputBuffer(mem, size, last_timestamp_, flags);
 
 	// Save timestamps to a file, if that was requested.
@@ -102,6 +104,7 @@ Output *Output::Create(VideoOptions const *options)
 {
 	if (options->codec == "libav" || (options->codec == "h264" && options->GetPlatform() != Platform::VC4))
 		return new Output(options);
+
 	if (strncmp(options->output.c_str(), "udp://", 6) == 0 || strncmp(options->output.c_str(), "tcp://", 6) == 0)
 		return new NetOutput(options);
 	else if (strncmp(options->output.c_str(), "mem://", 6) == 0)

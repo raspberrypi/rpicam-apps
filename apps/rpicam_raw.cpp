@@ -23,7 +23,7 @@ protected:
 	void createEncoder() { encoder_ = std::unique_ptr<Encoder>(new NullEncoder(GetOptions())); }
 };
 
-// The main even loop for the application.
+// The main event loop for the application.
 
 static void event_loop(LibcameraRaw &app)
 {
@@ -38,7 +38,7 @@ static void event_loop(LibcameraRaw &app)
 	app.StartCamera();
 	auto start_time = std::chrono::high_resolution_clock::now();
 
-	for (unsigned int count = 0;; count++)
+	for (unsigned int count = 0; ; count++)
 	{
 		LibcameraRaw::Msg msg = app.Wait();
 

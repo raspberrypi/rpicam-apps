@@ -1,44 +1,66 @@
-/* SPDX-License-Identifier: BSD-2-Clause */
-/*
- * Copyright (C) 2020, Raspberry Pi (Trading) Ltd.
- *
- * file_output.cpp - Write output to file.
- */
 #include "memcached_output.hpp"
-#include <chrono>
-#include <iostream>
-#include <libmemcached/memcached.hpp>
-#include <sw/redis++/redis++.h>
-using namespace sw::redis;
-using namespace std;
 
 MemcachedOutput::MemcachedOutput(VideoOptions const *options) : Output(options)
 {
-	// Connect
 	opt = options;
 
 	const char *config_string = "--SOCKET=\"/var/run/memcached/memcached.sock\" --BINARY-PROTOCOL";
 	memc = memcached(config_string, strlen(config_string));
 	if (memc == NULL)
-		cerr << "Error connecting to memcached" << endl;
-	auto redis = Redis("tcp://127.0.0.1:6379");
-	redis.set("key", "val");
-	auto val = redis.get("key"); // val is of type OptionalString. See 'API Reference' section for details.
-	if (val)
+		LOG_ERROR("Error connecting to memcached");
+	
+	// Test memcache
+	const char *key = "my_key";
+    const char *value = "Hello, Memcached!";
+    size_t key_len = strlen(key);
+	size_t value_length = strlen(value);
+	
+	rc = memcached_set(memc, key, key_len, value, value_length, 0, 0);
+
+	// Retrieve the value from Memcached
+	size_t returned_value_length;
+	uint32_t returned_flags;
+	char *returned_value = memcached_get(memc, key, strlen(key),
+											&returned_value_length, &returned_flags, &rc);
+
+	if (rc == MEMCACHED_SUCCESS) {
+		// Assert that the retrieved value matches the expected value
+		assert(returned_value_length == value_length);
+		assert(std::memcmp(returned_value, value, value_length) == 0);
+
+		std::cout << "Retrieved value from Memcached matches expected value" << std::endl;
+		std::cout << "Value: " << returned_value << std::endl;
+
+		// Free the memory allocated by libmemcached
+		free(returned_value);
+	} else {
+		LOG_ERROR("Failed to retrieve value from Memcached: ");
+	}
+	
+	// Test redis
+	redisContext *redis = redisConnect("127.0.0.1", 6379);
+	if (redis == NULL || redis->err)
 	{
-		// Dereference val to get the returned value of std::string type.
-		std::cout << *val << std::endl;
-	} // else key doesn't exist.
+		if (redis)
+		{
+			LOG_ERROR("Error redis");
+			redisFree(redis);
+		}
+		else
+		{
+			LOG_ERROR("Can't allocate redis context");
+		}
+		exit(1);
+	}
+
+	redisReply *reply = (redisReply *)redisCommand(redis, "SET LibcameraService Alive");
+	freeReplyObject(reply);
+    redisFree(redis);
 }
 
 MemcachedOutput::~MemcachedOutput()
-{
+{	
 	memcached_free(memc);
-}
-
-void int64ToChar(char a[], int64_t n)
-{
-	memcpy(a, &n, 8);
 }
 
 void MemcachedOutput::outputBuffer(void *mem, size_t size, int64_t /*timestamp_us*/ J, uint32_t /*flags*/)
@@ -50,27 +72,57 @@ void MemcachedOutput::outputBuffer(void *mem, size_t size, int64_t /*timestamp_u
 	sprintf(timestamp, "%li", t);
 	// Flag set to 16 since the python bmemcached protocol library recognizes binary data with flag 16
 	// This way the bmemcached library does not decode when reading.
-	memcached_return_t rc = memcached_set(memc, timestamp, strlen(timestamp), (char *)mem, opt->width * opt->height,
-										  (time_t)0, (uint32_t)16);
+	memcached_return_t rc = memcached_set(memc, timestamp, strlen(timestamp), (char *)mem, size,(time_t)0, (uint32_t)16);
 	if (rc == MEMCACHED_SUCCESS)
 	{
 		LOG(2, "Value added successfully to memcached: " << timestamp);
 	}
 	else
-		LOG(2, "Error: " << rc << " adding value to memcached " << timestamp);
-	auto redis = Redis("tcp://127.0.0.1:6379");
-	using Attrs = std::vector<std::pair<std::string, std::string>>;
+		LOG_ERROR("Error: " << rc << " adding value to memcached " << timestamp);
+	
+	// Redis connection
+	redisContext *redis = redisConnect("127.0.0.1", 6379);
+	if (redis == NULL || redis->err)
+	{
+		if (redis)
+		{
+			LOG_ERROR("Error redis");
+			redisFree(redis);
+		}
+		else
+		{
+			LOG_ERROR("Can't allocate redis context");
+		}
+		return;
+	}
+
 	std::string time_str = timestamp;
-	Attrs attrs = {
-		{ "memcached", time_str },
-		{ "sensor_id", "Libcamera" },
-		{ "event", "NewFrame" },
-		{ "width", std::to_string(opt->width) },
-		{ "height", std::to_string(opt->height) },
-		{ "framerate", std::to_string(opt->framerate) },
-		{ "shutter", std::to_string(opt->shutter) },
-		{ "gain", std::to_string(opt->gain) },
-		{ "roi", opt->roi },
-	};
-	auto id = redis.xadd("Libcamera", "*", attrs.begin(), attrs.end());
+	std::string redis_command = "XADD Libcamera * ";
+	redis_command += "memcached " + time_str + " ";
+	redis_command += "sensor_id Libcamera ";
+	redis_command += "event NewFrame ";
+	redis_command += "width " + std::to_string(opt->width) + " ";
+	redis_command += "height " + std::to_string(opt->height) + " ";
+	// redis_command += "framerate " + std::to_string(opt->framerate) + " ";
+	// redis_command += "shutter " + std::to_string(opt->shutter) + " ";
+	redis_command += "gain " + std::to_string(opt->gain) + " ";
+	redis_command += "roi " + opt->roi;
+
+	// Execute the Redis command
+	redisReply *reply = (redisReply *)redisCommand(redis, redis_command.c_str());
+
+    if (reply == NULL) {
+		LOG_ERROR("Failed to execute command");
+        redisFree(redis);
+    }
+
+    if (reply->type == REDIS_REPLY_ERROR) {
+		LOG_ERROR("Redis reply error");
+    } else {
+		LOG(2, "Entry added to redis");
+    }
+
+    // Clean up
+    freeReplyObject(reply);
+    redisFree(redis);
 }

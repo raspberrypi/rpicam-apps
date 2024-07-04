@@ -1,17 +1,8 @@
-/* SPDX-License-Identifier: BSD-2-Clause */
-/*
- * Copyright (C) 2020, Raspberry Pi (Trading) Ltd.
- *
- * net_output.hpp - send output over network.
- */
 #pragma once
 
 #include "output.hpp"
 #include <libmemcached/memcached.hpp>
-#include <sw/redis++/redis++.h>
-
-using namespace std;
-using namespace sw::redis;
+#include <hiredis/hiredis.h>
 
 class MemcachedOutput : public Output
 {
