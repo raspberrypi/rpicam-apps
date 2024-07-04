@@ -85,12 +85,26 @@ In `output/output.cpp` we define the execution argument mem:// which executes th
 
 This is how we would start the app
 
+Make sure to pass width and height.
+
 ```sh
-rpicam-raw ---n -v --framerate 5 --mode 640:400:8 -o test%05d.raw 
-rpicam-raw ---n -v --framerate 5 --mode 640:400:8 -o mem://
+rpicam-raw ---n --framerate 120 --mode 640:400:8 --width 640 --height 400 -o test%05d.raw 
+rpicam-raw ---n --framerate 120 --mode 640:400:8 --width 640 --height 400 -o mem:// -t 0
+rpicam-raw ---n --framerate 120 --mode 1280:800:8 --width 1280 --height 800 -o mem:// -t 0
 ```
 
-Full list of parameters
+Other options:
+
+- gain
+- roi
+- exposure
+
+Full list of options
 ------
 
 Have a look inside `core/options.cpp`
+
+TODO's
+------
+
+Search for `TODO` to see what is left to be done.

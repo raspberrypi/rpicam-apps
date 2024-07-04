@@ -18,4 +18,6 @@ private:
 	const VideoOptions *opt;
 	memcached_return_t rc;
 	memcached_return error;
+	redisContext *redis;
+	redisReply *reply;
 };
