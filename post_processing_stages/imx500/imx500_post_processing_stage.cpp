@@ -98,7 +98,7 @@ void IMX500PostProcessingStage::Configure()
 
 bool IMX500PostProcessingStage::Process(CompletedRequestPtr &completed_request)
 {
-	auto input = completed_request->metadata.get(controls::rpi::Imx500InputTensor);
+	auto input = completed_request->metadata.get(controls::rpi::CnnInputTensor);
 
 	if (input && input_tensor_file_.is_open())
 	{

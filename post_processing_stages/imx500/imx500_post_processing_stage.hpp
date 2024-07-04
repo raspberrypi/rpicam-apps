@@ -34,7 +34,7 @@ public:
 		uint8_t serialization_index;
 	};
 
-	struct IMX500OutputTensorInfo
+	struct CnnOutputTensorInfo
 	{
 		char network_name[network_name_len];
 		uint32_t num_tensors;

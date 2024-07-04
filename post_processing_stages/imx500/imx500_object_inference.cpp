@@ -57,7 +57,7 @@ public:
 
 private:
 	int processOutputTensor(std::vector<Detection> &objects, const std::vector<float> &output_tensor,
-							const IMX500OutputTensorInfo &output_tensor_info, const Rectangle &scaler_crop) const;
+							const CnnOutputTensorInfo &output_tensor_info, const Rectangle &scaler_crop) const;
 	void filterOutputObjects(std::vector<Detection> &objects);
 
 	struct LtObject
@@ -122,8 +122,8 @@ bool ObjectInference::Process(CompletedRequestPtr &completed_request)
 		return false;
 	}
 
-	auto output = completed_request->metadata.get(controls::rpi::Imx500OutputTensor);
-	auto info = completed_request->metadata.get(controls::rpi::Imx500OutputTensorInfo);
+	auto output = completed_request->metadata.get(controls::rpi::CnnOutputTensor);
+	auto info = completed_request->metadata.get(controls::rpi::CnnOutputTensorInfo);
 	std::vector<Detection> objects;
 
 	// Process() can be concurrently called through different threads for consecutive CompletedRequests if
@@ -133,7 +133,7 @@ bool ObjectInference::Process(CompletedRequestPtr &completed_request)
 	if (output && info)
 	{
 		std::vector<float> output_tensor(output->data(), output->data() + output->size());
-		IMX500OutputTensorInfo output_tensor_info = *reinterpret_cast<const IMX500OutputTensorInfo *>(info->data());
+		CnnOutputTensorInfo output_tensor_info = *reinterpret_cast<const CnnOutputTensorInfo *>(info->data());
 
 		processOutputTensor(objects, output_tensor, output_tensor_info, *scaler_crop);
 
@@ -218,7 +218,7 @@ static int createObjectDetectionData(ObjectDetectionOutput &output, const std::v
 }
 
 int ObjectInference::processOutputTensor(std::vector<Detection> &objects, const std::vector<float> &output_tensor,
-										 const IMX500OutputTensorInfo &output_tensor_info,
+										 const CnnOutputTensorInfo &output_tensor_info,
 										 const Rectangle &scaler_crop) const
 {
 	if (output_tensor_info.num_tensors != 4)

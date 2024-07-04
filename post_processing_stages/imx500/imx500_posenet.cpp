@@ -575,7 +575,7 @@ bool PoseNet::Process(CompletedRequestPtr &completed_request)
 		return false;
 	}
 
-	auto output = completed_request->metadata.get(controls::rpi::Imx500OutputTensor);
+	auto output = completed_request->metadata.get(controls::rpi::CnnOutputTensor);
 	if (!output)
 	{
 		LOG_ERROR("No output tensor found in metadata!");
