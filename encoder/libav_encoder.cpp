@@ -748,3 +748,23 @@ void LibAvEncoder::audioThread()
 	av_packet_free(&out_pkt);
 	av_frame_free(&in_frame);
 }
+
+void LibAvEncoder::SetOutputFile(const std::string &output_file)
+{
+	if (output_file_ != output_file)
+	{
+		deinitOutput();
+		output_file_ = output_file;
+		initOutput();
+	}
+}
+
+void LibAvEncoder::ClearOutputFile()
+{
+	if (!output_file_.empty())
+	{
+		deinitOutput();
+		output_file_ = "/dev/null";
+		initOutput();
+	}
+}

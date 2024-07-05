@@ -14,6 +14,10 @@
 #include <cmath>
 #include <fcntl.h>
 #include <stdlib.h>
+#include <chrono>
+#include <iomanip>
+#include <sstream>
+#include <filesystem>
 
 #include <sys/ioctl.h>
 #include <sys/stat.h>
@@ -1198,4 +1202,37 @@ void RPiCamApp::configureDenoise(const std::string &denoise_mode)
 	denoise = mode->second;
 
 	controls_.set(NoiseReductionMode, denoise);
+}
+
+void RPiCamApp::StartRecording()
+{
+	if (!is_recording_)
+	{
+		is_recording_ = true;
+
+		// Generate filename based on current timestamp
+		auto now = std::chrono::system_clock::now();
+		auto in_time_t = std::chrono::system_clock::to_time_t(now);
+
+		std::stringstream ss;
+		ss << std::put_time(std::localtime(&in_time_t), "%Y%m%d_%H%M%S");
+
+		std::filesystem::path output_dir = "recordings";  // You can change this to your desired directory
+		std::filesystem::create_directories(output_dir);  // Ensure the directory exists
+
+		recording_file_ = (output_dir / (ss.str() + ".mp4")).string();
+
+		static_cast<LibAvEncoder*>(encoder_.get())->SetOutputFile(recording_file_);
+
+		LOG(2, "Started recording to file: " << recording_file_);
+	}
+}
+
+void RPiCamApp::StopRecording()
+{
+	if (is_recording_)
+	{
+		is_recording_ = false;
+		static_cast<LibAvEncoder*>(encoder_.get())->StopRecording();
+	}
 }

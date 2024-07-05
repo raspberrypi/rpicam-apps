@@ -39,6 +39,9 @@ public:
 	// Encode the given DMABUF.
 	void EncodeBuffer(int fd, size_t size, void *mem, StreamInfo const &info, int64_t timestamp_us) override;
 
+	void SetOutputFile(const std::string &output_file);
+	void ClearOutputFile();
+
 private:
 	void initVideoCodec(VideoOptions const *options, StreamInfo const &info);
 	void initAudioInCodec(VideoOptions const *options, StreamInfo const &info);

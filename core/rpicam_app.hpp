@@ -143,6 +143,9 @@ public:
 	void StartCamera();
 	void StopCamera();
 
+	void StartRecording();
+	void StopRecording();
+
 	Msg Wait();
 	void PostMessage(MsgType &t, MsgPayload &p);
 
@@ -281,4 +284,5 @@ private:
 	uint64_t last_timestamp_;
 	uint64_t sequence_ = 0;
 	PostProcessor post_processor_;
+	bool is_recording_ = false;
 };

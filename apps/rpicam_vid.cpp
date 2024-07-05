@@ -100,8 +100,15 @@ static void event_loop(RPiCamEncoder &app)
 		else if (msg.type != RPiCamEncoder::MsgType::RequestComplete)
 			throw std::runtime_error("unrecognised message!");
 		int key = get_key_or_signal(options, p);
-		if (key == '\n')
-			output->Signal();
+		// if (key == '\n')
+		//	output->Signal();
+		if (key == '\n')  // For example, if Enter key is pressed
+		{
+			if (app.is_recording_)
+				app.StopRecording();
+			else
+				app.StartRecording();  // No need to provide a filename
+		}
 
 		LOG(2, "Viewfinder frame " << count);
 		auto now = std::chrono::high_resolution_clock::now();
