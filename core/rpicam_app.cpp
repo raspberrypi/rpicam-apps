@@ -1200,37 +1200,3 @@ void RPiCamApp::configureDenoise(const std::string &denoise_mode)
 
 	controls_.set(NoiseReductionMode, denoise);
 }
-
-void RPiCamApp::StartRecording()
-{
-	if (!is_recording_)
-	{
-		is_recording_ = true;
-
-		auto now = std::chrono::system_clock::now();
-		auto in_time_t = std::chrono::system_clock::to_time_t(now);
-
-		std::stringstream ss;
-		ss << std::put_time(std::localtime(&in_time_t), "%Y%m%d_%H%M%S");
-
-		std::filesystem::path output_dir = "recordings";
-		std::filesystem::create_directories(output_dir);
-
-		recording_file_ = (output_dir / (ss.str() + ".mp4")).string();
-
-		// Assuming encoder_ is a member variable of type std::unique_ptr<Encoder>
-		encoder_->SetOutputFile(recording_file_);
-
-		LOG(2, "Started recording to file: " << recording_file_);
-	}
-}
-
-void RPiCamApp::StopRecording()
-{
-	if (is_recording_)
-	{
-		is_recording_ = false;
-		encoder_->ClearOutputFile();
-		LOG(2, "Stopped recording");
-	}
-}
