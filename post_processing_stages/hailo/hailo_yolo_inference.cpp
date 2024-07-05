@@ -16,6 +16,7 @@
 #include <libcamera/geometry.h>
 
 #include "core/rpicam_app.hpp"
+#include "core/recording_manager.hpp"
 #include "post_processing_stages/object_detect.hpp"
 
 #include "detection/yolo_postprocess.hpp"
@@ -170,6 +171,7 @@ bool YoloInference::Process(CompletedRequestPtr &completed_request)
 	std::vector<Detection> objects = runInference(input.get());
 	if (objects.size())
 	{
+		RecordingManager::getInstance().objectDetected();
 		if (temporal_filtering_)
 		{
 			// Process() can be concurrently called through different threads for consecutive CompletedRequests if

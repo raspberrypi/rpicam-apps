@@ -102,6 +102,8 @@ public:
 		}
 	}
 
+	bool IsRecording() const { return is_recording_; }
+
 
 protected:
 	virtual void createEncoder()

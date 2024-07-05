@@ -12,6 +12,7 @@
 #include <sys/stat.h>
 
 #include "core/rpicam_encoder.hpp"
+#include "core/recording_manager.hpp"
 #include "output/output.hpp"
 
 using namespace std::placeholders;
@@ -87,6 +88,8 @@ static void event_loop(RPiCamEncoder &app)
 	signal(SIGPIPE, default_signal_handler);
 	pollfd p[1] = { { STDIN_FILENO, POLLIN, 0 } };
 
+	RecordingManager::getInstance().setPostDetectionRecordTime(30);
+
 	for (unsigned int count = 0; ; count++)
 	{
 		RPiCamEncoder::Msg msg = app.Wait();
@@ -102,16 +105,19 @@ static void event_loop(RPiCamEncoder &app)
 		else if (msg.type != RPiCamEncoder::MsgType::RequestComplete)
 			throw std::runtime_error("unrecognised message!");
 		int key = get_key_or_signal(options, p);
-		// if (key == '\n')
-		//	output->Signal();
-		// Check if it's time to toggle recording
-		auto now = std::chrono::steady_clock::now();
-		if (now - last_toggle >= toggle_interval)
+		if (key == '\n')
+			output->Signal();
+
+		bool should_record = RecordingManager::getInstance().shouldRecord();
+        if (should_record && !app.IsRecording())
 		{
-			app.StopRecording();
 			app.StartRecording();
 			std::cout << "Recording started" << std::endl;
-			last_toggle = now;
+		}
+		else if (!should_record && app.IsRecording())
+		{
+			app.StopRecording();
+			std::cout << "Recording stopped" << std::endl;
 		}
 
 		LOG(2, "Viewfinder frame " << count);
