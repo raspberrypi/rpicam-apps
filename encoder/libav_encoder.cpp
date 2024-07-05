@@ -227,12 +227,9 @@ void LibAvEncoder::initVideoCodec(VideoOptions const *options, StreamInfo const 
 	//
 	// This seems to be a limitation/bug in ffmpeg:
 	// https://github.com/FFmpeg/FFmpeg/blob/3141dbb7adf1e2bd5b9ff700312d7732c958b8df/libavformat/avienc.c#L527
-	if (!strncmp(out_fmt_ctx_->oformat->name, "avi", 3))
-		stream_[Video]->time_base = { 1000, (int)(options->framerate.value_or(DEFAULT_FRAMERATE) * 1000) };
-		codec_ctx_[Video]->time_base = (AVRational){1, options->framerate.value_or(DEFAULT_FRAMERATE) * 1000};
-	else
-		stream_[Video]->time_base = codec_ctx_[Video]->time_base;
-		codec_ctx_[Video]->time_base = (AVRational){1, options->framerate.value_or(DEFAULT_FRAMERATE) * 1000};
+	int framerate = static_cast<int>(std::round(options->framerate.value_or(DEFAULT_FRAMERATE) * 1000));
+	codec_ctx_[Video]->time_base = AVRational{1, framerate};
+	stream_[Video]->time_base = codec_ctx_[Video]->time_base;
 
 	stream_[Video]->avg_frame_rate = stream_[Video]->r_frame_rate = codec_ctx_[Video]->framerate;
 	avcodec_parameters_from_context(stream_[Video]->codecpar, codec_ctx_[Video]);
@@ -806,7 +803,7 @@ void LibAvEncoder::Flush()
 {
 	int ret = avcodec_send_frame(codec_ctx_[Video], nullptr);
 	if (ret < 0) {
-		LOG_ERROR("Error sending null frame to encoder: " << av_err2str(ret));
+		LOG_ERROR("Error sending null frame to encoder: ");
 		return;
 	}
 
@@ -816,14 +813,14 @@ void LibAvEncoder::Flush()
 		if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) {
 			break;
 		} else if (ret < 0) {
-			LOG_ERROR("Error receiving packet from encoder: " << av_err2str(ret));
+			LOG_ERROR("Error receiving packet from encoder: ");
 			break;
 		}
 
 		av_packet_rescale_ts(pkt, codec_ctx_[Video]->time_base, stream_[Video]->time_base);
 		ret = av_interleaved_write_frame(out_fmt_ctx_, pkt);
 		if (ret < 0) {
-			LOG_ERROR("Error writing frame: " << av_err2str(ret));
+			LOG_ERROR("Error writing frame: ");
 			break;
 		}
 		av_packet_unref(pkt);
@@ -832,7 +829,7 @@ void LibAvEncoder::Flush()
 
 	ret = av_write_trailer(out_fmt_ctx_);
 	if (ret < 0) {
-		LOG_ERROR("Error writing trailer: " << av_err2str(ret));
+		LOG_ERROR("Error writing trailer: ");
 	}
 
 	avio_closep(&out_fmt_ctx_->pb);
