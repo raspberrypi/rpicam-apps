@@ -770,7 +770,7 @@ void LibAvEncoder::SetOutputFile(const std::string &output_file)
 	{
 		deinitOutput();
 		output_file_ = output_file;
-		resetTimestamp();
+		// resetTimestamp();
 		initOutput();
 	}
 }
