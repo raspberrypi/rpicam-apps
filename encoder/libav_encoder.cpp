@@ -617,8 +617,6 @@ void LibAvEncoder::videoThread()
 	}
 
 	done:
-		// Flush the encoder
-		avcodec_send_frame(codec_ctx_[Video], nullptr);
 	encode(pkt, Video);
 
 	av_packet_free(&pkt);
@@ -814,14 +812,6 @@ void LibAvEncoder::Flush()
 {
 	AVPacket *pkt = av_packet_alloc();
 	int ret;
-
-	// Send NULL to signal end of stream
-	ret = avcodec_send_frame(codec_ctx_[Video], NULL);
-	if (ret < 0) {
-		LOG_ERROR("Error sending EOF frame");
-		av_packet_free(&pkt);
-		return;
-	}
 
 	while (ret >= 0) {
 		ret = avcodec_receive_packet(codec_ctx_[Video], pkt);
