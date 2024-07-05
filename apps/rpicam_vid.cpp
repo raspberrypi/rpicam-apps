@@ -75,7 +75,7 @@ static void event_loop(RPiCamEncoder &app)
 	app.ConfigureVideo(get_colourspace_flags(options->codec));
 	app.StartEncoder();
 	app.StartCamera();
-	auto start_time = std::chrono::high_resolution_clock::now();
+	auto start_time = std::chrono::steady_clock::now();
 
 	// Monitoring for keypresses and signals.
 	signal(SIGUSR1, default_signal_handler);
@@ -122,7 +122,6 @@ static void event_loop(RPiCamEncoder &app)
 		}
 
 		LOG(2, "Viewfinder frame " << count);
-		auto now = std::chrono::high_resolution_clock::now();
 		bool timeout = !options->frames && options->timeout &&
 					   ((now - start_time) > options->timeout.value);
 		bool frameout = options->frames && count >= options->frames;
