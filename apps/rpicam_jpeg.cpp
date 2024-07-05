@@ -27,6 +27,9 @@ public:
 	{
 		return static_cast<StillOptions *>(options_.get());
 	}
+
+	void StartRecording() {};
+	void StopRecording() {};
 };
 
 // The main even loop for the application.

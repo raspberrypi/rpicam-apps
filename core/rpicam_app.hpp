@@ -143,8 +143,8 @@ public:
 	void StartCamera();
 	void StopCamera();
 
-	virtual void StartRecording() = 0;
-	virtual void StopRecording() = 0;
+	virtual void StartRecording() {};
+	virtual void StopRecording() {};
 
 	Msg Wait();
 	void PostMessage(MsgType &t, MsgPayload &p);
