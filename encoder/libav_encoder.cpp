@@ -195,6 +195,8 @@ void LibAvEncoder::initVideoCodec(VideoOptions const *options, StreamInfo const 
 	else
 		format = options->libav_format.c_str();
 
+	std::cout << format << "\n";
+
 	// Legacy handling of the --listen parameter.  If missing from the url string, add "?listen=1" to the end.
 	if (options->listen && output_file_.find(tcp.c_str(), 0, tcp.length()) != std::string::npos)
 	{
@@ -405,8 +407,8 @@ void LibAvEncoder::EncodeBuffer(int fd, size_t size, void *mem, StreamInfo const
 	frame->linesize[1] = frame->linesize[2] = info.stride >> 1;
 
 	// Calculate PTS in codec's timebase
-	int64_t pts_us = timestamp_us - video_start_ts_ +
-					 (options_->av_sync.value < 0us ? -options_->av_sync.get<std::chrono::microseconds>() : 0);
+	//int64_t pts_us = timestamp_us - video_start_ts_ +
+	//				 (options_->av_sync.value < 0us ? -options_->av_sync.get<std::chrono::microseconds>() : 0);
 	frame->pts = av_rescale_q(timestamp_us - video_start_ts_, AV_TIME_BASE_Q, codec_ctx_[Video]->time_base);
 
 	if (codec_ctx_[Video]->pix_fmt == AV_PIX_FMT_DRM_PRIME)
