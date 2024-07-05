@@ -26,6 +26,7 @@ core_headers = files([
     'stream_info.hpp',
     'version.hpp',
     'video_options.hpp',
+    'recording_manager.hpp',
 ])
 
 # Generate a version string.
