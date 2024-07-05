@@ -41,6 +41,7 @@ public:
 
 	void SetOutputFile(const std::string &output_file);
 	void ClearOutputFile();
+	void Flush();
 
 private:
 	void initVideoCodec(VideoOptions const *options, StreamInfo const &info);
