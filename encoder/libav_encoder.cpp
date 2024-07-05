@@ -206,7 +206,8 @@ void LibAvEncoder::initVideoCodec(VideoOptions const *options, StreamInfo const 
 	}
 
 	assert(out_fmt_ctx_ == nullptr);
-	avformat_alloc_output_context2(&out_fmt_ctx_, nullptr, format, output_file_.c_str());
+	// avformat_alloc_output_context2(&out_fmt_ctx_, nullptr, format, output_file_.c_str());
+	avformat_alloc_output_context2(&out_fmt_ctx_, nullptr, "mp4", output_file_.c_str());
 	if (!out_fmt_ctx_)
 		throw std::runtime_error("libav: cannot allocate output context, try setting with --libav-format");
 
@@ -406,7 +407,7 @@ void LibAvEncoder::EncodeBuffer(int fd, size_t size, void *mem, StreamInfo const
 	// Calculate PTS in codec's timebase
 	int64_t pts_us = timestamp_us - video_start_ts_ +
 					 (options_->av_sync.value < 0us ? -options_->av_sync.get<std::chrono::microseconds>() : 0);
-	frame->pts = av_rescale_q(pts_us, AVRational{1, 1000000}, codec_ctx_[Video]->time_base);
+	frame->pts = av_rescale_q(timestamp_us - video_start_ts_, AV_TIME_BASE_Q, codec_ctx_[Video]->time_base);
 
 	if (codec_ctx_[Video]->pix_fmt == AV_PIX_FMT_DRM_PRIME)
 	{
@@ -487,6 +488,14 @@ void LibAvEncoder::initOutput()
 			avio_closep(&out_fmt_ctx_->pb);
 		throw std::runtime_error("libav: unable write output mux header for " + output_file_ + ": " + err);
 	}
+
+	// Write MOOV atom
+	ret = av_write_frame(out_fmt_ctx_, NULL);
+	if (ret < 0) {
+		char err[AV_ERROR_MAX_STRING_SIZE];
+		av_strerror(ret, err, sizeof(err));
+		throw std::runtime_error("libav: unable to write MOOV atom: " + std::string(err));
+	}
 }
 
 void LibAvEncoder::deinitOutput()
@@ -537,7 +546,7 @@ void LibAvEncoder::encode(AVPacket *pkt, unsigned int stream_id)
 
 		pkt->stream_index = stream_id;
 		pkt->pos = -1;
-		pkt->duration = 0;
+		pkt->duration = av_rescale_q(1, codec_ctx_[stream_id]->time_base, out_fmt_ctx_->streams[stream_id]->time_base);
 
 		// Rescale from the codec timebase to the stream timebase.
 		av_packet_rescale_ts(pkt, codec_ctx_[stream_id]->time_base, out_fmt_ctx_->streams[stream_id]->time_base);
@@ -801,35 +810,42 @@ void LibAvEncoder::ClearOutputFile()
 
 void LibAvEncoder::Flush()
 {
-	int ret = avcodec_send_frame(codec_ctx_[Video], nullptr);
+	AVPacket *pkt = av_packet_alloc();
+	int ret;
+
+	// Send NULL to signal end of stream
+	ret = avcodec_send_frame(codec_ctx_[Video], NULL);
 	if (ret < 0) {
-		LOG_ERROR("Error sending null frame to encoder: ");
+		LOG_ERROR("Error sending EOF frame");
+		av_packet_free(&pkt);
 		return;
 	}
 
-	AVPacket *pkt = av_packet_alloc();
-	while (true) {
+	while (ret >= 0) {
 		ret = avcodec_receive_packet(codec_ctx_[Video], pkt);
 		if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) {
 			break;
 		} else if (ret < 0) {
-			LOG_ERROR("Error receiving packet from encoder: ");
+			LOG_ERROR("Error receiving packet from encoder");
 			break;
 		}
 
 		av_packet_rescale_ts(pkt, codec_ctx_[Video]->time_base, stream_[Video]->time_base);
+		pkt->stream_index = stream_[Video]->index;
+
 		ret = av_interleaved_write_frame(out_fmt_ctx_, pkt);
 		if (ret < 0) {
-			LOG_ERROR("Error writing frame: ");
+			LOG_ERROR("Error writing frame during flush");
 			break;
 		}
-		av_packet_unref(pkt);
 	}
+
 	av_packet_free(&pkt);
 
+	// Write the trailer
 	ret = av_write_trailer(out_fmt_ctx_);
 	if (ret < 0) {
-		LOG_ERROR("Error writing trailer: ");
+		LOG_ERROR("Error writing trailer");
 	}
 
 	avio_closep(&out_fmt_ctx_->pb);
