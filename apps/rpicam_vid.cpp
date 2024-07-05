@@ -65,7 +65,6 @@ static int get_colourspace_flags(std::string const &codec)
 
 static void event_loop(RPiCamEncoder &app)
 {
-	auto last_toggle = std::chrono::steady_clock::now();
 	const auto toggle_interval = std::chrono::seconds(10);
 	VideoOptions const *options = app.GetOptions();
 	std::unique_ptr<Output> output = std::unique_ptr<Output>(Output::Create(options));
@@ -108,6 +107,7 @@ static void event_loop(RPiCamEncoder &app)
 		if (key == '\n')
 			output->Signal();
 
+                auto now = std::chrono::steady_clock::now();
 		bool should_record = RecordingManager::getInstance().shouldRecord();
         if (should_record && !app.IsRecording())
 		{
