@@ -33,6 +33,9 @@ public:
 	// describing a DMABUF, and by a mmapped userland pointer.
 	virtual void EncodeBuffer(int fd, size_t size, void *mem, StreamInfo const &info, int64_t timestamp_us) = 0;
 
+	virtual void SetOutputFile(const std::string &output_file) = 0;
+	virtual void ClearOutputFile() = 0;
+
 protected:
 	InputDoneCallback input_done_callback_;
 	OutputReadyCallback output_ready_callback_;

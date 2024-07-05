@@ -441,6 +441,12 @@ void LibAvEncoder::EncodeBuffer(int fd, size_t size, void *mem, StreamInfo const
 
 void LibAvEncoder::initOutput()
 {
+	// If output is already initialized, deinitialize it first
+	if (out_fmt_ctx_ && out_fmt_ctx_->pb)
+	{
+		deinitOutput();
+	}
+
 	int ret;
 
 	// Copy the global header from the video encode context once the first frame
@@ -468,6 +474,9 @@ void LibAvEncoder::initOutput()
 	if (ret < 0)
 	{
 		av_strerror(ret, err, sizeof(err));
+		// Close the opened file if header write fails
+		if (out_fmt_ctx_->pb)
+			avio_closep(&out_fmt_ctx_->pb);
 		throw std::runtime_error("libav: unable write output mux header for " + output_file_ + ": " + err);
 	}
 }
@@ -477,10 +486,16 @@ void LibAvEncoder::deinitOutput()
 	if (!out_fmt_ctx_)
 		return;
 
-	av_write_trailer(out_fmt_ctx_);
+	if (out_fmt_ctx_->pb)
+	{
+		av_write_trailer(out_fmt_ctx_);
 
-	if (!(out_fmt_ctx_->flags & AVFMT_NOFILE))
-		avio_closep(&out_fmt_ctx_->pb);
+		if (!(out_fmt_ctx_->flags & AVFMT_NOFILE))
+			avio_closep(&out_fmt_ctx_->pb);
+	}
+
+	// Reset the context, but don't free it as it might be reused
+	avformat_flush(out_fmt_ctx_);
 }
 
 void LibAvEncoder::encode(AVPacket *pkt, unsigned int stream_id)
