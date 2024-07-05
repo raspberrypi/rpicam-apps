@@ -64,6 +64,8 @@ static int get_colourspace_flags(std::string const &codec)
 
 static void event_loop(RPiCamEncoder &app)
 {
+	auto last_toggle = std::chrono::steady_clock::now();
+	const auto toggle_interval = std::chrono::seconds(10);
 	VideoOptions const *options = app.GetOptions();
 	std::unique_ptr<Output> output = std::unique_ptr<Output>(Output::Create(options));
 	app.SetEncodeOutputReadyCallback(std::bind(&Output::OutputReady, output.get(), _1, _2, _3, _4));
@@ -102,13 +104,21 @@ static void event_loop(RPiCamEncoder &app)
 		int key = get_key_or_signal(options, p);
 		// if (key == '\n')
 		//	output->Signal();
-		if (key == 'r')  // For example, if Enter key is pressed
+		// Check if it's time to toggle recording
+		auto now = std::chrono::steady_clock::now();
+		if (now - last_toggle >= toggle_interval)
 		{
-			std::cout << "Recording key pressed" << std::endl;
 			if (app.IsRecording())
+			{
 				app.StopRecording();
+				std::cout << "Recording stopped" << std::endl;
+			}
 			else
-				app.StartRecording();  // No need to provide a filename
+			{
+				app.StartRecording();
+				std::cout << "Recording started" << std::endl;
+			}
+			last_toggle = now;
 		}
 
 		LOG(2, "Viewfinder frame " << count);
