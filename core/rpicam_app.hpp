@@ -143,6 +143,9 @@ public:
 	void StartCamera();
 	void StopCamera();
 
+	void StartRecording();
+	void StopRecording();
+
 	Msg Wait();
 	void PostMessage(MsgType &t, MsgPayload &p);
 
