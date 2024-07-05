@@ -104,7 +104,7 @@ static void event_loop(RPiCamEncoder &app)
 		//	output->Signal();
 		if (key == '\n')  // For example, if Enter key is pressed
 		{
-			if (app.is_recording_)
+			if (app.isRecording())
 				app.StopRecording();
 			else
 				app.StartRecording();  // No need to provide a filename

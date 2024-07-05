@@ -145,6 +145,7 @@ public:
 
 	virtual void StartRecording() {};
 	virtual void StopRecording() {};
+	bool IsRecording() const { return is_recording_; }
 
 	Msg Wait();
 	void PostMessage(MsgType &t, MsgPayload &p);
