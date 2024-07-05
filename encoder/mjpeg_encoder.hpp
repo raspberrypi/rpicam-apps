@@ -25,6 +25,7 @@ public:
 	void EncodeBuffer(int fd, size_t size, void *mem, StreamInfo const &info, int64_t timestamp_us) override;
 	void SetOutputFile(const std::string &output_file) override {};
 	void ClearOutputFile() override {};
+	void Flush() override {};
 
 private:
 	// How many threads to use. Whichever thread is idle will pick up the next frame.

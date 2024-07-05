@@ -23,6 +23,7 @@ public:
 	void EncodeBuffer(int fd, size_t size, void *mem, StreamInfo const &info, int64_t timestamp_us) override;
 	void SetOutputFile(const std::string &output_file) override {};
 	void ClearOutputFile() override {};
+	void Flush() override {};
 
 private:
 	// We want at least as many output buffers as there are in the camera queue
