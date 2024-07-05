@@ -35,6 +35,7 @@ public:
 
 	virtual void SetOutputFile(const std::string &output_file) = 0;
 	virtual void ClearOutputFile() = 0;
+	virtual void Flush() = 0;
 
 protected:
 	InputDoneCallback input_done_callback_;

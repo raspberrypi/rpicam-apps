@@ -96,6 +96,9 @@ public:
 
 			if (encoder_)
 			{
+				// Flush the encoder
+				encoder_->EncodeBuffer(-1, 0, nullptr, StreamInfo(), 0);
+				// Clear the output file after flushing
 				encoder_->ClearOutputFile();
 			}
 		}

@@ -385,6 +385,12 @@ LibAvEncoder::~LibAvEncoder()
 
 void LibAvEncoder::EncodeBuffer(int fd, size_t size, void *mem, StreamInfo const &info, int64_t timestamp_us)
 {
+	if (fd == -1 && size == 0 && mem == nullptr) {
+		// This is the flush signal
+		Flush();
+		return;
+	}
+
 	AVFrame *frame = av_frame_alloc();
 	if (!frame)
 		throw std::runtime_error("libav: could not allocate AVFrame");
@@ -783,4 +789,32 @@ void LibAvEncoder::ClearOutputFile()
 		output_file_ = "/dev/null";
 		initOutput();
 	}
+}
+
+void LibAvEncoder::Flush()
+{
+	// Send a null frame to signal the end of the stream
+	avcodec_send_frame(codec_ctx_[Video], nullptr);
+
+	AVPacket *pkt = av_packet_alloc();
+	int ret = 0;
+	while (ret >= 0) {
+		ret = avcodec_receive_packet(codec_ctx_[Video], pkt);
+		if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) {
+			break;
+		} else if (ret < 0) {
+			// Handle error
+			break;
+		}
+		// Write the packet
+		av_packet_rescale_ts(pkt, codec_ctx_[Video]->time_base, stream_[Video]->time_base);
+		av_interleaved_write_frame(out_fmt_ctx_, pkt);
+	}
+	av_packet_free(&pkt);
+
+	// Write the trailer
+	av_write_trailer(out_fmt_ctx_);
+
+	// Close the output file
+	avio_closep(&out_fmt_ctx_->pb);
 }
