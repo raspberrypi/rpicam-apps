@@ -112,12 +112,12 @@ static void event_loop(RPiCamEncoder &app)
         if (should_record && !app.IsRecording())
 		{
 			app.StartRecording();
-			std::cout << "Recording started" << std::endl;
+			std::cout << "Recording started called at least" << std::endl;
 		}
 		else if (!should_record && app.IsRecording())
 		{
 			app.StopRecording();
-			std::cout << "Recording stopped" << std::endl;
+			std::cout << "Recording stopped called at least" << std::endl;
 		}
 
 		LOG(2, "Viewfinder frame " << count);

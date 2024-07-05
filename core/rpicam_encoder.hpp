@@ -91,14 +91,13 @@ public:
 	{
 		if (is_recording_)
 		{
+			std::cout << "Recording stopped" << std::endl;
 			is_recording_ = false;
 
 			if (encoder_)
 			{
 				encoder_->ClearOutputFile();
 			}
-
-			LOG(2, "Stopped recording");
 		}
 	}
 
