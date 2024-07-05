@@ -107,8 +107,8 @@ struct Options
 	virtual ~Options() {}
 
 	bool help;
-	std::string memcached_connect_string;
-	std::string redis_connect_string;
+	std::string memcached;
+	std::string redis;
 	bool version;
 	bool list_cameras;
 	unsigned int verbose;

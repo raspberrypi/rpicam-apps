@@ -177,10 +177,9 @@ Options::Options()
 		("help,h", value<bool>(&help)->default_value(false)->implicit_value(true),
 			"Print this help message")
 		// TODO 
-		// ("memcached", value<std::string>(&memcached_connect_string)->default_value("localhost:/var/run/memcached/memcached.sock"),
-        //     "Connect string for memcached (format: host:port or unix_socket_path)")
-        // ("redis", value<std::string>(&redis_connect_string)->default_value("localhost:6379"),
-        //     "Connect string for Redis (format: host:port)")
+		("memcached", value<std::string>(&memcached)->default_value("localhost:/var/run/memcached/memcached.sock"), "Connect string for memcached (format: host:port or unix_socket_path)")
+        ("redis", value<std::string>(&redis)->default_value("localhost:6379"),
+            "Connect string for Redis (format: host:port)")
 		("version", value<bool>(&version)->default_value(false)->implicit_value(true),
 			"Displays the build version number")
 		("list-cameras", value<bool>(&list_cameras)->default_value(false)->implicit_value(true),

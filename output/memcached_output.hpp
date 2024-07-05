@@ -14,7 +14,13 @@ protected:
 	void outputBuffer(void *mem, size_t size, int64_t timestamp_us, uint32_t flags) override;
 
 private:
+    void prepareMemcachedConnection();
+    void testMemcachedConnection();
+    void prepareRedisConnection();
+    void testRedisConnection();
+
 	memcached_st *memc;
+	memcached_server_st *servers;
 	const VideoOptions *opt;
 	memcached_return_t rc;
 	memcached_return error;

@@ -1,65 +1,98 @@
 #include "memcached_output.hpp"
 
+
 MemcachedOutput::MemcachedOutput(VideoOptions const *options) : Output(options)
 {
 	opt = options;
 
-	const char *config_string = "--SOCKET=\"/var/run/memcached/memcached.sock\" --BINARY-PROTOCOL";
-	// const char *config_string = "--SERVER=localhost --BINARY-PROTOCOL";
-	memc = memcached(config_string, strlen(config_string));
-	if (memc == NULL)
-		LOG_ERROR("Error connecting to memcached");
-	
-	// Test memcache
-	const char *key = "my_key";
-    const char *value = "Hello, Memcached!";
-    size_t key_len = strlen(key);
-	size_t value_length = strlen(value);
-	
-	rc = memcached_set(memc, key, key_len, value, value_length, 0, 0);
-
-	// Retrieve the value from Memcached
-	size_t returned_value_length;
-	uint32_t returned_flags;
-	char *returned_value = memcached_get(memc, key, strlen(key),
-											&returned_value_length, &returned_flags, &rc);
-
-	if (rc == MEMCACHED_SUCCESS) {
-		// Assert that the retrieved value matches the expected value
-		assert(returned_value_length == value_length);
-		assert(std::memcmp(returned_value, value, value_length) == 0);
-
-		std::cout << "Retrieved value from Memcached matches expected value" << std::endl;
-		std::cout << "Value: " << returned_value << std::endl;
-
-		// Free the memory allocated by libmemcached
-		free(returned_value);
-	} else {
-		LOG_ERROR("Failed to retrieve value from Memcached: ");
-	}
-	
-	// Test redis
-	redis = redisConnect("127.0.0.1", 6379);
-	if (redis == NULL || redis->err)
-	{
-		if (redis)
-		{
-			LOG_ERROR("Error redis");
-		}
-		else
-		{
-			LOG_ERROR("Can't allocate redis context");
-		}
-		exit(1);
-	}
-	// redisCommand(redis, "SET LibcameraService Alive");
+	prepareMemcachedConnection();
+    testMemcachedConnection();
+    prepareRedisConnection();
+    testRedisConnection();
 }
 
 MemcachedOutput::~MemcachedOutput()
 {	
 	memcached_free(memc);
+	memcached_server_list_free(servers);
 	freeReplyObject(reply);
     redisFree(redis);
+}
+
+void MemcachedOutput::prepareMemcachedConnection() {
+    // Prepare memcached connect string
+    size_t colon_pos = opt->memcached.find(':');
+    if (colon_pos == std::string::npos) {
+        LOG_ERROR("Invalid format: opt->memcached should be in 'hostname:port' format");
+        return;
+    }
+    std::string hostname = opt->memcached.substr(0, colon_pos);
+    int port = std::stoi(opt->memcached.substr(colon_pos + 1));
+
+    // Connect to memcached
+    memc = memcached_create(NULL);
+    memcached_behavior_set(memc, MEMCACHED_BEHAVIOR_BINARY_PROTOCOL, 1);
+    servers = memcached_server_list_append(servers, hostname.c_str(), port, NULL);
+    memcached_server_push(memc, servers);
+}
+
+void MemcachedOutput::testMemcachedConnection() {
+    const char *key = "my_key";
+    const char *value = "Hello, Memcached!";
+    size_t key_len = strlen(key);
+    size_t value_length = strlen(value);
+    rc = memcached_set(memc, key, key_len, value, value_length, 0, 0);
+
+    // Retrieve the value from Memcached
+    size_t returned_value_length;
+    uint32_t returned_flags;
+    char *returned_value = memcached_get(memc, key, strlen(key),
+                                         &returned_value_length, &returned_flags, &rc);
+    if (rc == MEMCACHED_SUCCESS) {
+        // Assert that the retrieved value matches the expected value
+        assert(returned_value_length == value_length);
+        assert(std::memcmp(returned_value, value, value_length) == 0);
+
+        std::cout << "Retrieved value from Memcached matches expected value" << std::endl;
+        std::cout << "Value: " << returned_value << std::endl;
+
+        // Free the memory allocated by libmemcached
+        free(returned_value);
+    } else {
+        LOG_ERROR("Failed to retrieve value from Memcached: ");
+    }
+}
+
+void MemcachedOutput::prepareRedisConnection() {
+    // Prepare redis connect string
+    size_t colon_pos = opt->redis.find(':');
+    if (colon_pos == std::string::npos) {
+        LOG_ERROR("Invalid format: opt->redis should be in 'hostname:port' format");
+        return;
+    }
+    std::string hostname = opt->redis.substr(0, colon_pos);
+    int port = std::stoi(opt->redis.substr(colon_pos + 1));
+
+    // Connect to redis
+    redis = redisConnect(hostname.c_str(), port);
+    if (redis == NULL || redis->err) {
+        if (redis) {
+            LOG_ERROR("Error redis");
+        } else {
+            LOG_ERROR("Can't allocate redis context");
+        }
+        exit(1);
+    }
+}
+
+void MemcachedOutput::testRedisConnection() {
+    // Test redis
+    redisReply *reply = (redisReply *)redisCommand(redis, "SET LibcameraService Alive");
+    if (reply == nullptr) {
+        LOG_ERROR("Failed to set value in Redis");
+    } else {
+        freeReplyObject(reply);
+    }
 }
 
 void MemcachedOutput::outputBuffer(void *mem, size_t size, int64_t /*timestamp_us*/ J, uint32_t /*flags*/)
@@ -81,7 +114,9 @@ void MemcachedOutput::outputBuffer(void *mem, size_t size, int64_t /*timestamp_u
 		LOG_ERROR("Error: " << rc << " adding value to memcached " << timestamp);
 
 	std::string time_str = timestamp;
-	std::string redis_command = "XADD Libcamera MAXLEN ~ 1000 * ";
+	std::string redis_command = "XADD Libcamera ";
+	redis_command += "MAXLEN ~ 1000 "; // Stream max length of 1000 entries
+	redis_command += time_str + " "; // Custom id matching the memcached entry
 	redis_command += "event NewFrame ";
 	redis_command += "memcached " + time_str + " ";
 	redis_command += "sensor_id Libcamera ";

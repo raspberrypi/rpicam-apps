@@ -88,9 +88,9 @@ This is how we would start the app
 Make sure to pass width and height.
 
 ```sh
-rpicam-raw ---n --framerate 120 --mode 640:400:8 --width 640 --height 400 -o test%05d.raw 
-rpicam-raw ---n --framerate 120 --mode 640:400:8 --width 640 --height 400 -o mem:// -t 0
-rpicam-raw ---n --framerate 120 --mode 1280:800:8 --width 1280 --height 800 -o mem:// -t 0
+rpicam-raw ---n --framerate 120 --mode 640:400:8 --width 640 --height 400 -o test%05d.raw
+rpicam-raw ---n --framerate 120 --mode 640:400:8 --width 640 --height 400 -o mem:// -t 0 --redis localhost:6379 --memcached localhost:11211
+rpicam-raw ---n --framerate 120 --mode 1280:800:8 --width 1280 --height 800 -o mem:// -t 0 --redis localhost:6379 --memcached localhost:11211
 ```
 
 Other options:
