@@ -229,8 +229,10 @@ void LibAvEncoder::initVideoCodec(VideoOptions const *options, StreamInfo const 
 	// https://github.com/FFmpeg/FFmpeg/blob/3141dbb7adf1e2bd5b9ff700312d7732c958b8df/libavformat/avienc.c#L527
 	if (!strncmp(out_fmt_ctx_->oformat->name, "avi", 3))
 		stream_[Video]->time_base = { 1000, (int)(options->framerate.value_or(DEFAULT_FRAMERATE) * 1000) };
+		codec_ctx_[Video]->time_base = (AVRational){1, options->framerate.value_or(DEFAULT_FRAMERATE) * 1000};
 	else
 		stream_[Video]->time_base = codec_ctx_[Video]->time_base;
+		codec_ctx_[Video]->time_base = (AVRational){1, options->framerate.value_or(DEFAULT_FRAMERATE) * 1000};
 
 	stream_[Video]->avg_frame_rate = stream_[Video]->r_frame_rate = codec_ctx_[Video]->framerate;
 	avcodec_parameters_from_context(stream_[Video]->codecpar, codec_ctx_[Video]);
@@ -403,8 +405,11 @@ void LibAvEncoder::EncodeBuffer(int fd, size_t size, void *mem, StreamInfo const
 	frame->height = info.height;
 	frame->linesize[0] = info.stride;
 	frame->linesize[1] = frame->linesize[2] = info.stride >> 1;
-	frame->pts = timestamp_us - video_start_ts_ +
-				 (options_->av_sync.value < 0us ? -options_->av_sync.get<std::chrono::microseconds>() : 0);
+
+	// Calculate PTS in codec's timebase
+	int64_t pts_us = timestamp_us - video_start_ts_ +
+					 (options_->av_sync.value < 0us ? -options_->av_sync.get<std::chrono::microseconds>() : 0);
+	frame->pts = av_rescale_q(pts_us, AVRational{1, 1000000}, codec_ctx_[Video]->time_base);
 
 	if (codec_ctx_[Video]->pix_fmt == AV_PIX_FMT_DRM_PRIME)
 	{
@@ -518,9 +523,14 @@ void LibAvEncoder::encode(AVPacket *pkt, unsigned int stream_id)
 			break;
 		}
 		else if (ret < 0)
-			throw std::runtime_error("libav: error receiving packet: " + std::to_string(ret));
+		{
+			char err[AV_ERROR_MAX_STRING_SIZE];
+			av_strerror(ret, err, sizeof(err));
+			LOG_ERROR("libav: error receiving packet: " << err);
+			break;
+		}
 
-		// Initialise the ouput mux on the first received video packet, as we may need
+		// Initialise the output mux on the first received video packet, as we may need
 		// to copy global header data from the encoder.
 		if (stream_id == Video && !output_ready_)
 		{
@@ -544,7 +554,8 @@ void LibAvEncoder::encode(AVPacket *pkt, unsigned int stream_id)
 		{
 			char err[AV_ERROR_MAX_STRING_SIZE];
 			av_strerror(ret, err, sizeof(err));
-			throw std::runtime_error("libav: error writing output: " + std::string(err));
+			LOG_ERROR("libav: error writing output: " << err);
+			break;
 		}
 	}
 }
@@ -597,9 +608,9 @@ void LibAvEncoder::videoThread()
 		av_frame_free(&frame);
 	}
 
-done:
-	// Flush the encoder
-	avcodec_send_frame(codec_ctx_[Video], nullptr);
+	done:
+		// Flush the encoder
+		avcodec_send_frame(codec_ctx_[Video], nullptr);
 	encode(pkt, Video);
 
 	av_packet_free(&pkt);
@@ -793,28 +804,36 @@ void LibAvEncoder::ClearOutputFile()
 
 void LibAvEncoder::Flush()
 {
-	// Send a null frame to signal the end of the stream
-	avcodec_send_frame(codec_ctx_[Video], nullptr);
+	int ret = avcodec_send_frame(codec_ctx_[Video], nullptr);
+	if (ret < 0) {
+		LOG_ERROR("Error sending null frame to encoder: " << av_err2str(ret));
+		return;
+	}
 
 	AVPacket *pkt = av_packet_alloc();
-	int ret = 0;
-	while (ret >= 0) {
+	while (true) {
 		ret = avcodec_receive_packet(codec_ctx_[Video], pkt);
 		if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) {
 			break;
 		} else if (ret < 0) {
-			// Handle error
+			LOG_ERROR("Error receiving packet from encoder: " << av_err2str(ret));
 			break;
 		}
-		// Write the packet
+
 		av_packet_rescale_ts(pkt, codec_ctx_[Video]->time_base, stream_[Video]->time_base);
-		av_interleaved_write_frame(out_fmt_ctx_, pkt);
+		ret = av_interleaved_write_frame(out_fmt_ctx_, pkt);
+		if (ret < 0) {
+			LOG_ERROR("Error writing frame: " << av_err2str(ret));
+			break;
+		}
+		av_packet_unref(pkt);
 	}
 	av_packet_free(&pkt);
 
-	// Write the trailer
-	av_write_trailer(out_fmt_ctx_);
+	ret = av_write_trailer(out_fmt_ctx_);
+	if (ret < 0) {
+		LOG_ERROR("Error writing trailer: " << av_err2str(ret));
+	}
 
-	// Close the output file
 	avio_closep(&out_fmt_ctx_->pb);
 }
