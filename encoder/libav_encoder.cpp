@@ -387,6 +387,10 @@ LibAvEncoder::~LibAvEncoder()
 
 void LibAvEncoder::EncodeBuffer(int fd, size_t size, void *mem, StreamInfo const &info, int64_t timestamp_us)
 {
+	if (abort_video_) {
+		// If we're stopping, don't encode new frames
+		return;
+	}
 	if (fd == -1 && size == 0 && mem == nullptr) {
 		// This is the flush signal
 		Flush();
@@ -810,15 +814,35 @@ void LibAvEncoder::ClearOutputFile()
 
 void LibAvEncoder::Flush()
 {
-	AVPacket *pkt = av_packet_alloc();
-	int ret;
+	if (!codec_ctx_[Video] || !out_fmt_ctx_) {
+		LOG_ERROR("Encoder context or output format context is null during flush");
+		return;
+	}
 
-	while (ret >= 0) {
+	AVPacket *pkt = av_packet_alloc();
+	if (!pkt) {
+		LOG_ERROR("Failed to allocate packet during flush");
+		return;
+	}
+
+	int ret;
+	bool encoding_finished = false;
+
+	// Send NULL to encoder to signal EOF
+	ret = avcodec_send_frame(codec_ctx_[Video], nullptr);
+	if (ret < 0 && ret != AVERROR_EOF) {
+		LOG_ERROR("Error sending NULL frame to encoder: ");
+	}
+
+	while (!encoding_finished) {
 		ret = avcodec_receive_packet(codec_ctx_[Video], pkt);
-		if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) {
+		if (ret == AVERROR(EAGAIN)) {
+			continue;
+		} else if (ret == AVERROR_EOF) {
+			encoding_finished = true;
 			break;
 		} else if (ret < 0) {
-			LOG_ERROR("Error receiving packet from encoder");
+			LOG_ERROR("Error receiving packet from encoder: ");
 			break;
 		}
 
@@ -827,9 +851,11 @@ void LibAvEncoder::Flush()
 
 		ret = av_interleaved_write_frame(out_fmt_ctx_, pkt);
 		if (ret < 0) {
-			LOG_ERROR("Error writing frame during flush");
+			LOG_ERROR("Error writing frame during flush: ");
 			break;
 		}
+
+		av_packet_unref(pkt);
 	}
 
 	av_packet_free(&pkt);
@@ -837,8 +863,10 @@ void LibAvEncoder::Flush()
 	// Write the trailer
 	ret = av_write_trailer(out_fmt_ctx_);
 	if (ret < 0) {
-		LOG_ERROR("Error writing trailer");
+		LOG_ERROR("Error writing trailer: ");
 	}
 
-	avio_closep(&out_fmt_ctx_->pb);
+	if (out_fmt_ctx_ && !(out_fmt_ctx_->oformat->flags & AVFMT_NOFILE)) {
+		avio_closep(&out_fmt_ctx_->pb);
+	}
 }

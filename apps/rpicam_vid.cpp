@@ -87,7 +87,7 @@ static void event_loop(RPiCamEncoder &app)
 	signal(SIGPIPE, default_signal_handler);
 	pollfd p[1] = { { STDIN_FILENO, POLLIN, 0 } };
 
-	RecordingManager::getInstance().setPostDetectionRecordTime(30);
+	RecordingManager::getInstance().setPostDetectionRecordTime(5);
 
 	for (unsigned int count = 0; ; count++)
 	{
