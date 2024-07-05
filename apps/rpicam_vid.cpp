@@ -102,8 +102,9 @@ static void event_loop(RPiCamEncoder &app)
 		int key = get_key_or_signal(options, p);
 		// if (key == '\n')
 		//	output->Signal();
-		if (key == '\n')  // For example, if Enter key is pressed
+		if (key == 'r')  // For example, if Enter key is pressed
 		{
+			std::cout << "Recording key pressed" << std::endl;
 			if (app.IsRecording())
 				app.StopRecording();
 			else
