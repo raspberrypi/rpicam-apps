@@ -14,6 +14,7 @@
 #include <cmath>
 #include <fcntl.h>
 #include <stdlib.h>
+#include <filesystem>
 
 #include <sys/ioctl.h>
 #include <sys/stat.h>
@@ -1206,18 +1207,18 @@ void RPiCamApp::StartRecording()
 	{
 		is_recording_ = true;
 
-		// Generate filename based on current timestamp
 		auto now = std::chrono::system_clock::now();
 		auto in_time_t = std::chrono::system_clock::to_time_t(now);
 
 		std::stringstream ss;
 		ss << std::put_time(std::localtime(&in_time_t), "%Y%m%d_%H%M%S");
 
-		std::filesystem::path output_dir = "recordings";  // You can change this to your desired directory
-		std::filesystem::create_directories(output_dir);  // Ensure the directory exists
+		std::filesystem::path output_dir = "recordings";
+		std::filesystem::create_directories(output_dir);
 
 		recording_file_ = (output_dir / (ss.str() + ".mp4")).string();
 
+		// Assuming encoder_ is a member variable of type std::unique_ptr<Encoder>
 		encoder_->SetOutputFile(recording_file_);
 
 		LOG(2, "Started recording to file: " << recording_file_);

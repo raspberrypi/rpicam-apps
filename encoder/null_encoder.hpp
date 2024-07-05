@@ -21,6 +21,8 @@ public:
 	NullEncoder(VideoOptions const *options);
 	~NullEncoder();
 	void EncodeBuffer(int fd, size_t size, void *mem, StreamInfo const &info, int64_t timestamp_us) override;
+	void SetOutputFile(const std::string &output_file) override {};
+	void ClearOutputFile() override {};
 
 private:
 	void outputThread();
