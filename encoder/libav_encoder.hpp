@@ -55,7 +55,7 @@ private:
 	void audioThread();
 
 	static void releaseBuffer(void *opaque, uint8_t *data);
-	void resetTimestamp();
+	void resetTimestamp() { video_start_ts_ = 0; }
 
 	std::atomic<bool> output_ready_;
 	bool abort_video_;
