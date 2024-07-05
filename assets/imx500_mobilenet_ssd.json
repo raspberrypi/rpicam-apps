@@ -3,7 +3,7 @@
     {
         "max_detections" : 5,
         "threshold" : 0.6,
-        "network_file": "/home/pi/imx500_network_firmware/imx500_network_ssd_mobilenetv2_fpnlite_320x320_pp.fpk",
+        "network_file": "/home/pi/imx500_network_firmware/imx500_network_ssd_mobilenetv2_fpnlite_320x320_pp.rpk",
 
         "save_input_tensor":
         {

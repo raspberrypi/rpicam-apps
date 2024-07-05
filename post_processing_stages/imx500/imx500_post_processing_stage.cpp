@@ -24,7 +24,7 @@ namespace fs = std::filesystem;
 namespace
 {
 
-const fs::path network_firmware_symlink { "/lib/firmware/imx500_network.fpk" };
+const fs::path network_firmware_symlink { "/lib/firmware/imx500_network.rpk" };
 
 inline int16_t conv_reg_signed(int16_t reg)
 {
@@ -57,8 +57,8 @@ void IMX500PostProcessingStage::Read(boost::property_tree::ptree const &params)
 
 	if (params.find("network_file") != params.not_found())
 	{
-		// network_firmware_symlink points to another symlink (e.g. /home/pi/imx500_network_firmware/imx500_network.fpk)
-		// accessable by the user. This accessable symlink needs to point to the network fpk file that will eventually
+		// network_firmware_symlink points to another symlink (e.g. /home/pi/imx500_network_firmware/imx500_network.rpk)
+		// accessable by the user. This accessable symlink needs to point to the network rpk file that will eventually
 		// be pushed into the IMX500 by the kernel driver.
 		std::string network_file = params.get<std::string>("network_file");
 		if (!fs::exists(network_file))
