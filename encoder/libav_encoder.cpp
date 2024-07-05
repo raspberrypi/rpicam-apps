@@ -495,7 +495,7 @@ void LibAvEncoder::deinitOutput()
 	}
 
 	// Reset the context, but don't free it as it might be reused
-	avformat_flush(out_fmt_ctx_);
+	// avformat_flush(out_fmt_ctx_);
 }
 
 void LibAvEncoder::encode(AVPacket *pkt, unsigned int stream_id)
