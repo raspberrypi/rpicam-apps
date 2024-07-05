@@ -82,6 +82,7 @@ public:
 				encoder_->SetOutputFile(recording_file_);
 			}
 
+			std::cout << "Started recording to file: " << recording_file_ << std::endl;
 			LOG(2, "Started recording to file: " << recording_file_);
 		}
 	}

@@ -108,16 +108,9 @@ static void event_loop(RPiCamEncoder &app)
 		auto now = std::chrono::steady_clock::now();
 		if (now - last_toggle >= toggle_interval)
 		{
-			if (app.IsRecording())
-			{
-				app.StopRecording();
-				std::cout << "Recording stopped" << std::endl;
-			}
-			else
-			{
-				app.StartRecording();
-				std::cout << "Recording started" << std::endl;
-			}
+			app.StopRecording();
+			app.StartRecording();
+			std::cout << "Recording started" << std::endl;
 			last_toggle = now;
 		}
 
