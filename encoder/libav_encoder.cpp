@@ -188,6 +188,7 @@ void LibAvEncoder::initVideoCodec(VideoOptions const *options, StreamInfo const 
 		{
 			if (options->libav_video_codec == "h264_v4l2m2m" || options->libav_video_codec == "libx264")
 				format = "h264";
+
 			else
 				throw std::runtime_error("libav: please specify output format with the --libav-format argument");
 		}
@@ -195,7 +196,19 @@ void LibAvEncoder::initVideoCodec(VideoOptions const *options, StreamInfo const 
 	else
 		format = options->libav_format.c_str();
 
-	std::cout << format << "\n";
+	bool is_udp_output = (output_file_.find("udp://") == 0);
+	if (is_udp_output) {
+		// Optimize for UDP streaming
+		codec_ctx_[Video]->max_b_frames = 0;
+		av_opt_set(codec_ctx_[Video]->priv_data, "preset", "ultrafast", 0);
+		av_opt_set(codec_ctx_[Video]->priv_data, "tune", "zerolatency", 0);
+
+		// Use CBR for more consistent network usage
+		if (options->bitrate) {
+			codec_ctx_[Video]->rc_min_rate = codec_ctx_[Video]->rc_max_rate = codec_ctx_[Video]->bit_rate;
+			codec_ctx_[Video]->rc_buffer_size = codec_ctx_[Video]->bit_rate;
+		}
+	}
 
 	// Legacy handling of the --listen parameter.  If missing from the url string, add "?listen=1" to the end.
 	if (options->listen && output_file_.find(tcp.c_str(), 0, tcp.length()) != std::string::npos)
@@ -208,8 +221,7 @@ void LibAvEncoder::initVideoCodec(VideoOptions const *options, StreamInfo const 
 	}
 
 	assert(out_fmt_ctx_ == nullptr);
-	// avformat_alloc_output_context2(&out_fmt_ctx_, nullptr, format, output_file_.c_str());
-	avformat_alloc_output_context2(&out_fmt_ctx_, nullptr, "mp4", output_file_.c_str());
+	avformat_alloc_output_context2(&out_fmt_ctx_, nullptr, format, output_file_.c_str());
 	if (!out_fmt_ctx_)
 		throw std::runtime_error("libav: cannot allocate output context, try setting with --libav-format");
 
@@ -230,9 +242,12 @@ void LibAvEncoder::initVideoCodec(VideoOptions const *options, StreamInfo const 
 	//
 	// This seems to be a limitation/bug in ffmpeg:
 	// https://github.com/FFmpeg/FFmpeg/blob/3141dbb7adf1e2bd5b9ff700312d7732c958b8df/libavformat/avienc.c#L527
-	int framerate = static_cast<int>(std::round(options->framerate.value_or(DEFAULT_FRAMERATE) * 1000));
-	codec_ctx_[Video]->time_base = AVRational{1, framerate};
-	stream_[Video]->time_base = codec_ctx_[Video]->time_base;
+	if (!strncmp(out_fmt_ctx_->oformat->name, "avi", 3))
+		stream_[Video]->time_base = { 1000, (int)(options->framerate.value_or(DEFAULT_FRAMERATE) * 1000) };
+	else
+		stream_[Video]->time_base = codec_ctx_[Video]->time_base;
+		int framerate = static_cast<int>(std::round(options->framerate.value_or(DEFAULT_FRAMERATE) * 1000));
+		codec_ctx_[Video]->time_base = AVRational{1, framerate};
 
 	stream_[Video]->avg_frame_rate = stream_[Video]->r_frame_rate = codec_ctx_[Video]->framerate;
 	avcodec_parameters_from_context(stream_[Video]->codecpar, codec_ctx_[Video]);
@@ -495,12 +510,14 @@ void LibAvEncoder::initOutput()
 		throw std::runtime_error("libav: unable write output mux header for " + output_file_ + ": " + err);
 	}
 
-	// Write MOOV atom
-	ret = av_write_frame(out_fmt_ctx_, NULL);
-	if (ret < 0) {
-		char err[AV_ERROR_MAX_STRING_SIZE];
-		av_strerror(ret, err, sizeof(err));
-		throw std::runtime_error("libav: unable to write MOOV atom: " + std::string(err));
+	// Write MOOV atom only for non-UDP outputs
+	if (output_file_.find("udp://") != 0) {
+		ret = av_write_frame(out_fmt_ctx_, NULL);
+		if (ret < 0) {
+			char err[AV_ERROR_MAX_STRING_SIZE];
+			av_strerror(ret, err, sizeof(err));
+			throw std::runtime_error("libav: unable to write MOOV atom: " + std::string(err));
+		}
 	}
 }
 
