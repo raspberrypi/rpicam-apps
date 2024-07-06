@@ -171,7 +171,7 @@ bool YoloInference::Process(CompletedRequestPtr &completed_request)
 	std::vector<Detection> objects = runInference(input.get());
 	if (objects.size())
 	{
-		RecordingManager::getInstance().objectDetected();
+		RecordingManager::getInstance().objectDetected(objects);
 		if (temporal_filtering_)
 		{
 			// Process() can be concurrently called through different threads for consecutive CompletedRequests if

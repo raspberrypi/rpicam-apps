@@ -8,6 +8,10 @@
 #include <string>
 #include <optional>
 
+
+#include "post_processing_stages/object_detect.hpp"
+
+
 class RecordingManager {
 public:
 	static RecordingManager& getInstance() {
@@ -15,11 +19,24 @@ public:
 		return instance;
 	}
 
-	void objectDetected() {
+	void objectDetected(const std::vector<Detection>& detections) {
 		std::lock_guard<std::mutex> lock(mutex_);
 		auto now = std::chrono::steady_clock::now();
+                auto now_alt = std::chrono::system_clock::now();
+                auto now_c = std::chrono::system_clock::to_time_t(now_alt);
 		std::ofstream file(state_file_);
 		file << now.time_since_epoch().count();
+
+		// Log detections
+		std::ofstream log_file(log_file_path_, std::ios_base::app);
+	        if (log_file) {
+        	    log_file << std::ctime(&now_c);
+	            for (const auto& detection : detections) {
+        	        log_file << detection.toString() << "\n";
+	            }
+        	    log_file << "\n";
+	            log_file.flush(); // Flush the stream to ensure immediate write
+	        }
 	}
 
 	bool shouldRecord() {
@@ -48,7 +65,7 @@ public:
 	}
 
 private:
-	RecordingManager() : post_detection_record_time_(30), state_file_("/tmp/recording_state") {}
+	RecordingManager() : post_detection_record_time_(30), state_file_("/tmp/recording_state"), log_file_path_("/home/matteius/recordings/detections.log") {}
 
 	RecordingManager(const RecordingManager&) = delete;
 	RecordingManager& operator=(const RecordingManager&) = delete;
@@ -56,4 +73,5 @@ private:
 	int post_detection_record_time_; // in seconds
 	std::mutex mutex_;
 	std::string state_file_;
+	std::string log_file_path_;
 };
