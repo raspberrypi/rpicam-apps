@@ -289,7 +289,9 @@ Options::Options()
 		("flicker-period", value<std::string>(&flicker_period_)->default_value("0s"),
 			"Manual flicker correction period"
 			"\nSet to 10000us to cancel 50Hz flicker."
-			"\nSet to 8333us to cancel 60Hz flicker.\n")
+			"\nSet to 8333us to cancel 60Hz flicker.\n"),
+		("record-detection", value<unsigned int>(&record_detection)->default_value(0),
+			"Set the duration (in seconds) to continue recording after object detection")
 		;
 	// clang-format on
 

@@ -87,8 +87,6 @@ static void event_loop(RPiCamEncoder &app)
 	signal(SIGPIPE, default_signal_handler);
 	pollfd p[1] = { { STDIN_FILENO, POLLIN, 0 } };
 
-	RecordingManager::getInstance().setPostDetectionRecordTime(5);
-
 	for (unsigned int count = 0; ; count++)
 	{
 		RPiCamEncoder::Msg msg = app.Wait();
@@ -150,7 +148,7 @@ int main(int argc, char *argv[])
 		{
 			if (options->verbose >= 2)
 				options->Print();
-
+			RecordingManager::getInstance().setPostDetectionRecordTime(options->record_detection);
 			event_loop(app);
 		}
 	}

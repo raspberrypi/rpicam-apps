@@ -24,6 +24,9 @@ public:
 
 	bool shouldRecord() {
 		std::lock_guard<std::mutex> lock(mutex_);
+		if (!post_detection_record_time_) {
+			return false;
+		}
 		std::ifstream file(state_file_);
 		if (!file) {
 			return false;  // No object has been detected yet
