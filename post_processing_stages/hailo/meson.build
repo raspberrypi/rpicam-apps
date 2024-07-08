@@ -1,6 +1,8 @@
 hailo_tappas_lib_dir = hailo_tappas_dep.get_variable('tappas_libdir')
 hailo_tappas_posproc_libdir = hailo_tappas_lib_dir / 'post-process'
-assets_dir = '/home/matteius/Projects/rpicam-apps-opensensor/assets' 
+
+home = run_command('sh', '-c', 'echo $HOME', check: true).stdout().strip()
+assets_dir = home / 'rpicam-apps/assets'
 
 hailo_conf_data = configuration_data()
 hailo_conf_data.set('HAILO_POSTPROC_LIB_DIR', '"' + hailo_tappas_posproc_libdir + '"')
