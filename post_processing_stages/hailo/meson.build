@@ -35,9 +35,9 @@ postproc_assets = files([
 if opencv_dep.found()
     hailo_postprocessing_src += files([
         # Pose estimation
-        'hailo_yolov8_pose.cpp',
+        #'hailo_yolov8_pose.cpp',
         # Instance segmentation
-        'hailo_yolov5_segmentation.cpp'
+        #'hailo_yolov5_segmentation.cpp'
     ])
 
     postproc_assets += files([
