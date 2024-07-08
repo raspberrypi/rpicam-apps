@@ -12,6 +12,7 @@
 #include <sys/stat.h>
 
 #include "core/rpicam_encoder.hpp"
+#include "core/recording_manager.hpp"
 #include "output/output.hpp"
 
 using namespace std::placeholders;
@@ -64,6 +65,7 @@ static int get_colourspace_flags(std::string const &codec)
 
 static void event_loop(RPiCamEncoder &app)
 {
+	const auto toggle_interval = std::chrono::seconds(10);
 	VideoOptions const *options = app.GetOptions();
 	std::unique_ptr<Output> output = std::unique_ptr<Output>(Output::Create(options));
 	app.SetEncodeOutputReadyCallback(std::bind(&Output::OutputReady, output.get(), _1, _2, _3, _4));
@@ -73,7 +75,7 @@ static void event_loop(RPiCamEncoder &app)
 	app.ConfigureVideo(get_colourspace_flags(options->codec));
 	app.StartEncoder();
 	app.StartCamera();
-	auto start_time = std::chrono::high_resolution_clock::now();
+	auto start_time = std::chrono::steady_clock::now();
 
 	// Monitoring for keypresses and signals.
 	signal(SIGUSR1, default_signal_handler);
@@ -103,8 +105,20 @@ static void event_loop(RPiCamEncoder &app)
 		if (key == '\n')
 			output->Signal();
 
+                auto now = std::chrono::steady_clock::now();
+		bool should_record = RecordingManager::getInstance().shouldRecord();
+        if (should_record && !app.IsRecording())
+		{
+			app.StartRecording();
+			std::cout << "Recording started called at least" << std::endl;
+		}
+		else if (!should_record && app.IsRecording())
+		{
+			app.StopRecording();
+			std::cout << "Recording stopped called at least" << std::endl;
+		}
+
 		LOG(2, "Viewfinder frame " << count);
-		auto now = std::chrono::high_resolution_clock::now();
 		bool timeout = !options->frames && options->timeout &&
 					   ((now - start_time) > options->timeout.value);
 		bool frameout = options->frames && count >= options->frames;
@@ -134,7 +148,7 @@ int main(int argc, char *argv[])
 		{
 			if (options->verbose >= 2)
 				options->Print();
-
+			RecordingManager::getInstance().setPostDetectionRecordTime(options->record_detection);
 			event_loop(app);
 		}
 	}

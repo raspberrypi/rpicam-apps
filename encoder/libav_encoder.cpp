@@ -188,12 +188,27 @@ void LibAvEncoder::initVideoCodec(VideoOptions const *options, StreamInfo const 
 		{
 			if (options->libav_video_codec == "h264_v4l2m2m" || options->libav_video_codec == "libx264")
 				format = "h264";
+
 			else
 				throw std::runtime_error("libav: please specify output format with the --libav-format argument");
 		}
 	}
 	else
 		format = options->libav_format.c_str();
+
+	bool is_udp_output = (output_file_.find("udp://") == 0);
+	if (is_udp_output) {
+		// Optimize for UDP streaming
+		codec_ctx_[Video]->max_b_frames = 0;
+		av_opt_set(codec_ctx_[Video]->priv_data, "preset", "ultrafast", 0);
+		av_opt_set(codec_ctx_[Video]->priv_data, "tune", "zerolatency", 0);
+
+		// Use CBR for more consistent network usage
+		if (options->bitrate) {
+			codec_ctx_[Video]->rc_min_rate = codec_ctx_[Video]->rc_max_rate = codec_ctx_[Video]->bit_rate;
+			codec_ctx_[Video]->rc_buffer_size = codec_ctx_[Video]->bit_rate;
+		}
+	}
 
 	// Legacy handling of the --listen parameter.  If missing from the url string, add "?listen=1" to the end.
 	if (options->listen && output_file_.find(tcp.c_str(), 0, tcp.length()) != std::string::npos)
@@ -227,10 +242,13 @@ void LibAvEncoder::initVideoCodec(VideoOptions const *options, StreamInfo const 
 	//
 	// This seems to be a limitation/bug in ffmpeg:
 	// https://github.com/FFmpeg/FFmpeg/blob/3141dbb7adf1e2bd5b9ff700312d7732c958b8df/libavformat/avienc.c#L527
-	if (!strncmp(out_fmt_ctx_->oformat->name, "avi", 3))
+	if (!strncmp(out_fmt_ctx_->oformat->name, "avi", 3)) {
 		stream_[Video]->time_base = { 1000, (int)(options->framerate.value_or(DEFAULT_FRAMERATE) * 1000) };
-	else
+	} else {
 		stream_[Video]->time_base = codec_ctx_[Video]->time_base;
+		int framerate = static_cast<int>(std::round(options->framerate.value_or(DEFAULT_FRAMERATE) * 1000));
+		codec_ctx_[Video]->time_base = AVRational{1, framerate};
+	}
 
 	stream_[Video]->avg_frame_rate = stream_[Video]->r_frame_rate = codec_ctx_[Video]->framerate;
 	avcodec_parameters_from_context(stream_[Video]->codecpar, codec_ctx_[Video]);
@@ -385,6 +403,16 @@ LibAvEncoder::~LibAvEncoder()
 
 void LibAvEncoder::EncodeBuffer(int fd, size_t size, void *mem, StreamInfo const &info, int64_t timestamp_us)
 {
+	if (abort_video_) {
+		// If we're stopping, don't encode new frames
+		return;
+	}
+	if (fd == -1 && size == 0 && mem == nullptr) {
+		// This is the flush signal
+		Flush();
+		return;
+	}
+
 	AVFrame *frame = av_frame_alloc();
 	if (!frame)
 		throw std::runtime_error("libav: could not allocate AVFrame");
@@ -397,8 +425,11 @@ void LibAvEncoder::EncodeBuffer(int fd, size_t size, void *mem, StreamInfo const
 	frame->height = info.height;
 	frame->linesize[0] = info.stride;
 	frame->linesize[1] = frame->linesize[2] = info.stride >> 1;
-	frame->pts = timestamp_us - video_start_ts_ +
-				 (options_->av_sync.value < 0us ? -options_->av_sync.get<std::chrono::microseconds>() : 0);
+
+	// Calculate PTS in codec's timebase
+	//int64_t pts_us = timestamp_us - video_start_ts_ +
+	//				 (options_->av_sync.value < 0us ? -options_->av_sync.get<std::chrono::microseconds>() : 0);
+	frame->pts = av_rescale_q(timestamp_us - video_start_ts_, AV_TIME_BASE_Q, codec_ctx_[Video]->time_base);
 
 	if (codec_ctx_[Video]->pix_fmt == AV_PIX_FMT_DRM_PRIME)
 	{
@@ -441,6 +472,12 @@ void LibAvEncoder::EncodeBuffer(int fd, size_t size, void *mem, StreamInfo const
 
 void LibAvEncoder::initOutput()
 {
+	// If output is already initialized, deinitialize it first
+	if (out_fmt_ctx_ && out_fmt_ctx_->pb)
+	{
+		deinitOutput();
+	}
+
 	int ret;
 
 	// Copy the global header from the video encode context once the first frame
@@ -468,7 +505,20 @@ void LibAvEncoder::initOutput()
 	if (ret < 0)
 	{
 		av_strerror(ret, err, sizeof(err));
+		// Close the opened file if header write fails
+		if (out_fmt_ctx_->pb)
+			avio_closep(&out_fmt_ctx_->pb);
 		throw std::runtime_error("libav: unable write output mux header for " + output_file_ + ": " + err);
+	}
+
+	// Write MOOV atom only for non-UDP outputs
+	if (output_file_.find("udp://") != 0) {
+		ret = av_write_frame(out_fmt_ctx_, NULL);
+		if (ret < 0) {
+			char err[AV_ERROR_MAX_STRING_SIZE];
+			av_strerror(ret, err, sizeof(err));
+			throw std::runtime_error("libav: unable to write MOOV atom: " + std::string(err));
+		}
 	}
 }
 
@@ -477,10 +527,16 @@ void LibAvEncoder::deinitOutput()
 	if (!out_fmt_ctx_)
 		return;
 
-	av_write_trailer(out_fmt_ctx_);
+	if (out_fmt_ctx_->pb)
+	{
+		av_write_trailer(out_fmt_ctx_);
 
-	if (!(out_fmt_ctx_->flags & AVFMT_NOFILE))
-		avio_closep(&out_fmt_ctx_->pb);
+		if (!(out_fmt_ctx_->flags & AVFMT_NOFILE))
+			avio_closep(&out_fmt_ctx_->pb);
+	}
+
+	// Reset the context, but don't free it as it might be reused
+	// avformat_flush(out_fmt_ctx_);
 }
 
 void LibAvEncoder::encode(AVPacket *pkt, unsigned int stream_id)
@@ -497,9 +553,14 @@ void LibAvEncoder::encode(AVPacket *pkt, unsigned int stream_id)
 			break;
 		}
 		else if (ret < 0)
-			throw std::runtime_error("libav: error receiving packet: " + std::to_string(ret));
+		{
+			char err[AV_ERROR_MAX_STRING_SIZE];
+			av_strerror(ret, err, sizeof(err));
+			LOG_ERROR("libav: error receiving packet: " << err);
+			break;
+		}
 
-		// Initialise the ouput mux on the first received video packet, as we may need
+		// Initialise the output mux on the first received video packet, as we may need
 		// to copy global header data from the encoder.
 		if (stream_id == Video && !output_ready_)
 		{
@@ -509,7 +570,7 @@ void LibAvEncoder::encode(AVPacket *pkt, unsigned int stream_id)
 
 		pkt->stream_index = stream_id;
 		pkt->pos = -1;
-		pkt->duration = 0;
+		pkt->duration = av_rescale_q(1, codec_ctx_[stream_id]->time_base, out_fmt_ctx_->streams[stream_id]->time_base);
 
 		// Rescale from the codec timebase to the stream timebase.
 		av_packet_rescale_ts(pkt, codec_ctx_[stream_id]->time_base, out_fmt_ctx_->streams[stream_id]->time_base);
@@ -523,7 +584,8 @@ void LibAvEncoder::encode(AVPacket *pkt, unsigned int stream_id)
 		{
 			char err[AV_ERROR_MAX_STRING_SIZE];
 			av_strerror(ret, err, sizeof(err));
-			throw std::runtime_error("libav: error writing output: " + std::string(err));
+			LOG_ERROR("libav: error writing output: " << err);
+			break;
 		}
 	}
 }
@@ -576,9 +638,7 @@ void LibAvEncoder::videoThread()
 		av_frame_free(&frame);
 	}
 
-done:
-	// Flush the encoder
-	avcodec_send_frame(codec_ctx_[Video], nullptr);
+	done:
 	encode(pkt, Video);
 
 	av_packet_free(&pkt);
@@ -747,4 +807,84 @@ void LibAvEncoder::audioThread()
 	av_packet_free(&in_pkt);
 	av_packet_free(&out_pkt);
 	av_frame_free(&in_frame);
+}
+
+void LibAvEncoder::SetOutputFile(const std::string &output_file)
+{
+	if (output_file_ != output_file)
+	{
+		deinitOutput();
+		output_file_ = output_file;
+		// resetTimestamp();
+		initOutput();
+	}
+}
+
+void LibAvEncoder::ClearOutputFile()
+{
+	if (!output_file_.empty())
+	{
+		deinitOutput();
+		output_file_ = "/dev/null";
+		initOutput();
+	}
+}
+
+void LibAvEncoder::Flush()
+{
+	if (!codec_ctx_[Video] || !out_fmt_ctx_) {
+		LOG_ERROR("Encoder context or output format context is null during flush");
+		return;
+	}
+
+	AVPacket *pkt = av_packet_alloc();
+	if (!pkt) {
+		LOG_ERROR("Failed to allocate packet during flush");
+		return;
+	}
+
+	int ret;
+	bool encoding_finished = false;
+
+	// Send NULL to encoder to signal EOF
+	ret = avcodec_send_frame(codec_ctx_[Video], nullptr);
+	if (ret < 0 && ret != AVERROR_EOF) {
+		LOG_ERROR("Error sending NULL frame to encoder: ");
+	}
+
+	while (!encoding_finished) {
+		ret = avcodec_receive_packet(codec_ctx_[Video], pkt);
+		if (ret == AVERROR(EAGAIN)) {
+			continue;
+		} else if (ret == AVERROR_EOF) {
+			encoding_finished = true;
+			break;
+		} else if (ret < 0) {
+			LOG_ERROR("Error receiving packet from encoder: ");
+			break;
+		}
+
+		av_packet_rescale_ts(pkt, codec_ctx_[Video]->time_base, stream_[Video]->time_base);
+		pkt->stream_index = stream_[Video]->index;
+
+		ret = av_interleaved_write_frame(out_fmt_ctx_, pkt);
+		if (ret < 0) {
+			LOG_ERROR("Error writing frame during flush: ");
+			break;
+		}
+
+		av_packet_unref(pkt);
+	}
+
+	av_packet_free(&pkt);
+
+	// Write the trailer
+	ret = av_write_trailer(out_fmt_ctx_);
+	if (ret < 0) {
+		LOG_ERROR("Error writing trailer: ");
+	}
+
+	if (out_fmt_ctx_ && !(out_fmt_ctx_->oformat->flags & AVFMT_NOFILE)) {
+		avio_closep(&out_fmt_ctx_->pb);
+	}
 }

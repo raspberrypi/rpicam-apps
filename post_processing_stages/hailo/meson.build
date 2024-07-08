@@ -1,6 +1,9 @@
 hailo_tappas_lib_dir = hailo_tappas_dep.get_variable('tappas_libdir')
 hailo_tappas_posproc_libdir = hailo_tappas_lib_dir / 'post-process'
 
+home = run_command('sh', '-c', 'echo $HOME', check: true).stdout().strip()
+assets_dir = home / 'rpicam-apps/assets'
+
 hailo_conf_data = configuration_data()
 hailo_conf_data.set('HAILO_POSTPROC_LIB_DIR', '"' + hailo_tappas_posproc_libdir + '"')
 hailo_postproc_lib = configure_file(output : 'hailo_postproc_lib.h', configuration : hailo_conf_data)
@@ -21,7 +24,7 @@ hailo_postprocessing_src = files([
     'hailo_classifier.cpp',
 ])
 
-postproc_assets += files([
+postproc_assets = files([
     assets_dir / 'hailo_classifier.json',
     assets_dir / 'hailo_yolov5_personface.json',
     assets_dir / 'hailo_yolov6_inference.json',
@@ -32,9 +35,9 @@ postproc_assets += files([
 if opencv_dep.found()
     hailo_postprocessing_src += files([
         # Pose estimation
-        'hailo_yolov8_pose.cpp',
+        #'hailo_yolov8_pose.cpp',
         # Instance segmentation
-        'hailo_yolov5_segmentation.cpp'
+        #'hailo_yolov5_segmentation.cpp'
     ])
 
     postproc_assets += files([

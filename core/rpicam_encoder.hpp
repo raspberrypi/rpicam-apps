@@ -7,6 +7,11 @@
 
 #pragma once
 
+#include <chrono>
+#include <iomanip>
+#include <sstream>
+#include <filesystem>
+
 #include "core/rpicam_app.hpp"
 #include "core/stream_info.hpp"
 #include "core/video_options.hpp"
@@ -54,6 +59,55 @@ public:
 	VideoOptions *GetOptions() const { return static_cast<VideoOptions *>(options_.get()); }
 	void StopEncoder() { encoder_.reset(); }
 
+	void StartRecording()
+	{
+		if (!is_recording_)
+		{
+			is_recording_ = true;
+
+			// Generate filename based on current timestamp
+			auto now = std::chrono::system_clock::now();
+			auto in_time_t = std::chrono::system_clock::to_time_t(now);
+
+			std::stringstream ss;
+			ss << std::put_time(std::localtime(&in_time_t), "%Y%m%d_%H%M%S");
+
+			std::filesystem::path output_dir = "recordings";  // You can change this to your desired directory
+			std::filesystem::create_directories(output_dir);  // Ensure the directory exists
+
+			recording_file_ = (output_dir / (ss.str() + ".mp4")).string();
+
+			if (encoder_)
+			{
+				encoder_->SetOutputFile(recording_file_);
+			}
+
+			std::cout << "Started recording to file: " << recording_file_ << std::endl;
+			LOG(2, "Started recording to file: " << recording_file_);
+		}
+	}
+
+	void StopRecording()
+	{
+		if (is_recording_)
+		{
+			std::cout << "Recording stopped" << std::endl;
+			is_recording_ = false;
+
+			if (encoder_)
+			{
+				// Flush the encoder
+				// encoder_->EncodeBuffer(-1, 0, nullptr, StreamInfo(), 0);
+				// encoder_->Flush();
+				// Clear the output file after flushing
+				encoder_->ClearOutputFile();
+			}
+		}
+	}
+
+	bool IsRecording() const { return is_recording_; }
+
+
 protected:
 	virtual void createEncoder()
 	{
@@ -88,4 +142,6 @@ private:
 	std::mutex encode_buffer_queue_mutex_;
 	EncodeOutputReadyCallback encode_output_ready_callback_;
 	MetadataReadyCallback metadata_ready_callback_;
+	bool is_recording_ = false;
+	std::string recording_file_;
 };

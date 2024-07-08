@@ -143,6 +143,10 @@ public:
 	void StartCamera();
 	void StopCamera();
 
+	virtual void StartRecording() {};
+	virtual void StopRecording() {};
+	bool IsRecording() const { return is_recording_; }
+
 	Msg Wait();
 	void PostMessage(MsgType &t, MsgPayload &p);
 
@@ -281,4 +285,7 @@ private:
 	uint64_t last_timestamp_;
 	uint64_t sequence_ = 0;
 	PostProcessor post_processor_;
+	bool is_recording_ = false;
+	std::string recording_file_;
+
 };

@@ -28,6 +28,8 @@ class RPiCamStillApp : public RPiCamApp
 {
 public:
 	RPiCamStillApp() : RPiCamApp(std::make_unique<StillOptions>()) {}
+	void StartRecording() {};
+	void StopRecording() {};
 
 	StillOptions *GetOptions() const { return static_cast<StillOptions *>(options_.get()); }
 };
