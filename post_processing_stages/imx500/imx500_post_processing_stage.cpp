@@ -4,10 +4,12 @@
  *
  * imx500_post_rpocessing_stage.cpp - IMX500 post processing stage base class
  */
-
 #include <cmath>
+#include <fcntl.h>
 #include <filesystem>
+#include <linux/videodev2.h>
 #include <string>
+#include <sys/ioctl.h>
 
 #include <boost/property_tree/ptree.hpp>
 
@@ -24,7 +26,7 @@ namespace fs = std::filesystem;
 namespace
 {
 
-const fs::path network_firmware_symlink { "/lib/firmware/imx500_network.rpk" };
+const unsigned int NETWORK_FW_CTRL_ID = 0x00981b01;
 
 inline int16_t conv_reg_signed(int16_t reg)
 {
@@ -38,6 +40,38 @@ inline int16_t conv_reg_signed(int16_t reg)
 }
 
 } // namespace
+
+
+IMX500PostProcessingStage::IMX500PostProcessingStage(RPiCamApp *app)
+	: PostProcessingStage(app), device_fd_(-1)
+{
+	for (unsigned int i = 0; i < 16; i++)
+	{
+		const fs::path test_dir { "/sys/class/video4linux/v4l-subdev" + std::to_string(i) + "/device" };
+		const fs::path module_dir { test_dir.string() + "/driver/module" };
+		const fs::path id_dir { test_dir.string() + "/of_node" };
+
+		if (fs::exists(module_dir) && fs::is_symlink(module_dir))
+		{
+			fs::path ln = fs::read_symlink(module_dir);
+			if (ln.string().find("imx500") != std::string::npos)
+			{
+				const std::string dev_node { "/dev/v4l-subdev" + std::to_string(i) };
+				device_fd_ = open(dev_node.c_str(), O_RDONLY, 0);
+				break;
+			}
+		}
+	}
+
+	if (device_fd_ < 0)
+		throw std::runtime_error("Cannot open imx500 device node");
+}
+
+IMX500PostProcessingStage::~IMX500PostProcessingStage()
+{
+	if (device_fd_ >= 0)
+		close(device_fd_);
+}
 
 void IMX500PostProcessingStage::Read(boost::property_tree::ptree const &params)
 {
@@ -55,37 +89,23 @@ void IMX500PostProcessingStage::Read(boost::property_tree::ptree const &params)
 		div_shift_ = pt.get<unsigned int>("div_shift", 0);
 	}
 
-	if (params.find("network_file") != params.not_found())
-	{
-		// network_firmware_symlink points to another symlink (e.g. /home/pi/imx500_network_firmware/imx500_network.rpk)
-		// accessable by the user. This accessable symlink needs to point to the network rpk file that will eventually
-		// be pushed into the IMX500 by the kernel driver.
-		std::string network_file = params.get<std::string>("network_file");
-		if (!fs::exists(network_file))
-			throw std::runtime_error(network_file + " not found!");
+	/* Load the network firmware. */
+	std::string network_file = params.get<std::string>("network_file");
+	if (!fs::exists(network_file))
+		throw std::runtime_error(network_file + " not found!");
 
-		// Check if network_firmware_symlink points to another symlink.
-		if (!fs::is_symlink(network_firmware_symlink) ||
-			!fs::is_symlink(fs::read_symlink(network_firmware_symlink)))
-		{
-			LOG(1, network_firmware_symlink.c_str()
-				   << " is not a symlink, or its target itself is not a symlink."
-				   << " The \"network_file\" config param will be ignored.");
-			return;
-		}
+	int fd = open(network_file.c_str(), O_RDONLY, 0);
 
-		// Update the user accessable symlink to the user requested firmware if needed.
-		fs::path local_symlink = fs::read_symlink(network_firmware_symlink);
-		if (!fs::equivalent(fs::read_symlink(local_symlink), network_file))
-		{
-			fs::remove(local_symlink);
-			fs::create_symlink(network_file, local_symlink);
-		}
-	}
+	v4l2_control ctrl { NETWORK_FW_CTRL_ID, fd };
+	int ret = ioctl(device_fd_, VIDIOC_S_CTRL, &ctrl);
+	if (ret)
+		throw std::runtime_error("failed to set network fw ioctl");
+
+	close(fd);
 
 	LOG(1, "\n------------------------------------------------------------------------------------------------------------------\n"
-		   "NOTE: Loading network firmware onto the IMX500 can take several minutes, please do not close down the application."
-		   "\n------------------------------------------------------------------------------------------------------------------\n");
+		"NOTE: Loading network firmware onto the IMX500 can take several minutes, please do not close down the application."
+		"\n------------------------------------------------------------------------------------------------------------------\n");
 }
 
 void IMX500PostProcessingStage::Configure()

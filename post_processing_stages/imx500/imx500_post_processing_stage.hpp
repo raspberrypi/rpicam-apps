@@ -41,10 +41,8 @@ public:
 		OutputTensorInfo info[max_num_tensors];
 	};
 
-	IMX500PostProcessingStage(RPiCamApp *app)
-		: PostProcessingStage(app)
-	{
-	}
+	IMX500PostProcessingStage(RPiCamApp *app);
+	~IMX500PostProcessingStage();
 
 	void Read(boost::property_tree::ptree const &params) override;
 
@@ -61,6 +59,7 @@ protected:
 	libcamera::Stream *raw_stream_;
 
 private:
+	int device_fd_;
 	std::ofstream input_tensor_file_;
 	unsigned int num_input_tensors_saved_;
 	unsigned int save_frames_;
