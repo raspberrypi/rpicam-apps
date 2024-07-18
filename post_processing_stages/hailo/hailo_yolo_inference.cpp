@@ -153,21 +153,48 @@ bool YoloInference::Process(CompletedRequestPtr &completed_request)
 		return false;
 	}
 
+	BufferReadSync r(app_, completed_request->buffers[low_res_stream_]);
+	libcamera::Span<uint8_t> buffer = r.Get()[0];
 	std::shared_ptr<uint8_t> input;
-	if (low_res_info_.pixel_format != libcamera::formats::BGR888)
+	uint8_t *input_ptr;
+
+	if (low_res_info_.pixel_format == libcamera::formats::YUV420)
 	{
 		StreamInfo rgb_info;
 		rgb_info.width = INPUT_TENSOR_SIZE.width;
 		rgb_info.height = INPUT_TENSOR_SIZE.height;
 		rgb_info.stride = rgb_info.width * 3;
 
-		BufferReadSync r(app_, completed_request->buffers[low_res_stream_]);
-		libcamera::Span<uint8_t> buffer = r.Get()[0];
 		input = allocator_.Allocate(rgb_info.stride * rgb_info.height);
+		input_ptr = input.get();
+
 		Yuv420ToRgb(input.get(), buffer.data(), low_res_info_, rgb_info);
 	}
+	else if (low_res_info_.pixel_format == libcamera::formats::RGB888 ||
+			 low_res_info_.pixel_format == libcamera::formats::BGR888)
+	{
+		unsigned int stride = low_res_info_.width * 3;
 
-	std::vector<Detection> objects = runInference(input.get());
+		// If the stride shows we have padding on the right edge of the buffer, we must copy it out to another buffer
+		// without padding.
+		if (low_res_info_.stride != stride)
+		{
+			input = allocator_.Allocate(stride * low_res_info_.height);
+			input_ptr = input.get();
+
+			for (unsigned int i = 0; i < low_res_info_.height; i++)
+				memcpy(input_ptr + i * stride, buffer.data() + i * low_res_info_.stride, stride);
+		}
+		else
+			input_ptr = buffer.data();
+	}
+	else
+	{
+		LOG_ERROR("Unexpected lores format " << low_res_info_.pixel_format);
+		return false;
+	}
+
+	std::vector<Detection> objects = runInference(input_ptr);
 	if (objects.size())
 	{
 		if (temporal_filtering_)

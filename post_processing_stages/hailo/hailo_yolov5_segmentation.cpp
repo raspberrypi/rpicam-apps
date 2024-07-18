@@ -311,18 +311,36 @@ bool YoloSegmentation::Process(CompletedRequestPtr &completed_request)
 		return false;
 	}
 
+	BufferReadSync r(app_, completed_request->buffers[low_res_stream_]);
+	libcamera::Span<uint8_t> low_res_buffer = r.Get()[0];
 	std::shared_ptr<uint8_t> input;
-	if (low_res_info_.pixel_format != libcamera::formats::BGR888)
+
+	if (low_res_info_.pixel_format == libcamera::formats::YUV420)
 	{
 		StreamInfo rgb_info;
 		rgb_info.width = INPUT_TENSOR_SIZE.width;
 		rgb_info.height = INPUT_TENSOR_SIZE.height;
 		rgb_info.stride = rgb_info.width * 3;
 
-		BufferReadSync r(app_, completed_request->buffers[low_res_stream_]);
-		libcamera::Span<uint8_t> buffer = r.Get()[0];
 		input = allocator_.Allocate(rgb_info.stride * rgb_info.height);
-		Yuv420ToRgb(input.get(), buffer.data(), low_res_info_, rgb_info);
+		Yuv420ToRgb(input.get(), low_res_buffer.data(), low_res_info_, rgb_info);
+	}
+	else if (low_res_info_.pixel_format == libcamera::formats::RGB888 ||
+			 low_res_info_.pixel_format == libcamera::formats::BGR888)
+	{
+		unsigned int stride = low_res_info_.width * 3;
+
+		input = allocator_.Allocate(stride * low_res_info_.height);
+
+		// If the stride shows we have padding on the right edge of the buffer, we must copy it out to another buffer
+		// without padding.
+		for (unsigned int i = 0; i < low_res_info_.height; i++)
+			memcpy(input.get() + i * stride, low_res_buffer.data() + i * low_res_info_.stride, stride);
+	}
+	else
+	{
+		LOG_ERROR("Unexpected lores format " << low_res_info_.pixel_format);
+		return false;
 	}
 
 	BufferWriteSync w(app_, completed_request->buffers[output_stream_]);
