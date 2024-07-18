@@ -332,7 +332,7 @@ void RPiCamApp::ConfigureViewfinder()
 		lores_size.alignDownTo(2, 2);
 		if (lores_size.width > size.width || lores_size.height > size.height)
 			throw std::runtime_error("Low res image larger than viewfinder");
-		configuration_->at(lores_stream_num).pixelFormat = libcamera::formats::YUV420;
+		configuration_->at(lores_stream_num).pixelFormat = lores_format_;
 		configuration_->at(lores_stream_num).size = lores_size;
 		configuration_->at(lores_stream_num).bufferCount = configuration_->at(0).bufferCount;
 	}
@@ -583,7 +583,7 @@ void RPiCamApp::ConfigureVideo(unsigned int flags)
 		if (lores_size.width > configuration_->at(0).size.width ||
 			lores_size.height > configuration_->at(0).size.height)
 			throw std::runtime_error("Low res image larger than video");
-		configuration_->at(lores_index).pixelFormat = libcamera::formats::YUV420;
+		configuration_->at(lores_index).pixelFormat = lores_format_;
 		configuration_->at(lores_index).size = lores_size;
 		configuration_->at(lores_index).bufferCount = configuration_->at(0).bufferCount;
 	}
