@@ -1,4 +1,14 @@
 {
+    "rpicam-apps":
+    {
+        "lores":
+        {
+            "width": 224,
+            "height": 224,
+            "format": "rgb"
+        }
+    },
+
     "hailo_classifier":
     {
         "hef_file": "/usr/share/hailo-models/resnet_v1_50_h8l.hef"
