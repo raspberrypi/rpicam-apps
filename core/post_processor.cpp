@@ -8,6 +8,7 @@
 #include <dlfcn.h>
 #include <filesystem>
 #include <iostream>
+#include <map>
 
 #include "core/options.hpp"
 #include "core/rpicam_app.hpp"
@@ -17,6 +18,8 @@
 
 #include <boost/property_tree/json_parser.hpp>
 #include <boost/property_tree/ptree.hpp>
+
+#include <libcamera/formats.h>
 
 #include "post_processing_stages/postproc_lib.h"
 
@@ -103,15 +106,49 @@ void PostProcessor::Read(std::string const &filename)
 	boost::property_tree::read_json(filename, root);
 	for (auto const &key_and_value : root)
 	{
-		PostProcessingStage *stage = createPostProcessingStage(key_and_value.first.c_str());
-		if (stage)
+		if (key_and_value.first == "rpicam-apps")
 		{
-			LOG(1, "Reading post processing stage \"" << key_and_value.first << "\"");
-			stage->Read(key_and_value.second);
-			stages_.push_back(StagePtr(stage));
+			boost::property_tree::ptree const &node = key_and_value.second;
+
+			if (node.find("lores") != node.not_found())
+			{
+				static std::map<std::string, libcamera::PixelFormat> formats {
+					{ "rgb", libcamera::formats::BGR888 },
+					{ "bgr", libcamera::formats::RGB888 },
+					{ "yuv420", libcamera::formats::YUV420 },
+				};
+
+				unsigned int lores_width = node.get<unsigned int>("lores.width");
+				unsigned int lores_height = node.get<unsigned int>("lores.height");
+				std::string lores_format_str = node.get<std::string>("lores.format", "yuv420");
+
+				libcamera::PixelFormat lores_format = libcamera::formats::YUV420;
+
+				auto it = formats.find(lores_format_str);
+				if (it == formats.end())
+					LOG_ERROR("Unknown requested lores format: " << lores_format_str);
+				else
+					lores_format = it->second;
+
+				app_->GetOptions()->lores_width = lores_width;
+				app_->GetOptions()->lores_height = lores_height;
+				app_->lores_format_ = lores_format;
+
+				LOG(1, "Postprocessing requested lores: " << lores_width << "x" << lores_height << " " << lores_format);
+			}
 		}
 		else
-			LOG(1, "No post processing stage found for \"" << key_and_value.first << "\"");
+		{
+			PostProcessingStage *stage = createPostProcessingStage(key_and_value.first.c_str());
+			if (stage)
+			{
+				LOG(1, "Reading post processing stage \"" << key_and_value.first << "\"");
+				stage->Read(key_and_value.second);
+				stages_.push_back(StagePtr(stage));
+			}
+			else
+				LOG(1, "No post processing stage found for \"" << key_and_value.first << "\"");
+		}
 	}
 }
 
