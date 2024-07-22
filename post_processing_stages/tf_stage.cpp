@@ -113,7 +113,7 @@ bool TfStage::Process(CompletedRequestPtr &completed_request)
 				auto time_taken = ExecutionTime<std::micro>(&TfStage::runInference, this).count();
 
 				if (config_->verbose)
-					LOG(1, "TfStage: Inference time: " << time_taken << " ms");
+					LOG(1, "TfStage: Inference time: " << time_taken << " us");
 			});
 		}
 	}
