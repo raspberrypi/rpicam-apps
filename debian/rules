@@ -1,17 +1,17 @@
 #!/usr/bin/make -f
 #export DH_VERBOSE = 1
 
-CONFIG_COMMON := -Denable_opencv=disabled -Denable_tflite=disabled -Ddownload_hailo_models=false
+CONFIG_COMMON := -Denable_opencv=disabled -Denable_tflite=disabled -Ddownload_hailo_models=false -Ddownload_imx500_models=false
 CONFIG_FULL := -Denable_libav=enabled -Denable_drm=enabled -Denable_egl=enabled -Denable_qt=enabled -Denable_opencv=enabled
 CONFIG_LITE := -Denable_egl=disabled -Denable_qt=disabled -Denable_libav=disabled -Denable_opencv=disabled
 
 POSTPROC_PATH := usr/lib/$(DEB_HOST_MULTIARCH)/rpicam-apps-postproc
 
 ifeq ($(DEB_HOST_ARCH),arm64)
-	CONFIG_FULL += -Denable_hailo=enabled
-	CONFIG_LITE += -Denable_hailo=disabled
+	CONFIG_FULL += -Denable_hailo=enabled -Denable_imx500=true
+	CONFIG_LITE += -Denable_hailo=disabled -Denable_imx500=false
 else
-	CONFIG_COMMON += -Denable_hailo=disabled
+	CONFIG_COMMON += -Denable_hailo=disabled -Denable_imx500=false
 endif
 
 %:
@@ -36,6 +36,8 @@ ifeq ($(DEB_HOST_ARCH),arm64)
 	mkdir -p debian/rpicam-apps-hailo-postprocess/$(POSTPROC_PATH)/ debian/rpicam-apps-hailo-postprocess/usr/share/
 	mv debian/rpicam-apps/$(POSTPROC_PATH)/hailo-postproc.so debian/rpicam-apps-hailo-postprocess/$(POSTPROC_PATH)/
 	mv debian/rpicam-apps/usr/share/hailo-models debian/rpicam-apps-hailo-postprocess/usr/share/
+	mkdir -p debian/rpicam-apps-imx500-postprocess/$(POSTPROC_PATH)/
+	mv debian/rpicam-apps/$(POSTPROC_PATH)/imx500-postproc.so debian/rpicam-apps-imx500-postprocess/$(POSTPROC_PATH)/
 endif
 
 override_dh_clean:
