@@ -34,10 +34,14 @@ override_dh_auto_install:
 	dh_auto_install --destdir=debian/rpicam-apps/
 ifeq ($(DEB_HOST_ARCH),arm64)
 	mkdir -p debian/rpicam-apps-hailo-postprocess/$(POSTPROC_PATH)/ debian/rpicam-apps-hailo-postprocess/usr/share/
+	mkdir -p debian/rpicam-apps-hailo-postprocess/usr/share/rpi-camera-assets/
 	mv debian/rpicam-apps/$(POSTPROC_PATH)/hailo-postproc.so debian/rpicam-apps-hailo-postprocess/$(POSTPROC_PATH)/
 	mv debian/rpicam-apps/usr/share/hailo-models debian/rpicam-apps-hailo-postprocess/usr/share/
+	mv debian/rpicam-apps/usr/share/rpi-camera-assets/hailo_*.json debian/rpicam-apps-hailo-postprocess/usr/share/rpi-camera-assets/
 	mkdir -p debian/rpicam-apps-imx500-postprocess/$(POSTPROC_PATH)/
+	mkdir -p debian/rpicam-apps-imx500-postprocess/usr/share/rpi-camera-assets/
 	mv debian/rpicam-apps/$(POSTPROC_PATH)/imx500-postproc.so debian/rpicam-apps-imx500-postprocess/$(POSTPROC_PATH)/
+	mv debian/rpicam-apps/usr/share/rpi-camera-assets/imx500_*.json debian/rpicam-apps-imx500-postprocess/usr/share/rpi-camera-assets/
 endif
 
 override_dh_clean:
