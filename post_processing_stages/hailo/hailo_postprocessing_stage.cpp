@@ -15,6 +15,9 @@
 
 using namespace hailort;
 
+using Rectangle = libcamera::Rectangle;
+using Size = libcamera::Size;
+
 Allocator::Allocator()
 {
 }
@@ -254,4 +257,32 @@ HailoROIPtr HailoPostProcessingStage::MakeROI(const std::vector<OutTensor> &outp
 	}
 
 	return roi;
+}
+
+Rectangle HailoPostProcessingStage::ConvertInferenceCoordinates(const std::vector<float> &coords,
+																const std::vector<Rectangle> &scaler_crops) const
+{
+	if (coords.size() != 4 || scaler_crops.size() != 2)
+		return {};
+
+	// Convert the inference image co-ordinates into the final ISP output co-ordinates.
+	const Size &isp_output_size = output_stream_->configuration().size;
+
+	// Object scaled to the full sensor resolution
+	Rectangle obj;
+	obj.x = std::round(coords[0] * (scaler_crops[1].width - 1));
+	obj.y = std::round(coords[1] * (scaler_crops[1].height - 1));
+	obj.width = std::round(coords[2] * (scaler_crops[1].width - 1));
+	obj.height = std::round(coords[3] * (scaler_crops[1].height - 1));
+
+	// Object on the low res scaler crop -> translated by the start of the low res crop offset
+	const Rectangle obj_translated_l = obj.translatedBy(scaler_crops[1].topLeft());
+	// -> bounded to the high res output crop
+	const Rectangle obj_bounded = obj_translated_l.boundedTo(scaler_crops[0]);
+	// -> translated to the start of the high res crop offset
+	const Rectangle obj_translated_h = obj_bounded.translatedBy(-scaler_crops[0].topLeft());
+	// -> and scaled to the ISP output.
+	const Rectangle obj_scaled = obj_translated_h.scaledBy(isp_output_size, scaler_crops[0].size());
+
+	return obj_scaled;
 }
