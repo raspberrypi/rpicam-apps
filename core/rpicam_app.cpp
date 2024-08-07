@@ -635,17 +635,35 @@ void RPiCamApp::StartCamera()
 
 	// Build a list of initial controls that we must set in the camera before starting it.
 	// We don't overwrite anything the application may have set before calling us.
-	if (!controls_.get(controls::ScalerCrop) && options_->roi_width != 0 && options_->roi_height != 0)
+	if (!controls_.get(controls::ScalerCrop) && !controls_.get(controls::rpi::ScalerCrops))
 	{
-		Rectangle sensor_area = camera_->controls().at(&controls::ScalerCrop).max().get<Rectangle>();
-		int x = options_->roi_x * sensor_area.width;
-		int y = options_->roi_y * sensor_area.height;
-		int w = options_->roi_width * sensor_area.width;
-		int h = options_->roi_height * sensor_area.height;
-		Rectangle crop(x, y, w, h);
-		crop.translateBy(sensor_area.topLeft());
-		LOG(2, "Using crop " << crop.toString());
-		controls_.set(controls::ScalerCrop, crop);
+		const Rectangle sensor_area = camera_->controls().at(&controls::ScalerCrop).max().get<Rectangle>();
+		const Rectangle default_crop = camera_->controls().at(&controls::ScalerCrop).def().get<Rectangle>();
+		std::vector<Rectangle> crops;
+
+		if (options_->roi_width != 0 && options_->roi_height != 0)
+		{
+			int x = options_->roi_x * sensor_area.width;
+			int y = options_->roi_y * sensor_area.height;
+			unsigned int w = options_->roi_width * sensor_area.width;
+			unsigned int h = options_->roi_height * sensor_area.height;
+			crops.push_back({ x, y, w, h });
+			crops.back().translateBy(sensor_area.topLeft());
+		}
+		else
+		{
+			crops.push_back(default_crop);
+		}
+
+		LOG(2, "Using crop (main) " << crops.back().toString());
+
+		if (options_->lores_width != 0 && options_->lores_height != 0 && !options_->lores_par)
+		{
+			crops.push_back(crops.back());
+			LOG(2, "Using crop (lores) " << crops.back().toString());
+		}
+
+		controls_.set(controls::rpi::ScalerCrops, libcamera::Span<const Rectangle>(crops.data(), crops.size()));
 	}
 
 	if (!controls_.get(controls::AfWindows) && !controls_.get(controls::AfMetering) && options_->afWindow_width != 0 &&
