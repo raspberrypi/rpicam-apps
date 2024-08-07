@@ -270,9 +270,11 @@ Options::Options()
 		("tuning-file", value<std::string>(&tuning_file)->default_value("-"),
 			"Name of camera tuning file to use, omit this option for libcamera default behaviour")
 		("lores-width", value<unsigned int>(&lores_width)->default_value(0),
-			"Width of low resolution frames (use 0 to omit low resolution stream")
+			"Width of low resolution frames (use 0 to omit low resolution stream)")
 		("lores-height", value<unsigned int>(&lores_height)->default_value(0),
-			"Height of low resolution frames (use 0 to omit low resolution stream")
+			"Height of low resolution frames (use 0 to omit low resolution stream)")
+		("lores-par", value<bool>(&lores_par)->default_value(false)->implicit_value(true),
+			"Preserve the 1:1 pixel aspect ratio of the low res image (where possible) by applying a different crop on the stream.")
 		("mode", value<std::string>(&mode_string),
 			"Camera mode as W:H:bit-depth:packing, where packing is P (packed) or U (unpacked)")
 		("viewfinder-mode", value<std::string>(&viewfinder_mode_string),
@@ -695,6 +697,7 @@ void Options::Print() const
 	std::cerr << "    tuning-file: " << (tuning_file == "-" ? "(libcamera)" : tuning_file) << std::endl;
 	std::cerr << "    lores-width: " << lores_width << std::endl;
 	std::cerr << "    lores-height: " << lores_height << std::endl;
+	std::cerr << "    lores-par: " << lores_par << std::endl;
 	if (afMode_index != -1)
 		std::cerr << "    autofocus-mode: " << afMode << std::endl;
 	if (afRange_index != -1)
