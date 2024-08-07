@@ -120,6 +120,7 @@ void PostProcessor::Read(std::string const &filename)
 
 				unsigned int lores_width = node.get<unsigned int>("lores.width");
 				unsigned int lores_height = node.get<unsigned int>("lores.height");
+				bool lores_par = node.get<bool>("lores.par", app_->GetOptions()->lores_par);
 				std::string lores_format_str = node.get<std::string>("lores.format", "yuv420");
 
 				libcamera::PixelFormat lores_format = libcamera::formats::YUV420;
@@ -132,6 +133,7 @@ void PostProcessor::Read(std::string const &filename)
 
 				app_->GetOptions()->lores_width = lores_width;
 				app_->GetOptions()->lores_height = lores_height;
+				app_->GetOptions()->lores_par = lores_par;
 				app_->lores_format_ = lores_format;
 
 				LOG(1, "Postprocessing requested lores: " << lores_width << "x" << lores_height << " " << lores_format);

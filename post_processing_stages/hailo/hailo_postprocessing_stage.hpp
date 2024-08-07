@@ -13,6 +13,8 @@
 #include <string>
 #include <vector>
 
+#include <libcamera/geometry.h>
+
 #include <hailo/hailort.hpp>
 #include "hailo_objects.hpp"
 
@@ -109,6 +111,9 @@ protected:
 
 	hailo_status DispatchJob(const uint8_t *input, hailort::AsyncInferJob &job, std::vector<OutTensor> &output_tensors);
 	HailoROIPtr MakeROI(const std::vector<OutTensor> &output_tensors) const;
+
+	libcamera::Rectangle ConvertInferenceCoordinates(const std::vector<float> &coords,
+													 const std::vector<libcamera::Rectangle> &scaler_crops) const;
 
 	libcamera::Stream *low_res_stream_;
 	libcamera::Stream *output_stream_;

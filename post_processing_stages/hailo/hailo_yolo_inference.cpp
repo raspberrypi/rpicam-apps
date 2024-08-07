@@ -13,6 +13,7 @@
 #include <string>
 #include <vector>
 
+#include <libcamera/controls.h>
 #include <libcamera/geometry.h>
 
 #include "core/rpicam_app.hpp"
@@ -27,6 +28,8 @@ using PostProcFuncPtr = void (*)(HailoROIPtr, YoloParams *);
 using PostProcFuncPtrNms = void (*)(HailoROIPtr);
 using InitFuncPtr = YoloParams *(*)(std::string, std::string);
 using FreeFuncPtr = void (*)(void *);
+
+using Rectangle = libcamera::Rectangle;
 
 namespace fs = std::filesystem;
 
@@ -49,7 +52,7 @@ public:
 	bool Process(CompletedRequestPtr &completed_request) override;
 
 private:
-	std::vector<Detection> runInference(const uint8_t *frame);
+	std::vector<Detection> runInference(const uint8_t *frame, const std::vector<libcamera::Rectangle> &scaler_crops);
 	void filterOutputObjects(std::vector<Detection> &objects);
 
 	struct LtObject
@@ -187,7 +190,23 @@ bool YoloInference::Process(CompletedRequestPtr &completed_request)
 		return false;
 	}
 
-	std::vector<Detection> objects = runInference(input_ptr);
+	std::vector<Rectangle> scaler_crops;
+	auto scaler_crop = completed_request->metadata.get(controls::ScalerCrop);
+	auto rpi_scaler_crop = completed_request->metadata.get(controls::rpi::ScalerCrops);
+
+	if (rpi_scaler_crop)
+	{
+		for (unsigned int i = 0; i < rpi_scaler_crop->size(); i++)
+			scaler_crops.push_back(rpi_scaler_crop->data()[i]);
+	}
+	else if (scaler_crop)
+	{
+		// Push-back twice, once for main, once for low res.
+		scaler_crops.push_back(*scaler_crop);
+		scaler_crops.push_back(*scaler_crop);
+	}
+
+	std::vector<Detection> objects = runInference(input_ptr, scaler_crops);
 	if (objects.size())
 	{
 		if (temporal_filtering_)
@@ -215,7 +234,7 @@ bool YoloInference::Process(CompletedRequestPtr &completed_request)
 	return false;
 }
 
-std::vector<Detection> YoloInference::runInference(const uint8_t *frame)
+std::vector<Detection> YoloInference::runInference(const uint8_t *frame, const std::vector<Rectangle> &scaler_crops)
 {
 	hailort::AsyncInferJob job;
 	std::vector<OutTensor> output_tensors;
@@ -265,7 +284,6 @@ std::vector<Detection> YoloInference::runInference(const uint8_t *frame)
 
 	// Translate results to the rpicam-apps Detection objects
 	std::vector<Detection> results;
-	Size output_size = output_stream_->configuration().size;
 	for (auto const &d : detections)
 	{
 		if (d->get_confidence() < threshold_)
@@ -273,12 +291,12 @@ std::vector<Detection> YoloInference::runInference(const uint8_t *frame)
 
 		// Extract bounding box co-ordinates in the output image co-ordinates.
 		auto const &box = d->get_bbox();
-		int x0 = std::round(std::max(box.xmin(), 0.0f) * (output_size.width - 1));
-		int x1 = std::round(std::min(box.xmax(), 1.0f) * (output_size.width - 1));
-		int y0 = std::round(std::max(box.ymin(), 0.0f) * (output_size.height - 1));
-		int y1 = std::round(std::min(box.ymax(), 1.0f) * (output_size.height - 1));
-		results.emplace_back(d->get_class_id(), d->get_label(), d->get_confidence(), x0, y0,
-							 x1 - x0, y1 - y0);
+		const float x0 = std::max(box.xmin(), 0.0f);
+		const float x1 = std::min(box.xmax(), 1.0f);
+		const float y0 = std::max(box.ymin(), 0.0f);
+		const float y1 = std::min(box.ymax(), 1.0f);
+		libcamera::Rectangle r = ConvertInferenceCoordinates({ x0, y0, x1 - x0, y1 - y0 }, scaler_crops);
+		results.emplace_back(d->get_class_id(), d->get_label(), d->get_confidence(), r.x, r.y, r.width, r.height);
 		LOG(2, "Object: " << results.back().toString());
 
 		if (--max_detections_ == 0)
