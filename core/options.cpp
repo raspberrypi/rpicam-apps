@@ -432,7 +432,8 @@ bool Options::Parse(int argc, char *argv[])
 				if (area)
 					sensor_props << (*area)[0].size().toString() << " ";
 
-				std::unique_ptr<CameraConfiguration> config = cam->generateConfiguration({libcamera::StreamRole::Raw});
+				std::unique_ptr<CameraConfiguration> config =
+					cam->generateConfiguration({ libcamera::StreamRole::Raw, libcamera::StreamRole::Viewfinder });
 				if (!config)
 					throw std::runtime_error("failed to generate capture configuration");
 				const StreamFormats &formats = config->at(0).formats();
