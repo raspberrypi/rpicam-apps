@@ -29,6 +29,8 @@ jobs:
       - name: Release tarball
         uses: softprops/action-gh-release@v1
         with:
-          files: build/meson-dist/*.tar.xz hailo-models-*.tar.xz
+          files: |
+            build/meson-dist/*.tar.xz
+            hailo-models-*.tar.xz
       - if: failure()
         run: cat build/meson-logs/meson-log.txt
