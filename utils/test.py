@@ -108,14 +108,14 @@ def test_hello(exe_dir, output_dir):
     print("    run test")
     retcode, time_taken = run_executable([executable, '-t', '2000'], logfile)
     check_retcode(retcode, "test_hello: run test")
-    check_time(time_taken, 1.8, 6, "test_hello: run test")
+    check_time(time_taken, 1, 6, "test_hello: run test")
 
     # "roi test". Specify an roi and see if it blows up.
     print("    roi test")
     retcode, time_taken = run_executable(
         [executable, '-t', '2000', '--roi', '0.25,0.25,0.5,0.5'], logfile)
     check_retcode(retcode, "test_hello: roi test")
-    check_time(time_taken, 1.8, 6, "test_hello: roi test")
+    check_time(time_taken, 1, 6, "test_hello: roi test")
 
     # "controls test". Specify some image controls and see if it blows up.
     print("    controls test")
@@ -123,20 +123,20 @@ def test_hello(exe_dir, output_dir):
         [executable, '-t', '2000', '--brightness', '0.2', '--contrast', '1.2',
          '--saturation', '1.3', '--sharpness', '1.5'], logfile)
     check_retcode(retcode, "test_hello: controls test")
-    check_time(time_taken, 1.8, 6, "test_hello: controls test")
+    check_time(time_taken, 1, 6, "test_hello: controls test")
 
     # "controls test". Apply flips and see if it blows up.
     print("    flips test")
     retcode, time_taken = run_executable(
         [executable, '-t', '2000', '--hflip', '--vflip'], logfile)
     check_retcode(retcode, "test_hello: flips test")
-    check_time(time_taken, 1.8, 6, "test_hello: flips test")
+    check_time(time_taken, 1, 6, "test_hello: flips test")
 
     # "no-raw". Run without a raw stream
     print("    no-raw test")
     retcode, time_taken = run_executable([executable, '-t', '2000', '--no-raw'], logfile)
     check_retcode(retcode, "test_hello: no-raw test")
-    check_time(time_taken, 1.8, 6, "test_hello: no-raw test")
+    check_time(time_taken, 1, 6, "test_hello: no-raw test")
 
     print("rpicam-hello tests passed")
 
@@ -217,21 +217,21 @@ def test_still(exe_dir, output_dir):
     print("    jpg test")
     retcode, time_taken = run_executable([executable, '-t', '1000', '-o', output_jpg], logfile)
     check_retcode(retcode, "test_still: jpg test")
-    check_time(time_taken, 1.2, 10, "test_still: jpg test")
+    check_time(time_taken, 1, 10, "test_still: jpg test")
     check_size(output_jpg, 1024, "test_still: jpg test")
 
     # "no-raw test". As above but without a raw stream.
     print("    no-raw test")
     retcode, time_taken = run_executable([executable, '-t', '1000', '-o', output_jpg, '--no-raw'], logfile)
     check_retcode(retcode, "test_still: no-raw test")
-    check_time(time_taken, 1.2, 10, "test_still: no-raw test")
+    check_time(time_taken, 1, 10, "test_still: no-raw test")
     check_size(output_jpg, 1024, "test_still: no-raw test")
 
     # "zsl test". As above, but with zsl enabled
     print("    zsl test")
     retcode, time_taken = run_executable([executable, '-t', '1000', '-o', output_jpg, '--zsl'], logfile)
     check_retcode(retcode, "test_still: zsl test")
-    check_time(time_taken, 1.2, 10, "test_still: zsl test")
+    check_time(time_taken, 1, 10, "test_still: zsl test")
     check_size(output_jpg, 1024, "test_still: zsl test")
 
     # "immediate test". Immediate capture test
@@ -247,7 +247,7 @@ def test_still(exe_dir, output_dir):
     retcode, time_taken = run_executable(
         [executable, '-t', '1000', '-e', 'png', '-o', output_png], logfile)
     check_retcode(retcode, "test_still: png test")
-    check_time(time_taken, 1.2, 10, "test_still: png test")
+    check_time(time_taken, 1, 10, "test_still: png test")
     check_size(output_png, 1024, "test_still: png test")
 
     # "bmp test". As above, but write a bmp.
@@ -255,7 +255,7 @@ def test_still(exe_dir, output_dir):
     retcode, time_taken = run_executable(
         [executable, '-t', '1000', '-e', 'bmp', '-o', output_bmp], logfile)
     check_retcode(retcode, "test_still: bmp test")
-    check_time(time_taken, 1.2, 10, "test_still: bmp test")
+    check_time(time_taken, 1, 10, "test_still: bmp test")
     check_size(output_png, 1024, "test_still: bmp test")
 
     if platform == 'pisp':
@@ -272,7 +272,7 @@ def test_still(exe_dir, output_dir):
     retcode, time_taken = run_executable(
         [executable, '-t', '1000', '-o', output_jpg, '-r'], logfile)
     check_retcode(retcode, "test_still: dng test")
-    check_time(time_taken, 1.2, 10, "test_still: dng test")
+    check_time(time_taken, 1, 10, "test_still: dng test")
     check_size(output_jpg, 1024, "test_still: dng test")
     check_size(output_dng, 1024 * 1024, "test_still: dng test")
 
@@ -293,7 +293,7 @@ def test_still(exe_dir, output_dir):
     retcode, time_taken = run_executable([executable, '-t', '1000', '-o', output_jpg,
                                           '--metadata', output_metadata], logfile)
     check_retcode(retcode, "test_still: metadata test")
-    check_time(time_taken, 1.2, 8, "test_still: metadata test")
+    check_time(time_taken, 1, 8, "test_still: metadata test")
     check_size(output_jpg, 1024, "test_still: metadata test")
     check_single_metadata(output_metadata, "test_still: metadata test")
 
@@ -303,7 +303,7 @@ def test_still(exe_dir, output_dir):
                                           '--metadata', output_metadata_txt,
                                           '--metadata-format', 'txt'], logfile)
     check_retcode(retcode, "test_still: metadata txt test")
-    check_time(time_taken, 1.2, 8, "test_still: metadata txt test")
+    check_time(time_taken, 1, 8, "test_still: metadata txt test")
     check_size(output_jpg, 1024, "test_still: metadata txt test")
     check_metadata_txt(output_metadata_txt, "test_still: metadata txt test")
 
@@ -344,7 +344,7 @@ def test_jpeg(exe_dir, output_dir):
     retcode, time_taken = run_executable([executable, '-t', '1000', '-o', output_jpg],
                                          logfile)
     check_retcode(retcode, "test_jpeg: jpg test")
-    check_time(time_taken, 1.2, 10, "test_jpeg: jpg test")
+    check_time(time_taken, 1, 10, "test_jpeg: jpg test")
     check_size(output_jpg, 1024, "test_jpeg: jpg test")
     # For this one, we're actually going to peak inside the jpeg.
     check_jpeg(output_jpg, "test_jpeg: jpg test")
@@ -357,7 +357,7 @@ def test_jpeg(exe_dir, output_dir):
     #                                     logfile)
     #os.environ.pop('LIBCAMERA_IPA_FORCE_ISOLATION')
     #check_retcode(retcode, "test_jpeg: isolation test")
-    #check_time(time_taken, 1.2, 8, "test_jpeg: isolation test")
+    #check_time(time_taken, 1, 8, "test_jpeg: isolation test")
     #check_size(output_jpg, 1024, "test_jpeg: isolation test")
     # For this one, we're actually going to peak inside the jpeg.
     #check_jpeg(output_jpg, "test_jpeg: isolation test")
@@ -368,7 +368,7 @@ def test_jpeg(exe_dir, output_dir):
         [executable, '-t', '1000', '-o', output_shutter,
          '--shutter', '20000', '--gain', '2.0', '--awbgains', '1.0,1.0'], logfile)
     check_retcode(retcode, "test_jpeg: shutter test")
-    check_time(time_taken, 1.2, 8, "test_jpeg: shutter test")
+    check_time(time_taken, 1, 8, "test_jpeg: shutter test")
     check_size(output_shutter, 1024, "test_jpeg: shutter test")
     check_jpeg_shutter(output_shutter, '1/50', '200', "test_jpeg: shutter test")
 

@@ -38,8 +38,6 @@ namespace fs = std::filesystem;
 namespace
 {
 
-constexpr Size INPUT_TENSOR_SIZE { 640, 640 };
-
 template <typename T>
 class MessageQueue
 {
@@ -305,24 +303,42 @@ bool YoloSegmentation::Process(CompletedRequestPtr &completed_request)
 		return false;
 	}
 
-	if (low_res_info_.width != INPUT_TENSOR_SIZE.width || low_res_info_.height != INPUT_TENSOR_SIZE.height)
+	if (low_res_info_.width != InputTensorSize().width || low_res_info_.height != InputTensorSize().height)
 	{
-		LOG_ERROR("Wrong low res size, expecting " << INPUT_TENSOR_SIZE.toString());
+		LOG_ERROR("Wrong low res size, expecting " << InputTensorSize().toString());
 		return false;
 	}
 
+	BufferReadSync r(app_, completed_request->buffers[low_res_stream_]);
+	libcamera::Span<uint8_t> low_res_buffer = r.Get()[0];
 	std::shared_ptr<uint8_t> input;
-	if (low_res_info_.pixel_format != libcamera::formats::BGR888)
+
+	if (low_res_info_.pixel_format == libcamera::formats::YUV420)
 	{
 		StreamInfo rgb_info;
-		rgb_info.width = INPUT_TENSOR_SIZE.width;
-		rgb_info.height = INPUT_TENSOR_SIZE.height;
+		rgb_info.width = InputTensorSize().width;
+		rgb_info.height = InputTensorSize().height;
 		rgb_info.stride = rgb_info.width * 3;
 
-		BufferReadSync r(app_, completed_request->buffers[low_res_stream_]);
-		libcamera::Span<uint8_t> buffer = r.Get()[0];
 		input = allocator_.Allocate(rgb_info.stride * rgb_info.height);
-		Yuv420ToRgb(input.get(), buffer.data(), low_res_info_, rgb_info);
+		Yuv420ToRgb(input.get(), low_res_buffer.data(), low_res_info_, rgb_info);
+	}
+	else if (low_res_info_.pixel_format == libcamera::formats::RGB888 ||
+			 low_res_info_.pixel_format == libcamera::formats::BGR888)
+	{
+		unsigned int stride = low_res_info_.width * 3;
+
+		input = allocator_.Allocate(stride * low_res_info_.height);
+
+		// If the stride shows we have padding on the right edge of the buffer, we must copy it out to another buffer
+		// without padding.
+		for (unsigned int i = 0; i < low_res_info_.height; i++)
+			memcpy(input.get() + i * stride, low_res_buffer.data() + i * low_res_info_.stride, stride);
+	}
+	else
+	{
+		LOG_ERROR("Unexpected lores format " << low_res_info_.pixel_format);
+		return false;
 	}
 
 	BufferWriteSync w(app_, completed_request->buffers[output_stream_]);
@@ -372,10 +388,10 @@ bool YoloSegmentation::runInference(uint8_t *input, uint32_t *output)
 	filter(roi, yolo_params_);
 
 	// RGB -> BGR for cv::imshow
-	for (unsigned int j = 0; j < INPUT_TENSOR_SIZE.height; j++)
+	for (unsigned int j = 0; j < InputTensorSize().height; j++)
 	{
-		uint8_t *ptr = input + j * INPUT_TENSOR_SIZE.width * 3;
-		for (unsigned int i = 0; i < INPUT_TENSOR_SIZE.width; i++)
+		uint8_t *ptr = input + j * InputTensorSize().width * 3;
+		for (unsigned int i = 0; i < InputTensorSize().width; i++)
 		{
 			const uint8_t t = ptr[0];
 			ptr[0] = ptr[2], ptr[2] = t;
@@ -383,8 +399,8 @@ bool YoloSegmentation::runInference(uint8_t *input, uint32_t *output)
 		}
 	}
 
-	cv::Mat image(INPUT_TENSOR_SIZE.height, INPUT_TENSOR_SIZE.width, CV_8UC3, (void *)input,
-				  INPUT_TENSOR_SIZE.width * 3);
+	cv::Mat image(InputTensorSize().height, InputTensorSize().width, CV_8UC3, (void *)input,
+				  InputTensorSize().width * 3);
 
 	std::vector<HailoDetectionPtr> detections = hailo_common::get_hailo_detections(roi);
 	for (auto &detection : detections)
@@ -394,10 +410,10 @@ bool YoloSegmentation::runInference(uint8_t *input, uint32_t *output)
 
 		auto bbox = detection->get_bbox();
 
-		cv::rectangle(image, cv::Point2f(bbox.xmin() * float(INPUT_TENSOR_SIZE.width),
-										 bbox.ymin() * float(INPUT_TENSOR_SIZE.height)),
-							 cv::Point2f(bbox.xmax() * float(INPUT_TENSOR_SIZE.width),
-										 bbox.ymax() * float(INPUT_TENSOR_SIZE.height)),
+		cv::rectangle(image, cv::Point2f(bbox.xmin() * float(InputTensorSize().width),
+										 bbox.ymin() * float(InputTensorSize().height)),
+							 cv::Point2f(bbox.xmax() * float(InputTensorSize().width),
+										 bbox.ymax() * float(InputTensorSize().height)),
 					  cv::Scalar(0, 0, 255), 1);
 
 		draw_all(image, detection, 0);
@@ -421,8 +437,8 @@ void YoloSegmentation::displayThread()
 		{
 			current_image = std::move(msg.payload);
 
-			cv::Mat image(INPUT_TENSOR_SIZE.height, INPUT_TENSOR_SIZE.width, CV_8UC3, (void *)current_image.get(),
-						  INPUT_TENSOR_SIZE.width * 3);
+			cv::Mat image(InputTensorSize().height, InputTensorSize().width, CV_8UC3, (void *)current_image.get(),
+						  InputTensorSize().width * 3);
 
 			cv::imshow("Segmentation Results", image);
 			cv::waitKey(1);

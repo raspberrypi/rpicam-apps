@@ -1,4 +1,14 @@
 {
+    "rpicam-apps":
+    {
+        "lores":
+        {
+            "width": 640,
+            "height": 640,
+            "format": "rgb"
+        }
+    },
+
     "hailo_yolo_segmentation":
     {
         "show_results": true,

@@ -18,18 +18,12 @@
 #include "core/rpicam_app.hpp"
 #include "hailo_postprocessing_stage.hpp"
 
+using Rectangle = libcamera::Rectangle;
 using Size = libcamera::Size;
 using PostProcFuncPtr = std::pair<std::vector<KeyPt>, std::vector<PairPairs>>(*)(HailoROIPtr);
 
 #define NAME "hailo_yolo_pose"
 #define POSTPROC_LIB "libyolov8pose_post.so"
-
-namespace
-{
-
-constexpr Size INPUT_TENSOR_SIZE { 640, 640 };
-
-} // namespace
 
 class YoloPose : public HailoPostProcessingStage
 {
@@ -45,7 +39,7 @@ public:
 	bool Process(CompletedRequestPtr &completed_request) override;
 
 private:
-	void runInference(const uint8_t *input, uint32_t *output);
+	void runInference(const uint8_t *input, uint32_t *output, const std::vector<Rectangle> &scaler_crops);
 
 	PostProcessingLib postproc_;
 };
@@ -78,36 +72,74 @@ bool YoloPose::Process(CompletedRequestPtr &completed_request)
 		return false;
 	}
 
-	if (low_res_info_.width != INPUT_TENSOR_SIZE.width || low_res_info_.height != INPUT_TENSOR_SIZE.height)
+	if (low_res_info_.width != InputTensorSize().width || low_res_info_.height != InputTensorSize().height)
 	{
-		LOG_ERROR("Wrong low res size, expecting " << INPUT_TENSOR_SIZE.toString());
+		LOG_ERROR("Wrong low res size, expecting " << InputTensorSize().toString());
 		return false;
 	}
 
+	BufferReadSync r(app_, completed_request->buffers[low_res_stream_]);
+	libcamera::Span<uint8_t> low_res_buffer = r.Get()[0];
 	std::shared_ptr<uint8_t> input;
-	if (low_res_info_.pixel_format != libcamera::formats::BGR888)
+	uint8_t *input_ptr;
+
+	if (low_res_info_.pixel_format == libcamera::formats::YUV420)
 	{
 		StreamInfo rgb_info;
-		rgb_info.width = INPUT_TENSOR_SIZE.width;
-		rgb_info.height = INPUT_TENSOR_SIZE.height;
+		rgb_info.width = InputTensorSize().width;
+		rgb_info.height = InputTensorSize().height;
 		rgb_info.stride = rgb_info.width * 3;
 
-		BufferReadSync r(app_, completed_request->buffers[low_res_stream_]);
-		libcamera::Span<uint8_t> buffer = r.Get()[0];
 		input = allocator_.Allocate(rgb_info.stride * rgb_info.height);
-		Yuv420ToRgb(input.get(), buffer.data(), low_res_info_, rgb_info);
+		input_ptr = input.get();
+
+		Yuv420ToRgb(input.get(), low_res_buffer.data(), low_res_info_, rgb_info);
+	}
+	else if (low_res_info_.pixel_format == libcamera::formats::RGB888 ||
+			 low_res_info_.pixel_format == libcamera::formats::BGR888)
+	{
+		unsigned int stride = low_res_info_.width * 3;
+
+		input = allocator_.Allocate(stride * low_res_info_.height);
+		input_ptr = input.get();
+
+		// If the stride shows we have padding on the right edge of the buffer, we must copy it out to another buffer
+		// without padding.
+		for (unsigned int i = 0; i < low_res_info_.height; i++)
+			memcpy(input_ptr + i * stride, low_res_buffer.data() + i * low_res_info_.stride, stride);
+	}
+	else
+	{
+		LOG_ERROR("Unexpected lores format " << low_res_info_.pixel_format);
+		return false;
+	}
+
+	std::vector<Rectangle> scaler_crops;
+	auto scaler_crop = completed_request->metadata.get(controls::ScalerCrop);
+	auto rpi_scaler_crop = completed_request->metadata.get(controls::rpi::ScalerCrops);
+
+	if (rpi_scaler_crop)
+	{
+		for (unsigned int i = 0; i < rpi_scaler_crop->size(); i++)
+			scaler_crops.push_back(rpi_scaler_crop->data()[i]);
+	}
+	else if (scaler_crop)
+	{
+		// Push-back twice, once for main, once for low res.
+		scaler_crops.push_back(*scaler_crop);
+		scaler_crops.push_back(*scaler_crop);
 	}
 
 	BufferWriteSync w(app_, completed_request->buffers[output_stream_]);
 	libcamera::Span<uint8_t> buffer = w.Get()[0];
 	uint32_t *output = (uint32_t *)buffer.data();
 
-	runInference(input.get(), output);
+	runInference(input_ptr, output, scaler_crops);
 
 	return false;
 }
 
-void YoloPose::runInference(const uint8_t *input, uint32_t *output)
+void YoloPose::runInference(const uint8_t *input, uint32_t *output, const std::vector<Rectangle> &scaler_crops)
 {
 	hailort::AsyncInferJob job;
 	std::vector<OutTensor> output_tensors;
@@ -144,30 +176,26 @@ void YoloPose::runInference(const uint8_t *input, uint32_t *output)
 			continue;
 
 		HailoBBox bbox = detection->get_bbox();
-
-		cv::rectangle(image,
-					  cv::Point2f(bbox.xmin() * float(output_stream_info_.width),
-								  bbox.ymin() * float(output_stream_info_.height)),
-					  cv::Point2f(bbox.xmax() * float(output_stream_info_.width),
-								  bbox.ymax() * float(output_stream_info_.height)),
+		const float x0 = std::max(bbox.xmin(), 0.0f);
+		const float x1 = std::min(bbox.xmax(), 1.0f);
+		const float y0 = std::max(bbox.ymin(), 0.0f);
+		const float y1 = std::min(bbox.ymax(), 1.0f);
+		Rectangle r = ConvertInferenceCoordinates({ x0, y0, x1 - x0, y1 - y0 }, scaler_crops);
+		cv::rectangle(image, cv::Point2f(r.x, r.y), cv::Point2f(r.x + r.width, r.y + r.height),
 					  cv::Scalar(0, 0, 255), 1);
 	}
 
 	for (auto &keypoint : keypoints_and_pairs.first)
 	{
-		cv::circle(image,
-				   cv::Point(keypoint.xs * float(output_stream_info_.width),
-							 keypoint.ys * float(output_stream_info_.height)),
-				   3, cv::Scalar(255, 0, 255), -1);
+		Rectangle r = ConvertInferenceCoordinates({ keypoint.xs, keypoint.ys, 1, 1 }, scaler_crops);
+		cv::circle(image, cv::Point(r.x, r.y), 3, cv::Scalar(255, 0, 255), -1);
 	}
 
-	for (PairPairs &p : keypoints_and_pairs.second)
+	for (const PairPairs &p : keypoints_and_pairs.second)
 	{
-		auto pt1 =
-			cv::Point(p.pt1.first * float(output_stream_info_.width), p.pt1.second * float(output_stream_info_.height));
-		auto pt2 =
-			cv::Point(p.pt2.first * float(output_stream_info_.width), p.pt2.second * float(output_stream_info_.height));
-		cv::line(image, pt1, pt2, cv::Scalar(255, 0, 255), 3);
+		Rectangle r1 = ConvertInferenceCoordinates({ p.pt1.first, p.pt1.second, 1, 1 }, scaler_crops);
+		Rectangle r2 = ConvertInferenceCoordinates({ p.pt2.first, p.pt2.second, 1, 1 }, scaler_crops);
+		cv::line(image, cv::Point(r1.x, r1.y), cv::Point(r2.x, r2.y), cv::Scalar(255, 0, 255), 3);
 	}
 }
 

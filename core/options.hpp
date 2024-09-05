@@ -151,6 +151,7 @@ struct Options
 	bool qt_preview;
 	unsigned int lores_width;
 	unsigned int lores_height;
+	bool lores_par;
 	unsigned int camera;
 	std::string mode_string;
 	Mode mode;

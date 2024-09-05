@@ -1,4 +1,14 @@
 {
+    "rpicam-apps":
+    {
+        "lores":
+        {
+            "width": 640,
+            "height": 640,
+            "format": "rgb"
+        }
+    },
+
     "hailo_yolo_pose":
     {
         "hef_file": "/usr/share/hailo-models/yolov8s_pose_h8l_pi.hef"

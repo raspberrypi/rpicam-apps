@@ -13,6 +13,7 @@
 #include <string>
 #include <vector>
 
+#include <libcamera/controls.h>
 #include <libcamera/geometry.h>
 
 #include "core/rpicam_app.hpp"
@@ -23,23 +24,16 @@
 #include "hailo_postprocessing_stage.hpp"
 
 using Size = libcamera::Size;
-using PostProcFuncPtr = void (*)(HailoROIPtr, YoloParams *);
-using PostProcFuncPtrNms = void (*)(HailoROIPtr);
+using PostProcFuncPtrNms = void (*)(HailoROIPtr, YoloParams *);
 using InitFuncPtr = YoloParams *(*)(std::string, std::string);
 using FreeFuncPtr = void (*)(void *);
+
+using Rectangle = libcamera::Rectangle;
 
 namespace fs = std::filesystem;
 
 #define NAME "hailo_yolo_inference"
-#define POSTPROC_LIB "libyolo_post.so"
 #define POSTPROC_LIB_NMS "libyolo_hailortpp_post.so"
-
-namespace
-{
-
-constexpr Size INPUT_TENSOR_SIZE { 640, 640 };
-
-} // namespace
 
 class YoloInference : public HailoPostProcessingStage
 {
@@ -56,7 +50,7 @@ public:
 	bool Process(CompletedRequestPtr &completed_request) override;
 
 private:
-	std::vector<Detection> runInference(const uint8_t *frame);
+	std::vector<Detection> runInference(const uint8_t *frame, const std::vector<libcamera::Rectangle> &scaler_crops);
 	void filterOutputObjects(std::vector<Detection> &objects);
 
 	struct LtObject
@@ -69,7 +63,6 @@ private:
 
 	std::vector<LtObject> lt_objects_;
 	std::mutex lock_;
-	PostProcessingLib postproc_;
 	PostProcessingLib postproc_nms_;
 	YoloParams *yolo_params_ = nullptr;
 
@@ -86,8 +79,7 @@ private:
 };
 
 YoloInference::YoloInference(RPiCamApp *app)
-	: HailoPostProcessingStage(app), postproc_(PostProcLibDir(POSTPROC_LIB)),
-	  postproc_nms_(PostProcLibDir(POSTPROC_LIB_NMS))
+	: HailoPostProcessingStage(app), postproc_nms_(PostProcLibDir(POSTPROC_LIB_NMS))
 {
 }
 
@@ -95,7 +87,7 @@ YoloInference::~YoloInference()
 {
 	if (yolo_params_)
 	{
-		FreeFuncPtr free_func = reinterpret_cast<FreeFuncPtr>(postproc_.GetSymbol("free_resources"));
+		FreeFuncPtr free_func = reinterpret_cast<FreeFuncPtr>(postproc_nms_.GetSymbol("free_resources"));
 		if (free_func)
 			free_func(yolo_params_);
 	}
@@ -122,14 +114,14 @@ void YoloInference::Read(boost::property_tree::ptree const &params)
 	else
 		temporal_filtering_ = false;
 
-	InitFuncPtr init = reinterpret_cast<InitFuncPtr>(postproc_.GetSymbol("init"));
-	const std::string config_file = params.get<std::string>("hailopp_config_file", "");
-	if (init && !config_file.empty())
+	InitFuncPtr init = reinterpret_cast<InitFuncPtr>(postproc_nms_.GetSymbol("init"));
+	const std::string config_file = params.get<std::string>("hailopp_config_file", {});
+	if (!config_file.empty())
 	{
 		if (!fs::exists(config_file))
 			throw std::runtime_error(std::string("hailo postprocess config file not found: ") + config_file);
-		yolo_params_ = init(config_file, "");
 	}
+	yolo_params_ = init(config_file, "");
 
 	HailoPostProcessingStage::Read(params);
 }
@@ -147,27 +139,70 @@ bool YoloInference::Process(CompletedRequestPtr &completed_request)
 		return false;
 	}
 
-	if (low_res_info_.width != INPUT_TENSOR_SIZE.width || low_res_info_.height != INPUT_TENSOR_SIZE.height)
+	if (low_res_info_.width != InputTensorSize().width || low_res_info_.height != InputTensorSize().height)
 	{
-		LOG_ERROR("Wrong low res size, expecting " << INPUT_TENSOR_SIZE.toString());
+		LOG_ERROR("Wrong low res size, expecting " << InputTensorSize().toString());
 		return false;
 	}
 
+	BufferReadSync r(app_, completed_request->buffers[low_res_stream_]);
+	libcamera::Span<uint8_t> buffer = r.Get()[0];
 	std::shared_ptr<uint8_t> input;
-	if (low_res_info_.pixel_format != libcamera::formats::BGR888)
+	uint8_t *input_ptr;
+
+	if (low_res_info_.pixel_format == libcamera::formats::YUV420)
 	{
 		StreamInfo rgb_info;
-		rgb_info.width = INPUT_TENSOR_SIZE.width;
-		rgb_info.height = INPUT_TENSOR_SIZE.height;
+		rgb_info.width = InputTensorSize().width;
+		rgb_info.height = InputTensorSize().height;
 		rgb_info.stride = rgb_info.width * 3;
 
-		BufferReadSync r(app_, completed_request->buffers[low_res_stream_]);
-		libcamera::Span<uint8_t> buffer = r.Get()[0];
 		input = allocator_.Allocate(rgb_info.stride * rgb_info.height);
+		input_ptr = input.get();
+
 		Yuv420ToRgb(input.get(), buffer.data(), low_res_info_, rgb_info);
 	}
+	else if (low_res_info_.pixel_format == libcamera::formats::RGB888 ||
+			 low_res_info_.pixel_format == libcamera::formats::BGR888)
+	{
+		unsigned int stride = low_res_info_.width * 3;
 
-	std::vector<Detection> objects = runInference(input.get());
+		// If the stride shows we have padding on the right edge of the buffer, we must copy it out to another buffer
+		// without padding.
+		if (low_res_info_.stride != stride)
+		{
+			input = allocator_.Allocate(stride * low_res_info_.height);
+			input_ptr = input.get();
+
+			for (unsigned int i = 0; i < low_res_info_.height; i++)
+				memcpy(input_ptr + i * stride, buffer.data() + i * low_res_info_.stride, stride);
+		}
+		else
+			input_ptr = buffer.data();
+	}
+	else
+	{
+		LOG_ERROR("Unexpected lores format " << low_res_info_.pixel_format);
+		return false;
+	}
+
+	std::vector<Rectangle> scaler_crops;
+	auto scaler_crop = completed_request->metadata.get(controls::ScalerCrop);
+	auto rpi_scaler_crop = completed_request->metadata.get(controls::rpi::ScalerCrops);
+
+	if (rpi_scaler_crop)
+	{
+		for (unsigned int i = 0; i < rpi_scaler_crop->size(); i++)
+			scaler_crops.push_back(rpi_scaler_crop->data()[i]);
+	}
+	else if (scaler_crop)
+	{
+		// Push-back twice, once for main, once for low res.
+		scaler_crops.push_back(*scaler_crop);
+		scaler_crops.push_back(*scaler_crop);
+	}
+
+	std::vector<Detection> objects = runInference(input_ptr, scaler_crops);
 	if (objects.size())
 	{
 		if (temporal_filtering_)
@@ -195,15 +230,11 @@ bool YoloInference::Process(CompletedRequestPtr &completed_request)
 	return false;
 }
 
-std::vector<Detection> YoloInference::runInference(const uint8_t *frame)
+std::vector<Detection> YoloInference::runInference(const uint8_t *frame, const std::vector<Rectangle> &scaler_crops)
 {
 	hailort::AsyncInferJob job;
 	std::vector<OutTensor> output_tensors;
-	bool nms_on_hailo = false;
 	hailo_status status;
-
-	if (infer_model_->outputs().size() == 1 && infer_model_->outputs()[0].is_nms())
-		nms_on_hailo = true;
 
 	status = HailoPostProcessingStage::DispatchJob(frame, job, output_tensors);
 	if (status != HAILO_SUCCESS)
@@ -221,31 +252,15 @@ std::vector<Detection> YoloInference::runInference(const uint8_t *frame)
 	}
 
 	HailoROIPtr roi = MakeROI(output_tensors);
+	PostProcFuncPtrNms filter = reinterpret_cast<PostProcFuncPtrNms>(postproc_nms_.GetSymbol("filter"));
 
-	if (nms_on_hailo)
-	{
-		PostProcFuncPtrNms filter = reinterpret_cast<PostProcFuncPtrNms>(postproc_nms_.GetSymbol("filter"));
-		if (!filter)
-			return {};
-
-		filter(roi);
-	}
-	else
-	{
-		PostProcFuncPtr filter = reinterpret_cast<PostProcFuncPtr>(postproc_.GetSymbol("filter"));
-		if (!filter)
-			return {};
-
-		filter(roi, yolo_params_);
-	}
-
+	filter(roi, yolo_params_);
 	std::vector<HailoDetectionPtr> detections = hailo_common::get_hailo_detections(roi);
 
 	LOG(2, "------");
 
 	// Translate results to the rpicam-apps Detection objects
 	std::vector<Detection> results;
-	Size output_size = output_stream_->configuration().size;
 	for (auto const &d : detections)
 	{
 		if (d->get_confidence() < threshold_)
@@ -253,12 +268,12 @@ std::vector<Detection> YoloInference::runInference(const uint8_t *frame)
 
 		// Extract bounding box co-ordinates in the output image co-ordinates.
 		auto const &box = d->get_bbox();
-		int x0 = std::round(std::max(box.xmin(), 0.0f) * (output_size.width - 1));
-		int x1 = std::round(std::min(box.xmax(), 1.0f) * (output_size.width - 1));
-		int y0 = std::round(std::max(box.ymin(), 0.0f) * (output_size.height - 1));
-		int y1 = std::round(std::min(box.ymax(), 1.0f) * (output_size.height - 1));
-		results.emplace_back(d->get_class_id(), d->get_label(), d->get_confidence(), x0, y0,
-							 x1 - x0, y1 - y0);
+		const float x0 = std::max(box.xmin(), 0.0f);
+		const float x1 = std::min(box.xmax(), 1.0f);
+		const float y0 = std::max(box.ymin(), 0.0f);
+		const float y1 = std::min(box.ymax(), 1.0f);
+		libcamera::Rectangle r = ConvertInferenceCoordinates({ x0, y0, x1 - x0, y1 - y0 }, scaler_crops);
+		results.emplace_back(d->get_class_id(), d->get_label(), d->get_confidence(), r.x, r.y, r.width, r.height);
 		LOG(2, "Object: " << results.back().toString());
 
 		if (--max_detections_ == 0)
