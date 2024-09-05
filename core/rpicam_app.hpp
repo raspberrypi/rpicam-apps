@@ -185,6 +185,7 @@ public:
 
 	friend class BufferWriteSync;
 	friend class BufferReadSync;
+	friend class PostProcessor;
 	friend struct Options;
 
 protected:
@@ -281,4 +282,5 @@ private:
 	uint64_t last_timestamp_;
 	uint64_t sequence_ = 0;
 	PostProcessor post_processor_;
+	libcamera::PixelFormat lores_format_ = libcamera::formats::YUV420;
 };
