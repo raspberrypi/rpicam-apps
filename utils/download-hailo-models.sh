@@ -15,7 +15,7 @@ networks=(
     # Yolov8 pose
     https://hailo-csdata.s3.eu-west-2.amazonaws.com/resources/hefs/h8l_rpi/yolov8s_pose_h8l_pi.hef
     # Yolov5 person/face inference
-    https://hailo-csdata.s3.eu-west-2.amazonaws.com/resources/hefs/h8l_rpi/yolov5s_personface_h8l_pi.hef
+    https://hailo-csdata.s3.eu-west-2.amazonaws.com/resources/hefs/h8l_rpi/yolov5s_personface_h8l.hef
 )
 
 if [ $# -ne 1 ]; then

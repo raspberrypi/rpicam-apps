@@ -11,7 +11,7 @@
 
     "hailo_yolo_inference":
     {
-        "hef_file": "/usr/share/hailo-models/yolov5s_personface_h8l_pi.hef",
+        "hef_file": "/usr/share/hailo-models/yolov5s_personface_h8l.hef",
         "hailopp_config_file": "/usr/share/hailo-models/yolov5_personface.json",
         "max_detections": 5,
         "threshold": 0.5,
