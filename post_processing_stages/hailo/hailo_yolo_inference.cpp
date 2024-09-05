@@ -24,8 +24,7 @@
 #include "hailo_postprocessing_stage.hpp"
 
 using Size = libcamera::Size;
-using PostProcFuncPtr = void (*)(HailoROIPtr, YoloParams *);
-using PostProcFuncPtrNms = void (*)(HailoROIPtr);
+using PostProcFuncPtrNms = void (*)(HailoROIPtr, YoloParams *);
 using InitFuncPtr = YoloParams *(*)(std::string, std::string);
 using FreeFuncPtr = void (*)(void *);
 
@@ -34,7 +33,6 @@ using Rectangle = libcamera::Rectangle;
 namespace fs = std::filesystem;
 
 #define NAME "hailo_yolo_inference"
-#define POSTPROC_LIB "libyolo_post.so"
 #define POSTPROC_LIB_NMS "libyolo_hailortpp_post.so"
 
 class YoloInference : public HailoPostProcessingStage
@@ -65,7 +63,6 @@ private:
 
 	std::vector<LtObject> lt_objects_;
 	std::mutex lock_;
-	PostProcessingLib postproc_;
 	PostProcessingLib postproc_nms_;
 	YoloParams *yolo_params_ = nullptr;
 
@@ -82,8 +79,7 @@ private:
 };
 
 YoloInference::YoloInference(RPiCamApp *app)
-	: HailoPostProcessingStage(app), postproc_(PostProcLibDir(POSTPROC_LIB)),
-	  postproc_nms_(PostProcLibDir(POSTPROC_LIB_NMS))
+	: HailoPostProcessingStage(app), postproc_nms_(PostProcLibDir(POSTPROC_LIB_NMS))
 {
 }
 
@@ -91,7 +87,7 @@ YoloInference::~YoloInference()
 {
 	if (yolo_params_)
 	{
-		FreeFuncPtr free_func = reinterpret_cast<FreeFuncPtr>(postproc_.GetSymbol("free_resources"));
+		FreeFuncPtr free_func = reinterpret_cast<FreeFuncPtr>(postproc_nms_.GetSymbol("free_resources"));
 		if (free_func)
 			free_func(yolo_params_);
 	}
@@ -118,14 +114,14 @@ void YoloInference::Read(boost::property_tree::ptree const &params)
 	else
 		temporal_filtering_ = false;
 
-	InitFuncPtr init = reinterpret_cast<InitFuncPtr>(postproc_.GetSymbol("init"));
-	const std::string config_file = params.get<std::string>("hailopp_config_file", "");
-	if (init && !config_file.empty())
+	InitFuncPtr init = reinterpret_cast<InitFuncPtr>(postproc_nms_.GetSymbol("init"));
+	const std::string config_file = params.get<std::string>("hailopp_config_file", {});
+	if (!config_file.empty())
 	{
 		if (!fs::exists(config_file))
 			throw std::runtime_error(std::string("hailo postprocess config file not found: ") + config_file);
-		yolo_params_ = init(config_file, "");
 	}
+	yolo_params_ = init(config_file, "");
 
 	HailoPostProcessingStage::Read(params);
 }
@@ -238,11 +234,7 @@ std::vector<Detection> YoloInference::runInference(const uint8_t *frame, const s
 {
 	hailort::AsyncInferJob job;
 	std::vector<OutTensor> output_tensors;
-	bool nms_on_hailo = false;
 	hailo_status status;
-
-	if (infer_model_->outputs().size() == 1 && infer_model_->outputs()[0].is_nms())
-		nms_on_hailo = true;
 
 	status = HailoPostProcessingStage::DispatchJob(frame, job, output_tensors);
 	if (status != HAILO_SUCCESS)
@@ -260,24 +252,9 @@ std::vector<Detection> YoloInference::runInference(const uint8_t *frame, const s
 	}
 
 	HailoROIPtr roi = MakeROI(output_tensors);
+	PostProcFuncPtrNms filter = reinterpret_cast<PostProcFuncPtrNms>(postproc_nms_.GetSymbol("filter"));
 
-	if (nms_on_hailo)
-	{
-		PostProcFuncPtrNms filter = reinterpret_cast<PostProcFuncPtrNms>(postproc_nms_.GetSymbol("filter"));
-		if (!filter)
-			return {};
-
-		filter(roi);
-	}
-	else
-	{
-		PostProcFuncPtr filter = reinterpret_cast<PostProcFuncPtr>(postproc_.GetSymbol("filter"));
-		if (!filter)
-			return {};
-
-		filter(roi, yolo_params_);
-	}
-
+	filter(roi, yolo_params_);
 	std::vector<HailoDetectionPtr> detections = hailo_common::get_hailo_detections(roi);
 
 	LOG(2, "------");
