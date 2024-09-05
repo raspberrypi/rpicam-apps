@@ -1,3 +1,10 @@
+rpicam-apps (1.5.1-1) bookworm; urgency=medium
+
+  * Update to hailo-tappas-core 3.29.1
+  * New upstream version 1.5.1
+
+ -- Serge Schneider <serge@raspberrypi.com>  Thu, 05 Sep 2024 15:06:19 +0100
+
 rpicam-apps (1.5.0-2) bookworm; urgency=medium
 
   * Rebuild with libcamera 0.3 release
