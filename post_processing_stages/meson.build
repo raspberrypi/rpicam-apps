@@ -109,6 +109,11 @@ if hailort_dep.found() and hailo_tappas_dep.found()
     enable_hailo = true
 endif
 
+# IMX500 postprocessing stages.
+if get_option('enable_imx500')
+    subdir('imx500')
+endif
+
 post_processing_headers = files([
     'histogram.hpp',
     'object_detect.hpp',
