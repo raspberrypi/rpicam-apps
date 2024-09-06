@@ -29,7 +29,7 @@ core_headers = files([
 ])
 
 # Generate a version string.
-version_cmd = [meson.project_source_root() / 'utils' / 'version.py']
+version_cmd = [meson.project_source_root() / 'utils' / 'version.py', meson.project_version()]
 
 # Check if a version.gen file is present.
 # This would have been generated from the meson dist command.
