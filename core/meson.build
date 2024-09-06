@@ -39,7 +39,7 @@ if fs.is_file(dist_version_file)
     version_cmd += fs.read(dist_version_file)
 endif
 
-version_cpp = vcs_tag(command : version_cmd,
+version_cpp = vcs_tag(command : [version_cmd, meson.project_version()],
                       replace_string: '@VER@',
                       input : 'version.cpp.in',
                       output : 'version.cpp',
