@@ -58,6 +58,11 @@ Depends: ${misc:Depends}, imx500-firmware
 Description: AI models for the IMX500 camera module
  This package contains a set of AI models for the IMX500 camera module.
 
+Package: imx500-all
+Architecture: all
+Depends: ${shlibs:Depends}, ${misc:Depends}, rpicam-apps-imx500-postprocess (= ${source:Version})
+Description: imx500 support (metapackage)
+
 Package: rpicam-apps-lite
 Architecture: armhf arm64
 Depends: ${shlibs:Depends}, ${misc:Depends}, python3:any
