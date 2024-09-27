@@ -1,6 +1,6 @@
 project('rpicam-apps', 'c', 'cpp',
         meson_version : '>= 0.64.0',
-        version : '1.5.1',
+        version : '1.5.2',
         default_options : [
             'werror=true',
             'warning_level=3',
