@@ -1,3 +1,14 @@
+rpicam-apps (1.5.2-1) bookworm; urgency=medium
+
+  * New upstream version 1.5.2
+  * d/gbp.conf: Add imx500-models component
+  * Add rpicam-apps-imx500-postprocess and imx500-models packages
+  * Add imx500-all
+  * Move rpi-assets json files to postprocess packages
+  * Pass --ignore-missing-info to dpkg-shlibdeps
+
+ -- Serge Schneider <serge@raspberrypi.com>  Sat, 28 Sep 2024 14:59:15 +0100
+
 rpicam-apps (1.5.1-1) bookworm; urgency=medium
 
   * Update to hailo-tappas-core 3.29.1
