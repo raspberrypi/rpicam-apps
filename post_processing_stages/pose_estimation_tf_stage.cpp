@@ -55,8 +55,11 @@ void PoseEstimationTfStage::checkConfiguration()
 
 void PoseEstimationTfStage::applyResults(CompletedRequestPtr &completed_request)
 {
-	completed_request->post_process_metadata.Set("pose_estimation.locations", locations_);
-	completed_request->post_process_metadata.Set("pose_estimation.confidences", confidences_);
+	std::vector<std::vector<libcamera::Point>> lib_locations { locations_ };
+	std::vector<std::vector<float>> confidences { confidences_ };
+
+	completed_request->post_process_metadata.Set("pose_estimation.locations", lib_locations);
+	completed_request->post_process_metadata.Set("pose_estimation.confidences", confidences);
 }
 
 void PoseEstimationTfStage::interpretOutputs()
