@@ -95,7 +95,8 @@ public:
 			std::string fmt = format.toString();
 			unsigned int mode_depth = fmt.find("8") != std::string::npos ? 8 :
 									  fmt.find("10") != std::string::npos ? 10 :
-									  fmt.find("12") != std::string::npos ? 12 : 16;
+									  fmt.find("12") != std::string::npos ? 12 :
+									  fmt.find("14") != std::string::npos ? 14 : 16;
 			return mode_depth;
 		}
 		libcamera::Size size;

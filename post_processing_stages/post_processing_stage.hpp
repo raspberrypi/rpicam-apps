@@ -5,9 +5,12 @@
  * post_processing_stage.hpp - Post processing stage base class definition.
  */
 
+#pragma once
+
 #include <chrono>
 #include <map>
 #include <string>
+#include <vector>
 
 // Prevents compiler warnings in Boost headers with more recent versions of GCC.
 #define BOOST_BIND_GLOBAL_PLACEHOLDERS
@@ -69,6 +72,24 @@ protected:
 		std::invoke(std::forward<decltype(f)>(f), std::forward<Args>(args)...);
 		auto t2 = T::now();
 		return std::chrono::duration<double, R>(t2 - t1);
+	}
+
+	template <typename T>
+	static std::vector<T> GetJsonArray(const boost::property_tree::ptree &pt, const std::string &key,
+									   const std::vector<T> &default_value = {})
+	{
+		std::vector<T> vec;
+
+		if (pt.find(key) != pt.not_found())
+		{
+			for (auto &v : pt.get_child(key))
+				vec.push_back(v.second.get_value<T>());
+		}
+
+		for (unsigned int i = vec.size(); i < default_value.size(); i++)
+			vec.push_back(default_value[i]);
+
+		return vec;
 	}
 
 	RPiCamApp *app_;

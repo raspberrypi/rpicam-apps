@@ -1,0 +1,29 @@
+{
+    "imx500_posenet":
+    {
+        "max_detections" : 5,
+        "threshold" : 0.4,
+        "offset_refinement_steps": 5,
+        "nms_radius": 10.0,
+        "network_file": "/usr/share/imx500-models/imx500_network_posenet.rpk",
+
+        "save_input_tensor":
+        {
+            "filename": "/home/pi/posenet_input_tensor.raw",
+            "num_tensors": 10
+        },
+
+        "temporal_filter":
+        {
+            "tolerance": 0.3,
+            "factor": 0.3,
+            "visible_frames": 8,
+            "hidden_frames": 2
+        }
+    },
+
+    "plot_pose_cv":
+    {
+        "confidence_threshold" : 0.2
+    }    
+}
