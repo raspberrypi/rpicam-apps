@@ -2,16 +2,16 @@
 #export DH_VERBOSE = 1
 
 CONFIG_COMMON := -Denable_opencv=disabled -Denable_tflite=disabled -Ddownload_hailo_models=false -Ddownload_imx500_models=false
-CONFIG_FULL := -Denable_libav=enabled -Denable_drm=enabled -Denable_egl=enabled -Denable_qt=enabled -Denable_opencv=enabled
-CONFIG_LITE := -Denable_egl=disabled -Denable_qt=disabled -Denable_libav=disabled -Denable_opencv=disabled
+CONFIG_FULL := -Denable_libav=enabled -Denable_drm=enabled -Denable_egl=enabled -Denable_qt=enabled -Denable_opencv=enabled -Denable_imx500=true
+CONFIG_LITE := -Denable_egl=disabled -Denable_qt=disabled -Denable_libav=disabled -Denable_opencv=disabled -Denable_imx500=false
 
 POSTPROC_PATH := usr/lib/$(DEB_HOST_MULTIARCH)/rpicam-apps-postproc
 
 ifeq ($(DEB_HOST_ARCH),arm64)
-	CONFIG_FULL += -Denable_hailo=enabled -Denable_imx500=true
-	CONFIG_LITE += -Denable_hailo=disabled -Denable_imx500=false
+	CONFIG_FULL += -Denable_hailo=enabled
+	CONFIG_LITE += -Denable_hailo=disabled
 else
-	CONFIG_COMMON += -Denable_hailo=disabled -Denable_imx500=false
+	CONFIG_COMMON += -Denable_hailo=disabled
 endif
 
 %:

@@ -46,7 +46,7 @@ Description: rpicam-apps-hailo
  existing "raspicam" apps. This package adds Hailo postprocessing support
 
 Package: rpicam-apps-imx500-postprocess
-Architecture: arm64
+Architecture: armhf arm64
 Depends: ${shlibs:Depends}, ${misc:Depends}, rpicam-apps, imx500-models (= ${source:Version})
 Description: rpicam-apps-imx500
  Small suite of libcamera-based apps that aim to copy the functionality of the
