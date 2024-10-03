@@ -1,3 +1,9 @@
+rpicam-apps (1.5.2-2) bookworm; urgency=medium
+
+  * Add imx500 support to armhf
+
+ -- Serge Schneider <serge@raspberrypi.com>  Thu, 03 Oct 2024 23:30:31 +0100
+
 rpicam-apps (1.5.2-1) bookworm; urgency=medium
 
   * New upstream version 1.5.2
