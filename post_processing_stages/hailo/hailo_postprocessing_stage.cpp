@@ -18,6 +18,41 @@ using namespace hailort;
 using Rectangle = libcamera::Rectangle;
 using Size = libcamera::Size;
 
+namespace
+{
+
+// Singleton class for the hardware virtual device.
+class vdevice
+{
+public:
+	vdevice(vdevice &other) = delete;
+	void operator=(const vdevice &) = delete;
+
+	static VDevice *get_instance()
+	{
+		static std::unique_ptr<VDevice> _vdevice {};
+
+		if (!_vdevice)
+		{
+			Expected<std::unique_ptr<VDevice>> vdevice_exp = VDevice::create();
+			if (!vdevice_exp)
+			{
+				LOG_ERROR("Failed create vdevice, status = " << vdevice_exp.status());
+				return nullptr;
+			}
+			_vdevice = vdevice_exp.release();
+		}
+
+		return _vdevice.get();
+	}
+
+private:
+	vdevice() {}
+};
+
+} // namespace
+
+
 Allocator::Allocator()
 {
 }
@@ -111,13 +146,12 @@ void HailoPostProcessingStage::Configure()
 
 int HailoPostProcessingStage::configureHailoRT()
 {
-	Expected<std::unique_ptr<VDevice>> vdevice_exp = VDevice::create();
-	if (!vdevice_exp)
+	vdevice_ = vdevice::get_instance();
+	if (!vdevice_)
 	{
-		LOG_ERROR("Failed create vdevice, status = " << vdevice_exp.status());
-		return vdevice_exp.status();
+		LOG_ERROR("Failed to get a vdevice instance.");
+		return -1;
 	}
-	vdevice_ = vdevice_exp.release();
 
 	// Create infer model from HEF file.
 	Expected<std::shared_ptr<InferModel>> infer_model_exp = vdevice_->create_infer_model(hef_file_);
