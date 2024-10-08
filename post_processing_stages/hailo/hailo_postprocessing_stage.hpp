@@ -123,7 +123,7 @@ protected:
 
 	Allocator allocator_;
 
-	std::unique_ptr<hailort::VDevice> vdevice_;
+	hailort::VDevice *vdevice_;
 	std::shared_ptr<hailort::InferModel> infer_model_;
 	std::shared_ptr<hailort::ConfiguredInferModel> configured_infer_model_;
 
