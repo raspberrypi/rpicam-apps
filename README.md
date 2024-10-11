@@ -108,3 +108,22 @@ TODO's
 ------
 
 Search for `TODO` to see what is left to be done.
+
+Modified Files
+------
+
+apps/rpicam_raw.cpp
+output/output.cpp
+output/meson.build
+core/options.hpp
+core/options.cpp
+
+Created Files
+------
+
+- build.sh
+- memcached.conf
+- memcached_output.hpp
+- overlay.sh
+- raw_frame.ipynb
+- requirements.txt
