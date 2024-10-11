@@ -19,16 +19,26 @@ jobs:
           sudo cp /usr/lib/x86_64-linux-gnu/pkgconfig/{,lib}camera.pc ||:
       - name: Check out repository code
         uses: actions/checkout@v4
-      - name: Generate tarball
+      - name: Generate tarballs
         run: |
           PATH="${HOME}/.local/bin:${PATH}"
+          TARBALL="rpicam-apps-${GITHUB_REF_NAME:1}.tar.xz"
           meson setup build
           meson dist --no-tests --include-subprojects -C build
+          if ! [ -f "build/meson-dist/$TARBALL" ]; then
+            echo "Expected tarball not found - $TARBALL"
+            echo "Does 'version' in meson.build match the tag?"
+            exit 1
+          fi
+          mv "build/meson-dist/$TARBALL" rpicam-apps_${GITHUB_REF_NAME:1}.orig.tar.xz
           ./utils/download-hailo-models.sh hailo-models
-          XZ_OPT=-9 tar -cJf hailo-models-${GITHUB_REF_NAME:1}.tar.xz hailo-models
-      - name: Release tarball
-        uses: softprops/action-gh-release@v1
+          XZ_OPT=-9 tar -cJf rpicam-apps_${GITHUB_REF_NAME:1}.orig-hailo-models.tar.xz hailo-models
+          ./utils/download-imx500-models.sh imx500-models
+          XZ_OPT=-9 tar -cJf rpicam-apps_${GITHUB_REF_NAME:1}.orig-imx500-models.tar.xz imx500-models
+      - name: Release tarballs
+        uses: softprops/action-gh-release@v2
         with:
-          files: build/meson-dist/*.tar.xz hailo-models-*.tar.xz
+          files: |
+            *.tar.xz
       - if: failure()
         run: cat build/meson-logs/meson-log.txt

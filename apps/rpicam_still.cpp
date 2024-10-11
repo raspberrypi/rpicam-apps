@@ -5,6 +5,7 @@
  * rpicam_still.cpp - libcamera stills capture app.
  */
 #include <chrono>
+#include <filesystem>
 #include <poll.h>
 #include <signal.h>
 #include <sys/signalfd.h>
@@ -23,6 +24,8 @@
 using namespace std::chrono_literals;
 using namespace std::placeholders;
 using libcamera::Stream;
+
+namespace fs = std::filesystem;
 
 class RPiCamStillApp : public RPiCamApp
 {
@@ -61,15 +64,15 @@ static void update_latest_link(std::string const &filename, StillOptions const *
 	// Create a fixed-name link to the most recent output file, if requested.
 	if (!options->latest.empty())
 	{
-		struct stat buf;
-		if (stat(options->latest.c_str(), &buf) == 0 && unlink(options->latest.c_str()))
+		fs::path link { options->latest };
+		fs::path target { filename };
+
+		if (fs::exists(link) && !fs::remove(link))
 			LOG_ERROR("WARNING: could not delete latest link " << options->latest);
 		else
 		{
-			if (symlink(filename.c_str(), options->latest.c_str()))
-				LOG_ERROR("WARNING: failed to create latest link " << options->latest);
-			else
-				LOG(2, "Link " << options->latest << " created");
+			fs::create_symlink(target, link);
+			LOG(2, "Link " << options->latest << " created");
 		}
 	}
 }

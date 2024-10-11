@@ -101,12 +101,17 @@ endif
 
 # Hailo postprocessing stages.
 enable_hailo = false
-hailort_dep = dependency('HailoRT', modules : ['HailoRT::libhailort'], version: '>=4.17.0',
+hailort_dep = dependency('HailoRT', modules : ['HailoRT::libhailort'], version: '>=4.18.0',
                          required : get_option('enable_hailo'))
 hailo_tappas_dep = dependency('hailo-tappas-core', required : get_option('enable_hailo'))
 if hailort_dep.found() and hailo_tappas_dep.found()
     subdir('hailo')
     enable_hailo = true
+endif
+
+# IMX500 postprocessing stages.
+if get_option('enable_imx500')
+    subdir('imx500')
 endif
 
 post_processing_headers = files([

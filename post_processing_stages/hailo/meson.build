@@ -1,5 +1,18 @@
 hailo_tappas_lib_dir = hailo_tappas_dep.get_variable('tappas_libdir')
-hailo_tappas_posproc_libdir = hailo_tappas_lib_dir / 'post-process'
+
+# Find the Tappas postprocessing *.so lib dir - this is different depending on the Tappas version.
+hailo_tappas_posproc_libdir = ''
+pp_dirs = ['post-process', 'post_processes']
+foreach dir : pp_dirs
+    if fs.is_dir(hailo_tappas_lib_dir / dir)
+        hailo_tappas_posproc_libdir = hailo_tappas_lib_dir / dir
+        break
+    endif
+endforeach
+
+if hailo_tappas_posproc_libdir == ''
+    error('Cannot find Hailo Tappas postprocessing libdir')
+endif
 
 hailo_conf_data = configuration_data()
 hailo_conf_data.set('HAILO_POSTPROC_LIB_DIR', '"' + hailo_tappas_posproc_libdir + '"')

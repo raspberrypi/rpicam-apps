@@ -6,6 +6,7 @@
  */
 #include <algorithm>
 #include <fcntl.h>
+#include <filesystem>
 #include <iomanip>
 #include <iostream>
 #include <linux/v4l2-controls.h>
@@ -19,6 +20,8 @@
 #include <libcamera/property_ids.h>
 
 #include "core/options.hpp"
+
+namespace fs = std::filesystem;
 
 static const std::map<int, std::string> cfa_map =
 {
@@ -40,6 +43,10 @@ static const std::map<libcamera::PixelFormat, unsigned int> bayer_formats =
 	{ libcamera::formats::SGRBG12_CSI2P, 12 },
 	{ libcamera::formats::SBGGR12_CSI2P, 12 },
 	{ libcamera::formats::SGBRG12_CSI2P, 12 },
+	{ libcamera::formats::SRGGB14_CSI2P, 14 },
+	{ libcamera::formats::SGRBG14_CSI2P, 14 },
+	{ libcamera::formats::SBGGR14_CSI2P, 14 },
+	{ libcamera::formats::SGBRG14_CSI2P, 14 },
 	{ libcamera::formats::SRGGB16,       16 },
 	{ libcamera::formats::SGRBG16,       16 },
 	{ libcamera::formats::SBGGR16,       16 },
@@ -104,31 +111,41 @@ static int xioctl(int fd, unsigned long ctl, void *arg)
 	return ret;
 }
 
-static bool set_subdev_hdr_ctrl(int en)
+static bool set_imx708_subdev_hdr_ctrl(int en, const std::string &cam_id)
 {
-	bool changed = false;
-	// Currently this does not exist in libcamera, so go directly to V4L2
-	// XXX it's not obvious which v4l2-subdev to use for which camera!
-	for (int i = 0; i < 8; i++)
+	for (unsigned int i = 0; i < 16; i++)
 	{
-		std::string dev("/dev/v4l-subdev");
-		dev += (char)('0' + i);
-		int fd = open(dev.c_str(), O_RDWR, 0);
-		if (fd < 0)
-			continue;
+		const fs::path test_dir { "/sys/class/video4linux/v4l-subdev" + std::to_string(i) + "/device" };
+		const fs::path module_dir { test_dir.string() + "/driver/module" };
+		const fs::path id_dir { test_dir.string() + "/of_node" };
 
-		v4l2_control ctrl { V4L2_CID_WIDE_DYNAMIC_RANGE, en };
-		if (!xioctl(fd, VIDIOC_G_CTRL, &ctrl) && ctrl.value != en)
+		if (fs::exists(module_dir) && fs::is_symlink(module_dir))
 		{
-			ctrl.value = en;
-			if (!xioctl(fd, VIDIOC_S_CTRL, &ctrl))
-				changed = true;
-		}
-		close(fd);
-	}
-	return changed;
-}
+			fs::path ln = fs::read_symlink(module_dir);
+			if (ln.string().find("imx708") != std::string::npos &&
+				fs::is_symlink(id_dir) && fs::read_symlink(id_dir).string().find(cam_id) != std::string::npos)
+			{
+				const std::string dev_node { "/dev/v4l-subdev" + std::to_string(i) };
+				int fd = open(dev_node.c_str(), O_RDONLY, 0);
+				if (fd < 0)
+					continue;
 
+				v4l2_control ctrl { V4L2_CID_WIDE_DYNAMIC_RANGE, en };
+				if (!xioctl(fd, VIDIOC_G_CTRL, &ctrl) && ctrl.value != en)
+				{
+					ctrl.value = en;
+					if (!xioctl(fd, VIDIOC_S_CTRL, &ctrl))
+					{
+						close(fd);
+						return true;
+					}
+				}
+				close(fd);
+			}
+		}
+	}
+	return false;
+}
 
 Platform get_platform()
 {
@@ -261,9 +278,11 @@ Options::Options()
 		("tuning-file", value<std::string>(&tuning_file)->default_value("-"),
 			"Name of camera tuning file to use, omit this option for libcamera default behaviour")
 		("lores-width", value<unsigned int>(&lores_width)->default_value(0),
-			"Width of low resolution frames (use 0 to omit low resolution stream")
+			"Width of low resolution frames (use 0 to omit low resolution stream)")
 		("lores-height", value<unsigned int>(&lores_height)->default_value(0),
-			"Height of low resolution frames (use 0 to omit low resolution stream")
+			"Height of low resolution frames (use 0 to omit low resolution stream)")
+		("lores-par", value<bool>(&lores_par)->default_value(false)->implicit_value(true),
+			"Preserve the pixel aspect ratio of the low res image (where possible) by applying a different crop on the stream.")
 		("mode", value<std::string>(&mode_string),
 			"Camera mode as W:H:bit-depth:packing, where packing is P (packed) or U (unpacked)")
 		("viewfinder-mode", value<std::string>(&viewfinder_mode_string),
@@ -368,10 +387,6 @@ bool Options::Parse(int argc, char *argv[])
 	if (!verbose || list_cameras)
 		libcamera::logSetTarget(libcamera::LoggingTargetNone);
 
-	// HDR control. Set the sensor control before opening or listing any cameras.
-	// Start by disabling HDR unconditionally. Reset the camera manager if we have
-	// actually switched the value of the control.
-	set_subdev_hdr_ctrl(0);
 	app_->initCameraManager();
 
 	bool log_env_set = getenv("LIBCAMERA_LOG_LEVELS");
@@ -383,16 +398,27 @@ bool Options::Parse(int argc, char *argv[])
 	if (camera < cameras.size())
 	{
 		const std::string cam_id = *cameras[camera]->properties().get(libcamera::properties::Model);
-		if ((hdr == "sensor" || hdr == "auto") && cam_id.find("imx708") != std::string::npos)
+
+		if (cam_id.find("imx708") != std::string::npos)
 		{
-			// Turn on sensor HDR.  Reset the camera manager if we have switched the value of the control.
-			if (set_subdev_hdr_ctrl(1))
+			// HDR control. Set the sensor control before opening or listing any cameras.
+			// Start by disabling HDR unconditionally. Reset the camera manager if we have
+			// actually switched the value of the control
+			bool changed = set_imx708_subdev_hdr_ctrl(0, cameras[camera]->id());
+
+			if (hdr == "sensor" || hdr == "auto")
+			{
+				// Turn on sensor HDR.  Reset the camera manager if we have switched the value of the control.
+				changed |= set_imx708_subdev_hdr_ctrl(1, cameras[camera]->id());
+				hdr = "sensor";
+			}
+
+			if (changed)
 			{
 				cameras.clear();
 				app_->initCameraManager();
 				cameras = app_->GetCameras();
 			}
-			hdr = "sensor";
 		}
 	}
 
@@ -416,7 +442,8 @@ bool Options::Parse(int argc, char *argv[])
 				if (area)
 					sensor_props << (*area)[0].size().toString() << " ";
 
-				std::unique_ptr<CameraConfiguration> config = cam->generateConfiguration({libcamera::StreamRole::Raw});
+				std::unique_ptr<CameraConfiguration> config =
+					cam->generateConfiguration({ libcamera::StreamRole::Raw, libcamera::StreamRole::Viewfinder });
 				if (!config)
 					throw std::runtime_error("failed to generate capture configuration");
 				const StreamFormats &formats = config->at(0).formats();
@@ -678,6 +705,7 @@ void Options::Print() const
 	std::cerr << "    tuning-file: " << (tuning_file == "-" ? "(libcamera)" : tuning_file) << std::endl;
 	std::cerr << "    lores-width: " << lores_width << std::endl;
 	std::cerr << "    lores-height: " << lores_height << std::endl;
+	std::cerr << "    lores-par: " << lores_par << std::endl;
 	if (afMode_index != -1)
 		std::cerr << "    autofocus-mode: " << afMode << std::endl;
 	if (afRange_index != -1)

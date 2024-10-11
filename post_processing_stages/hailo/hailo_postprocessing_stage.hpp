@@ -13,6 +13,8 @@
 #include <string>
 #include <vector>
 
+#include <libcamera/geometry.h>
+
 #include <hailo/hailort.hpp>
 #include "hailo_objects.hpp"
 
@@ -102,8 +104,16 @@ protected:
 		return std::string(HAILO_POSTPROC_LIB_DIR) + "/" + lib;
 	}
 
+	const libcamera::Size &InputTensorSize() const
+	{
+		return input_tensor_size_;
+	}
+
 	hailo_status DispatchJob(const uint8_t *input, hailort::AsyncInferJob &job, std::vector<OutTensor> &output_tensors);
 	HailoROIPtr MakeROI(const std::vector<OutTensor> &output_tensors) const;
+
+	libcamera::Rectangle ConvertInferenceCoordinates(const std::vector<float> &coords,
+													 const std::vector<libcamera::Rectangle> &scaler_crops) const;
 
 	libcamera::Stream *low_res_stream_;
 	libcamera::Stream *output_stream_;
@@ -113,7 +123,7 @@ protected:
 
 	Allocator allocator_;
 
-	std::unique_ptr<hailort::VDevice> vdevice_;
+	hailort::VDevice *vdevice_;
 	std::shared_ptr<hailort::InferModel> infer_model_;
 	std::shared_ptr<hailort::ConfiguredInferModel> configured_infer_model_;
 
@@ -125,4 +135,5 @@ private:
 	std::string hef_file_;
 	hailort::ConfiguredInferModel::Bindings bindings_;
 	std::chrono::time_point<std::chrono::steady_clock> last_frame_;
+	libcamera::Size input_tensor_size_;
 };

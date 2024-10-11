@@ -39,6 +39,8 @@ static libcamera::PixelFormat mode_to_pixel_format(Mode const &mode)
 		{ Mode(0, 0, 10, true), libcamera::formats::SBGGR10_CSI2P },
 		{ Mode(0, 0, 12, false), libcamera::formats::SBGGR12 },
 		{ Mode(0, 0, 12, true), libcamera::formats::SBGGR12_CSI2P },
+		{ Mode(0, 0, 14, false), libcamera::formats::SBGGR14 },
+		{ Mode(0, 0, 14, true), libcamera::formats::SBGGR14_CSI2P },
 	};
 
 	auto it = std::find_if(table.begin(), table.end(), [&mode] (auto &m) { return mode.bit_depth == m.first.bit_depth && mode.packed == m.first.packed; });
@@ -332,7 +334,7 @@ void RPiCamApp::ConfigureViewfinder()
 		lores_size.alignDownTo(2, 2);
 		if (lores_size.width > size.width || lores_size.height > size.height)
 			throw std::runtime_error("Low res image larger than viewfinder");
-		configuration_->at(lores_stream_num).pixelFormat = libcamera::formats::YUV420;
+		configuration_->at(lores_stream_num).pixelFormat = lores_format_;
 		configuration_->at(lores_stream_num).size = lores_size;
 		configuration_->at(lores_stream_num).bufferCount = configuration_->at(0).bufferCount;
 	}
@@ -583,7 +585,7 @@ void RPiCamApp::ConfigureVideo(unsigned int flags)
 		if (lores_size.width > configuration_->at(0).size.width ||
 			lores_size.height > configuration_->at(0).size.height)
 			throw std::runtime_error("Low res image larger than video");
-		configuration_->at(lores_index).pixelFormat = libcamera::formats::YUV420;
+		configuration_->at(lores_index).pixelFormat = lores_format_;
 		configuration_->at(lores_index).size = lores_size;
 		configuration_->at(lores_index).bufferCount = configuration_->at(0).bufferCount;
 	}
@@ -635,17 +637,35 @@ void RPiCamApp::StartCamera()
 
 	// Build a list of initial controls that we must set in the camera before starting it.
 	// We don't overwrite anything the application may have set before calling us.
-	if (!controls_.get(controls::ScalerCrop) && options_->roi_width != 0 && options_->roi_height != 0)
+	if (!controls_.get(controls::ScalerCrop) && !controls_.get(controls::rpi::ScalerCrops))
 	{
-		Rectangle sensor_area = camera_->controls().at(&controls::ScalerCrop).max().get<Rectangle>();
-		int x = options_->roi_x * sensor_area.width;
-		int y = options_->roi_y * sensor_area.height;
-		int w = options_->roi_width * sensor_area.width;
-		int h = options_->roi_height * sensor_area.height;
-		Rectangle crop(x, y, w, h);
-		crop.translateBy(sensor_area.topLeft());
-		LOG(2, "Using crop " << crop.toString());
-		controls_.set(controls::ScalerCrop, crop);
+		const Rectangle sensor_area = camera_->controls().at(&controls::ScalerCrop).max().get<Rectangle>();
+		const Rectangle default_crop = camera_->controls().at(&controls::ScalerCrop).def().get<Rectangle>();
+		std::vector<Rectangle> crops;
+
+		if (options_->roi_width != 0 && options_->roi_height != 0)
+		{
+			int x = options_->roi_x * sensor_area.width;
+			int y = options_->roi_y * sensor_area.height;
+			unsigned int w = options_->roi_width * sensor_area.width;
+			unsigned int h = options_->roi_height * sensor_area.height;
+			crops.push_back({ x, y, w, h });
+			crops.back().translateBy(sensor_area.topLeft());
+		}
+		else
+		{
+			crops.push_back(default_crop);
+		}
+
+		LOG(2, "Using crop (main) " << crops.back().toString());
+
+		if (options_->lores_width != 0 && options_->lores_height != 0 && !options_->lores_par)
+		{
+			crops.push_back(crops.back());
+			LOG(2, "Using crop (lores) " << crops.back().toString());
+		}
+
+		controls_.set(controls::rpi::ScalerCrops, libcamera::Span<const Rectangle>(crops.data(), crops.size()));
 	}
 
 	if (!controls_.get(controls::AfWindows) && !controls_.get(controls::AfMetering) && options_->afWindow_width != 0 &&

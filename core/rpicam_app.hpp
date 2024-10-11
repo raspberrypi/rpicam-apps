@@ -95,7 +95,8 @@ public:
 			std::string fmt = format.toString();
 			unsigned int mode_depth = fmt.find("8") != std::string::npos ? 8 :
 									  fmt.find("10") != std::string::npos ? 10 :
-									  fmt.find("12") != std::string::npos ? 12 : 16;
+									  fmt.find("12") != std::string::npos ? 12 :
+									  fmt.find("14") != std::string::npos ? 14 : 16;
 			return mode_depth;
 		}
 		libcamera::Size size;
@@ -185,6 +186,7 @@ public:
 
 	friend class BufferWriteSync;
 	friend class BufferReadSync;
+	friend class PostProcessor;
 	friend struct Options;
 
 protected:
@@ -281,4 +283,5 @@ private:
 	uint64_t last_timestamp_;
 	uint64_t sequence_ = 0;
 	PostProcessor post_processor_;
+	libcamera::PixelFormat lores_format_ = libcamera::formats::YUV420;
 };
