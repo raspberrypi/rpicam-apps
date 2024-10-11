@@ -52,6 +52,7 @@ if opencv_dep.found()
 
     postproc_assets += files([
         assets_dir / 'hailo_yolov8_pose.json',
+        assets_dir / 'hailo_yolov8_pose_and_inference.json',
         assets_dir / 'hailo_yolov5_segmentation.json',
     ])
 
