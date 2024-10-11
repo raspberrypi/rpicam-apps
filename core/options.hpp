@@ -107,8 +107,10 @@ struct Options
 	virtual ~Options() {}
 
 	bool help;
+	// ADDED BEGIN
 	std::string memcached;
 	std::string redis;
+	// ADDED END
 	bool version;
 	bool list_cameras;
 	unsigned int verbose;

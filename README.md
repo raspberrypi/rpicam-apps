@@ -112,7 +112,8 @@ Search for `TODO` to see what is left to be done.
 Modified Files
 ------
 
-apps/rpicam_raw.cpp
+Search for the term "ADDED" to find code added section in the below files.
+
 output/output.cpp
 output/meson.build
 core/options.hpp
