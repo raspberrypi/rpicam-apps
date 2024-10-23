@@ -35,6 +35,7 @@ endif
 
 dl_dep = dependency('dl', required : true)
 libcamera_dep = dependency('libcamera', required : true)
+opencv_dep = dependency('opencv4', required: true)  # OpenCV 의존성 추가
 
 summary({
             'location' : libcamera_dep.get_variable('libdir'),
