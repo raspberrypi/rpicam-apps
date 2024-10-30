@@ -9,8 +9,19 @@
 
 #include "core/rpicam_app.hpp"
 #include "core/options.hpp"
+#include "post_processing_stages/object_detect.hpp"
+#include "subprojects/kakadujs/src/HTJ2KEncoder.hpp"
+
+#include "opencv2/highgui.hpp"
+#include "opencv2/imgcodecs.hpp"
+#include "opencv2/imgproc.hpp"
+
+#include "encoder/ht_encoder.hpp"
+
 
 using namespace std::placeholders;
+
+enum progression { LRCP, RLCP, RPCL, PCRL, CPRL };
 
 // The main event loop for the application.
 
@@ -20,10 +31,21 @@ static void event_loop(RPiCamApp &app)
 
 	app.OpenCamera();
 	app.ConfigureViewfinder();
+	
+	// Setup HTJ2K encoder
+	std::vector<uint8_t> encbuf; // codestream buffer
+  	encbuf.reserve(options->viewfinder_width * options->viewfinder_height * 3);
+  	const FrameInfo finfo = {static_cast<uint16_t>(options->viewfinder_width), static_cast<uint16_t>(options->viewfinder_height), 8, 3, false};
+	// HTJ2KEncoder encoder(encbuf, finfo); // encoder instance
+	HT_Encoder htenc(encbuf, finfo, options);
+
 	app.StartCamera();
 
-	auto start_time = std::chrono::high_resolution_clock::now();
+	bool not_saved = true;
 
+	auto start_time = std::chrono::high_resolution_clock::now();
+	std::mutex m;
+	auto lk = std::unique_lock<std::mutex>(m, std::defer_lock);
 	for (unsigned int count = 0; ; count++)
 	{
 		RPiCamApp::Msg msg = app.Wait();
@@ -45,7 +67,31 @@ static void event_loop(RPiCamApp &app)
 			return;
 
 		CompletedRequestPtr &completed_request = std::get<CompletedRequestPtr>(msg.payload);
-		app.ShowPreview(completed_request, app.ViewfinderStream());
+		// We commented out below because preview window only supports YUV420
+		// app.ShowPreview(completed_request, app.ViewfinderStream());
+		
+		libcamera::Stream *stream = app.ViewfinderStream();	
+		BufferReadSync r(&app, completed_request->buffers[stream]);
+		libcamera::Span<uint8_t> buffer = r.Get()[0];
+		uint8_t *ptr = (uint8_t *)buffer.data();
+		cv::Mat frame;
+		{
+			// std::unique_lock<std::mutex> lock(m);
+			frame = cv::Mat(options->viewfinder_height, options->viewfinder_width, CV_8UC3, ptr);
+		}
+		cv::imshow("Dectention results", frame);
+		cv::pollKey();
+		
+		std::vector<Detection> objects;
+		completed_request->post_process_metadata.Get("object_detect.results", objects);
+		if (objects.size()) {
+			cv::cvtColor(frame, frame, cv::COLOR_BGR2RGB);
+			{
+				// std::scoped_lock lock(m);
+				int64_t t = 0;
+				htenc.EncodeBuffer(completed_request->buffers[stream]->planes()[0].fd.get(), buffer.size(),buffer.data(), app.GetStreamInfo(stream), t);
+			}
+		}
 	}
 }
 

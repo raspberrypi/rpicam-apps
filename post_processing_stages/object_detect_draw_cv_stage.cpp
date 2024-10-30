@@ -13,6 +13,9 @@
 
 #include "object_detect.hpp"
 
+#include "opencv2/highgui.hpp"
+#include "opencv2/imgcodecs.hpp"
+
 using namespace cv;
 
 using Rectange = libcamera::Rectangle;
@@ -69,21 +72,24 @@ bool ObjectDetectDrawCvStage::Process(CompletedRequestPtr &completed_request)
 
 	completed_request->post_process_metadata.Get("object_detect.results", detections);
 
-	Mat image(info.height, info.width, CV_8U, ptr, info.stride);
-	Scalar colour = Scalar(255, 255, 255);
+	Mat image(info.height, info.width, CV_8UC3, ptr, info.stride);
+
+	// Scalar colour = Scalar(255, 255, 255);
+	Scalar YELLOW = Scalar(0, 255, 255);
+	Scalar BLUE = Scalar(255, 178, 50);
 	int font = FONT_HERSHEY_SIMPLEX;
 
 	for (auto &detection : detections)
 	{
 		Rect r(detection.box.x, detection.box.y, detection.box.width, detection.box.height);
-		rectangle(image, r, colour, line_thickness_);
+		rectangle(image, r, BLUE, line_thickness_);
 		std::stringstream text_stream;
 		text_stream << detection.name << " " << (int)(detection.confidence * 100) << "%";
 		std::string text = text_stream.str();
 		int baseline = 0;
 		Size size = getTextSize(text, font, font_size_, 2, &baseline);
 		Point text_origin(detection.box.x + 5, detection.box.y + size.height + 5);
-		putText(image, text, text_origin, font, font_size_, colour, 2);
+		putText(image, text, text_origin, font, font_size_, YELLOW, 2);
 	}
 
 	return false;

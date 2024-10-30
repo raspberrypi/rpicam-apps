@@ -1,0 +1,12 @@
+build-native
+build-wasm
+dist
+test/fixtures/j2c/ignore.j2c
+.DS_Store
+extern/v*
+.vs
+out
+build
+build-gcc
+build-clang
+build-emscripten
