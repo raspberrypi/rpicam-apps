@@ -238,7 +238,7 @@ static void event_loop(RPiCamStillApp &app)
 	// 	// 나머지 처리...
 	// }
 
-	RPiCamStillApp app;
+
 	Stream *stream = app.StillStream();
 	
 	// 카메라 오픈 (초기화)
@@ -455,11 +455,11 @@ void traceSecondDerivate(){
                 line_size = 1;
                 while(1){
                     flag = 1;
-                    if(coor_w > frame.cols-2)break;
+                    if(static cast<int>(coor_w) > frame.cols-2)break;
                     for(int k=-3;k<4;k++){
 
                         if(coor_h+k < 0)continue;
-                        if(coor_h+k >= frame.rows)continue;
+                        if(static cast<int>(coor_h+k) >= frame.rows)continue;
                         
                         //20240630 edit(nabi)
                         if(check.at<uchar>(coor_h+k, coor_w+1) != 0)continue;
