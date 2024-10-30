@@ -9,6 +9,12 @@
 
 #include "core/rpicam_app.hpp"
 #include "core/options.hpp"
+#include "post_processing_stages/object_detect.hpp"
+#include "subprojects/kakadujs/src/HTJ2KEncoder.hpp"
+
+#include "opencv2/highgui.hpp"
+#include "opencv2/imgcodecs.hpp"
+
 
 using namespace std::placeholders;
 
@@ -45,7 +51,25 @@ static void event_loop(RPiCamApp &app)
 			return;
 
 		CompletedRequestPtr &completed_request = std::get<CompletedRequestPtr>(msg.payload);
-		app.ShowPreview(completed_request, app.ViewfinderStream());
+		// We commented out below because preview window only supports YUV420
+		// app.ShowPreview(completed_request, app.ViewfinderStream());
+		
+		StreamInfo *info;
+		libcamera::Stream *stream = app.ViewfinderStream(info);
+		
+		BufferReadSync w(&app, completed_request->buffers[stream]);
+		libcamera::Span<uint8_t> buffer = w.Get()[0];
+		uint8_t *ptr = (uint8_t *)buffer.data();
+		cv::Mat frame = cv::Mat(info->height, info->width, CV_8UC3, ptr);
+		cv::imshow("Dectention results", frame);
+		cv::pollKey();
+		
+		std::vector<Detection> objects;
+		completed_request->post_process_metadata.Get("object_detect.results", objects);
+		if (objects.size()) {
+			
+		}
+		
 	}
 }
 

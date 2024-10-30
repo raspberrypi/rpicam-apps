@@ -11,8 +11,8 @@ rpicam_vid = executable('rpicam-vid', files('rpicam_vid.cpp'),
                         install : true)
 
 rpicam_hello = executable('rpicam-hello', files('rpicam_hello.cpp'),
-                          include_directories : include_directories('..'),
-                          dependencies: libcamera_dep,
+                          include_directories : include_directories(['..', '/usr/include/opencv4']),
+                          dependencies: [libcamera_dep, kakadu_lib, kakaduapp_lib, opencv_dep],
                           link_with : rpicam_app,
                           install : true)
 

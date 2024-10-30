@@ -2,8 +2,8 @@ project('rpicam-apps', 'c', 'cpp',
         meson_version : '>= 0.64.0',
         version : '1.5.2',
         default_options : [
-            'werror=true',
-            'warning_level=3',
+            'werror=false',
+            # 'warning_level=3',
             'cpp_std=c++17',
             'c_std=c11',
             'buildtype=release',
@@ -14,7 +14,8 @@ meson.add_dist_script('utils' / 'gen-dist.sh')
 
 fs = import('fs')
 
-cpp_arguments = ['-pedantic', '-Wno-unused-parameter', '-faligned-new']
+# cpp_arguments = ['-pedantic', '-Wno-unused-parameter', '-faligned-new']
+cpp_arguments = ['-w', '-faligned-new']
 
 # Needed for file sizes > 32-bits.
 cpp_arguments += '-D_FILE_OFFSET_BITS=64'
@@ -53,7 +54,14 @@ subdir('preview')
 subdir('utils')
 
 add_project_arguments(cpp_arguments, language : 'cpp')
+cmake = import('cmake')
 
+# Configure the CMake project
+sub_proj = cmake.subproject('kakadujs')
+
+# Fetch the dependency object
+kakadu_lib = sub_proj.dependency('kakadu')
+kakaduapp_lib = sub_proj.dependency('kakaduappsupport')
 # Must be put after add_project_arguments as it defines shared library targets.
 subdir('post_processing_stages')
 
