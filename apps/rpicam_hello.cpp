@@ -14,9 +14,14 @@
 
 #include "opencv2/highgui.hpp"
 #include "opencv2/imgcodecs.hpp"
+#include "opencv2/imgproc.hpp"
+
+#include "encoder/ht_encoder.hpp"
 
 
 using namespace std::placeholders;
+
+enum progression { LRCP, RLCP, RPCL, PCRL, CPRL };
 
 // The main event loop for the application.
 
@@ -26,10 +31,20 @@ static void event_loop(RPiCamApp &app)
 
 	app.OpenCamera();
 	app.ConfigureViewfinder();
+	
+	// Setup HTJ2K encoder
+	std::vector<uint8_t> encbuf; // codestream buffer
+  	encbuf.reserve(options->viewfinder_width * options->viewfinder_height * 3);
+  	const FrameInfo finfo = {static_cast<uint16_t>(options->viewfinder_width), static_cast<uint16_t>(options->viewfinder_height), 8, 3, false};
+	HTJ2KEncoder encoder(encbuf, finfo); // encoder instance
+
 	app.StartCamera();
 
-	auto start_time = std::chrono::high_resolution_clock::now();
+	bool not_saved = true;
 
+	auto start_time = std::chrono::high_resolution_clock::now();
+	std::mutex m;
+	auto lk = std::unique_lock<std::mutex>(m, std::defer_lock);
 	for (unsigned int count = 0; ; count++)
 	{
 		RPiCamApp::Msg msg = app.Wait();
@@ -54,22 +69,36 @@ static void event_loop(RPiCamApp &app)
 		// We commented out below because preview window only supports YUV420
 		// app.ShowPreview(completed_request, app.ViewfinderStream());
 		
-		StreamInfo *info;
-		libcamera::Stream *stream = app.ViewfinderStream(info);
-		
-		BufferReadSync w(&app, completed_request->buffers[stream]);
-		libcamera::Span<uint8_t> buffer = w.Get()[0];
+		libcamera::Stream *stream = app.ViewfinderStream();	
+		BufferReadSync r(&app, completed_request->buffers[stream]);
+		libcamera::Span<uint8_t> buffer = r.Get()[0];
 		uint8_t *ptr = (uint8_t *)buffer.data();
-		cv::Mat frame = cv::Mat(info->height, info->width, CV_8UC3, ptr);
+		cv::Mat frame;
+		{
+			// std::unique_lock<std::mutex> lock(m);
+			frame = cv::Mat(options->viewfinder_height, options->viewfinder_width, CV_8UC3, ptr);
+		}
 		cv::imshow("Dectention results", frame);
 		cv::pollKey();
 		
 		std::vector<Detection> objects;
 		completed_request->post_process_metadata.Get("object_detect.results", objects);
 		if (objects.size()) {
-			
+			cv::cvtColor(frame, frame, cv::COLOR_BGR2RGB);
+			{
+				std::scoped_lock lock(m);
+				// encoder.setSourceImage(frame.data, frame.cols * frame.rows * frame.channels());
+				encoder.setSourceImage(buffer.data(), buffer.size());
+				encoder.encode();
+				std::cout << "HTJ2K compressed size = " << encbuf.size() << "\n";
+				if (not_saved) {
+					FILE *fp = fopen("tmp.j2c", "wb");
+					fwrite(encbuf.data(), sizeof(uint8_t), encbuf.size(), fp);
+					fclose(fp);
+					not_saved = false;
+				}
+			}
 		}
-		
 	}
 }
 
