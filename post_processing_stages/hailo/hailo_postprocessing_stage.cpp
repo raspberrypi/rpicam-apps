@@ -159,7 +159,9 @@ HailoPostProcessingStage::~HailoPostProcessingStage()
 
 void HailoPostProcessingStage::Read(boost::property_tree::ptree const &params)
 {
-	hef_file_ = params.get<std::string>("hef_file");
+	hef_file_ = params.get<std::string>("hef_file", "");
+	hef_file_8_ = params.get<std::string>("hef_file_8", "");
+	hef_file_8L_ = params.get<std::string>("hef_file_8L", "");
 }
 
 void HailoPostProcessingStage::Configure()
@@ -191,8 +193,26 @@ int HailoPostProcessingStage::configureHailoRT()
 		return -1;
 	}
 
+	// Pull the device id.
+	auto devices = vdevice_->get_physical_devices().release();
+	device_id_ = devices[0].get().identify().release();
+
+	std::string hef_file;
+	if (device_id_.device_architecture == HAILO_ARCH_HAILO8 && !hef_file_8_.empty())
+		hef_file = hef_file_8_;
+	else if (!hef_file_8L_.empty())
+		hef_file = hef_file_8L_;
+	else
+		hef_file = hef_file_;
+
+	if (hef_file.empty())
+	{
+		LOG_ERROR("Unable to use a suitable HEF file.");
+		return -1;
+	}
+
 	// Create infer model from HEF file.
-	Expected<std::shared_ptr<InferModel>> infer_model_exp = vdevice_->create_infer_model(hef_file_);
+	Expected<std::shared_ptr<InferModel>> infer_model_exp = vdevice_->create_infer_model(hef_file);
 	if (!infer_model_exp)
 	{
 		LOG_ERROR("Failed to create infer model, status = " << infer_model_exp.status());
