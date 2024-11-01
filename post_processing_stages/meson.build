@@ -104,7 +104,7 @@ enable_hailo = false
 hailort_dep = dependency('HailoRT', modules : ['HailoRT::libhailort'], version: '>=4.18.0',
                          required : get_option('enable_hailo'))
 hailo_tappas_dep = dependency('hailo-tappas-core', required : get_option('enable_hailo'))
-if hailort_dep.found() and hailo_tappas_dep.found()
+if hailort_dep.found() and hailo_tappas_dep.found() and opencv_dep.found()
     subdir('hailo')
     enable_hailo = true
 endif
