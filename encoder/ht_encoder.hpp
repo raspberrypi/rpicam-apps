@@ -17,6 +17,14 @@
 
 #include "subprojects/kakadujs/src/HTJ2KEncoder.hpp"
 
+#include "simple_tcp.hpp"
+
+uint8_t hotfix_for_mainheader[32] = {
+	0xFF,0x4F,0xFF,0x51,0x00,0x2F,0x40,0x00,
+	0x00,0x00,0x07,0x80,0x00,0x00,0x04,0x38,
+	0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+	0x00,0x00,0x07,0x80,0x00,0x00,0x04,0x38
+};
 class HT_Encoder
 {
 public:
@@ -90,8 +98,24 @@ private:
 			uint8_t *encoded_buffer = nullptr;
 			size_t buffer_len = 0;
 			auto start_time = std::chrono::high_resolution_clock::now();
-			encodeHTJ2K(encode_item, encoded_buffer, buffer_len);
-			encode_time += (std::chrono::high_resolution_clock::now() - start_time);
+			{
+				// std::unique_lock<std::mutex> lock(encode_mutex_);
+				encodeHTJ2K(encode_item, encoded_buffer, buffer_len);
+			}
+			encode_time = (std::chrono::high_resolution_clock::now() - start_time);
+			// send codestream via TCP connection
+			simple_tcp tcp_socket("133.36.41.118", 4001);
+			if (!tcp_socket.create_client())
+			{
+				// std::unique_lock<std::mutex> lock(encode_mutex_);
+				tcp_socket.Tx(encoded_buffer, buffer_len);
+			}
+			// for (int i = 0; i < 32; ++i)
+			// {
+			// 	printf("%02X ", encoded_buffer[i]);
+			// }
+			// printf("\n");
+			printf("HT codestream size = %ld, time = %f\n", buffer_len, encode_time);
 			frames++;
 			// Don't return buffers until the output thread as that's where they're
 			// in order again.
@@ -147,7 +171,7 @@ private:
 			}
 		got_item:
         // no need of callback
-			free(item.mem);
+			// free(item.mem);
 			index++;
 		}
 	}
