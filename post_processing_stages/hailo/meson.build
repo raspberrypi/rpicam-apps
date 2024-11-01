@@ -50,6 +50,7 @@ postproc_assets += files([
     assets_dir / 'hailo_yolov8_pose_and_inference.json',
     assets_dir / 'hailo_yolov5_segmentation.json',
     assets_dir / 'hailo_scrfd.json',
+    assets_dir / 'hailo_pose_inf_fl.json',
 ])
 
 hailo_cpp_arguments = ['-Wno-ignored-qualifiers', '-Wno-unused-parameter', '-Wno-extra']
