@@ -194,8 +194,9 @@ private:
 
 	std::mutex lock_;
 	bool init_ = false;
-	std::string hef_file_;
+	std::string hef_file_, hef_file_8_, hef_file_8L_;
 	hailort::ConfiguredInferModel::Bindings bindings_;
 	std::chrono::time_point<std::chrono::steady_clock> last_frame_;
 	libcamera::Size input_tensor_size_;
+	hailo_device_identity_t device_id_;
 };
