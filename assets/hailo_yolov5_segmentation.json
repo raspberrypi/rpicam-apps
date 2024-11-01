@@ -15,7 +15,8 @@
         "flush_results": true,
         "confidence_threshold": 0.4,
 
-        "hef_file": "/usr/share/hailo-models/yolov5n_seg_h8l_mz.hef",
+        "hef_file_8L": "/usr/share/hailo-models/yolov5n_seg_h8l_mz.hef",
+        "hef_file_8": "/usr/share/hailo-models/yolov8m_seg_h8.hef",
         "hailopp_config_file": "/usr/share/hailo-models/yolov5seg.json"
     }
 }
