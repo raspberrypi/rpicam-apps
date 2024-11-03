@@ -87,18 +87,18 @@ static void event_loop(RPiCamApp &app)
 		if (objects.size()) {
 			cv::cvtColor(frame, frame, cv::COLOR_BGR2RGB);
 			{
-				std::scoped_lock lock(m);
+				// std::scoped_lock lock(m);
 				// encoder.setSourceImage(buffer.data(), buffer.size());
 				// encoder.encode();
 				int64_t t = 0;
 				encoder2.EncodeBuffer(completed_request->buffers[stream]->planes()[0].fd.get(), buffer.size(),buffer.data(), app.GetStreamInfo(stream), t);
 				// std::cout << "HTJ2K compressed size = " << encbuf.size() << "\n";
-				if (not_saved) {
-					FILE *fp = fopen("tmp.j2c", "wb");
-					fwrite(encbuf.data(), sizeof(uint8_t), encbuf.size(), fp);
-					fclose(fp);
-					not_saved = false;
-				}
+				// if (not_saved) {
+				// 	FILE *fp = fopen("tmp.j2c", "wb");
+				// 	fwrite(encbuf.data(), sizeof(uint8_t), encbuf.size(), fp);
+				// 	fclose(fp);
+				// 	not_saved = false;
+				// }
 			}
 		}
 	}

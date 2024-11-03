@@ -32,7 +32,8 @@ public:
         abortEncode_(false), 
         abortOutput_(false), 
         index_(0),
-        enc(encoded_, info)
+        enc(encoded_, info),
+		buf(encoded_)
 	{
 		output_thread_ = std::thread(&HT_Encoder::outputThread, this);
 		for (int i = 0; i < NUM_ENC_THREADS; i++)
@@ -100,7 +101,12 @@ private:
 			auto start_time = std::chrono::high_resolution_clock::now();
 			{
 				// std::unique_lock<std::mutex> lock(encode_mutex_);
-				encodeHTJ2K(encode_item, encoded_buffer, buffer_len);
+				encodeHTJ2K(encode_item, buf, buffer_len);
+				// for (int i = 0; i < 32; ++i)
+				// {
+				// 	printf("%02X ", buf[i]);
+				// }
+				// printf("\n");
 			}
 			encode_time = (std::chrono::high_resolution_clock::now() - start_time);
 			// send codestream via TCP connection
@@ -108,13 +114,8 @@ private:
 			if (!tcp_socket.create_client())
 			{
 				// std::unique_lock<std::mutex> lock(encode_mutex_);
-				tcp_socket.Tx(encoded_buffer, buffer_len);
+				tcp_socket.Tx(buf.data(), buffer_len);
 			}
-			// for (int i = 0; i < 32; ++i)
-			// {
-			// 	printf("%02X ", encoded_buffer[i]);
-			// }
-			// printf("\n");
 			printf("HT codestream size = %ld, time = %f\n", buffer_len, encode_time);
 			frames++;
 			// Don't return buffers until the output thread as that's where they're
@@ -191,12 +192,12 @@ private:
 	std::mutex encode_mutex_;
 	std::condition_variable encode_cond_var_;
 	std::thread encode_thread_[NUM_ENC_THREADS];
-	void encodeHTJ2K(EncodeItem &item, uint8_t *&encoded_buffer, size_t &buffer_len)
+	void encodeHTJ2K(EncodeItem &item, std::vector<uint8_t> &out, size_t &buffer_len)
 	{
         enc.setSourceImage((uint8_t *)item.mem, item.info.width * item.info.height * 3);
         enc.encode();
-        auto out = enc.getEncodedBytes();
-        encoded_buffer = out.data();
+        out = enc.getEncodedBytes();
+        // encoded_buffer = out.data();
         buffer_len = out.size();
 
 	}
@@ -214,4 +215,5 @@ private:
 	std::thread output_thread_;
 
     HTJ2KEncoder enc; // encoder instance
+	std::vector<uint8_t> &buf;
 };
