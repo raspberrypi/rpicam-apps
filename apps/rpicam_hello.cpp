@@ -37,7 +37,7 @@ static void event_loop(RPiCamApp &app)
   	encbuf.reserve(options->viewfinder_width * options->viewfinder_height * 3);
   	const FrameInfo finfo = {static_cast<uint16_t>(options->viewfinder_width), static_cast<uint16_t>(options->viewfinder_height), 8, 3, false};
 	// HTJ2KEncoder encoder(encbuf, finfo); // encoder instance
-	HT_Encoder encoder2(encbuf, finfo, options);
+	HT_Encoder htenc(encbuf, finfo, options);
 
 	app.StartCamera();
 
@@ -88,17 +88,8 @@ static void event_loop(RPiCamApp &app)
 			cv::cvtColor(frame, frame, cv::COLOR_BGR2RGB);
 			{
 				// std::scoped_lock lock(m);
-				// encoder.setSourceImage(buffer.data(), buffer.size());
-				// encoder.encode();
 				int64_t t = 0;
-				encoder2.EncodeBuffer(completed_request->buffers[stream]->planes()[0].fd.get(), buffer.size(),buffer.data(), app.GetStreamInfo(stream), t);
-				// std::cout << "HTJ2K compressed size = " << encbuf.size() << "\n";
-				// if (not_saved) {
-				// 	FILE *fp = fopen("tmp.j2c", "wb");
-				// 	fwrite(encbuf.data(), sizeof(uint8_t), encbuf.size(), fp);
-				// 	fclose(fp);
-				// 	not_saved = false;
-				// }
+				htenc.EncodeBuffer(completed_request->buffers[stream]->planes()[0].fd.get(), buffer.size(),buffer.data(), app.GetStreamInfo(stream), t);
 			}
 		}
 	}
