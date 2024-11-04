@@ -72,8 +72,11 @@ bool ObjectDetectDrawCvStage::Process(CompletedRequestPtr &completed_request)
 
 	completed_request->post_process_metadata.Get("object_detect.results", detections);
 
-	Mat image(info.height, info.width, CV_8UC3, ptr, info.stride);
-
+	Mat image(info.height * 1.5, info.width, CV_8UC1, ptr, info.stride);
+	Mat tmp;
+	cvtColor(image, tmp, COLOR_YUV2BGR_I420);
+	// printf("orig: %x, before = %x", ptr, image.data); // for DEBUGGING address of ptr
+	
 	// Scalar colour = Scalar(255, 255, 255);
 	Scalar YELLOW = Scalar(0, 255, 255);
 	Scalar BLUE = Scalar(255, 178, 50);
@@ -82,16 +85,17 @@ bool ObjectDetectDrawCvStage::Process(CompletedRequestPtr &completed_request)
 	for (auto &detection : detections)
 	{
 		Rect r(detection.box.x, detection.box.y, detection.box.width, detection.box.height);
-		rectangle(image, r, BLUE, line_thickness_);
+		rectangle(tmp, r, BLUE, line_thickness_);
 		std::stringstream text_stream;
 		text_stream << detection.name << " " << (int)(detection.confidence * 100) << "%";
 		std::string text = text_stream.str();
 		int baseline = 0;
 		Size size = getTextSize(text, font, font_size_, 2, &baseline);
 		Point text_origin(detection.box.x + 5, detection.box.y + size.height + 5);
-		putText(image, text, text_origin, font, font_size_, YELLOW, 2);
+		putText(tmp, text, text_origin, font, font_size_, YELLOW, 2);
 	}
-
+	cvtColor(tmp, image, COLOR_BGR2YUV_I420);
+	// printf("after = %x\n", image.data); // for DEBUGGING address of ptr
 	return false;
 }
 

@@ -68,28 +68,38 @@ static void event_loop(RPiCamApp &app)
 
 		CompletedRequestPtr &completed_request = std::get<CompletedRequestPtr>(msg.payload);
 		// We commented out below because preview window only supports YUV420
-		// app.ShowPreview(completed_request, app.ViewfinderStream());
+		app.ShowPreview(completed_request, app.ViewfinderStream());
 		
 		libcamera::Stream *stream = app.ViewfinderStream();	
 		BufferReadSync r(&app, completed_request->buffers[stream]);
 		libcamera::Span<uint8_t> buffer = r.Get()[0];
 		uint8_t *ptr = (uint8_t *)buffer.data();
+		
 		cv::Mat frame;
 		{
 			// std::unique_lock<std::mutex> lock(m);
-			frame = cv::Mat(options->viewfinder_height, options->viewfinder_width, CV_8UC3, ptr);
+			frame = cv::Mat(options->viewfinder_height * 1.5, options->viewfinder_width, CV_8UC1, (uint32_t *)ptr);
 		}
-		cv::imshow("Dectention results", frame);
-		cv::pollKey();
+		cv::Mat out;
+		cv::cvtColor(frame, out, cv::COLOR_YUV2RGB_I420);
+		// cv::imshow("Dectention results", out);
+		auto info = app.GetStreamInfo(stream);
+		info.pixel_format = libcamera::formats::RGB888;
+		info.colour_space = libcamera::ColorSpace::Srgb;
+		info.width = out.cols;
+		info.height = out.rows;
+		info.stride = out.cols;
+		// cv::pollKey();
 		
 		std::vector<Detection> objects;
 		completed_request->post_process_metadata.Get("object_detect.results", objects);
 		if (objects.size()) {
-			cv::cvtColor(frame, frame, cv::COLOR_BGR2RGB);
+			// cv::cvtColor(frame, frame, cv::COLOR_BGR2RGB);
 			{
 				// std::scoped_lock lock(m);
 				int64_t t = 0;
-				htenc.EncodeBuffer(completed_request->buffers[stream]->planes()[0].fd.get(), buffer.size(),buffer.data(), app.GetStreamInfo(stream), t);
+				// htenc.EncodeBuffer(completed_request->buffers[stream]->planes()[0].fd.get(), buffer.size(),buffer.data(), app.GetStreamInfo(stream), t);
+				htenc.EncodeBuffer(1, out.cols * out.rows *3, out.data, info,t);
 			}
 		}
 	}
