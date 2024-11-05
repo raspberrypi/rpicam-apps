@@ -30,7 +30,7 @@ postproc_assets += files([
 ])
 
 core_postproc_lib = shared_module('core-postproc', core_postproc_src,
-                                  include_directories : '../..',
+                                  include_directories : '../',
                                   dependencies : libcamera_dep,
                                   cpp_args : cpp_arguments,
                                   install : true,
@@ -58,7 +58,7 @@ if opencv_dep.found()
     ])
 
     opencv_postproc_lib = shared_module('opencv-postproc', opencv_postproc_src,
-                                        include_directories : '../..',
+                                        include_directories : '../',
                                         dependencies : [libcamera_dep, opencv_dep],
                                         cpp_args : cpp_arguments,
                                         install : true,
@@ -89,7 +89,7 @@ if tflite_dep.found()
     ])
 
     tflite_postproc_lib = shared_module('tflite-postproc', tflite_postproc_src,
-                                        include_directories : '../..',
+                                        include_directories : '../',
                                         dependencies : [libcamera_dep, tflite_dep],
                                         cpp_args : cpp_arguments,
                                         install : true,
