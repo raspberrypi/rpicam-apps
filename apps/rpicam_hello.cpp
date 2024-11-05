@@ -99,7 +99,8 @@ static void event_loop(RPiCamApp &app)
 				// std::scoped_lock lock(m);
 				int64_t t = 0;
 				// htenc.EncodeBuffer(completed_request->buffers[stream]->planes()[0].fd.get(), buffer.size(),buffer.data(), app.GetStreamInfo(stream), t);
-				htenc.EncodeBuffer(1, out.cols * out.rows *3, out.data, info,t);
+				// htenc.EncodeBuffer(1, out.cols * out.rows *3, out.data, info,t);
+				htenc.EncodeBuffer(1, frame.cols * frame.rows *1.5, frame.data, info,t);
 			}
 		}
 	}

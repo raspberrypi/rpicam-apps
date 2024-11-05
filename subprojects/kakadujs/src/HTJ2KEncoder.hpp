@@ -60,7 +60,7 @@ class HTJ2KEncoder {
         blockDimensions_(64, 64),
         htEnabled_(true),
         qfactor(85),
-        buf_(nullptr),
+        // buf_(nullptr),
         size_(0) {  // resize the encoded buffer so we don't have to keep resizing it
     const size_t bytesPerPixel = (frameInfo_.bitsPerSample + 8 - 1) / 8;
     // encoded_.reserve(frameInfo_.width * frameInfo_.height * frameInfo_.componentCount * bytesPerPixel);
@@ -70,6 +70,16 @@ class HTJ2KEncoder {
     siz.set(Scomponents, 0, 0, frameInfo_.componentCount);
     siz.set(Sdims, 0, 0, frameInfo_.height);
     siz.set(Sdims, 0, 1, frameInfo_.width);
+    siz.set(Sdims, 1, 0, frameInfo_.height/2);
+    siz.set(Sdims, 1, 1, frameInfo_.width/2);
+    siz.set(Sdims, 2, 0, frameInfo_.height/2);
+    siz.set(Sdims, 2, 1, frameInfo_.width/2);
+    siz.set(Ssampling, 0, 0, 1);
+    siz.set(Ssampling, 0, 1, 1);
+    siz.set(Ssampling, 1, 0, 2);
+    siz.set(Ssampling, 1, 1, 2);
+    siz.set(Ssampling, 2, 0, 2);
+    siz.set(Ssampling, 2, 1, 2);
     siz.set(Sprecision, 0, 0, frameInfo_.bitsPerSample);
     siz.set(Ssigned, 0, 0, frameInfo_.isSigned);
     kdu_core::kdu_params *siz_ref = &siz;
@@ -131,6 +141,8 @@ class HTJ2KEncoder {
     snprintf(param, 32, "Cblk={%d,%d}", blockDimensions_.width, blockDimensions_.height);
     codestream.access_siz()->parse_string(param);
 
+    codestream.access_siz()->parse_string("Cycc=no");
+
     codestream.access_siz()->finalize_all();  // Set up coding defaults
     codestream.enable_restart();
     
@@ -191,7 +203,9 @@ class HTJ2KEncoder {
   }
 
   void setSourceImage(uint8_t *buf, size_t size) {
-    buf_  = buf;
+    buf_[0] = buf;
+    buf_[1] = buf_[0] + this->frameInfo_.width * this->frameInfo_.height;
+    buf_[2] = buf_[1] + this->frameInfo_.width * this->frameInfo_.height / 4;
     size_ = size;
   }
 
@@ -272,8 +286,9 @@ class HTJ2KEncoder {
     compressor.start(codestream);
   #endif
   
-    int stripe_heights[3] = {frameInfo_.height, frameInfo_.height, frameInfo_.height};
-    compressor.push_stripe(buf_, stripe_heights);
+    int stripe_heights[3] = {frameInfo_.height, frameInfo_.height/2, frameInfo_.height/2};
+    int row_gaps[3] = {frameInfo_.width, frameInfo_.width/2, frameInfo_.width/2};
+    compressor.push_stripe(buf_, stripe_heights, nullptr, row_gaps);
     // if (frameInfo_.bitsPerSample <= 8)
     // {
     //   compressor.push_stripe(
@@ -317,7 +332,7 @@ class HTJ2KEncoder {
   Size blockDimensions_;
   bool htEnabled_;
   int qfactor;
-  uint8_t *buf_;
+  uint8_t *buf_[3];
   size_t size_;
   kdu_supp::kdu_thread_env env;
   kdu_supp::kdu_stripe_compressor compressor;
