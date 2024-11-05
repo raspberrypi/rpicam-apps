@@ -133,6 +133,12 @@ class HTJ2KEncoder {
 
     codestream.access_siz()->finalize_all();  // Set up coding defaults
     codestream.enable_restart();
+    
+  #ifdef MULTI_THREAD
+    env.create();
+    env.add_thread();
+    env.add_thread();
+  #endif
   }
   ~HTJ2KEncoder() {
     // Finally, cleanup
@@ -255,7 +261,7 @@ class HTJ2KEncoder {
     target.reset();
     codestream.restart(compressed_out);
     // Now compress the image in one hit, using `kdu_stripe_compressor'
-    kdu_supp::kdu_stripe_compressor compressor;
+    
   #ifdef MULTI_THREAD
     kdu_supp::kdu_thread_env env;
     env.create();
@@ -313,4 +319,6 @@ class HTJ2KEncoder {
   int qfactor;
   uint8_t *buf_;
   size_t size_;
+  kdu_supp::kdu_thread_env env;
+  kdu_supp::kdu_stripe_compressor compressor;
 };
