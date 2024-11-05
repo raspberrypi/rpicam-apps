@@ -47,7 +47,6 @@ postproc_assets += files([
     assets_dir / 'hailo_yolov8_inference.json',
     assets_dir / 'hailo_yolox_inference.json',
     assets_dir / 'hailo_yolov8_pose.json',
-    # assets_dir / 'hailo_yolov8_pose_and_inference.json',
     assets_dir / 'hailo_yolov5_segmentation.json',
     assets_dir / 'hailo_scrfd.json',
     assets_dir / 'hailo_pose_inf_fl.json',
