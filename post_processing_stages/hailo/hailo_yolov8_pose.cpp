@@ -8,6 +8,10 @@
 #include <cmath>
 #include <vector>
 
+#include <opencv2/highgui.hpp>
+#include <opencv2/imgproc.hpp>
+#include <opencv2/opencv.hpp>
+
 #include <hailo/hailort.hpp>
 
 #include <libcamera/geometry.h>
@@ -136,6 +140,12 @@ bool YoloPose::Process(CompletedRequestPtr &completed_request)
 
 	runInference(input_ptr, output, scaler_crops);
 
+	{
+		Msg m(MsgType::Display, std::move(input), InputTensorSize(), "Pose");
+		msg_queue_.Clear("Pose");
+		msg_queue_.Post(std::move(m));
+	}
+
 	return false;
 }
 
@@ -168,7 +178,8 @@ void YoloPose::runInference(const uint8_t *input, uint32_t *output, const std::v
 	std::pair<std::vector<KeyPt>, std::vector<PairPairs>> keypoints_and_pairs = filter(roi);
 
 	std::vector<HailoDetectionPtr> detections = hailo_common::get_hailo_detections(roi);
-	cv::Mat image(output_stream_info_.height, output_stream_info_.width, CV_8U, output, output_stream_info_.stride);
+	cv::Mat image(InputTensorSize().height, InputTensorSize().width, CV_8UC3, (void *)input,
+				  InputTensorSize().width * 3);
 
 	for (auto &detection : detections)
 	{
@@ -181,21 +192,21 @@ void YoloPose::runInference(const uint8_t *input, uint32_t *output, const std::v
 		const float y0 = std::max(bbox.ymin(), 0.0f);
 		const float y1 = std::min(bbox.ymax(), 1.0f);
 		Rectangle r = ConvertInferenceCoordinates({ x0, y0, x1 - x0, y1 - y0 }, scaler_crops);
-		cv::rectangle(image, cv::Point2f(r.x, r.y), cv::Point2f(r.x + r.width, r.y + r.height),
-					  cv::Scalar(0, 0, 255), 1);
+		cv::rectangle(image, cv::Point2f(r.x, r.y), cv::Point2f(r.x + r.width, r.y + r.height), cv::Scalar(0, 0, 255),
+					  1);
 	}
 
 	for (auto &keypoint : keypoints_and_pairs.first)
 	{
-		Rectangle r = ConvertInferenceCoordinates({ keypoint.xs, keypoint.ys, 1, 1 }, scaler_crops);
-		cv::circle(image, cv::Point(r.x, r.y), 3, cv::Scalar(255, 0, 255), -1);
+		cv::circle(image, cv::Point(keypoint.xs * InputTensorSize().width, keypoint.ys * InputTensorSize().height), 3,
+				   cv::Scalar(255, 0, 255), -1);
 	}
 
 	for (const PairPairs &p : keypoints_and_pairs.second)
 	{
-		Rectangle r1 = ConvertInferenceCoordinates({ p.pt1.first, p.pt1.second, 1, 1 }, scaler_crops);
-		Rectangle r2 = ConvertInferenceCoordinates({ p.pt2.first, p.pt2.second, 1, 1 }, scaler_crops);
-		cv::line(image, cv::Point(r1.x, r1.y), cv::Point(r2.x, r2.y), cv::Scalar(255, 0, 255), 3);
+		cv::line(image, cv::Point(p.pt1.first * InputTensorSize().width, p.pt1.second * InputTensorSize().height),
+				 cv::Point(p.pt2.first * InputTensorSize().width, p.pt2.second * InputTensorSize().height),
+				 cv::Scalar(255, 0, 255), 3);
 	}
 }
 

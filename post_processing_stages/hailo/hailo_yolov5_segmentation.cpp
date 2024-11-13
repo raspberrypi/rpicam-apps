@@ -8,7 +8,6 @@
 #include <cmath>
 #include <filesystem>
 #include <memory>
-#include <thread>
 #include <vector>
 
 #include <hailo/hailort.hpp>
@@ -37,37 +36,6 @@ namespace fs = std::filesystem;
 
 namespace
 {
-
-template <typename T>
-class MessageQueue
-{
-public:
-	template <typename U>
-	void Post(U &&msg)
-	{
-		std::unique_lock<std::mutex> lock(mutex_);
-		queue_.push(std::forward<U>(msg));
-		cond_.notify_one();
-	}
-	T Wait()
-	{
-		std::unique_lock<std::mutex> lock(mutex_);
-		cond_.wait(lock, [this] { return !queue_.empty(); });
-		T msg = std::move(queue_.front());
-		queue_.pop();
-		return msg;
-	}
-	void Clear()
-	{
-		std::unique_lock<std::mutex> lock(mutex_);
-		queue_ = {};
-	}
-
-private:
-	std::queue<T> queue_;
-	std::mutex mutex_;
-	std::condition_variable cond_;
-};
 
 enum overlay_status_t
 {
@@ -216,31 +184,9 @@ public:
 
 private:
 	bool runInference(uint8_t *input, uint32_t *output);
-	void displayThread();
-
-	enum class MsgType
-	{
-		Display,
-		Quit
-	};
-
-	using RgbImagePtr = std::shared_ptr<uint8_t>;
-
-	struct Msg
-	{
-		Msg(MsgType const &t) : type(t) {}
-		template <typename T>
-		Msg(MsgType const &t, T p) : type(t), payload(std::forward<T>(p))
-		{
-		}
-		MsgType type;
-		RgbImagePtr payload;
-	};
 
 	PostProcessingLib postproc_;
 	Yolov5segParams *yolo_params_ = nullptr;
-	MessageQueue<Msg> msg_queue_;
-	std::thread display_thread_;
 
 	// Config params
 	bool show_results_;
@@ -251,7 +197,6 @@ private:
 YoloSegmentation::YoloSegmentation(RPiCamApp *app)
 	: HailoPostProcessingStage(app), postproc_(PostProcLibDir(POSTPROC_LIB))
 {
-	display_thread_ = std::thread(&YoloSegmentation::displayThread, this);
 }
 
 YoloSegmentation::~YoloSegmentation()
@@ -262,9 +207,6 @@ YoloSegmentation::~YoloSegmentation()
 		if (free_func)
 			free_func(yolo_params_);
 	}
-
-	msg_queue_.Post(Msg(MsgType::Quit));
-	display_thread_.join();
 }
 
 char const *YoloSegmentation::Name() const
@@ -348,11 +290,9 @@ bool YoloSegmentation::Process(CompletedRequestPtr &completed_request)
 	bool success = runInference(input.get(), output);
 	if (show_results_ && success)
 	{
-		Msg m(MsgType::Display, std::move(input));
-
+		Msg m(MsgType::Display, std::move(input), InputTensorSize(), "Segmentation");
 		if (flush_results_)
-			msg_queue_.Clear();
-
+			msg_queue_.Clear("Segmentation");
 		msg_queue_.Post(std::move(m));
 	}
 
@@ -387,18 +327,6 @@ bool YoloSegmentation::runInference(uint8_t *input, uint32_t *output)
 	HailoROIPtr roi = MakeROI(output_tensors);
 	filter(roi, yolo_params_);
 
-	// RGB -> BGR for cv::imshow
-	for (unsigned int j = 0; j < InputTensorSize().height; j++)
-	{
-		uint8_t *ptr = input + j * InputTensorSize().width * 3;
-		for (unsigned int i = 0; i < InputTensorSize().width; i++)
-		{
-			const uint8_t t = ptr[0];
-			ptr[0] = ptr[2], ptr[2] = t;
-			ptr += 3;
-		}
-	}
-
 	cv::Mat image(InputTensorSize().height, InputTensorSize().width, CV_8UC3, (void *)input,
 				  InputTensorSize().width * 3);
 
@@ -420,30 +348,6 @@ bool YoloSegmentation::runInference(uint8_t *input, uint32_t *output)
 	}
 
 	return true;
-}
-
-void YoloSegmentation::displayThread()
-{
-	RgbImagePtr current_image;
-
-	while (true)
-	{
-		Msg msg = msg_queue_.Wait();
-
-		if (msg.type == MsgType::Quit)
-			break;
-
-		if (msg.type == MsgType::Display)
-		{
-			current_image = std::move(msg.payload);
-
-			cv::Mat image(InputTensorSize().height, InputTensorSize().width, CV_8UC3, (void *)current_image.get(),
-						  InputTensorSize().width * 3);
-
-			cv::imshow("Segmentation Results", image);
-			cv::waitKey(1);
-		}
-	}
 }
 
 static PostProcessingStage *Create(RPiCamApp *app)

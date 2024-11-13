@@ -1,0 +1,42 @@
+{
+    "rpicam-apps":
+    {
+        "lores":
+        {
+            "width": 640,
+            "height": 640,
+            "format": "rgb",
+            "par": true
+        }
+    },
+
+    "hailo_yolo_pose":
+    {
+        "hef_file": "/usr/share/hailo-models/yolov8s_pose_h8.hef"
+    },
+
+    "hailo_yolo_inference":
+    {
+        "hef_file": "/usr/share/hailo-models/yolov8s_h8.hef",
+        "max_detections": 20,
+        "threshold": 0.4,
+
+        "temporal_filter":
+        {
+            "tolerance": 0.1,
+            "factor": 0.75,
+            "visible_frames": 6,
+            "hidden_frames": 3
+        }
+    },
+
+    "hailo_scrfd":
+    {
+        "hef_file": "/usr/share/hailo-models/scrfd_2.5g_h8l.hef"
+    },
+
+    "object_detect_draw_cv":
+    {
+        "line_thickness" : 2
+    }
+}

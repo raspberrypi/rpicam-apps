@@ -44,14 +44,12 @@ def generate_version():
         else:
             raise RuntimeError('Invalid number of command line arguments')
 
-        commit = f'v{sys.argv[1]} {commit}'
-
     except RuntimeError as e:
         print(f'ERR: {e}', file=sys.stderr)
         commit = '0' * digits + '-invalid'
 
     finally:
-        print(f'{commit} {datetime.now().strftime("%d-%m-%Y (%H:%M:%S)")}', end="")
+        print(f'v{sys.argv[1]} {commit} {datetime.now().strftime("%d-%m-%Y (%H:%M:%S)")}', end="")
 
 
 if __name__ == "__main__":
