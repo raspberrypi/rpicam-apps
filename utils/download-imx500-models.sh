@@ -26,7 +26,6 @@ networks=(
     https://github.com/raspberrypi/imx500-models/raw/main/imx500_network_shufflenet_v2_x1_5.rpk
     https://github.com/raspberrypi/imx500-models/raw/main/imx500_network_squeezenet1.0.rpk
     https://github.com/raspberrypi/imx500-models/raw/main/imx500_network_ssd_mobilenetv2_fpnlite_320x320_pp.rpk
-    https://github.com/raspberrypi/imx500-models/raw/main/imx500_network_yolov8n_pp.rpk
 )
 
 if [ $# -ne 1 ]; then

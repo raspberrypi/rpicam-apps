@@ -665,7 +665,10 @@ void RPiCamApp::StartCamera()
 			LOG(2, "Using crop (lores) " << crops.back().toString());
 		}
 
-		controls_.set(controls::rpi::ScalerCrops, libcamera::Span<const Rectangle>(crops.data(), crops.size()));
+		if (options_->GetPlatform() == Platform::VC4)
+			controls_.set(controls::ScalerCrop, crops[0]);
+		else
+			controls_.set(controls::rpi::ScalerCrops, libcamera::Span<const Rectangle>(crops.data(), crops.size()));
 	}
 
 	if (!controls_.get(controls::AfWindows) && !controls_.get(controls::AfMetering) && options_->afWindow_width != 0 &&

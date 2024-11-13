@@ -28,25 +28,6 @@ core_headers = files([
     'video_options.hpp',
 ])
 
-# Generate a version string.
-version_cmd = [meson.project_source_root() / 'utils' / 'version.py', meson.project_version()]
-
-# Check if a version.gen file is present.
-# This would have been generated from the meson dist command.
-fs = import('fs')
-dist_version_file = meson.project_source_root() / 'version.gen'
-if fs.is_file(dist_version_file)
-    version_cmd += fs.read(dist_version_file)
-endif
-
-version_cpp = vcs_tag(command : version_cmd,
-                      replace_string: '@VER@',
-                      input : 'version.cpp.in',
-                      output : 'version.cpp',
-                      fallback : meson.project_version())
-
-rpicam_app_src += version_cpp
-
 install_headers(core_headers, subdir: meson.project_name() / 'core')
 
 # Install symlinks to the old header directories and names for legacy purposes.

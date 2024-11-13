@@ -1,0 +1,17 @@
+{
+    "rpicam-apps":
+    {
+        "lores":
+        {
+            "width": 640,
+            "height": 640,
+            "format": "rgb",
+            "par": true
+        }
+    },
+
+    "hailo_scrfd":
+    {
+        "hef_file": "/usr/share/hailo-models/scrfd_2.5g_h8l.hef"
+    }
+}

@@ -117,6 +117,14 @@ def test_hello(exe_dir, output_dir):
     check_retcode(retcode, "test_hello: roi test")
     check_time(time_taken, 1, 6, "test_hello: roi test")
 
+    # "crops test". Specify an image crop with lores output and see if it blows up.
+    print("    crop test")
+    retcode, time_taken = run_executable(
+        [executable, '-t', '2000', '--roi', '0.25,0.25,0.5,0.5',
+         '--lores-width', '640', '--lores-height', '640'], logfile)
+    check_retcode(retcode, "test_hello: crop test")
+    check_time(time_taken, 1, 6, "test_hello: crop test")
+
     # "controls test". Specify some image controls and see if it blows up.
     print("    controls test")
     retcode, time_taken = run_executable(
