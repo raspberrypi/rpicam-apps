@@ -2,9 +2,16 @@ version=4
 opts="searchmode=plain,\
 uversionmangle=s/%2B/+/g" \
 https://api.github.com/repos/raspberrypi/@PACKAGE@/releases?per_page=50 \
-https://github\.com/[^/]+/[^/]+/releases/download/[^/]+/@PACKAGE@-([^"]+)\.tar\.xz
+https://github\.com/[^/]+/[^/]+/releases/download/[^/]+/@PACKAGE@_([^"]+)\.orig\.tar\.xz
+
 opts="searchmode=plain,\
 uversionmangle=s/%2B/+/g, \
 component=hailo-models" \
 https://api.github.com/repos/raspberrypi/@PACKAGE@/releases?per_page=50 \
-https://github\.com/[^/]+/[^/]+/releases/download/[^/]+/hailo-models-([^"]+)\.tar\.xz
+https://github\.com/[^/]+/[^/]+/releases/download/[^/]+/rpicam-apps_([^"]+)\.orig-hailo-models\.tar\.xz
+
+opts="searchmode=plain,\
+uversionmangle=s/%2B/+/g, \
+component=imx500-models" \
+https://api.github.com/repos/raspberrypi/@PACKAGE@/releases?per_page=50 \
+https://github\.com/[^/]+/[^/]+/releases/download/[^/]+/rpicam-apps_([^"]+)\.orig-imx500-models\.tar\.xz
