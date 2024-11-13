@@ -60,7 +60,7 @@ Description: AI models for the IMX500 camera module
 
 Package: imx500-all
 Architecture: all
-Depends: ${shlibs:Depends}, ${misc:Depends}, rpicam-apps-imx500-postprocess (= ${source:Version})
+Depends: ${shlibs:Depends}, ${misc:Depends}, rpicam-apps-imx500-postprocess (= ${source:Version}), imx500-tools
 Description: imx500 support (metapackage)
 
 Package: rpicam-apps-lite
