@@ -1,3 +1,12 @@
+rpicam-apps (1.5.3-1) bookworm; urgency=medium
+
+  * d/watch: update to new filename format
+  * New upstream version 1.5.3
+  * Update hailo-tappas-core version
+  * Add imx500-tools to imx500-all
+
+ -- Serge Schneider <serge@raspberrypi.com>  Wed, 13 Nov 2024 14:26:32 +0000
+
 rpicam-apps (1.5.2-2) bookworm; urgency=medium
 
   * Add imx500 support to armhf
