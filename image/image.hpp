@@ -27,7 +27,7 @@ void yuv_save(std::vector<libcamera::Span<uint8_t>> const &mem, StreamInfo const
 			  std::string const &filename, StillOptions const *options);
 
 // In dng.cpp:
-void dng_save(std::vector<libcamera::Span<uint8_t>> const &mem, StreamInfo const &info,
+void dng_save(void *mem, StreamInfo const &info,
 			  libcamera::ControlList const &metadata, std::string const &filename, std::string const &cam_model,
 			  StillOptions const *options);
 

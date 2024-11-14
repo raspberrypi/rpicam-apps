@@ -4,12 +4,24 @@
  *
  * file_output.cpp - Write output to file.
  */
+#include <filesystem>
+#include <string>
 
 #include "file_output.hpp"
+#include "file_name_manager.hpp"
+#include "image/image.hpp"
+#include <libcamera/control_ids.h>
+#include <libcamera/formats.h>
+#include "core/still_options.hpp"
+#include "core/stream_info.hpp"
+#include "core/options.hpp"
+
+namespace fs = std::filesystem;
 
 FileOutput::FileOutput(VideoOptions const *options)
-	: Output(options), fp_(nullptr), count_(0), file_start_time_ms_(0)
+	: Output(options), fp_(nullptr), file_start_time_ms_(0), fileNameManager_((Options*)options)
 {
+	// Nothing
 }
 
 FileOutput::~FileOutput()
@@ -19,6 +31,16 @@ FileOutput::~FileOutput()
 
 void FileOutput::outputBuffer(void *mem, size_t size, int64_t timestamp_us, uint32_t flags)
 {
+
+	if(options_->force_dng) {
+		saveDng(mem);
+	} else {
+		saveFile(mem, size, timestamp_us, flags);
+	}
+
+}
+
+void FileOutput::saveFile(void *mem, size_t size, int64_t timestamp_us, uint32_t flags) {
 	// We need to open a new file if we're in "segment" mode and our segment is full
 	// (though we have to wait for the next I frame), or if we're in "split" mode
 	// and recording is being restarted (this is necessarily an I-frame already).
@@ -41,22 +63,29 @@ void FileOutput::outputBuffer(void *mem, size_t size, int64_t timestamp_us, uint
 	}
 }
 
+void FileOutput::saveDng(void *mem) {
+	// TODO figure out how to not mock steamInfo
+	libcamera::ControlList mockControlList;
+
+	StreamInfo mockInfo;
+	mockInfo.width = 4056;
+	mockInfo.height = 3040;
+	mockInfo.stride = 6112;
+	mockInfo.pixel_format = libcamera::formats::SBGGR12_CSI2P;
+	std::string filename = fileNameManager_.getNextFileName();
+
+	// TODO decide on camera name
+	dng_save(mem, mockInfo, mockControlList, filename, "mock-camera-model", NULL);
+}
+
 void FileOutput::openFile(int64_t timestamp_us)
 {
 	if (options_->output == "-")
 		fp_ = stdout;
 	else if (!options_->output.empty())
 	{
-		// Generate the next output file name.
-		char filename[256];
-		int n = snprintf(filename, sizeof(filename), options_->output.c_str(), count_);
-		count_++;
-		if (options_->wrap)
-			count_ = count_ % options_->wrap;
-		if (n < 0)
-			throw std::runtime_error("failed to generate filename");
-
-		fp_ = fopen(filename, "w");
+		std::string filename = fileNameManager_.getNextFileName();
+		fp_ = fopen(filename.c_str(), "w");
 		if (!fp_)
 			throw std::runtime_error("failed to open output file " + std::string(filename));
 		LOG(2, "FileOutput: opened output file " << filename);

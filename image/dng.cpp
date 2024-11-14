@@ -7,6 +7,7 @@
 
 #include <limits>
 #include <map>
+#include <bitset>
 
 #include <libcamera/control_ids.h>
 #include <libcamera/formats.h>
@@ -107,8 +108,31 @@ static void unpack_12bit(uint8_t const *src, StreamInfo const &info, uint16_t *d
 			*dest++ = (ptr[0] << 4) | ((ptr[2] >> 0) & 15);
 			*dest++ = (ptr[1] << 4) | ((ptr[2] >> 4) & 15);
 		}
-		if (x < info.width)
+		if (x < info.width) {
 			*dest++ = (ptr[x & 1] << 4) | ((ptr[2] >> ((x & 1) << 2)) & 15);
+		}
+	}
+}
+
+static void unpack_12bit_as_12_bit(uint8_t const *src, StreamInfo const &info, uint8_t *dest)
+{
+	unsigned int w_align = info.width & ~1;
+	for (unsigned int y = 0; y < info.height; y++, src += info.stride)
+	{
+		uint8_t const *ptr = src;
+		unsigned int x;
+		for (x = 0; x < w_align; x += 2, ptr += 3)
+		{
+			uint16_t val1 = (ptr[0] << 4) | ((ptr[2] >> 0) & 15);
+			uint16_t val2 = (ptr[1] << 4) | ((ptr[2] >> 4) & 15);
+			uint8_t byte1 = val1 >> 4;
+			uint8_t byte2 = ((val1 & 0xf) << 4) | (val2 >> 8);
+			uint8_t byte3 = val2 & 0xff;
+
+			*dest++ = byte1;
+			*dest++ = byte2;
+			*dest++ = byte3;
+		}
 	}
 }
 
@@ -296,12 +320,12 @@ Matrix(float m0, float m1, float m2,
 	}
 };
 
-void dng_save(std::vector<libcamera::Span<uint8_t>> const &mem, StreamInfo const &info, ControlList const &metadata,
+void dng_save(void *mem, StreamInfo const &info, ControlList const &metadata,
 			  std::string const &filename, std::string const &cam_model, StillOptions const *options)
 {
 	// Check the Bayer format and unpack it to u16.
-
 	auto it = bayer_formats.find(info.pixel_format);
+	// int bitsPerSample = 16;
 	if (it == bayer_formats.end())
 		throw std::runtime_error("unsupported Bayer format");
 	BayerFormat const &bayer_format = it->second;
@@ -311,29 +335,34 @@ void dng_save(std::vector<libcamera::Span<uint8_t>> const &mem, StreamInfo const
 	unsigned int buf_stride_pixels = info.width;
 	unsigned int buf_stride_pixels_padded = (buf_stride_pixels + 7) & ~7;
 	std::vector<uint16_t> buf(buf_stride_pixels_padded * info.height);
+	std::vector<uint8_t> bufAs12Bit((info.width * info.height) * 1.5);
 	if (bayer_format.compressed)
 	{
-		uncompress(mem[0].data(), info, &buf[0]);
+		uncompress((uint8_t const*)mem, info, &buf[0]);
 		buf_stride_pixels = buf_stride_pixels_padded;
 	}
 	else if (bayer_format.packed)
 	{
+		// bitsPerSample = bayer_format.bits;
 		switch (bayer_format.bits)
 		{
 		case 10:
-			unpack_10bit(mem[0].data(), info, &buf[0]);
+			unpack_10bit((uint8_t const*)mem, info, &buf[0]);
 			break;
 		case 12:
-			unpack_12bit(mem[0].data(), info, &buf[0]);
+			unpack_12bit((uint8_t const*)mem, info, &buf[0]);
+			unpack_12bit_as_12_bit((uint8_t const*)mem, info, &bufAs12Bit[0]);
 			break;
 		}
 	}
-	else
-		unpack_16bit(mem[0].data(), info, &buf[0]);
+	else {
+		unpack_16bit((uint8_t const*)mem, info, &buf[0]);
+	}
 
 	// We need to fish out some metadata values for the DNG.
-	float black = 4096 * (1 << bayer_format.bits) / 65536.0;
-	float black_levels[] = { black, black, black, black };
+	// float black = 4096 * (1 << bayer_format.bits) / 65536.0;
+	// float black_levels[] = { black, black, black, black };
+	float black_levels[] = { 0, 0, 0, 0 };
 	auto bl = metadata.get(controls::SensorBlackLevels);
 	if (bl)
 	{
@@ -461,7 +490,9 @@ void dng_save(std::vector<libcamera::Span<uint8_t>> const &mem, StreamInfo const
 		TIFFSetField(tif, TIFFTAG_SUBFILETYPE, 0);
 		TIFFSetField(tif, TIFFTAG_IMAGEWIDTH, info.width);
 		TIFFSetField(tif, TIFFTAG_IMAGELENGTH, info.height);
-		TIFFSetField(tif, TIFFTAG_BITSPERSAMPLE, 16);
+		// TIFFSetField(tif, TIFFTAG_BITSPERSAMPLE, bitsPerSample);
+		// TIFFSetField(tif, TIFFTAG_BITSPERSAMPLE, 16);
+		TIFFSetField(tif, TIFFTAG_BITSPERSAMPLE, 12);
 		TIFFSetField(tif, TIFFTAG_PHOTOMETRIC, PHOTOMETRIC_CFA);
 		TIFFSetField(tif, TIFFTAG_SAMPLESPERPIXEL, 1);
 		TIFFSetField(tif, TIFFTAG_PLANARCONFIG, PLANARCONFIG_CONTIG);
@@ -476,9 +507,17 @@ void dng_save(std::vector<libcamera::Span<uint8_t>> const &mem, StreamInfo const
 		TIFFSetField(tif, TIFFTAG_BLACKLEVELREPEATDIM, &black_level_repeat_dim);
 		TIFFSetField(tif, TIFFTAG_BLACKLEVEL, 4, &black_levels);
 
+		// for (unsigned int y = 0; y < info.height; y++)
+		// {
+		// 	void *writeLoc = (void*)((uint8_t*)mem + (info.stride * y) - 1);
+		// 	// std::cout << "loc: " << writeLoc << std::endl;
+		// 	if (TIFFWriteScanline(tif, writeLoc, y, 0) != 1)
+		// 		throw std::runtime_error("error writing DNG image data");
+		// }
+
 		for (unsigned int y = 0; y < info.height; y++)
 		{
-			if (TIFFWriteScanline(tif, &buf[buf_stride_pixels * y], y, 0) != 1)
+			if (TIFFWriteScanline(tif, &bufAs12Bit[(info.width * 1.5) * y], y, 0) != 1)
 				throw std::runtime_error("error writing DNG image data");
 		}
 

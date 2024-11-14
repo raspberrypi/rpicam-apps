@@ -7,7 +7,12 @@
 
 #pragma once
 
+#include <filesystem>
+
+#include "file_name_manager.hpp"
 #include "output.hpp"
+
+namespace fs = std::filesystem;
 
 class FileOutput : public Output
 {
@@ -21,7 +26,9 @@ protected:
 private:
 	void openFile(int64_t timestamp_us);
 	void closeFile();
+	void saveDng(void *mem);
+	void saveFile(void *mem, size_t size, int64_t timestamp_us, uint32_t flags);
 	FILE *fp_;
-	unsigned int count_;
 	int64_t file_start_time_ms_;
+	FileNameManager fileNameManager_;
 };

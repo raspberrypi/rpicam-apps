@@ -176,6 +176,14 @@ struct Options
 	TimeVal<std::chrono::microseconds> flicker_period;
 	bool no_raw;
 
+	// Start Wassoc custom options for rpicam-raw
+	std::string parent_directory;
+	std::string output_directory;
+	unsigned int max_directory_size;
+	unsigned int total_frames;
+	bool force_dng;
+	// End Wassoc custom options
+
 	virtual bool Parse(int argc, char *argv[]);
 	virtual void Print() const;
 
