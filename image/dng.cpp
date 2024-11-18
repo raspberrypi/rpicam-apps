@@ -15,6 +15,7 @@
 #include <tiffio.h>
 
 #include "core/still_options.hpp"
+#include "core/options.hpp"
 #include "core/stream_info.hpp"
 
 #ifndef MAKE_STRING
@@ -77,7 +78,7 @@ static const std::map<PixelFormat, BayerFormat> bayer_formats =
 	{ formats::BGGR_PISP_COMP1, { "BGGR-16-PISP", 16, TIFF_BGGR, false, true } },
 };
 
-static void unpack_10bit(uint8_t const *src, StreamInfo const &info, uint16_t *dest)
+static void unpack_10bit(uint8_t const *src, StreamInfo const &info, uint8_t *dest, uint16_t *dest16Bit)
 {
 	unsigned int w_align = info.width & ~3;
 	for (unsigned int y = 0; y < info.height; y++, src += info.stride)
@@ -86,35 +87,39 @@ static void unpack_10bit(uint8_t const *src, StreamInfo const &info, uint16_t *d
 		unsigned int x;
 		for (x = 0; x < w_align; x += 4, ptr += 5)
 		{
-			*dest++ = (ptr[0] << 2) | ((ptr[4] >> 0) & 3);
-			*dest++ = (ptr[1] << 2) | ((ptr[4] >> 2) & 3);
-			*dest++ = (ptr[2] << 2) | ((ptr[4] >> 4) & 3);
-			*dest++ = (ptr[3] << 2) | ((ptr[4] >> 6) & 3);
+			uint16_t val1 = (ptr[0] << 2) | ((ptr[4] >> 0) & 3);
+			uint16_t val2 = (ptr[1] << 2) | ((ptr[4] >> 2) & 3);
+			uint16_t val3 = (ptr[2] << 2) | ((ptr[4] >> 4) & 3);
+			uint16_t val4 = (ptr[3] << 2) | ((ptr[4] >> 6) & 3);
+			// Cut off the 2 LSB
+			uint8_t byte1 = val1 >> 2;
+			// get the 2 LSB of the val1, or'd with the 6 MSB of val2
+			uint8_t byte2 = ((val1 & 3) << 6) | (val2 >> 4);
+			// get the 4 LSB of val2 or'd with 4 MSB of val3
+			uint8_t byte3 = ((val2 & 0xf) << 4) | (val3 >> 6);
+			// get the 6 LSB of val3 abd the 2 MSB of val4
+			uint8_t byte4 = ((val3 & 0x3f) << 2) | (val4 >> 8);
+			// get 8 LSB of val4
+			uint8_t byte5 = val4 & 0xff;
+
+			*dest++ = byte1;
+			*dest++ = byte2;
+			*dest++ = byte3;
+			*dest++ = byte4;
+			*dest++ = byte5;
+
+			*dest16Bit++ = val1;
+			*dest16Bit++ = val2;
+			*dest16Bit++ = val3;
+			*dest16Bit++ = val4;
 		}
-		for (; x < info.width; x++)
-			*dest++ = (ptr[x & 3] << 2) | ((ptr[4] >> ((x & 3) << 1)) & 3);
+		// I don't believe this code is applicable for the use cases of widths of 4056, 2028 or 1012
+		// for (; x < info.width; x++)
+		// 	*dest++ = (ptr[x & 3] << 2) | ((ptr[4] >> ((x & 3) << 1)) & 3);
 	}
 }
 
-static void unpack_12bit(uint8_t const *src, StreamInfo const &info, uint16_t *dest)
-{
-	unsigned int w_align = info.width & ~1;
-	for (unsigned int y = 0; y < info.height; y++, src += info.stride)
-	{
-		uint8_t const *ptr = src;
-		unsigned int x;
-		for (x = 0; x < w_align; x += 2, ptr += 3)
-		{
-			*dest++ = (ptr[0] << 4) | ((ptr[2] >> 0) & 15);
-			*dest++ = (ptr[1] << 4) | ((ptr[2] >> 4) & 15);
-		}
-		if (x < info.width) {
-			*dest++ = (ptr[x & 1] << 4) | ((ptr[2] >> ((x & 1) << 2)) & 15);
-		}
-	}
-}
-
-static void unpack_12bit_as_12_bit(uint8_t const *src, StreamInfo const &info, uint8_t *dest)
+static void unpack_12bit(uint8_t const *src, StreamInfo const &info, uint8_t *dest, uint16_t *dest16Bit)
 {
 	unsigned int w_align = info.width & ~1;
 	for (unsigned int y = 0; y < info.height; y++, src += info.stride)
@@ -132,7 +137,14 @@ static void unpack_12bit_as_12_bit(uint8_t const *src, StreamInfo const &info, u
 			*dest++ = byte1;
 			*dest++ = byte2;
 			*dest++ = byte3;
+
+			*dest16Bit++ = val1;
+			*dest16Bit++ = val2;
 		}
+		// I don't believe this code is applicable for the use cases of widths of 4056, 2028 or 1012
+		// if (x < info.width) {
+		// 	*dest++ = (ptr[x & 1] << 4) | ((ptr[2] >> ((x & 1) << 2)) & 15);
+		// }
 	}
 }
 
@@ -321,7 +333,7 @@ Matrix(float m0, float m1, float m2,
 };
 
 void dng_save(void *mem, StreamInfo const &info, ControlList const &metadata,
-			  std::string const &filename, std::string const &cam_model, StillOptions const *options)
+			  std::string const &filename, std::string const &cam_model, Options const *options)
 {
 	// Check the Bayer format and unpack it to u16.
 	auto it = bayer_formats.find(info.pixel_format);
@@ -334,35 +346,36 @@ void dng_save(void *mem, StreamInfo const &info, ControlList const &metadata,
 	// Decompression will require a buffer that's 8 pixels aligned.
 	unsigned int buf_stride_pixels = info.width;
 	unsigned int buf_stride_pixels_padded = (buf_stride_pixels + 7) & ~7;
-	std::vector<uint16_t> buf(buf_stride_pixels_padded * info.height);
-	std::vector<uint8_t> bufAs12Bit((info.width * info.height) * 1.5);
+	// 1.5 for 12 bit, 1.25 for 10 bit
+	double bytesPerPixel = (double)bayer_format.bits / 8.0;
+	int bitsPerPixel = 16;
+	std::vector<uint8_t> buf8bit(int(info.width * bytesPerPixel * info.height));
+	std::vector<uint16_t> buf16Bit(buf_stride_pixels_padded * info.height);
 	if (bayer_format.compressed)
 	{
-		uncompress((uint8_t const*)mem, info, &buf[0]);
+		uncompress((uint8_t const*)mem, info, &buf16Bit[0]);
 		buf_stride_pixels = buf_stride_pixels_padded;
 	}
 	else if (bayer_format.packed)
 	{
-		// bitsPerSample = bayer_format.bits;
+		bitsPerPixel = bayer_format.bits;
 		switch (bayer_format.bits)
 		{
 		case 10:
-			unpack_10bit((uint8_t const*)mem, info, &buf[0]);
+			unpack_10bit((uint8_t const*)mem, info, &buf8bit[0], &buf16Bit[0]);
 			break;
 		case 12:
-			unpack_12bit((uint8_t const*)mem, info, &buf[0]);
-			unpack_12bit_as_12_bit((uint8_t const*)mem, info, &bufAs12Bit[0]);
+			unpack_12bit((uint8_t const*)mem, info, &buf8bit[0], &buf16Bit[0]);
 			break;
 		}
 	}
 	else {
-		unpack_16bit((uint8_t const*)mem, info, &buf[0]);
+		unpack_16bit((uint8_t const*)mem, info, &buf16Bit[0]);
 	}
 
 	// We need to fish out some metadata values for the DNG.
-	// float black = 4096 * (1 << bayer_format.bits) / 65536.0;
-	// float black_levels[] = { black, black, black, black };
-	float black_levels[] = { 0, 0, 0, 0 };
+	float black = 4096 * (1 << bayer_format.bits) / 65536.0;
+	float black_levels[] = { black, black, black, black };
 	auto bl = metadata.get(controls::SensorBlackLevels);
 	if (bl)
 	{
@@ -443,11 +456,19 @@ void dng_save(void *mem, StreamInfo const &info, ControlList const &metadata,
 		if (!tif)
 			throw std::runtime_error("could not open file " + filename);
 
+		// Original multiplier was 4
+		// thumbnailSizeMultiplier == 3, 4056 x 3040 thumbnail is 450KB
+		// thumbnailSizeMultiplier == 4, 4056 x 3040 thumbnail is 144KB
+		// thumbnailSizeMultiplier == 5, 4056 x 3040 thumbnail is 36KB
+		// Thumbnail of 144KB produces an image that is of sufficient quality without being too big
+		// If we have a 4TB SSD, then we can expect around ~200k images to be acquired, with ~29GB disk being used by thumbnails.
+		// If we assume 19MB raw images, this prevents the user from user from acquiring ~1k images
+		unsigned int thumbnailSizeMultiplier = 4;
 		// This is just the thumbnail, but put it first to help software that only
 		// reads the first IFD.
 		TIFFSetField(tif, TIFFTAG_SUBFILETYPE, 1);
-		TIFFSetField(tif, TIFFTAG_IMAGEWIDTH, info.width >> 4);
-		TIFFSetField(tif, TIFFTAG_IMAGELENGTH, info.height >> 4);
+		TIFFSetField(tif, TIFFTAG_IMAGEWIDTH, info.width >> thumbnailSizeMultiplier);
+		TIFFSetField(tif, TIFFTAG_IMAGELENGTH, info.height >> thumbnailSizeMultiplier);
 		TIFFSetField(tif, TIFFTAG_BITSPERSAMPLE, 8);
 		TIFFSetField(tif, TIFFTAG_COMPRESSION, COMPRESSION_NONE);
 		TIFFSetField(tif, TIFFTAG_PHOTOMETRIC, PHOTOMETRIC_RGB);
@@ -467,15 +488,15 @@ void dng_save(void *mem, StreamInfo const &info, ControlList const &metadata,
 		TIFFSetField(tif, TIFFTAG_EXIFIFD, offset_exififd);
 
 		// Make a small greyscale thumbnail, just to give some clue what's in here.
-		std::vector<uint8_t> thumb_buf((info.width >> 4) * 3);
+		std::vector<uint8_t> thumb_buf((info.width >> thumbnailSizeMultiplier) * 3);
 
-		for (unsigned int y = 0; y < (info.height >> 4); y++)
+		for (unsigned int y = 0; y < (info.height >> thumbnailSizeMultiplier); y++)
 		{
-			for (unsigned int x = 0; x < (info.width >> 4); x++)
+			for (unsigned int x = 0; x < (info.width >> thumbnailSizeMultiplier); x++)
 			{
-				unsigned int off = (y * buf_stride_pixels + x) << 4;
+				unsigned int off = (y * buf_stride_pixels + x) << thumbnailSizeMultiplier;
 				uint32_t grey =
-					buf[off] + buf[off + 1] + buf[off + buf_stride_pixels] + buf[off + buf_stride_pixels + 1];
+					buf16Bit[off] + buf16Bit[off + 1] + buf16Bit[off + buf_stride_pixels] + buf16Bit[off + buf_stride_pixels + 1];
 				grey = (grey << 14) >> bayer_format.bits;
 				grey = sqrt((double)grey); // simple "gamma correction"
 				thumb_buf[3 * x] = thumb_buf[3 * x + 1] = thumb_buf[3 * x + 2] = grey;
@@ -486,13 +507,47 @@ void dng_save(void *mem, StreamInfo const &info, ControlList const &metadata,
 
 		TIFFWriteDirectory(tif);
 
+		unsigned int startX = (float)info.width * options->roi_x;
+		unsigned int startY = (float)info.height * options->roi_y;
+		unsigned int width = (float)info.width * options->roi_width;
+		unsigned int height = (float)info.height * options->roi_height;
+
+		if(bitsPerPixel == 10) {
+			// 4 pixels and packed into 5 bytes so go back to the the location where
+			// the a byte holds 8 MSB of a pixel
+			startX -= startX % 4;
+		} else if (bitsPerPixel == 12) {
+			// 2 pixels and packed into 3 bytes so lets go back to the the location where
+			// the a byte holds 8 MSB of a pixel
+			startX -= startX % 2;
+		}
+
+		if(width == 0) {
+			width = info.width - startX;
+		}
+
+		if(height == 0) {
+			height = info.height;
+		}
+
+		unsigned int endX = startX + width;
+		unsigned int endY = startY + height;
+
+		if(endX > info.width) {
+			endX = info.width;
+			width = endX - startX;
+		}
+
+		if(endY > info.height) {
+			endY = info.height;
+			height = endY - startY;
+		}
+
 		// The main image (actually tends to show up as "sub-image 1").
 		TIFFSetField(tif, TIFFTAG_SUBFILETYPE, 0);
-		TIFFSetField(tif, TIFFTAG_IMAGEWIDTH, info.width);
-		TIFFSetField(tif, TIFFTAG_IMAGELENGTH, info.height);
-		// TIFFSetField(tif, TIFFTAG_BITSPERSAMPLE, bitsPerSample);
-		// TIFFSetField(tif, TIFFTAG_BITSPERSAMPLE, 16);
-		TIFFSetField(tif, TIFFTAG_BITSPERSAMPLE, 12);
+		TIFFSetField(tif, TIFFTAG_IMAGEWIDTH, width);
+		TIFFSetField(tif, TIFFTAG_IMAGELENGTH, height);
+		TIFFSetField(tif, TIFFTAG_BITSPERSAMPLE, bitsPerPixel);
 		TIFFSetField(tif, TIFFTAG_PHOTOMETRIC, PHOTOMETRIC_CFA);
 		TIFFSetField(tif, TIFFTAG_SAMPLESPERPIXEL, 1);
 		TIFFSetField(tif, TIFFTAG_PLANARCONFIG, PLANARCONFIG_CONTIG);
@@ -507,18 +562,14 @@ void dng_save(void *mem, StreamInfo const &info, ControlList const &metadata,
 		TIFFSetField(tif, TIFFTAG_BLACKLEVELREPEATDIM, &black_level_repeat_dim);
 		TIFFSetField(tif, TIFFTAG_BLACKLEVEL, 4, &black_levels);
 
-		// for (unsigned int y = 0; y < info.height; y++)
-		// {
-		// 	void *writeLoc = (void*)((uint8_t*)mem + (info.stride * y) - 1);
-		// 	// std::cout << "loc: " << writeLoc << std::endl;
-		// 	if (TIFFWriteScanline(tif, writeLoc, y, 0) != 1)
-		// 		throw std::runtime_error("error writing DNG image data");
-		// }
-
-		for (unsigned int y = 0; y < info.height; y++)
+		unsigned int rowNum = 0;
+		for (unsigned int y = startY; y < endY; y++)
 		{
-			if (TIFFWriteScanline(tif, &bufAs12Bit[(info.width * 1.5) * y], y, 0) != 1)
+			unsigned int rowStartLocation = info.width * bytesPerPixel * y;
+			unsigned int roiOffset = startX * bytesPerPixel;
+			if (TIFFWriteScanline(tif, &buf8bit[rowStartLocation + roiOffset], rowNum, 0) != 1)
 				throw std::runtime_error("error writing DNG image data");
+			rowNum++;
 		}
 
 		// We have to checkpoint before the directory offset is valid.

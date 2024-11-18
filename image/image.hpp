@@ -14,6 +14,7 @@
 #include <libcamera/controls.h>
 
 #include "core/stream_info.hpp"
+#include "core/options.hpp"
 
 struct StillOptions;
 
@@ -29,7 +30,7 @@ void yuv_save(std::vector<libcamera::Span<uint8_t>> const &mem, StreamInfo const
 // In dng.cpp:
 void dng_save(void *mem, StreamInfo const &info,
 			  libcamera::ControlList const &metadata, std::string const &filename, std::string const &cam_model,
-			  StillOptions const *options);
+			  Options const *options);
 
 // In png.cpp:
 void png_save(std::vector<libcamera::Span<uint8_t>> const &mem, StreamInfo const &info,

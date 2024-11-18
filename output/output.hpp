@@ -12,6 +12,7 @@
 #include <atomic>
 
 #include "core/video_options.hpp"
+#include "core/stream_info.hpp"
 
 class Output
 {
@@ -23,6 +24,12 @@ public:
 	virtual void Signal(); // a derived class might redefine what this means
 	void OutputReady(void *mem, size_t size, int64_t timestamp_us, bool keyframe);
 	void MetadataReady(libcamera::ControlList &metadata);
+	void setStreamInfo(StreamInfo* info) {
+		this->streamInfo_ = info;
+	}
+	StreamInfo* getStreamInfo() {
+		return this->streamInfo_;
+	}
 
 protected:
 	enum Flag
@@ -51,6 +58,7 @@ private:
 	std::ofstream of_metadata_;
 	bool metadata_started_ = false;
 	std::queue<libcamera::ControlList> metadata_queue_;
+	StreamInfo* streamInfo_ = nullptr;
 };
 
 void start_metadata_output(std::streambuf *buf, std::string fmt);

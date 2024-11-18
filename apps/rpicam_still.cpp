@@ -16,6 +16,7 @@
 #include "core/frame_info.hpp"
 #include "core/rpicam_app.hpp"
 #include "core/still_options.hpp"
+#include "core/options.hpp"
 
 #include "output/output.hpp"
 

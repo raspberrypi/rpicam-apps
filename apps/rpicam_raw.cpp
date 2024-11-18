@@ -8,6 +8,7 @@
 #include <chrono>
 
 #include "core/rpicam_encoder.hpp"
+#include "core/stream_info.hpp"
 #include "encoder/null_encoder.hpp"
 #include "output/output.hpp"
 
@@ -53,6 +54,8 @@ static void event_loop(LibcameraRaw &app)
 			throw std::runtime_error("unrecognised message!");
 		if (count == 0)
 		{
+			StreamInfo info = app.GetStreamInfo(app.RawStream());
+			output.get()->setStreamInfo(&info);
 			libcamera::StreamConfiguration const &cfg = app.RawStream()->configuration();
 			LOG(1, "Raw stream: " << cfg.size.width << "x" << cfg.size.height << " stride " << cfg.stride << " format "
 								  << cfg.pixelFormat.toString());
