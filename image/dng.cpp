@@ -160,10 +160,10 @@ static void unpack_12bit_to_8bit(uint8_t const *src, StreamInfo const &info, uin
 			uint16_t val1 = (ptr[0] << 4) | ((ptr[2] >> 0) & 15);
 			uint16_t val2 = (ptr[1] << 4) | ((ptr[2] >> 4) & 15);
 			uint8_t val1_as_8bit = ((float)val1 / 4096.f) * 256;
-			uint8_t val1_as_8bit = ((float)val2 / 4096.f) * 256;
+			uint8_t val2_as_8bit = ((float)val2 / 4096.f) * 256;
 
 			*dest++ = val1_as_8bit;
-			*dest++ = val1_as_8bit;
+			*dest++ = val2_as_8bit;
 
 			*dest16Bit++ = val1;
 			*dest16Bit++ = val2;
