@@ -425,8 +425,8 @@ void dng_save(void *mem, StreamInfo const &info, ControlList const &metadata,
 	// 1.5 for 12 bit, 1.25 for 10 bit
 	double bytesPerPixel = (double)bayer_format.bits / 8.0;
 	int bitsPerPixel = 16;
-	bool force8bit = false;
-	bool force10bit = true;
+	bool force8bit = true;
+	bool force10bit = false;
 	if(force8bit) {
 		bytesPerPixel = 1;
 	} else if (force10bit) {
