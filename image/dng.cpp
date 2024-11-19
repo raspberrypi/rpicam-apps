@@ -456,7 +456,7 @@ void dng_save(void *mem, StreamInfo const &info, ControlList const &metadata,
 		case 12:
 			if(force8bit) {
 				unpack_12bit_to_8bit((uint8_t const*)mem, info, &buf8bit[0], &buf16Bit[0]);
-			} else if (force10Bit) {
+			} else if (force10bit) {
 				unpack_12bit_to_10bit((uint8_t const*)mem, info, &buf8bit[0], &buf16Bit[0]);
 			} else {
 				unpack_12bit((uint8_t const*)mem, info, &buf8bit[0], &buf16Bit[0]);
