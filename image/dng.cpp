@@ -399,7 +399,11 @@ void dng_save(void *mem, StreamInfo const &info, ControlList const &metadata,
 			unpack_10bit((uint8_t const*)mem, info, &buf8bit[0], &buf16Bit[0]);
 			break;
 		case 12:
-			unpack_12bit_to_8bit((uint8_t const*)mem, info, &buf8bit[0], &buf16Bit[0]);
+			if(force8bit) {
+				unpack_12bit_to_8bit((uint8_t const*)mem, info, &buf8bit[0], &buf16Bit[0]);
+			} else {
+				unpack_12bit((uint8_t const*)mem, info, &buf8bit[0], &buf16Bit[0]);
+			}
 			break;
 		}
 	}
@@ -409,6 +413,9 @@ void dng_save(void *mem, StreamInfo const &info, ControlList const &metadata,
 
 	// We need to fish out some metadata values for the DNG.
 	float black = 4096 * (1 << bayer_format.bits) / 65536.0;
+	if(force8bit) {
+		black = 16;
+	}
 	float black_levels[] = { black, black, black, black };
 	auto bl = metadata.get(controls::SensorBlackLevels);
 	if (bl)
