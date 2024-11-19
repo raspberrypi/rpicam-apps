@@ -148,6 +148,33 @@ static void unpack_12bit(uint8_t const *src, StreamInfo const &info, uint8_t *de
 	}
 }
 
+static void unpack_12bit_to_8bit(uint8_t const *src, StreamInfo const &info, uint8_t *dest, uint16_t *dest16Bit)
+{
+	unsigned int w_align = info.width & ~1;
+	for (unsigned int y = 0; y < info.height; y++, src += info.stride)
+	{
+		uint8_t const *ptr = src;
+		unsigned int x;
+		for (x = 0; x < w_align; x += 2, ptr += 3)
+		{
+			uint16_t val1 = (ptr[0] << 4) | ((ptr[2] >> 0) & 15);
+			uint16_t val2 = (ptr[1] << 4) | ((ptr[2] >> 4) & 15);
+			uint8_t val1_as_8bit = ((float)val1 / 4096.f) * 256;
+			uint8_t val1_as_8bit = ((float)val2 / 4096.f) * 256;
+
+			*dest++ = val1_as_8bit;
+			*dest++ = val1_as_8bit;
+
+			*dest16Bit++ = val1;
+			*dest16Bit++ = val2;
+		}
+		// I don't believe this code is applicable for the use cases of widths of 4056, 2028 or 1012
+		// if (x < info.width) {
+		// 	*dest++ = (ptr[x & 1] << 4) | ((ptr[2] >> ((x & 1) << 2)) & 15);
+		// }
+	}
+}
+
 static void unpack_16bit(uint8_t const *src, StreamInfo const &info, uint16_t *dest)
 {
 	/* Assume the pixels in memory are already in native byte order */
@@ -349,6 +376,10 @@ void dng_save(void *mem, StreamInfo const &info, ControlList const &metadata,
 	// 1.5 for 12 bit, 1.25 for 10 bit
 	double bytesPerPixel = (double)bayer_format.bits / 8.0;
 	int bitsPerPixel = 16;
+	bool force8bit = true;
+	if(force8bit) {
+		bytesPerPixel = 1;
+	}
 	std::vector<uint8_t> buf8bit(int(info.width * bytesPerPixel * info.height));
 	std::vector<uint16_t> buf16Bit(buf_stride_pixels_padded * info.height);
 	if (bayer_format.compressed)
@@ -359,13 +390,16 @@ void dng_save(void *mem, StreamInfo const &info, ControlList const &metadata,
 	else if (bayer_format.packed)
 	{
 		bitsPerPixel = bayer_format.bits;
+		if(force8bit) {
+			bitsPerPixel = 8;
+		}
 		switch (bayer_format.bits)
 		{
 		case 10:
 			unpack_10bit((uint8_t const*)mem, info, &buf8bit[0], &buf16Bit[0]);
 			break;
 		case 12:
-			unpack_12bit((uint8_t const*)mem, info, &buf8bit[0], &buf16Bit[0]);
+			unpack_12bit_to_8bit((uint8_t const*)mem, info, &buf8bit[0], &buf16Bit[0]);
 			break;
 		}
 	}
