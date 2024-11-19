@@ -471,9 +471,11 @@ void dng_save(void *mem, StreamInfo const &info, ControlList const &metadata,
 	// We need to fish out some metadata values for the DNG.
 	float black = 4096 * (1 << bayer_format.bits) / 65536.0;
 	if(force8bit) {
-		black = 28;
+		// 16 is the calculated number, but adding 12 makes it look better
+		black = 16 + 12;
 	} else if (force10bit) {
-		black = 64;
+		// 64 is the calculated number, but adding 4 makes it look better
+		black = 64 + 4;
 	}
 	float black_levels[] = { black, black, black, black };
 	auto bl = metadata.get(controls::SensorBlackLevels);
