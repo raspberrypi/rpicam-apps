@@ -175,6 +175,55 @@ static void unpack_12bit_to_8bit(uint8_t const *src, StreamInfo const &info, uin
 	}
 }
 
+static void unpack_12bit_to_10bit(uint8_t const *src, StreamInfo const &info, uint8_t *dest, uint16_t *dest16Bit)
+{
+	unsigned int w_align = info.width & ~1;
+	for (unsigned int y = 0; y < info.height; y++, src += info.stride)
+	{
+		uint8_t const *ptr = src;
+		unsigned int x;
+		for (x = 0; x < w_align; x += 4, ptr += 6)
+		{
+			uint16_t val1 = (ptr[0] << 4) | ((ptr[2] >> 0) & 15);
+			uint16_t val2 = (ptr[1] << 4) | ((ptr[2] >> 4) & 15);
+
+			uint16_t val3 = (ptr[3] << 4) | ((ptr[5] >> 0) & 15);
+			uint16_t val4 = (ptr[4] << 4) | ((ptr[5] >> 4) & 15);
+
+			uint16_t val1_as_10bit = ((float)val1 / 4096.f) * 1024;
+			uint16_t val2_as_10bit = ((float)val2 / 4096.f) * 1024;
+			uint16_t val3_as_10bit = ((float)val3 / 4096.f) * 1024;
+			uint16_t val4_as_10bit = ((float)val4 / 4096.f) * 1024;
+
+			// Cut off the 2 LSB
+			uint8_t byte1 = val1_as_10bit >> 2;
+			// get the 2 LSB of the val1, or'd with the 6 MSB of val2
+			uint8_t byte2 = ((val1_as_10bit & 3) << 6) | (val2_as_10bit >> 4);
+			// get the 4 LSB of val2 or'd with 4 MSB of val3
+			uint8_t byte3 = ((val2_as_10bit & 0xf) << 4) | (val3_as_10bit >> 6);
+			// get the 6 LSB of val3 abd the 2 MSB of val4
+			uint8_t byte4 = ((val3_as_10bit & 0x3f) << 2) | (val4_as_10bit >> 8);
+			// get 8 LSB of val4
+			uint8_t byte5 = val4_as_10bit & 0xff;
+
+			*dest++ = byte1;
+			*dest++ = byte2;
+			*dest++ = byte3;
+			*dest++ = byte4;
+			*dest++ = byte5;
+
+			*dest16Bit++ = val1;
+			*dest16Bit++ = val2;
+			*dest16Bit++ = val3;
+			*dest16Bit++ = val4;
+		}
+		// I don't believe this code is applicable for the use cases of widths of 4056, 2028 or 1012
+		// if (x < info.width) {
+		// 	*dest++ = (ptr[x & 1] << 4) | ((ptr[2] >> ((x & 1) << 2)) & 15);
+		// }
+	}
+}
+
 static void unpack_16bit(uint8_t const *src, StreamInfo const &info, uint16_t *dest)
 {
 	/* Assume the pixels in memory are already in native byte order */
@@ -376,9 +425,12 @@ void dng_save(void *mem, StreamInfo const &info, ControlList const &metadata,
 	// 1.5 for 12 bit, 1.25 for 10 bit
 	double bytesPerPixel = (double)bayer_format.bits / 8.0;
 	int bitsPerPixel = 16;
-	bool force8bit = true;
+	bool force8bit = false;
+	bool force10bit = true;
 	if(force8bit) {
 		bytesPerPixel = 1;
+	} else if (force10bit) {
+		bytesPerPixel = 1.25;
 	}
 	std::vector<uint8_t> buf8bit(int(info.width * bytesPerPixel * info.height));
 	std::vector<uint16_t> buf16Bit(buf_stride_pixels_padded * info.height);
@@ -392,7 +444,10 @@ void dng_save(void *mem, StreamInfo const &info, ControlList const &metadata,
 		bitsPerPixel = bayer_format.bits;
 		if(force8bit) {
 			bitsPerPixel = 8;
+		} else if(force10bit) {
+			bitsPerPixel = 10;
 		}
+
 		switch (bayer_format.bits)
 		{
 		case 10:
@@ -401,6 +456,8 @@ void dng_save(void *mem, StreamInfo const &info, ControlList const &metadata,
 		case 12:
 			if(force8bit) {
 				unpack_12bit_to_8bit((uint8_t const*)mem, info, &buf8bit[0], &buf16Bit[0]);
+			} else if (force10Bit) {
+				unpack_12bit_to_10bit((uint8_t const*)mem, info, &buf8bit[0], &buf16Bit[0]);
 			} else {
 				unpack_12bit((uint8_t const*)mem, info, &buf8bit[0], &buf16Bit[0]);
 			}
