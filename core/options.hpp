@@ -182,6 +182,8 @@ struct Options
 	unsigned int max_directory_size;
 	unsigned int total_frames;
 	bool force_dng;
+	bool force_8_bit;
+	bool force_10_bit;
 	// End Wassoc custom options
 
 	virtual bool Parse(int argc, char *argv[]);

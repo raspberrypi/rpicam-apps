@@ -320,6 +320,10 @@ Options::Options()
 			"Sets the maximum number of frames saved before the process terminates")
 		("raw-as-dng", value<bool>(&force_dng)->default_value(false),
 			"Outputs a DNG file instead of a raw file")
+		("force-8-bit", value<bool>(&force_8_bit)->default_value(false),
+			"dng output is 8 bpp")
+		("force-10-bit", value<bool>(&force_10_bit)->default_value(false),
+			"dng output is 10 bpp")
 		// End Wassoc custom options
 		;
 	// clang-format on

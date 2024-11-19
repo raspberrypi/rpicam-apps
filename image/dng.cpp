@@ -419,14 +419,14 @@ void dng_save(void *mem, StreamInfo const &info, ControlList const &metadata,
 	BayerFormat const &bayer_format = it->second;
 	LOG(1, "Bayer format is " << bayer_format.name);
 
+	bool force8bit = options->force_8_bit;
+	bool force10bit = options->force_10_bit;
 	// Decompression will require a buffer that's 8 pixels aligned.
 	unsigned int buf_stride_pixels = info.width;
 	unsigned int buf_stride_pixels_padded = (buf_stride_pixels + 7) & ~7;
 	// 1.5 for 12 bit, 1.25 for 10 bit
 	double bytesPerPixel = (double)bayer_format.bits / 8.0;
 	int bitsPerPixel = 16;
-	bool force8bit = true;
-	bool force10bit = false;
 	if(force8bit) {
 		bytesPerPixel = 1;
 	} else if (force10bit) {
