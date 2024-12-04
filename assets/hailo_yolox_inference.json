@@ -11,7 +11,7 @@
 
     "hailo_yolo_inference":
     {
-        "hef_file": "/usr/share/hailo-models/yolox_s_leaky_h8l_mz.hef",
+        "hef_file": "/usr/share/hailo-models/yolox_s_leaky_h8l_rpi.hef",
         "max_detections": 20,
         "threshold": 0.4,
 
