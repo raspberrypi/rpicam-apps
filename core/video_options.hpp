@@ -158,6 +158,8 @@ struct VideoOptions : public Options
 			("av-sync", value<std::string>(&av_sync_)->default_value("0us"),
 			 "Add a time offset (in microseconds if no units provided) to the audio stream, relative to the video stream. "
 			 "The offset value can be either positive or negative.")
+			("low-latency", value<bool>(&low_latency)->default_value(false)->implicit_value(true),
+			 "Enables the libav/libx264 low latncy presets for video encoding.")
 #endif
 			;
 		// clang-format on
@@ -191,6 +193,7 @@ struct VideoOptions : public Options
 	uint32_t segment;
 	size_t circular;
 	uint32_t frames;
+	bool low_latency;
 
 	virtual bool Parse(int argc, char *argv[]) override
 	{
