@@ -277,3 +277,11 @@ void PostProcessor::Teardown()
 		stage->Teardown();
 	}
 }
+
+void PostProcessor::RotateInputTensor(const unsigned int angle)
+{
+	for (auto &stage : stages_)
+	{
+		stage->RotateInputTensor(static_cast<uint32_t>(angle));
+	}
+}

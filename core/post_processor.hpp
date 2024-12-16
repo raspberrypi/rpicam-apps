@@ -72,6 +72,8 @@ public:
 
 	void Teardown();
 
+	void RotateInputTensor(const unsigned int angle);
+
 private:
 	PostProcessingStage *createPostProcessingStage(char const *name);
 

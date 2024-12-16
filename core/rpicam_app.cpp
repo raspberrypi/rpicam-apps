@@ -829,6 +829,11 @@ void RPiCamApp::StopCamera()
 		LOG(2, "Camera stopped!");
 }
 
+void RPiCamApp::RotateInputTensor(const unsigned int angle)
+{
+	post_processor_.RotateInputTensor(angle);
+}
+
 RPiCamApp::Msg RPiCamApp::Wait()
 {
 	return msg_queue_.Wait();

@@ -49,6 +49,8 @@ public:
 
 	bool Process(CompletedRequestPtr &completed_request) override;
 
+	void RotateInputTensor(const uint32_t angle) override;
+
 	libcamera::Rectangle ConvertInferenceCoordinates(const std::vector<float> &coords,
 													 const libcamera::Rectangle &scalerCrop) const;
 	void SetInferenceRoiAbs(const libcamera::Rectangle &roi_) const;
