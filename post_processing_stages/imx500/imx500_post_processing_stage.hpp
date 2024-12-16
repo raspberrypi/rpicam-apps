@@ -51,6 +51,8 @@ public:
 
 	void RotateInputTensor(const uint32_t angle) override;
 
+	void FlipInputTensor(const uint32_t flip) override;
+
 	libcamera::Rectangle ConvertInferenceCoordinates(const std::vector<float> &coords,
 													 const libcamera::Rectangle &scalerCrop) const;
 	void SetInferenceRoiAbs(const libcamera::Rectangle &roi_) const;

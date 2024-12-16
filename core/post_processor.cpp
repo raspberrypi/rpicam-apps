@@ -285,3 +285,11 @@ void PostProcessor::RotateInputTensor(const unsigned int angle)
 		stage->RotateInputTensor(static_cast<uint32_t>(angle));
 	}
 }
+
+void PostProcessor::FlipInputTensor(const unsigned int flip)
+{
+	for (auto &stage : stages_)
+	{
+		stage->FlipInputTensor(static_cast<uint32_t>(flip));
+	}
+}

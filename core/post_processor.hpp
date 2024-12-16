@@ -74,6 +74,8 @@ public:
 
 	void RotateInputTensor(const unsigned int angle);
 
+	void FlipInputTensor(const unsigned int flip);
+
 private:
 	PostProcessingStage *createPostProcessingStage(char const *name);
 

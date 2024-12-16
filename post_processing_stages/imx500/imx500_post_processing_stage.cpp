@@ -35,6 +35,7 @@ namespace
 const unsigned int ROI_CTRL_ID = 0x00982900;
 const unsigned int NETWORK_FW_CTRL_ID = 0x00982901;
 const unsigned int ROTATE_CTRL_ID = 0x00982902;
+const unsigned int FLIP_CTRL_ID = 0x00982903;
 
 inline int16_t conv_reg_signed(int16_t reg)
 {
@@ -173,6 +174,14 @@ void IMX500PostProcessingStage::RotateInputTensor(const uint32_t angle)
 	int ret = ioctl(device_fd_, VIDIOC_S_CTRL, &ctrl);
 	if (ret)
 		LOG_ERROR("IMX500: Unable to rotate input tensor");
+}
+
+void IMX500PostProcessingStage::FlipInputTensor(const uint32_t flip)
+{
+	v4l2_control ctrl { FLIP_CTRL_ID, static_cast<int32_t>(flip) };
+	int ret = ioctl(device_fd_, VIDIOC_S_CTRL, &ctrl);
+	if (ret)
+		LOG_ERROR("IMX500: Unable to flip input tensor");
 }
 
 Rectangle IMX500PostProcessingStage::ConvertInferenceCoordinates(const std::vector<float> &coords,
