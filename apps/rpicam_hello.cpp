@@ -94,13 +94,17 @@ static void event_loop(RPiCamApp &app)
 		std::vector<Detection> objects;
 		completed_request->post_process_metadata.Get("object_detect.results", objects);
 		if (objects.size()) {
-			// cv::cvtColor(frame, frame, cv::COLOR_BGR2RGB);
+			for (auto &v : objects)
 			{
-				// std::scoped_lock lock(m);
-				int64_t t = 0;
-				// htenc.EncodeBuffer(completed_request->buffers[stream]->planes()[0].fd.get(), buffer.size(),buffer.data(), app.GetStreamInfo(stream), t);
-				// htenc.EncodeBuffer(1, out.cols * out.rows *3, out.data, info,t);
-				htenc.EncodeBuffer(1, frame.cols * frame.rows *1.5, frame.data, info,t);
+				if (v.name == "person" && v.confidence > 0.75)
+				// cv::cvtColor(frame, frame, cv::COLOR_BGR2RGB);
+				{
+					// std::scoped_lock lock(m);
+					int64_t t = 0;
+					// htenc.EncodeBuffer(completed_request->buffers[stream]->planes()[0].fd.get(), buffer.size(),buffer.data(), app.GetStreamInfo(stream), t);
+					// htenc.EncodeBuffer(1, out.cols * out.rows *3, out.data, info,t);
+					htenc.EncodeBuffer(1, frame.cols * frame.rows * 1.5, frame.data, info, t);
+				}
 			}
 		}
 	}
