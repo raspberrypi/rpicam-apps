@@ -178,7 +178,8 @@ bool MotionDetectStage::Process(CompletedRequestPtr &completed_request)
 	}
 
 	if (config_.verbose && motion_detected != motion_detected_)
-		LOG(1, "Motion " << (motion_detected ? "detected" : "stopped") << (config_.region_name.empty() ? "" : " in region " + config_.region_name));
+		LOG(1, "Motion " << (motion_detected ? "detected" : "stopped")
+						 << (config_.region_name.empty() ? "" : " in region " + config_.region_name));
 
 	motion_detected_ = motion_detected;
 	completed_request->post_process_metadata.Set("motion_detect.result", motion_detected);
