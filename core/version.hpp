@@ -5,7 +5,8 @@
  */
 #pragma once
 
-#include <string>
-
-const std::string &RPiCamAppsVersion();
-const std::string &RPiCamAppsCapabilities();
+extern "C"
+{
+	const char *RPiCamAppsVersion();
+	const char *RPiCamAppsCapabilities();
+}
