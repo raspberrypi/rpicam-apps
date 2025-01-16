@@ -1,0 +1,7 @@
+timeout=0s
+preview=0,0,1920,1080
+viewfinder-width=1920
+viewfinder-height=1080
+post-process-file=./hailo_yolov8_inference.json
+hdr=sensor
+
