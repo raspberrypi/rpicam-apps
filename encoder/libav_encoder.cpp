@@ -80,16 +80,28 @@ void encoderOptionsH264M2M(VideoOptions const *options, AVCodecContext *codec)
 
 void encoderOptionsLibx264(VideoOptions const *options, AVCodecContext *codec)
 {
-	codec->max_b_frames = 1;
 	codec->me_range = 16;
 	codec->me_cmp = 1; // No chroma ME
 	codec->me_subpel_quality = 0;
 	codec->thread_count = 0;
-	codec->thread_type = FF_THREAD_FRAME;
-	codec->slices = 1;
 
-	av_opt_set(codec->priv_data, "preset", "superfast", 0);
-	av_opt_set(codec->priv_data, "partitions", "i8x8,i4x4", 0);
+	if (options->low_latency)
+	{
+		codec->thread_type = FF_THREAD_SLICE;
+		codec->slices = 4;
+		codec->refs = 1;
+		av_opt_set(codec->priv_data, "preset", "ultrafast", 0);
+		av_opt_set(codec->priv_data, "tune", "zerolatency", 0);
+	}
+	else
+	{
+		codec->thread_type = FF_THREAD_FRAME;
+		codec->slices = 1;
+		codec->max_b_frames = 1;
+		av_opt_set(codec->priv_data, "preset", "superfast", 0);
+		av_opt_set(codec->priv_data, "partitions", "i8x8,i4x4", 0);
+	}
+
 	av_opt_set(codec->priv_data, "weightp", "none", 0);
 	av_opt_set(codec->priv_data, "weightb", "0", 0);
 	av_opt_set(codec->priv_data, "motion-est", "dia", 0);

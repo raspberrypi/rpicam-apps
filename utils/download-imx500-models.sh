@@ -11,7 +11,6 @@ networks=(
     https://github.com/raspberrypi/imx500-models/raw/main/imx500_network_efficientnetv2_b2.rpk
     https://github.com/raspberrypi/imx500-models/raw/main/imx500_network_higherhrnet_coco.rpk
     https://github.com/raspberrypi/imx500-models/raw/main/imx500_network_inputtensoronly.rpk
-    https://github.com/raspberrypi/imx500-models/raw/main/imx500_network_levit_128s.rpk
     https://github.com/raspberrypi/imx500-models/raw/main/imx500_network_mnasnet1.0.rpk
     https://github.com/raspberrypi/imx500-models/raw/main/imx500_network_mobilenet_v2.rpk
     https://github.com/raspberrypi/imx500-models/raw/main/imx500_network_mobilevit_xs.rpk

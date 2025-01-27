@@ -19,13 +19,13 @@
 #include "core/rpicam_app.hpp"
 #include "post_processing_stages/object_detect.hpp"
 
-#include "detection/yolo_postprocess.hpp"
+#include "detection/yolo_hailortpp.hpp"
 
 #include "hailo_postprocessing_stage.hpp"
 
 using Size = libcamera::Size;
-using PostProcFuncPtrNms = void (*)(HailoROIPtr, YoloParams *);
-using InitFuncPtr = YoloParams *(*)(std::string, std::string);
+using PostProcFuncPtrNms = void (*)(HailoROIPtr, YoloParamsNMS *);
+using InitFuncPtr = YoloParamsNMS *(*)(std::string, std::string);
 using FreeFuncPtr = void (*)(void *);
 
 using Rectangle = libcamera::Rectangle;
@@ -64,7 +64,7 @@ private:
 	std::vector<LtObject> lt_objects_;
 	std::mutex lock_;
 	PostProcessingLib postproc_nms_;
-	YoloParams *yolo_params_ = nullptr;
+	YoloParamsNMS *yolo_params_ = nullptr;
 
 	// Config params
 	std::string config_path_;

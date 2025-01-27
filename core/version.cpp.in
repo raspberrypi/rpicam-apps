@@ -4,6 +4,8 @@
  *
  * AUTO-GENERATED, DO NOT MODIFY!
  */
+#include <string>
+
 #include "core/version.hpp"
 
 #if LIBEGL_PRESENT
@@ -37,12 +39,16 @@ static const std::string caps {"egl:" + std::to_string(egl) +
 							   " drm:" + std::to_string(drm) +
 							   " libav:" + std::to_string(libav)};
 
-const std::string &RPiCamAppsVersion()
+extern "C" {
+
+const char *RPiCamAppsVersion()
 {
-	return version;
+	return version.c_str();
 }
 
-const std::string &RPiCamAppsCapabilities()
+const char *RPiCamAppsCapabilities()
 {
-	return caps;
+	return caps.c_str();
+}
+
 }
