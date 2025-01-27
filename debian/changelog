@@ -1,3 +1,10 @@
+rpicam-apps (1.6.0-1) bookworm; urgency=medium
+
+  * New upstream version 1.6.0
+  * Update hailo-tappas-core version
+
+ -- Serge Schneider <serge@raspberrypi.com>  Mon, 27 Jan 2025 22:40:43 +0000
+
 rpicam-apps (1.5.3-1) bookworm; urgency=medium
 
   * d/watch: update to new filename format
