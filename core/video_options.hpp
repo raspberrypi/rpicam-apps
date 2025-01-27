@@ -158,7 +158,11 @@ struct VideoOptions : public Options
 			("av-sync", value<std::string>(&av_sync_)->default_value("0us"),
 			 "Add a time offset (in microseconds if no units provided) to the audio stream, relative to the video stream. "
 			 "The offset value can be either positive or negative.")
+			("low-latency", value<bool>(&low_latency)->default_value(false)->implicit_value(true),
+			 "Enables the libav/libx264 low latncy presets for video encoding.")
 #endif
+			 ("sync", value<std::string>(&sync_)->default_value("off"),
+			  "Whether to synchronise with another camera. Use \"off\", \"server\" or \"client\".")
 			;
 		// clang-format on
 	}
@@ -191,6 +195,8 @@ struct VideoOptions : public Options
 	uint32_t segment;
 	size_t circular;
 	uint32_t frames;
+	bool low_latency;
+	uint32_t sync;
 
 	virtual bool Parse(int argc, char *argv[]) override
 	{
@@ -235,6 +241,15 @@ struct VideoOptions : public Options
 			level = "4.2";
 		}
 
+		if (strcasecmp(sync_.c_str(), "off") == 0)
+			sync = 0;
+		else if (strcasecmp(sync_.c_str(), "server") == 0)
+			sync = 1;
+		else if (strcasecmp(sync_.c_str(), "client") == 0)
+			sync = 2;
+		else
+			throw std::runtime_error("incorrect sync value " + sync_);
+
 		return true;
 	}
 	virtual void Print() const override
@@ -254,6 +269,7 @@ struct VideoOptions : public Options
 		std::cerr << "    split: " << split << std::endl;
 		std::cerr << "    segment: " << segment << std::endl;
 		std::cerr << "    circular: " << circular << std::endl;
+		std::cerr << "    sync: " << sync << std::endl;
 	}
 
 private:
@@ -262,4 +278,5 @@ private:
 	std::string av_sync_;
 	std::string audio_bitrate_;
 #endif /* LIBAV_PRESENT */
+	std::string sync_;
 };
