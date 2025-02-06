@@ -11,7 +11,8 @@
 
     "hailo_yolo_inference":
     {
-        "hef_file": "/usr/share/hailo-models/yolov6n.hef",
+        "hef_file_8L": "/usr/share/hailo-models/yolov6n_h8l.hef",
+        "hef_file_8": "/usr/share/hailo-models/yolov6n_h8.hef",
         "max_detections": 20,
         "threshold": 0.4,
 

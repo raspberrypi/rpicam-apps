@@ -30,7 +30,7 @@ postproc_assets += files([
 ])
 
 core_postproc_lib = shared_module('core-postproc', core_postproc_src,
-                                  include_directories : '../..',
+                                  include_directories : '../',
                                   dependencies : libcamera_dep,
                                   cpp_args : cpp_arguments,
                                   install : true,
@@ -58,7 +58,7 @@ if opencv_dep.found()
     ])
 
     opencv_postproc_lib = shared_module('opencv-postproc', opencv_postproc_src,
-                                        include_directories : '../..',
+                                        include_directories : '../',
                                         dependencies : [libcamera_dep, opencv_dep],
                                         cpp_args : cpp_arguments,
                                         install : true,
@@ -89,7 +89,7 @@ if tflite_dep.found()
     ])
 
     tflite_postproc_lib = shared_module('tflite-postproc', tflite_postproc_src,
-                                        include_directories : '../..',
+                                        include_directories : '../',
                                         dependencies : [libcamera_dep, tflite_dep],
                                         cpp_args : cpp_arguments,
                                         install : true,
@@ -103,8 +103,9 @@ endif
 enable_hailo = false
 hailort_dep = dependency('HailoRT', modules : ['HailoRT::libhailort'], version: '>=4.18.0',
                          required : get_option('enable_hailo'))
-hailo_tappas_dep = dependency('hailo-tappas-core', required : get_option('enable_hailo'))
-if hailort_dep.found() and hailo_tappas_dep.found()
+hailo_tappas_dep = dependency('hailo-tappas-core', version: '>=3.31.0',
+                              required : get_option('enable_hailo'))
+if hailort_dep.found() and hailo_tappas_dep.found() and opencv_dep.found()
     subdir('hailo')
     enable_hailo = true
 endif

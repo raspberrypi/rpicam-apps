@@ -1,6 +1,6 @@
 project('rpicam-apps', 'c', 'cpp',
         meson_version : '>= 0.64.0',
-        version : '1.5.2',
+        version : '1.6.0',
         default_options : [
             'werror=true',
             'warning_level=3',
@@ -11,6 +11,8 @@ project('rpicam-apps', 'c', 'cpp',
         license : 'BSD-2-Clause')
 
 meson.add_dist_script('utils' / 'gen-dist.sh')
+
+fs = import('fs')
 
 cpp_arguments = ['-pedantic', '-Wno-unused-parameter', '-faligned-new']
 
@@ -54,6 +56,24 @@ add_project_arguments(cpp_arguments, language : 'cpp')
 
 # Must be put after add_project_arguments as it defines shared library targets.
 subdir('post_processing_stages')
+
+# Generate a version string.
+version_cmd = [meson.project_source_root() / 'utils' / 'version.py', meson.project_version()]
+
+# Check if a version.gen file is present.
+# This would have been generated from the meson dist command.
+dist_version_file = meson.project_source_root() / 'version.gen'
+if fs.is_file(dist_version_file)
+    version_cmd += fs.read(dist_version_file)
+endif
+
+version_cpp = vcs_tag(command : version_cmd,
+                      replace_string: '@VER@',
+                      input : meson.project_source_root() / 'core' / 'version.cpp.in',
+                      output : 'version.cpp',
+                      fallback : meson.project_version())
+
+rpicam_app_src += version_cpp
 
 rpicam_app = library(
     'rpicam_app',

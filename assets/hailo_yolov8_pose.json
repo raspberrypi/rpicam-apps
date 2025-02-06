@@ -11,6 +11,7 @@
 
     "hailo_yolo_pose":
     {
-        "hef_file": "/usr/share/hailo-models/yolov8s_pose_h8l_pi.hef"
+        "hef_file_8L": "/usr/share/hailo-models/yolov8s_pose_h8l_pi.hef",
+        "hef_file_8": "/usr/share/hailo-models/yolov8s_pose_h8.hef"
     }
 }

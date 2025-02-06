@@ -18,7 +18,7 @@ hailo_conf_data = configuration_data()
 hailo_conf_data.set('HAILO_POSTPROC_LIB_DIR', '"' + hailo_tappas_posproc_libdir + '"')
 hailo_postproc_lib = configure_file(output : 'hailo_postproc_lib.h', configuration : hailo_conf_data)
 
-hailo_deps = [hailort_dep, hailo_tappas_dep, libcamera_dep]
+hailo_deps = [hailort_dep, hailo_tappas_dep, libcamera_dep, opencv_dep]
 
 # Hailo Tappas PP config files to be installed
 hailopp_config_files = files([
@@ -32,6 +32,12 @@ hailo_postprocessing_src = files([
     'hailo_yolo_inference.cpp',
     # Image classifier
     'hailo_classifier.cpp',
+    # Pose estimation
+    'hailo_yolov8_pose.cpp',
+    # Instance segmentation
+    'hailo_yolov5_segmentation.cpp',
+    # Face landmarking
+    'hailo_scrfd.cpp',    
 ])
 
 postproc_assets += files([
@@ -40,26 +46,11 @@ postproc_assets += files([
     assets_dir / 'hailo_yolov6_inference.json',
     assets_dir / 'hailo_yolov8_inference.json',
     assets_dir / 'hailo_yolox_inference.json',
+    assets_dir / 'hailo_yolov8_pose.json',
+    assets_dir / 'hailo_yolov5_segmentation.json',
+    assets_dir / 'hailo_scrfd.json',
+    assets_dir / 'hailo_pose_inf_fl.json',
 ])
-
-if opencv_dep.found()
-    hailo_postprocessing_src += files([
-        # Pose estimation
-        'hailo_yolov8_pose.cpp',
-        # Instance segmentation
-        'hailo_yolov5_segmentation.cpp'
-    ])
-
-    postproc_assets += files([
-        assets_dir / 'hailo_yolov8_pose.json',
-        assets_dir / 'hailo_yolov5_segmentation.json',
-    ])
-
-    hailo_deps + opencv_dep
-    hailopp_config_files += files([
-        assets_dir / 'yolov5seg.json',
-    ])
-endif
 
 hailo_cpp_arguments = ['-Wno-ignored-qualifiers', '-Wno-unused-parameter', '-Wno-extra']
 

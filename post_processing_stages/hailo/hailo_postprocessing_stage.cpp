@@ -6,8 +6,13 @@
  */
 
 #include <algorithm>
+#include <mutex>
 #include <string>
 #include <sys/mman.h>
+
+#include <opencv2/highgui.hpp>
+#include <opencv2/imgproc.hpp>
+#include <opencv2/opencv.hpp>
 
 #include "hailo_postprocessing_stage.hpp"
 
@@ -20,6 +25,39 @@ using Size = libcamera::Size;
 
 namespace
 {
+
+class Display
+{
+public:
+	static MessageQueue &GetDisplayMsgQueue()
+	{
+		static Display display_instance;
+		return display_instance.msg_queue_;
+	}
+
+private:
+	Display()
+	{
+		display_thread_ = std::thread(&Display::displayThread, this);
+		init_ = true;
+	}
+
+	MessageQueue msg_queue_;
+
+	~Display()
+	{
+		if (init_)
+		{
+			msg_queue_.Post(Msg(MsgType::Quit));
+			display_thread_.join();
+		}
+	}
+
+	void displayThread();
+
+	std::thread display_thread_;
+	bool init_ = false;
+};
 
 // Singleton class for the hardware virtual device.
 class vdevice
@@ -109,7 +147,7 @@ void Allocator::free(uint8_t *ptr)
 }
 
 HailoPostProcessingStage::HailoPostProcessingStage(RPiCamApp *app)
-	: PostProcessingStage(app)
+	: PostProcessingStage(app), msg_queue_(std::ref(Display::GetDisplayMsgQueue()))
 {
 }
 
@@ -121,7 +159,9 @@ HailoPostProcessingStage::~HailoPostProcessingStage()
 
 void HailoPostProcessingStage::Read(boost::property_tree::ptree const &params)
 {
-	hef_file_ = params.get<std::string>("hef_file");
+	hef_file_ = params.get<std::string>("hef_file", "");
+	hef_file_8_ = params.get<std::string>("hef_file_8", "");
+	hef_file_8L_ = params.get<std::string>("hef_file_8L", "");
 }
 
 void HailoPostProcessingStage::Configure()
@@ -153,8 +193,26 @@ int HailoPostProcessingStage::configureHailoRT()
 		return -1;
 	}
 
+	// Pull the device id.
+	auto devices = vdevice_->get_physical_devices().release();
+	device_id_ = devices[0].get().identify().release();
+
+	std::string hef_file;
+	if (device_id_.device_architecture == HAILO_ARCH_HAILO8 && !hef_file_8_.empty())
+		hef_file = hef_file_8_;
+	else if (!hef_file_8L_.empty())
+		hef_file = hef_file_8L_;
+	else
+		hef_file = hef_file_;
+
+	if (hef_file.empty())
+	{
+		LOG_ERROR("Unable to use a suitable HEF file.");
+		return -1;
+	}
+
 	// Create infer model from HEF file.
-	Expected<std::shared_ptr<InferModel>> infer_model_exp = vdevice_->create_infer_model(hef_file_);
+	Expected<std::shared_ptr<InferModel>> infer_model_exp = vdevice_->create_infer_model(hef_file);
 	if (!infer_model_exp)
 	{
 		LOG_ERROR("Failed to create infer model, status = " << infer_model_exp.status());
@@ -319,4 +377,41 @@ Rectangle HailoPostProcessingStage::ConvertInferenceCoordinates(const std::vecto
 	const Rectangle obj_scaled = obj_translated_h.scaledBy(isp_output_size, scaler_crops[0].size());
 
 	return obj_scaled;
+}
+
+void Display::displayThread()
+{
+	RgbImagePtr current_image;
+
+	while (true)
+	{
+		Msg msg = msg_queue_.Wait();
+
+		if (msg.type == MsgType::Quit)
+			break;
+
+		if (msg.type == MsgType::Display)
+		{
+			current_image = std::move(msg.payload);
+
+			// RGB -> BGR for cv::imshow
+			for (unsigned int j = 0; j < msg.size.height; j++)
+			{
+				uint8_t *ptr = current_image.get() + j * msg.size.width * 3;
+				for (unsigned int i = 0; i < msg.size.width; i++)
+				{
+					const uint8_t t = ptr[0];
+					ptr[0] = ptr[2], ptr[2] = t;
+					ptr += 3;
+				}
+			}
+			
+			cv::Mat image(msg.size.height, msg.size.width, CV_8UC3, (void *)current_image.get(),
+						  msg.size.width * 3);
+
+			cv::imshow(msg.window_title, image);
+			cv::resizeWindow(msg.window_title, cv::Size(320, 320));
+			cv::waitKey(1);
+		}
+	}
 }

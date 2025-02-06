@@ -3,3 +3,4 @@ build
 .vscode
 redis-plus-plus
 *test
+.vscode/

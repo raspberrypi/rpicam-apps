@@ -53,6 +53,7 @@ private:
 		float region_threshold;
 		int frame_period;
 		bool verbose;
+		std::string region_name;
 	} config_;
 	Stream *stream_;
 	unsigned lores_stride_;
@@ -87,6 +88,7 @@ void MotionDetectStage::Read(boost::property_tree::ptree const &params)
 	config_.region_threshold = params.get<float>("region_threshold", 0.005);
 	config_.frame_period = params.get<int>("frame_period", 5);
 	config_.verbose = params.get<int>("verbose", 0);
+	config_.region_name = params.get<std::string>("region_name", "");
 }
 
 void MotionDetectStage::Configure()
@@ -176,7 +178,8 @@ bool MotionDetectStage::Process(CompletedRequestPtr &completed_request)
 	}
 
 	if (config_.verbose && motion_detected != motion_detected_)
-		LOG(1, "Motion " << (motion_detected ? "detected" : "stopped"));
+		LOG(1, "Motion " << (motion_detected ? "detected" : "stopped")
+						 << (config_.region_name.empty() ? "" : " in region " + config_.region_name));
 
 	motion_detected_ = motion_detected;
 	completed_request->post_process_metadata.Set("motion_detect.result", motion_detected);

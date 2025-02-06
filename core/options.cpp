@@ -373,6 +373,7 @@ bool Options::Parse(int argc, char *argv[])
 	if (version)
 	{
 		std::cout << "rpicam-apps build: " << RPiCamAppsVersion() << std::endl;
+		std::cout << "rpicam-apps capabilites: " << RPiCamAppsCapabilities() << std::endl;
 		std::cout << "libcamera build: " << libcamera::CameraManager::version() << std::endl;
 		return false;
 	}

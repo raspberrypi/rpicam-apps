@@ -22,15 +22,15 @@
 class IMX500PostProcessingStage : public PostProcessingStage
 {
 public:
-	static constexpr unsigned int Max_Num_Tensors = 8;
+	static constexpr unsigned int Max_Num_Tensors = 16;
+	static constexpr unsigned int Max_Num_Dimensions = 16;
 	static constexpr unsigned int Network_Name_Len = 64;
 
 	struct OutputTensorInfo
 	{
 		uint32_t tensor_data_num;
-		uint16_t size;
-		uint8_t ordinal;
-		uint8_t serialization_index;
+		uint32_t num_dimensions;
+		uint16_t size[Max_Num_Dimensions];
 	};
 
 	struct CnnOutputTensorInfo

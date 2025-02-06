@@ -8,9 +8,11 @@
 #pragma once
 
 #include <chrono>
+#include <deque>
 #include <memory>
 #include <mutex>
 #include <string>
+#include <thread>
 #include <vector>
 
 #include <libcamera/geometry.h>
@@ -83,6 +85,64 @@ public:
 	}
 };
 
+enum class MsgType
+{
+	Display,
+	Quit
+};
+
+using RgbImagePtr = std::shared_ptr<uint8_t>;
+
+struct Msg
+{
+	Msg(MsgType const &t) : type(t) {}
+	template <typename T>
+	Msg(MsgType const &t, T p, const libcamera::Size &sz, const std::string &title)
+		: type(t), payload(std::forward<T>(p)), size(sz), window_title(title)
+	{
+	}
+	MsgType type;
+	RgbImagePtr payload;
+	libcamera::Size size;
+	std::string window_title;
+};
+
+class MessageQueue
+{
+public:
+	template <typename U>
+	void Post(U &&msg)
+	{
+		std::unique_lock<std::mutex> lock(mutex_);
+		queue_.push_back(std::forward<U>(msg));
+		cond_.notify_one();
+	}
+	Msg Wait()
+	{
+		std::unique_lock<std::mutex> lock(mutex_);
+		cond_.wait(lock, [this] { return !queue_.empty(); });
+		Msg msg = std::move(queue_.front());
+		queue_.pop_front();
+		return msg;
+	}
+	void Clear()
+	{
+		std::unique_lock<std::mutex> lock(mutex_);
+		queue_ = {};
+	}
+	void Clear(const std::string &display)
+	{
+		std::unique_lock<std::mutex> lock(mutex_);
+		auto it = std::remove_if(queue_.begin(), queue_.end(),
+								 [&display](const Msg &m) { return m.window_title == display; });
+		queue_.erase(it, queue_.end());
+	}
+private:
+	std::deque<Msg> queue_;
+	std::mutex mutex_;
+	std::condition_variable cond_;
+};
+
 class HailoPostProcessingStage : public PostProcessingStage
 {
 public:
@@ -126,14 +186,17 @@ protected:
 	hailort::VDevice *vdevice_;
 	std::shared_ptr<hailort::InferModel> infer_model_;
 	std::shared_ptr<hailort::ConfiguredInferModel> configured_infer_model_;
+	MessageQueue &msg_queue_;
 
 private:
 	int configureHailoRT();
+	void displayThread();
 
 	std::mutex lock_;
 	bool init_ = false;
-	std::string hef_file_;
+	std::string hef_file_, hef_file_8_, hef_file_8L_;
 	hailort::ConfiguredInferModel::Bindings bindings_;
 	std::chrono::time_point<std::chrono::steady_clock> last_frame_;
 	libcamera::Size input_tensor_size_;
+	hailo_device_identity_t device_id_;
 };
