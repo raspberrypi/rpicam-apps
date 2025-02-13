@@ -159,7 +159,7 @@ struct VideoOptions : public Options
 			 "Add a time offset (in microseconds if no units provided) to the audio stream, relative to the video stream. "
 			 "The offset value can be either positive or negative.")
 			("low-latency", value<bool>(&low_latency)->default_value(false)->implicit_value(true),
-			 "Enables the libav/libx264 low latncy presets for video encoding.")
+			 "Enables the libav/libx264 low latency presets for video encoding.")
 #endif
 			 ("sync", value<std::string>(&sync_)->default_value("off"),
 			  "Whether to synchronise with another camera. Use \"off\", \"server\" or \"client\".")
