@@ -111,7 +111,7 @@ private:
 			encode_time = (std::chrono::high_resolution_clock::now() - start_time);
 			// send codestream via TCP connection
 			simple_tcp tcp_socket("133.36.41.118", 4001);
-			if (!tcp_socket.create_client())
+			if (tcp_socket.create_client() >= 0)
 			{
 				// std::unique_lock<std::mutex> lock(encode_mutex_);
 				tcp_socket.Tx(buf.data(), buffer_len);

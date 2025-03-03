@@ -2,6 +2,11 @@ timeout=0s
 preview=0,0,1920,1080
 viewfinder-width=1920
 viewfinder-height=1080
-post-process-file=./hailo_yolov8_inference.json
+#post-process-file=./hailo_yolov8_inference.json
+post-process-file=./a.json
 hdr=sensor
+post-process-libs=./
+lores-width=640
+lores-height=640
+
 

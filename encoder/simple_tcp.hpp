@@ -45,12 +45,14 @@ class simple_tcp {
   }
 
   int create_client() {
-    int ret = 0;
     sockfd  = socket(AF_INET, SOCK_STREAM, 0);
-    if (connect(sockfd, (struct sockaddr *)&addr, sizeof(addr)) != 0) {
-      ret = -1;
+    if (sockfd < 0) {
+      return -1;
     }
-    return ret;
+    if (connect(sockfd, (struct sockaddr *)&addr, sizeof(addr)) != 0) {
+      return -1;
+    }
+    return 0;
   }
 
   int Rx(uint8_t *dst) {
