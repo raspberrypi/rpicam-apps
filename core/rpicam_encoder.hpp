@@ -29,13 +29,31 @@ public:
 		createEncoder();
 		encoder_->SetInputDoneCallback(std::bind(&RPiCamEncoder::encodeBufferDone, this, std::placeholders::_1));
 		encoder_->SetOutputReadyCallback(encode_output_ready_callback_);
+
+		// Set up the encode function to wait for synchronisation with another camera system,
+		// when this has been requested in the options.
+		VideoOptions const *options = GetOptions();
+		libcamera::ControlList cl;
+		if (options->sync == 0)
+			cl.set(libcamera::controls::rpi::SyncMode, libcamera::controls::rpi::SyncModeOff);
+		else if (options->sync == 1)
+			cl.set(libcamera::controls::rpi::SyncMode, libcamera::controls::rpi::SyncModeServer);
+		else if (options->sync == 2)
+			cl.set(libcamera::controls::rpi::SyncMode, libcamera::controls::rpi::SyncModeClient);
+		SetControls(cl);
 	}
 	// This is callback when the encoder gives you the encoded output data.
 	void SetEncodeOutputReadyCallback(EncodeOutputReadyCallback callback) { encode_output_ready_callback_ = callback; }
 	void SetMetadataReadyCallback(MetadataReadyCallback callback) { metadata_ready_callback_ = callback; }
-	void EncodeBuffer(CompletedRequestPtr &completed_request, Stream *stream)
+	bool EncodeBuffer(CompletedRequestPtr &completed_request, Stream *stream)
 	{
 		assert(encoder_);
+
+		// If sync was enabled, and SyncReady is still "false" then we must skip this frame. Tell our
+		// caller through the return value that we're not yet encoding anything.
+		if (GetOptions()->sync && !completed_request->metadata.get(controls::rpi::SyncReady).value_or(false))
+			return false;
+
 		StreamInfo info = GetStreamInfo(stream);
 		FrameBuffer *buffer = completed_request->buffers[stream];
 		BufferReadSync r(this, buffer);
@@ -50,6 +68,9 @@ public:
 			encode_buffer_queue_.push(completed_request); // creates a new reference
 		}
 		encoder_->EncodeBuffer(buffer->planes()[0].fd.get(), span.size(), mem, info, timestamp_ns / 1000);
+
+		// Tell our caller that encoding is underway.
+		return true;
 	}
 	VideoOptions *GetOptions() const { return static_cast<VideoOptions *>(options_.get()); }
 	void StopEncoder() { encoder_.reset(); }

@@ -337,6 +337,7 @@ void RPiCamApp::ConfigureViewfinder()
 		configuration_->at(lores_stream_num).pixelFormat = lores_format_;
 		configuration_->at(lores_stream_num).size = lores_size;
 		configuration_->at(lores_stream_num).bufferCount = configuration_->at(0).bufferCount;
+		configuration_->at(lores_stream_num).colorSpace = configuration_->at(0).colorSpace;
 	}
 
 	if (!options_->no_raw)
@@ -588,6 +589,7 @@ void RPiCamApp::ConfigureVideo(unsigned int flags)
 		configuration_->at(lores_index).pixelFormat = lores_format_;
 		configuration_->at(lores_index).size = lores_size;
 		configuration_->at(lores_index).bufferCount = configuration_->at(0).bufferCount;
+		configuration_->at(lores_index).colorSpace = configuration_->at(0).colorSpace;
 	}
 	configuration_->orientation = libcamera::Orientation::Rotate0 * options_->transform;
 

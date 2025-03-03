@@ -117,9 +117,14 @@ static void event_loop(RPiCamEncoder &app)
 			app.StopEncoder();
 			return;
 		}
-
 		CompletedRequestPtr &completed_request = std::get<CompletedRequestPtr>(msg.payload);
-		app.EncodeBuffer(completed_request, app.VideoStream());
+		if (!app.EncodeBuffer(completed_request, app.VideoStream()))
+		{
+			// Keep advancing our "start time" if we're still waiting to start recording (e.g.
+			// waiting for synchronisation with another camera).
+			start_time = now;
+			count = 0; // reset the "frames encoded" counter too
+		}
 		app.ShowPreview(completed_request, app.VideoStream());
 	}
 }
