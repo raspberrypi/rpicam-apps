@@ -22,7 +22,22 @@ jobs:
       - name: differential scan
         run: |
           semgrep scan \
+            --sarif --output report-pr.sarif
             --error \
             --metrics=off \
             --baseline-commit ${{ github.event.pull_request.base.sha }} \
             --config="p/default"
+      
+      # step 3
+      - name: save report as pipeline artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: report-pr.sarif
+          path: report-pr.sarif
+
+      # step 4
+      - name: publish code scanning alerts
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: report-pr.sarif
+          category: semgrep
