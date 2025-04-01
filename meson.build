@@ -85,6 +85,10 @@ rpicam_app = library(
     dependencies : rpicam_app_dep,
 )
 
+pkg = import('pkgconfig')
+pkg.generate(rpicam_app,
+             version: meson.project_version())
+
 # Install a symlink to the old library name for legacy purposes.
 install_symlink('libcamera_app.so',
                 install_dir: get_option('libdir'),
