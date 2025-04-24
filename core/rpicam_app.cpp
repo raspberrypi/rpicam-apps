@@ -946,8 +946,11 @@ libcamera::Stream *RPiCamApp::GetMainStream() const
 	return nullptr;
 }
 
-const libcamera::CameraManager *RPiCamApp::GetCameraManager() const
+const libcamera::CameraManager *RPiCamApp::GetCameraManager()
 {
+	if (!camera_manager_)
+		initCameraManager();
+
 	return camera_manager_.get();
 }
 
