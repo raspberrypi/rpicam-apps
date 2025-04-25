@@ -140,6 +140,8 @@ public:
 	void ConfigureVideo(unsigned int flags = FLAG_VIDEO_NONE);
 	void ConfigureZsl(unsigned int still_flags = FLAG_STILL_NONE);
 
+	void initCameraManager();
+
 	void Teardown();
 	void StartCamera();
 	void StopCamera();
@@ -238,7 +240,6 @@ private:
 		Stream *stream;
 	};
 
-	void initCameraManager();
 	void setupCapture();
 	void makeRequests();
 	void queueRequest(CompletedRequest *completed_request);
