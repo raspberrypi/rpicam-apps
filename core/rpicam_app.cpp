@@ -337,6 +337,7 @@ void RPiCamApp::ConfigureViewfinder()
 		configuration_->at(lores_stream_num).pixelFormat = lores_format_;
 		configuration_->at(lores_stream_num).size = lores_size;
 		configuration_->at(lores_stream_num).bufferCount = configuration_->at(0).bufferCount;
+		configuration_->at(lores_stream_num).colorSpace = configuration_->at(0).colorSpace;
 	}
 
 	if (!options_->no_raw)
@@ -588,6 +589,7 @@ void RPiCamApp::ConfigureVideo(unsigned int flags)
 		configuration_->at(lores_index).pixelFormat = lores_format_;
 		configuration_->at(lores_index).size = lores_size;
 		configuration_->at(lores_index).bufferCount = configuration_->at(0).bufferCount;
+		configuration_->at(lores_index).colorSpace = configuration_->at(0).colorSpace;
 	}
 	configuration_->orientation = libcamera::Orientation::Rotate0 * options_->transform;
 
@@ -706,9 +708,15 @@ void RPiCamApp::StartCamera()
 	}
 
 	if (!controls_.get(controls::ExposureTime) && options_->shutter)
+	{
+		controls_.set(controls::ExposureTimeMode, controls::ExposureTimeModeManual);
 		controls_.set(controls::ExposureTime, options_->shutter.get<std::chrono::microseconds>());
+	}
 	if (!controls_.get(controls::AnalogueGain) && options_->gain)
+	{
+		controls_.set(controls::AnalogueGainMode, controls::AnalogueGainModeManual);
 		controls_.set(controls::AnalogueGain, options_->gain);
+	}
 	if (!controls_.get(controls::AeMeteringMode))
 		controls_.set(controls::AeMeteringMode, options_->metering_index);
 	if (!controls_.get(controls::AeExposureMode))
@@ -944,8 +952,11 @@ libcamera::Stream *RPiCamApp::GetMainStream() const
 	return nullptr;
 }
 
-const libcamera::CameraManager *RPiCamApp::GetCameraManager() const
+const libcamera::CameraManager *RPiCamApp::GetCameraManager()
 {
+	if (!camera_manager_)
+		initCameraManager();
+
 	return camera_manager_.get();
 }
 

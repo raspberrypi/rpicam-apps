@@ -47,9 +47,9 @@ struct FrameInfo
 		if (fom)
 			focus = *fom;
 
-		auto ae = ctrls.get(libcamera::controls::AeLocked);
+		auto ae = ctrls.get(libcamera::controls::AeState);
 		if (ae)
-			aelock = *ae;
+			aelock = *ae == libcamera::controls::AeStateConverged;
 
 		auto lp = ctrls.get(libcamera::controls::LensPosition);
 		if (lp)
