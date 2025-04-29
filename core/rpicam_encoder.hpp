@@ -45,13 +45,14 @@ public:
 	// This is callback when the encoder gives you the encoded output data.
 	void SetEncodeOutputReadyCallback(EncodeOutputReadyCallback callback) { encode_output_ready_callback_ = callback; }
 	void SetMetadataReadyCallback(MetadataReadyCallback callback) { metadata_ready_callback_ = callback; }
-	void EncodeBuffer(CompletedRequestPtr &completed_request, Stream *stream)
+	bool EncodeBuffer(CompletedRequestPtr &completed_request, Stream *stream)
 	{
 		assert(encoder_);
 
-		// If sync was enabled, and SyncReady is still "false" then we must skip this frame.
+		// If sync was enabled, and SyncReady is still "false" then we must skip this frame. Tell our
+		// caller through the return value that we're not yet encoding anything.
 		if (GetOptions()->sync && !completed_request->metadata.get(controls::rpi::SyncReady).value_or(false))
-			return;
+			return false;
 
 		StreamInfo info = GetStreamInfo(stream);
 		FrameBuffer *buffer = completed_request->buffers[stream];
@@ -67,6 +68,9 @@ public:
 			encode_buffer_queue_.push(completed_request); // creates a new reference
 		}
 		encoder_->EncodeBuffer(buffer->planes()[0].fd.get(), span.size(), mem, info, timestamp_ns / 1000);
+
+		// Tell our caller that encoding is underway.
+		return true;
 	}
 	VideoOptions *GetOptions() const { return static_cast<VideoOptions *>(options_.get()); }
 	void StopEncoder() { encoder_.reset(); }
