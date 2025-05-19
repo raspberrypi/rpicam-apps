@@ -319,7 +319,18 @@ void LibAvEncoder::initAudioOutCodec(VideoOptions const *options, StreamInfo con
 
 	codec_ctx_[AudioOut]->sample_rate = options->audio_samplerate ? options->audio_samplerate
 																  : stream_[AudioIn]->codecpar->sample_rate;
+#if LIBAVCODEC_VERSION_MAJOR < 61
 	codec_ctx_[AudioOut]->sample_fmt = codec->sample_fmts[0];
+#else
+	enum AVSampleFormat **sample_fmts = nullptr;
+	avcodec_get_supported_config(codec_ctx_[AudioOut], codec, AV_CODEC_CONFIG_SAMPLE_FORMAT, 0,
+								 (const void **)&sample_fmts, nullptr);
+	if (!sample_fmts)
+		throw std::runtime_error("libav: no supported sample formats for audio codec");
+	else
+		codec_ctx_[AudioOut]->sample_fmt = (*sample_fmts)[0];
+#endif
+
 	codec_ctx_[AudioOut]->bit_rate = options->audio_bitrate.bps();
 	// usec timebase
 	codec_ctx_[AudioOut]->time_base = { 1, 1000 * 1000 };
@@ -345,9 +356,13 @@ LibAvEncoder::LibAvEncoder(VideoOptions const *options, StreamInfo const &info)
 	  audio_samples_(0), in_fmt_ctx_(nullptr), out_fmt_ctx_(nullptr), output_file_(options->output),
 	  output_initialised_(false)
 {
-	if (options->circular || options->segment || !options->save_pts.empty() || options->split)
-		LOG_ERROR("\nERROR: Pi 5 and libav encoder does not currently support the circular, segment, save_pts or "
-				  "split command line options, they will be ignored!\n");
+	if (options->circular || options->segment || !options->save_pts.empty() || options->split ||
+		options->initial == "pause")
+	{
+		LOG_ERROR("\nERROR: The libav encoder does not currently support the circular, segment, save_pts, "
+				  "split, or pause command line options!\n");
+		throw std::runtime_error("libav: Incompatible options selected.");
+	}
 
 	avdevice_register_all();
 

@@ -708,9 +708,15 @@ void RPiCamApp::StartCamera()
 	}
 
 	if (!controls_.get(controls::ExposureTime) && options_->shutter)
+	{
+		controls_.set(controls::ExposureTimeMode, controls::ExposureTimeModeManual);
 		controls_.set(controls::ExposureTime, options_->shutter.get<std::chrono::microseconds>());
+	}
 	if (!controls_.get(controls::AnalogueGain) && options_->gain)
+	{
+		controls_.set(controls::AnalogueGainMode, controls::AnalogueGainModeManual);
 		controls_.set(controls::AnalogueGain, options_->gain);
+	}
 	if (!controls_.get(controls::AeMeteringMode))
 		controls_.set(controls::AeMeteringMode, options_->metering_index);
 	if (!controls_.get(controls::AeExposureMode))
@@ -946,8 +952,11 @@ libcamera::Stream *RPiCamApp::GetMainStream() const
 	return nullptr;
 }
 
-const libcamera::CameraManager *RPiCamApp::GetCameraManager() const
+const libcamera::CameraManager *RPiCamApp::GetCameraManager()
 {
+	if (!camera_manager_)
+		initCameraManager();
+
 	return camera_manager_.get();
 }
 
