@@ -1,0 +1,13 @@
+{
+    "acoustic_focus":
+    {
+        "stage": "acoustic_focus",
+        "minFoM": 1,
+        "maxFoM": 2000,
+        "minFreq": 300,
+        "maxFreq": 5000,
+        "duration": 0.1,
+        "mapping": "log",
+        "description": "mapping values are log (logarithmic) or linear"
+    }
+}
