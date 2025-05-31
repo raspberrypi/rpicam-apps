@@ -1,17 +1,15 @@
 /* SPDX-License-Identifier: BSD-2-Clause */
 /*
- * Copyright (C) 2021, Raspberry Pi (Trading) Limited
- * Copyright (C) 2025, github.com/Kletternaut
+ * Copyright (C) 2025, Kletternaut
  *
- * acoustic_focus_stage.cpp
- * Version 0.1
+ * acoustic_focus_stage.cpp - acoustic feedback for autofocus FoM
  *
- * acoustic_focus_stage.cpp - Stage to access libcamera FoM (Focus Figure of Merit)
- * on an acoustic way. The AcousticFocusStage is a post-processing stage for rpicam-apps
- * that outputs a sine tone whose frequency depends on FoM value.
- * This allows you to find the optimal focus point of a manual lens
- * **without needing to look at or interpret the preview image**.
- * Sound hardware is required to hear the output.
+ * This stage provides acoustic feedback based on the libcamera Autofocus Figure of Merit (FoM).
+ * The FoM is mapped to an audible frequency, allowing users to hear focus quality changes in real time.
+ * No visual contact with the preview is required, and the preview does not need to be interpreted.
+ * As the FoM rises or falls, the tone frequency also rises or falls accordingly.
+ * Various parameters (e.g. frequency range, mapping type, duration) can be configured via JSON.
+ * Note: Sound output hardware must be present for this stage to function.
  */
 
 #include <libcamera/stream.h>
@@ -23,21 +21,38 @@
 #include <sstream>
 #include <iomanip>
 #include <thread>
+#include <cmath>
+#include <fstream>
+
 
 using Stream = libcamera::Stream;
 
 class AcousticFocusStage : public PostProcessingStage
 {
 public:
-    AcousticFocusStage(RPiCamApp *app)
-        : PostProcessingStage(app)
-    {}
+    AcousticFocusStage(RPiCamApp *app) : PostProcessingStage(app)
+    {
+        boost::property_tree::ptree config;
+        boost::property_tree::read_json("assets/acoustic_focus.json", config);
+        if (auto focus = config.get_child_optional("acoustic_focus")) {
+            Read(focus->front().second);
+        }
+    }
 
     char const *Name() const override { return "acoustic_focus"; }
 
+    void Read(boost::property_tree::ptree const &params) override
+    {
+        min_fom_ = params.get<int>("minFoM", 1);
+        max_fom_ = params.get<int>("maxFoM", 3000);
+        min_freq_ = params.get<int>("minFreq", 300);
+        max_freq_ = params.get<int>("maxFreq", 3000);
+        duration_ = params.get<double>("duration", 0.1);
+        mapping_ = params.get<std::string>("mapping", "log");
+    }
+
     void Configure() override
     {
-        // Optional: Streams initialisieren, falls benötigt
         stream_ = app_->GetStream("video");
         if (!stream_)
             throw std::runtime_error("AcousticFocusStage: Stream 'video' not found!");
@@ -50,24 +65,27 @@ public:
         auto now = std::chrono::steady_clock::now();
         auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(now - last).count();
 
-        if (ms >= 1000) // nur alle 1000 ms (1 Sekunde)
+        if (ms >= 1000)
         {
             last = now;
 
             auto fom = completed_request->metadata.get(libcamera::controls::FocusFoM);
             if (fom)
             {
-                // Mapping: FoM 0..1000 → 400..2000 Hz (Beispielwerte)
-                int min_fom = 0, max_fom = 1000;
-                int min_freq = 400, max_freq = 2000;
-                int freq = min_freq;
-                if (*fom > min_fom)
-                    freq = min_fom + ((*fom - min_fom) * (max_freq - min_freq)) / (max_fom - min_fom);
-                freq = std::min(max_freq, std::max(min_freq, freq));
+                int freq = min_freq_;
+                if (mapping_ == "log") {
+                    double norm = std::log(std::max(*fom, min_fom_)) - std::log(min_fom_);
+                    double denom = std::log(max_fom_) - std::log(min_fom_);
+                    freq = min_freq_ + static_cast<int>(norm / denom * (max_freq_ - min_freq_));
+                } else { // linear
+                    double norm = std::max(*fom, min_fom_) - min_fom_;
+                    double denom = max_fom_ - min_fom_;
+                    freq = min_freq_ + static_cast<int>(norm / denom * (max_freq_ - min_freq_));
+                }
+                freq = std::min(max_freq_, std::max(min_freq_, freq));
 
-                double duration = 0.1; // 0.1 Sekunden
                 std::ostringstream oss;
-                oss << std::fixed << std::setprecision(6) << duration;
+                oss << std::fixed << std::setprecision(6) << duration_;
                 std::string duration_str = oss.str();
 
                 std::string cmd = "/usr/bin/play -nq -t alsa synth " + duration_str +
@@ -80,9 +98,12 @@ public:
 
 private:
     Stream *stream_ = nullptr;
+    int min_fom_ = 1, max_fom_ = 2000;
+    int min_freq_ = 400, max_freq_ = 2000;
+    double duration_ = 0.1;
+    std::string mapping_ = "log";
 };
 
-// Registrierung der Stage im Framework
 static PostProcessingStage *Create(RPiCamApp *app)
 {
     return new AcousticFocusStage(app);
