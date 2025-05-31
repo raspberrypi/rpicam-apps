@@ -56,7 +56,7 @@ Create a config file `acoustic_focus.json` (example):
       "minFreq": 300,
       "maxFreq": 5000,
       "duration": 0.1,
-      "mapping": "log", // or "linear"
+      "mapping": "log",
       "description": "mapping values are log (logarithmic) or linear"
     }
   ]
