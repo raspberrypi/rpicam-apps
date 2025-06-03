@@ -29,17 +29,3 @@ core_headers = files([
 ])
 
 install_headers(core_headers, subdir: meson.project_name() / 'core')
-
-# Install symlinks to the old header directories and names for legacy purposes.
-install_symlink('libcamera-apps',
-                install_dir: get_option('includedir'),
-                pointing_to: 'rpicam-apps')
-
-inc_install_dir = get_option('includedir') / meson.project_name() / 'core'
-install_symlink('libcamera_app.h',
-                install_dir: inc_install_dir,
-                pointing_to: 'rpicam_app.hpp')
-
-install_symlink('libcamera_encoder.h',
-                install_dir: inc_install_dir,
-                pointing_to: 'rpicam_encoder.hpp')
