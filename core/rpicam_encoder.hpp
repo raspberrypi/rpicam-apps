@@ -30,6 +30,7 @@ public:
 		encoder_->SetInputDoneCallback(std::bind(&RPiCamEncoder::encodeBufferDone, this, std::placeholders::_1));
 		encoder_->SetOutputReadyCallback(encode_output_ready_callback_);
 
+#ifndef DISABLE_RPI_FEATURES
 		// Set up the encode function to wait for synchronisation with another camera system,
 		// when this has been requested in the options.
 		VideoOptions const *options = GetOptions();
@@ -41,6 +42,7 @@ public:
 		else if (options->sync == 2)
 			cl.set(libcamera::controls::rpi::SyncMode, libcamera::controls::rpi::SyncModeClient);
 		SetControls(cl);
+#endif
 	}
 	// This is callback when the encoder gives you the encoded output data.
 	void SetEncodeOutputReadyCallback(EncodeOutputReadyCallback callback) { encode_output_ready_callback_ = callback; }
