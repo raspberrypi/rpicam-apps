@@ -161,9 +161,11 @@ struct VideoOptions : public Options
 			("low-latency", value<bool>(&low_latency)->default_value(false)->implicit_value(true),
 			 "Enables the libav/libx264 low latency presets for video encoding.")
 #endif
+#ifndef DISABLE_RPI_FEATURES
 			 ("sync", value<std::string>(&sync_)->default_value("off"),
 			  "Whether to synchronise with another camera. Use \"off\", \"server\" or \"client\".")
-			;
+#endif
+		;
 		// clang-format on
 	}
 

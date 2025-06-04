@@ -36,6 +36,10 @@ endif
 dl_dep = dependency('dl', required : true)
 libcamera_dep = dependency('libcamera', required : true)
 
+if get_option('disable_rpi_features') == true
+    cpp_arguments += '-DDISABLE_RPI_FEATURES'
+endif
+
 summary({
             'location' : libcamera_dep.get_variable('libdir'),
             'version' : libcamera_dep.version()
