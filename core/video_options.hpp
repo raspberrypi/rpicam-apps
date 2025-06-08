@@ -198,7 +198,9 @@ struct VideoOptions : public Options
 	size_t circular;
 	uint32_t frames;
 	bool low_latency;
+#ifndef DISABLE_RPI_FEATURES
 	uint32_t sync;
+#endif
 
 	virtual bool Parse(int argc, char *argv[]) override
 	{
@@ -243,6 +245,7 @@ struct VideoOptions : public Options
 			level = "4.2";
 		}
 
+#ifndef DISABLE_RPI_FEATURES
 		if (strcasecmp(sync_.c_str(), "off") == 0)
 			sync = 0;
 		else if (strcasecmp(sync_.c_str(), "server") == 0)
@@ -251,6 +254,7 @@ struct VideoOptions : public Options
 			sync = 2;
 		else
 			throw std::runtime_error("incorrect sync value " + sync_);
+#endif
 
 		return true;
 	}
@@ -271,7 +275,9 @@ struct VideoOptions : public Options
 		std::cerr << "    split: " << split << std::endl;
 		std::cerr << "    segment: " << segment << std::endl;
 		std::cerr << "    circular: " << circular << std::endl;
+#ifndef DISABLE_RPI_FEATURES
 		std::cerr << "    sync: " << sync << std::endl;
+#endif
 	}
 
 private:
@@ -280,5 +286,7 @@ private:
 	std::string av_sync_;
 	std::string audio_bitrate_;
 #endif /* LIBAV_PRESENT */
+#ifndef DISABLE_RPI_FEATURES
 	std::string sync_;
+#endif
 };
