@@ -51,10 +51,12 @@ public:
 	{
 		assert(encoder_);
 
+#ifndef DISABLE_RPI_FEATURES
 		// If sync was enabled, and SyncReady is still "false" then we must skip this frame. Tell our
 		// caller through the return value that we're not yet encoding anything.
 		if (GetOptions()->sync && !completed_request->metadata.get(controls::rpi::SyncReady).value_or(false))
 			return false;
+#endif
 
 		StreamInfo info = GetStreamInfo(stream);
 		FrameBuffer *buffer = completed_request->buffers[stream];
