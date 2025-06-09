@@ -78,7 +78,7 @@ public:
 				std::string duration_str = oss.str();
 
 				std::string cmd = "/usr/bin/play -nq -t alsa synth " + duration_str + " sine " + std::to_string(freq);
-				std::thread([](std::string cmd) { system(cmd.c_str()); }, cmd).detach();
+				std::thread([](std::string cmd) { [[maybe_unused]] int i = system(cmd.c_str()); }, cmd).detach();
 			}
 		}
 		return false;
