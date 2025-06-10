@@ -82,10 +82,9 @@ rpicam_app_src += version_cpp
 rpicam_app = library(
     'rpicam_app',
     rpicam_app_src,
-    soversion : meson.project_version(),
+    version : meson.project_version(),
     include_directories : include_directories('.'),
     install : true,
-    name_prefix : '',
     dependencies : rpicam_app_dep,
 )
 
