@@ -41,7 +41,7 @@ static void event_loop(RPiCamApp &app)
 
 		LOG(2, "Viewfinder frame " << count);
 		auto now = std::chrono::high_resolution_clock::now();
-		if (options->timeout && (now - start_time) > options->timeout.value)
+		if (options->Get().timeout && (now - start_time) > options->Get().timeout.value)
 			return;
 
 		CompletedRequestPtr &completed_request = std::get<CompletedRequestPtr>(msg.payload);
@@ -57,8 +57,8 @@ int main(int argc, char *argv[])
 		Options *options = app.GetOptions();
 		if (options->Parse(argc, argv))
 		{
-			if (options->verbose >= 2)
-				options->Print();
+			if (options->Get().verbose >= 2)
+				options->Get().Print();
 
 			event_loop(app);
 		}

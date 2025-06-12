@@ -187,7 +187,7 @@ public:
 	friend class BufferWriteSync;
 	friend class BufferReadSync;
 	friend class PostProcessor;
-	friend struct Options;
+	friend struct OptsInternal;
 
 protected:
 	std::unique_ptr<Options> options_;

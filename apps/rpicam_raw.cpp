@@ -60,7 +60,7 @@ static void event_loop(LibcameraRaw &app)
 
 		LOG(2, "Viewfinder frame " << count);
 		auto now = std::chrono::high_resolution_clock::now();
-		if (options->timeout && (now - start_time) > options->timeout.value)
+		if (options->Get().timeout && (now - start_time) > options->Get().timeout.value)
 		{
 			app.StopCamera();
 			app.StopEncoder();
@@ -85,11 +85,11 @@ int main(int argc, char *argv[])
 		if (options->Parse(argc, argv))
 		{
 			// Disable any codec (h.264/libav) based operations.
-			options->codec = "yuv420";
-			options->denoise = "cdn_off";
-			options->nopreview = true;
-			if (options->verbose >= 2)
-				options->Print();
+			options->Set().codec = "yuv420";
+			options->Set().denoise = "cdn_off";
+			options->Set().nopreview = true;
+			if (options->Get().verbose >= 2)
+				options->Get().Print();
 
 			event_loop(app);
 		}
