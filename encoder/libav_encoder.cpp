@@ -23,33 +23,34 @@ namespace {
 
 void encoderOptionsGeneral(VideoOptions const *options, AVCodecContext *codec)
 {
-	codec->framerate = { (int)(options->framerate.value_or(DEFAULT_FRAMERATE) * 1000), 1000 };
+	codec->framerate = { (int)(options->Get().framerate.value_or(DEFAULT_FRAMERATE) * 1000), 1000 };
 	codec->profile = FF_PROFILE_UNKNOWN;
 
-	if (!options->profile.empty())
+	if (!options->Get().profile.empty())
 	{
 		const AVCodecDescriptor *desc = avcodec_descriptor_get(codec->codec_id);
 		for (const AVProfile *profile = desc->profiles; profile && profile->profile != FF_PROFILE_UNKNOWN; profile++)
 		{
-			if (!strncasecmp(options->profile.c_str(), profile->name, options->profile.size()))
+			if (!strncasecmp(options->Get().profile.c_str(), profile->name, options->Get().profile.size()))
 			{
 				codec->profile = profile->profile;
 				break;
 			}
 		}
 		if (codec->profile == FF_PROFILE_UNKNOWN)
-			throw std::runtime_error("libav: no such profile " + options->profile);
+			throw std::runtime_error("libav: no such profile " + options->Get().profile);
 	}
 
-	codec->level = options->level.empty() ? FF_LEVEL_UNKNOWN : std::stof(options->level) * 10;
-	codec->gop_size = options->intra ? options->intra : (int)(options->framerate.value_or(DEFAULT_FRAMERATE));
+	codec->level = options->Get().level.empty() ? FF_LEVEL_UNKNOWN : std::stof(options->Get().level) * 10;
+	codec->gop_size = options->Get().intra ? options->Get().intra
+										   : (int)(options->Get().framerate.value_or(DEFAULT_FRAMERATE));
 
-	if (options->bitrate)
-		codec->bit_rate = options->bitrate.bps();
+	if (options->Get().bitrate)
+		codec->bit_rate = options->Get().bitrate.bps();
 
-	if (!options->libav_video_codec_opts.empty())
+	if (!options->Get().libav_video_codec_opts.empty())
 	{
-		const std::string &opts = options->libav_video_codec_opts;
+		const std::string &opts = options->Get().libav_video_codec_opts;
 		for (std::string::size_type i = 0, n = 0; i != std::string::npos; i = n)
 		{
 			n = opts.find(';', i);
@@ -85,7 +86,7 @@ void encoderOptionsLibx264(VideoOptions const *options, AVCodecContext *codec)
 	codec->me_subpel_quality = 0;
 	codec->thread_count = 0;
 
-	if (options->low_latency)
+	if (options->Get().low_latency)
 	{
 		codec->thread_type = FF_THREAD_SLICE;
 		codec->slices = 4;
@@ -120,9 +121,9 @@ const std::map<std::string, std::function<void(VideoOptions const *, AVCodecCont
 
 void LibAvEncoder::initVideoCodec(VideoOptions const *options, StreamInfo const &info)
 {
-	const AVCodec *codec = avcodec_find_encoder_by_name(options->libav_video_codec.c_str());
+	const AVCodec *codec = avcodec_find_encoder_by_name(options->Get().libav_video_codec.c_str());
 	if (!codec)
-		throw std::runtime_error("libav: cannot find video encoder " + options->libav_video_codec);
+		throw std::runtime_error("libav: cannot find video encoder " + options->Get().libav_video_codec);
 
 	codec_ctx_[Video] = avcodec_alloc_context3(codec);
 	if (!codec_ctx_[Video])
@@ -178,7 +179,7 @@ void LibAvEncoder::initVideoCodec(VideoOptions const *options, StreamInfo const 
 	}
 
 	// Apply any codec specific options:
-	auto fn = optionsMap.find(options->libav_video_codec);
+	auto fn = optionsMap.find(options->Get().libav_video_codec);
 	if (fn != optionsMap.end())
 		fn->second(options, codec_ctx_[Video]);
 
@@ -190,7 +191,7 @@ void LibAvEncoder::initVideoCodec(VideoOptions const *options, StreamInfo const 
 
 	// Setup an appropriate stream/container format.
 	const char *format = nullptr;
-	if (options->libav_format.empty())
+	if (options->Get().libav_format.empty())
 	{
 		// Check if output_file_ starts with a "tcp://" or "udp://" url.
 		// C++ 20 has a convenient starts_with() function for this which we may eventually use.		
@@ -198,17 +199,17 @@ void LibAvEncoder::initVideoCodec(VideoOptions const *options, StreamInfo const 
 			output_file_.find(tcp.c_str(), 0, tcp.length()) != std::string::npos ||
 			output_file_.find(udp.c_str(), 0, udp.length()) != std::string::npos)
 		{
-			if (options->libav_video_codec == "h264_v4l2m2m" || options->libav_video_codec == "libx264")
+			if (options->Get().libav_video_codec == "h264_v4l2m2m" || options->Get().libav_video_codec == "libx264")
 				format = "h264";
 			else
 				throw std::runtime_error("libav: please specify output format with the --libav-format argument");
 		}
 	}
 	else
-		format = options->libav_format.c_str();
+		format = options->Get().libav_format.c_str();
 
 	// Legacy handling of the --listen parameter.  If missing from the url string, add "?listen=1" to the end.
-	if (options->listen && output_file_.find(tcp.c_str(), 0, tcp.length()) != std::string::npos)
+	if (options->Get().listen && output_file_.find(tcp.c_str(), 0, tcp.length()) != std::string::npos)
 	{
 		const std::string listen { "?listen=1" };
 		// Check if output_file_ ends with "?listen=1" parameter.
@@ -240,7 +241,7 @@ void LibAvEncoder::initVideoCodec(VideoOptions const *options, StreamInfo const 
 	// This seems to be a limitation/bug in ffmpeg:
 	// https://github.com/FFmpeg/FFmpeg/blob/3141dbb7adf1e2bd5b9ff700312d7732c958b8df/libavformat/avienc.c#L527
 	if (!strncmp(out_fmt_ctx_->oformat->name, "avi", 3))
-		stream_[Video]->time_base = { 1000, (int)(options->framerate.value_or(DEFAULT_FRAMERATE) * 1000) };
+		stream_[Video]->time_base = { 1000, (int)(options->Get().framerate.value_or(DEFAULT_FRAMERATE) * 1000) };
 	else
 		stream_[Video]->time_base = codec_ctx_[Video]->time_base;
 
@@ -251,9 +252,9 @@ void LibAvEncoder::initVideoCodec(VideoOptions const *options, StreamInfo const 
 void LibAvEncoder::initAudioInCodec(VideoOptions const *options, StreamInfo const &info)
 {
 #if LIBAVUTIL_VERSION_MAJOR < 58
-	AVInputFormat *input_fmt = (AVInputFormat *)av_find_input_format(options->audio_source.c_str());
+	AVInputFormat *input_fmt = (AVInputFormat *)av_find_input_format(options->Get().audio_source.c_str());
 #else
-	const AVInputFormat *input_fmt = (AVInputFormat *)av_find_input_format(options->audio_source.c_str());
+	const AVInputFormat *input_fmt = (AVInputFormat *)av_find_input_format(options->Get().audio_source.c_str());
 #endif
 
 	assert(in_fmt_ctx_ == nullptr);
@@ -261,14 +262,15 @@ void LibAvEncoder::initAudioInCodec(VideoOptions const *options, StreamInfo cons
 	int ret;
 	AVDictionary *format_opts = nullptr;
 
-	if (options->audio_channels != 0)
-		ret = av_dict_set_int(&format_opts, "channels", options->audio_channels, 0);
+	if (options->Get().audio_channels != 0)
+		ret = av_dict_set_int(&format_opts, "channels", options->Get().audio_channels, 0);
 
-	ret = avformat_open_input(&in_fmt_ctx_, options->audio_device.c_str(), input_fmt, &format_opts);
+	ret = avformat_open_input(&in_fmt_ctx_, options->Get().audio_device.c_str(), input_fmt, &format_opts);
 	if (ret < 0)
 	{
 		av_dict_free(&format_opts);
-		throw std::runtime_error("libav: cannot open " + options->audio_source + " input device " + options->audio_device);
+		throw std::runtime_error("libav: cannot open " + options->Get().audio_source + " input device " +
+								 options->Get().audio_device);
 	}
 
 	av_dict_free(&format_opts);
@@ -300,9 +302,9 @@ void LibAvEncoder::initAudioInCodec(VideoOptions const *options, StreamInfo cons
 
 void LibAvEncoder::initAudioOutCodec(VideoOptions const *options, StreamInfo const &info)
 {
-	const AVCodec *codec = avcodec_find_encoder_by_name(options->audio_codec.c_str());
+	const AVCodec *codec = avcodec_find_encoder_by_name(options->Get().audio_codec.c_str());
 	if (!codec)
-		throw std::runtime_error("libav: cannot find audio encoder " + options->audio_codec);
+		throw std::runtime_error("libav: cannot find audio encoder " + options->Get().audio_codec);
 
 	codec_ctx_[AudioOut] = avcodec_alloc_context3(codec);
 	if (!codec_ctx_[AudioOut])
@@ -317,7 +319,7 @@ void LibAvEncoder::initAudioOutCodec(VideoOptions const *options, StreamInfo con
 	av_channel_layout_default(&codec_ctx_[AudioOut]->ch_layout, stream_[AudioIn]->codecpar->ch_layout.nb_channels);
 #endif
 
-	codec_ctx_[AudioOut]->sample_rate = options->audio_samplerate ? options->audio_samplerate
+	codec_ctx_[AudioOut]->sample_rate = options->Get().audio_samplerate ? options->Get().audio_samplerate
 																  : stream_[AudioIn]->codecpar->sample_rate;
 #if LIBAVCODEC_VERSION_MAJOR < 61
 	codec_ctx_[AudioOut]->sample_fmt = codec->sample_fmts[0];
@@ -331,7 +333,7 @@ void LibAvEncoder::initAudioOutCodec(VideoOptions const *options, StreamInfo con
 		codec_ctx_[AudioOut]->sample_fmt = (*sample_fmts)[0];
 #endif
 
-	codec_ctx_[AudioOut]->bit_rate = options->audio_bitrate.bps();
+	codec_ctx_[AudioOut]->bit_rate = options->Get().audio_bitrate.bps();
 	// usec timebase
 	codec_ctx_[AudioOut]->time_base = { 1, 1000 * 1000 };
 
@@ -353,11 +355,11 @@ void LibAvEncoder::initAudioOutCodec(VideoOptions const *options, StreamInfo con
 
 LibAvEncoder::LibAvEncoder(VideoOptions const *options, StreamInfo const &info)
 	: Encoder(options), output_ready_(false), abort_video_(false), abort_audio_(false), video_start_ts_(0),
-	  audio_samples_(0), in_fmt_ctx_(nullptr), out_fmt_ctx_(nullptr), output_file_(options->output),
+	  audio_samples_(0), in_fmt_ctx_(nullptr), out_fmt_ctx_(nullptr), output_file_(options->Get().output),
 	  output_initialised_(false)
 {
-	if (options->circular || options->segment || !options->save_pts.empty() || options->split ||
-		options->initial == "pause")
+	if (options->Get().circular || options->Get().segment || !options->Get().save_pts.empty() || options->Get().split ||
+		options->Get().initial == "pause")
 	{
 		LOG_ERROR("\nERROR: The libav encoder does not currently support the circular, segment, save_pts, "
 				  "split, or pause command line options!\n");
@@ -366,15 +368,15 @@ LibAvEncoder::LibAvEncoder(VideoOptions const *options, StreamInfo const &info)
 
 	avdevice_register_all();
 
-	if (options->verbose >= 2)
+	if (options->Get().verbose >= 2)
 		av_log_set_level(AV_LOG_VERBOSE);
 
 	initVideoCodec(options, info);
-	if (options->libav_audio)
+	if (options->Get().libav_audio)
 	{
 		initAudioInCodec(options, info);
 		initAudioOutCodec(options, info);
-		av_dump_format(in_fmt_ctx_, 0, options_->audio_device.c_str(), 0);
+		av_dump_format(in_fmt_ctx_, 0, options_->Get().audio_device.c_str(), 0);
 	}
 
 	av_dump_format(out_fmt_ctx_, 0, output_file_.c_str(), 1);
@@ -383,13 +385,13 @@ LibAvEncoder::LibAvEncoder(VideoOptions const *options, StreamInfo const &info)
 
 	video_thread_ = std::thread(&LibAvEncoder::videoThread, this);
 
-	if (options->libav_audio)
+	if (options->Get().libav_audio)
 		audio_thread_ = std::thread(&LibAvEncoder::audioThread, this);
 }
 
 LibAvEncoder::~LibAvEncoder()
 {
-	if (options_->libav_audio)
+	if (options_->Get().libav_audio)
 	{
 		abort_audio_ = true;
 		audio_thread_.join();
@@ -401,7 +403,7 @@ LibAvEncoder::~LibAvEncoder()
 	avformat_free_context(out_fmt_ctx_);
 	avcodec_free_context(&codec_ctx_[Video]);
 
-	if (options_->libav_audio)
+	if (options_->Get().libav_audio)
 	{
 		avformat_free_context(in_fmt_ctx_);
 		avcodec_free_context(&codec_ctx_[AudioIn]);
@@ -426,7 +428,7 @@ void LibAvEncoder::EncodeBuffer(int fd, size_t size, void *mem, StreamInfo const
 	frame->linesize[0] = info.stride;
 	frame->linesize[1] = frame->linesize[2] = info.stride >> 1;
 	frame->pts = timestamp_us - video_start_ts_ +
-				 (options_->av_sync.value < 0us ? -options_->av_sync.get<std::chrono::microseconds>() : 0);
+				 (options_->Get().av_sync.value < 0us ? -options_->Get().av_sync.get<std::chrono::microseconds>() : 0);
 
 	if (codec_ctx_[Video]->pix_fmt == AV_PIX_FMT_DRM_PRIME)
 	{
@@ -757,7 +759,7 @@ void LibAvEncoder::audioThread()
 			int64_t ts = av_rescale_q(audio_samples_, num, codec_ctx_[AudioOut]->time_base);
 
 			out_frame->pts = ts +
-				(options_->av_sync.value > 0us ? options_->av_sync.get<std::chrono::microseconds>() : 0);
+				(options_->Get().av_sync.value > 0us ? options_->Get().av_sync.get<std::chrono::microseconds>() : 0);
 			audio_samples_ += codec_ctx_[AudioOut]->frame_size;
 
 			ret = avcodec_send_frame(codec_ctx_[AudioOut], out_frame);

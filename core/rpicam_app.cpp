@@ -101,7 +101,7 @@ RPiCamApp::RPiCamApp(std::unique_ptr<Options> opts)
 
 RPiCamApp::~RPiCamApp()
 {
-	if (!options_->help)
+	if (!options_->Get().help)
 		LOG(2, "Closing RPiCam application"
 				   << "(frames displayed " << preview_frames_displayed_ << ", dropped " << preview_frames_dropped_
 				   << ")");
@@ -133,7 +133,7 @@ std::string RPiCamApp::CameraModel() const
 void RPiCamApp::OpenCamera()
 {
 	// Make a preview window.
-	preview_ = std::unique_ptr<Preview>(make_preview(options_.get()));
+	preview_ = std::unique_ptr<Preview>(make_preview(RPiCamApp::GetOptions()));
 	preview_->SetDoneCallback(std::bind(&RPiCamApp::previewDoneCallback, this, std::placeholders::_1));
 
 	LOG(2, "Opening camera...");
@@ -145,10 +145,10 @@ void RPiCamApp::OpenCamera()
 	if (cameras.size() == 0)
 		throw std::runtime_error("no cameras available");
 
-	if (options_->camera >= cameras.size())
+	if (options_->Get().camera >= cameras.size())
 		throw std::runtime_error("selected camera is not available");
 
-	std::string const &cam_id = cameras[options_->camera]->id();
+	std::string const &cam_id = cameras[options_->Get().camera]->id();
 	camera_ = camera_manager_->get(cam_id);
 	if (!camera_)
 		throw std::runtime_error("failed to find camera " + cam_id);
@@ -159,10 +159,10 @@ void RPiCamApp::OpenCamera()
 
 	LOG(2, "Acquired camera " << cam_id);
 
-	if (!options_->post_process_file.empty())
+	if (!options_->Get().post_process_file.empty())
 	{
-		post_processor_.LoadModules(options_->post_process_libs);
-		post_processor_.Read(options_->post_process_file);
+		post_processor_.LoadModules(options_->Get().post_process_libs);
+		post_processor_.Read(options_->Get().post_process_file);
 	}
 	// The queue takes over ownership from the post-processor.
 	post_processor_.SetCallback(
@@ -188,7 +188,7 @@ void RPiCamApp::OpenCamera()
 		for (const auto &size : formats.sizes(pix))
 		{
 			double framerate = 0;
-			if (options_->framerate)
+			if (options_->Get().framerate)
 			{
 				SensorMode sensorMode(size, pix, 0);
 				config->at(0).size = size;
@@ -224,7 +224,7 @@ void RPiCamApp::CloseCamera()
 
 	camera_manager_.reset();
 
-	if (!options_->help)
+	if (!options_->Get().help)
 		LOG(2, "Camera closed");
 }
 
@@ -282,13 +282,13 @@ void RPiCamApp::ConfigureViewfinder()
 	LOG(2, "Configuring viewfinder...");
 
 	int lores_stream_num = 0, raw_stream_num = 0;
-	bool have_lores_stream = options_->lores_width && options_->lores_height;
+	bool have_lores_stream = options_->Get().lores_width && options_->Get().lores_height;
 
 	StreamRoles stream_roles = { StreamRole::Viewfinder };
 	int stream_num = 1;
 	if (have_lores_stream)
 		stream_roles.push_back(StreamRole::Viewfinder), lores_stream_num = stream_num++;
-	if (!options_->no_raw)
+	if (!options_->Get().no_raw)
 		stream_roles.push_back(StreamRole::Raw), raw_stream_num = stream_num++;
 
 	configuration_ = camera_->generateConfiguration(stream_roles);
@@ -297,18 +297,18 @@ void RPiCamApp::ConfigureViewfinder()
 
 	Size size(1280, 960);
 	auto area = camera_->properties().get(properties::PixelArrayActiveAreas);
-	if (options_->viewfinder_width && options_->viewfinder_height)
-		size = Size(options_->viewfinder_width, options_->viewfinder_height);
+	if (options_->Get().viewfinder_width && options_->Get().viewfinder_height)
+		size = Size(options_->Get().viewfinder_width, options_->Get().viewfinder_height);
 	else if (area)
 	{
 		// The idea here is that most sensors will have a 2x2 binned mode that
 		// we can pick up. If it doesn't, well, you can always specify the size
-		// you want exactly with the viewfinder_width/height options_->
+		// you want exactly with the viewfinder_width/height options_->Get().
 		size = (*area)[0].size() / 2;
 		// If width and height were given, we might be switching to capture
 		// afterwards - so try to match the field of view.
-		if (options_->width && options_->height)
-			size = size.boundedToAspectRatio(Size(options_->width, options_->height));
+		if (options_->Get().width && options_->Get().height)
+			size = size.boundedToAspectRatio(Size(options_->Get().width, options_->Get().height));
 		size.alignDownTo(2, 2); // YUV420 will want to be even
 		LOG(2, "Viewfinder size chosen is " << size.toString());
 	}
@@ -322,15 +322,15 @@ void RPiCamApp::ConfigureViewfinder()
 		LOG(2, "Final viewfinder size is " << size.toString());
 	}
 
-	// Now we get to override any of the default settings from the options_->
+	// Now we get to override any of the default settings from the options_->Get().
 	configuration_->at(0).pixelFormat = libcamera::formats::YUV420;
 	configuration_->at(0).size = size;
-	if (options_->viewfinder_buffer_count > 0)
-		configuration_->at(0).bufferCount = options_->viewfinder_buffer_count;
+	if (options_->Get().viewfinder_buffer_count > 0)
+		configuration_->at(0).bufferCount = options_->Get().viewfinder_buffer_count;
 
 	if (have_lores_stream)
 	{
-		Size lores_size(options_->lores_width, options_->lores_height);
+		Size lores_size(options_->Get().lores_width, options_->Get().lores_height);
 		lores_size.alignDownTo(2, 2);
 		if (lores_size.width > size.width || lores_size.height > size.height)
 			throw std::runtime_error("Low res image larger than viewfinder");
@@ -340,30 +340,30 @@ void RPiCamApp::ConfigureViewfinder()
 		configuration_->at(lores_stream_num).colorSpace = configuration_->at(0).colorSpace;
 	}
 
-	if (!options_->no_raw)
+	if (!options_->Get().no_raw)
 	{
-		options_->viewfinder_mode.update(size, options_->framerate);
-		options_->viewfinder_mode = selectMode(options_->viewfinder_mode);
+		options_->Set().viewfinder_mode.update(size, options_->Get().framerate);
+		options_->Set().viewfinder_mode = selectMode(options_->Get().viewfinder_mode);
 
-		configuration_->at(raw_stream_num).size = options_->viewfinder_mode.Size();
-		configuration_->at(raw_stream_num).pixelFormat = mode_to_pixel_format(options_->viewfinder_mode);
+		configuration_->at(raw_stream_num).size = options_->Get().viewfinder_mode.Size();
+		configuration_->at(raw_stream_num).pixelFormat = mode_to_pixel_format(options_->Get().viewfinder_mode);
 		configuration_->at(raw_stream_num).bufferCount = configuration_->at(0).bufferCount;
 		configuration_->sensorConfig = libcamera::SensorConfiguration();
-		configuration_->sensorConfig->outputSize = options_->viewfinder_mode.Size();
-		configuration_->sensorConfig->bitDepth = options_->viewfinder_mode.bit_depth;
+		configuration_->sensorConfig->outputSize = options_->Get().viewfinder_mode.Size();
+		configuration_->sensorConfig->bitDepth = options_->Get().viewfinder_mode.bit_depth;
 	}
 
-	configuration_->orientation = libcamera::Orientation::Rotate0 * options_->transform;
+	configuration_->orientation = libcamera::Orientation::Rotate0 * options_->Get().transform;
 
 	post_processor_.AdjustConfig("viewfinder", &configuration_->at(0));
 
-	configureDenoise(options_->denoise == "auto" ? "cdn_off" : options_->denoise);
+	configureDenoise(options_->Get().denoise == "auto" ? "cdn_off" : options_->Get().denoise);
 	setupCapture();
 
 	streams_["viewfinder"] = configuration_->at(0).stream();
 	if (have_lores_stream)
 		streams_["lores"] = configuration_->at(lores_stream_num).stream();
-	if (!options_->no_raw)
+	if (!options_->Get().no_raw)
 		streams_["raw"] = configuration_->at(raw_stream_num).stream();
 
 	post_processor_.Configure();
@@ -376,61 +376,61 @@ void RPiCamApp::ConfigureZsl(unsigned int still_flags)
 	LOG(2, "Configuring ZSL...");
 
 	StreamRoles stream_roles = { StreamRole::StillCapture, StreamRole::Viewfinder };
-	if (!options_->no_raw)
+	if (!options_->Get().no_raw)
 		stream_roles.push_back(StreamRole::Raw);
 
 	configuration_ = camera_->generateConfiguration(stream_roles);
 	if (!configuration_)
 		throw std::runtime_error("failed to generate viewfinder configuration");
 
-	// Now we get to override any of the default settings from the options_->
+	// Now we get to override any of the default settings from the options_->Get().
 	if (still_flags & FLAG_STILL_BGR)
 		configuration_->at(0).pixelFormat = libcamera::formats::BGR888;
 	else if (still_flags & FLAG_STILL_RGB)
 		configuration_->at(0).pixelFormat = libcamera::formats::RGB888;
 	else
 		configuration_->at(0).pixelFormat = libcamera::formats::YUV420;
-	if (options_->buffer_count > 0)
-		configuration_->at(0).bufferCount = options_->buffer_count;
+	if (options_->Get().buffer_count > 0)
+		configuration_->at(0).bufferCount = options_->Get().buffer_count;
 	else
 		// Use the viewfinder stream buffer count if none has been provided
 		configuration_->at(0).bufferCount = configuration_->at(1).bufferCount;
-	if (options_->width)
-		configuration_->at(0).size.width = options_->width;
-	if (options_->height)
-		configuration_->at(0).size.height = options_->height;
+	if (options_->Get().width)
+		configuration_->at(0).size.width = options_->Get().width;
+	if (options_->Get().height)
+		configuration_->at(0).size.height = options_->Get().height;
 	configuration_->at(0).colorSpace = libcamera::ColorSpace::Sycc;
-	configuration_->orientation = libcamera::Orientation::Rotate0 * options_->transform;
+	configuration_->orientation = libcamera::Orientation::Rotate0 * options_->Get().transform;
 
 	post_processor_.AdjustConfig("still", &configuration_->at(0));
 
-	if (!options_->no_raw)
+	if (!options_->Get().no_raw)
 	{
-		options_->mode.update(configuration_->at(0).size, options_->framerate);
-		options_->mode = selectMode(options_->mode);
+		options_->Set().mode.update(configuration_->at(0).size, options_->Get().framerate);
+		options_->Set().mode = selectMode(options_->Get().mode);
 
-		configuration_->at(2).size = options_->mode.Size();
-		configuration_->at(2).pixelFormat = mode_to_pixel_format(options_->mode);
+		configuration_->at(2).size = options_->Get().mode.Size();
+		configuration_->at(2).pixelFormat = mode_to_pixel_format(options_->Get().mode);
 		configuration_->sensorConfig = libcamera::SensorConfiguration();
-		configuration_->sensorConfig->outputSize = options_->mode.Size();
-		configuration_->sensorConfig->bitDepth = options_->mode.bit_depth;
+		configuration_->sensorConfig->outputSize = options_->Get().mode.Size();
+		configuration_->sensorConfig->bitDepth = options_->Get().mode.bit_depth;
 		configuration_->at(2).bufferCount = configuration_->at(0).bufferCount;
 	}
 
 	Size size(1280, 960);
 	auto area = camera_->properties().get(properties::PixelArrayActiveAreas);
-	if (options_->viewfinder_width && options_->viewfinder_height)
-		size = Size(options_->viewfinder_width, options_->viewfinder_height);
+	if (options_->Get().viewfinder_width && options_->Get().viewfinder_height)
+		size = Size(options_->Get().viewfinder_width, options_->Get().viewfinder_height);
 	else if (area)
 	{
 		// The idea here is that most sensors will have a 2x2 binned mode that
 		// we can pick up. If it doesn't, well, you can always specify the size
-		// you want exactly with the viewfinder_width/height options_->
+		// you want exactly with the viewfinder_width/height options_->Get().
 		size = (*area)[0].size() / 2;
 		// If width and height were given, we might be switching to capture
 		// afterwards - so try to match the field of view.
-		if (options_->width && options_->height)
-			size = size.boundedToAspectRatio(Size(options_->width, options_->height));
+		if (options_->Get().width && options_->Get().height)
+			size = size.boundedToAspectRatio(Size(options_->Get().width, options_->Get().height));
 		size.alignDownTo(2, 2); // YUV420 will want to be even
 		LOG(2, "Viewfinder size chosen is " << size.toString());
 	}
@@ -444,21 +444,21 @@ void RPiCamApp::ConfigureZsl(unsigned int still_flags)
 		LOG(2, "Final viewfinder size is " << size.toString());
 	}
 
-	// Now we get to override any of the default settings from the options_->
+	// Now we get to override any of the default settings from the options_->Get().
 	configuration_->at(1).pixelFormat = libcamera::formats::YUV420;
 	configuration_->at(1).size = size;
 	configuration_->at(1).bufferCount = configuration_->at(0).bufferCount;
 
-	configuration_->orientation = libcamera::Orientation::Rotate0 * options_->transform;
+	configuration_->orientation = libcamera::Orientation::Rotate0 * options_->Get().transform;
 
 	post_processor_.AdjustConfig("viewfinder", &configuration_->at(1));
 
-	configureDenoise(options_->denoise == "auto" ? "cdn_hq" : options_->denoise);
+	configureDenoise(options_->Get().denoise == "auto" ? "cdn_hq" : options_->Get().denoise);
 	setupCapture();
 
 	streams_["still"] = configuration_->at(0).stream();
 	streams_["viewfinder"] = configuration_->at(1).stream();
-	if (!options_->no_raw)
+	if (!options_->Get().no_raw)
 		streams_["raw"] = configuration_->at(2).stream();
 
 	post_processor_.Configure();
@@ -472,15 +472,15 @@ void RPiCamApp::ConfigureStill(unsigned int flags)
 
 	// Always request a raw stream as this forces the full resolution capture mode,
 	// unless the no-raw option is used.
-	// (options_->mode can override the choice of camera mode, however.)
+	// (options_->Get().mode can override the choice of camera mode, however.)
 	StreamRoles stream_roles = { StreamRole::StillCapture };
-	if (!options_->no_raw)
+	if (!options_->Get().no_raw)
 		stream_roles.push_back(StreamRole::Raw);
 	configuration_ = camera_->generateConfiguration(stream_roles);
 	if (!configuration_)
 		throw std::runtime_error("failed to generate still capture configuration");
 
-	// Now we get to override any of the default settings from the options_->
+	// Now we get to override any of the default settings from the options_->Get().
 	if (flags & FLAG_STILL_BGR)
 		configuration_->at(0).pixelFormat = libcamera::formats::BGR888;
 	else if (flags & FLAG_STILL_RGB)
@@ -495,35 +495,35 @@ void RPiCamApp::ConfigureStill(unsigned int flags)
 		configuration_->at(0).bufferCount = 2;
 	else if ((flags & FLAG_STILL_BUFFER_MASK) == FLAG_STILL_TRIPLE_BUFFER)
 		configuration_->at(0).bufferCount = 3;
-	else if (options_->buffer_count > 0)
-		configuration_->at(0).bufferCount = options_->buffer_count;
-	if (options_->width)
-		configuration_->at(0).size.width = options_->width;
-	if (options_->height)
-		configuration_->at(0).size.height = options_->height;
+	else if (options_->Get().buffer_count > 0)
+		configuration_->at(0).bufferCount = options_->Get().buffer_count;
+	if (options_->Get().width)
+		configuration_->at(0).size.width = options_->Get().width;
+	if (options_->Get().height)
+		configuration_->at(0).size.height = options_->Get().height;
 	configuration_->at(0).colorSpace = libcamera::ColorSpace::Sycc;
-	configuration_->orientation = libcamera::Orientation::Rotate0 * options_->transform;
+	configuration_->orientation = libcamera::Orientation::Rotate0 * options_->Get().transform;
 
 	post_processor_.AdjustConfig("still", &configuration_->at(0));
 
-	if (!options_->no_raw)
+	if (!options_->Get().no_raw)
 	{
-		options_->mode.update(configuration_->at(0).size, options_->framerate);
-		options_->mode = selectMode(options_->mode);
+		options_->Set().mode.update(configuration_->at(0).size, options_->Get().framerate);
+		options_->Set().mode = selectMode(options_->Get().mode);
 
-		configuration_->at(1).size = options_->mode.Size();
-		configuration_->at(1).pixelFormat = mode_to_pixel_format(options_->mode);
+		configuration_->at(1).size = options_->Get().mode.Size();
+		configuration_->at(1).pixelFormat = mode_to_pixel_format(options_->Get().mode);
 		configuration_->sensorConfig = libcamera::SensorConfiguration();
-		configuration_->sensorConfig->outputSize = options_->mode.Size();
-		configuration_->sensorConfig->bitDepth = options_->mode.bit_depth;
+		configuration_->sensorConfig->outputSize = options_->Get().mode.Size();
+		configuration_->sensorConfig->bitDepth = options_->Get().mode.bit_depth;
 		configuration_->at(1).bufferCount = configuration_->at(0).bufferCount;
 	}
 
-	configureDenoise(options_->denoise == "auto" ? "cdn_hq" : options_->denoise);
+	configureDenoise(options_->Get().denoise == "auto" ? "cdn_hq" : options_->Get().denoise);
 	setupCapture();
 
 	streams_["still"] = configuration_->at(0).stream();
-	if (!options_->no_raw)
+	if (!options_->Get().no_raw)
 		streams_["raw"] = configuration_->at(1).stream();
 
 	post_processor_.Configure();
@@ -535,10 +535,10 @@ void RPiCamApp::ConfigureVideo(unsigned int flags)
 {
 	LOG(2, "Configuring video...");
 
-	bool have_lores_stream = options_->lores_width && options_->lores_height;
+	bool have_lores_stream = options_->Get().lores_width && options_->Get().lores_height;
 	StreamRoles stream_roles = { StreamRole::VideoRecording };
 	int lores_index = 1;
-	if (!options_->no_raw)
+	if (!options_->Get().no_raw)
 		stream_roles.push_back(StreamRole::Raw), lores_index++;
 	if (have_lores_stream)
 		stream_roles.push_back(StreamRole::Viewfinder);
@@ -546,42 +546,42 @@ void RPiCamApp::ConfigureVideo(unsigned int flags)
 	if (!configuration_)
 		throw std::runtime_error("failed to generate video configuration");
 
-	// Now we get to override any of the default settings from the options_->
+	// Now we get to override any of the default settings from the options_->Get().
 	StreamConfiguration &cfg = configuration_->at(0);
 	cfg.pixelFormat = libcamera::formats::YUV420;
 	cfg.bufferCount = 6; // 6 buffers is better than 4
-	if (options_->buffer_count > 0)
-		cfg.bufferCount = options_->buffer_count;
-	if (options_->width)
-		cfg.size.width = options_->width;
-	if (options_->height)
-		cfg.size.height = options_->height;
+	if (options_->Get().buffer_count > 0)
+		cfg.bufferCount = options_->Get().buffer_count;
+	if (options_->Get().width)
+		cfg.size.width = options_->Get().width;
+	if (options_->Get().height)
+		cfg.size.height = options_->Get().height;
 	if (flags & FLAG_VIDEO_JPEG_COLOURSPACE)
 		cfg.colorSpace = libcamera::ColorSpace::Sycc;
 	else if (cfg.size.width >= 1280 || cfg.size.height >= 720)
 		cfg.colorSpace = libcamera::ColorSpace::Rec709;
 	else
 		cfg.colorSpace = libcamera::ColorSpace::Smpte170m;
-	configuration_->orientation = libcamera::Orientation::Rotate0 * options_->transform;
+	configuration_->orientation = libcamera::Orientation::Rotate0 * options_->Get().transform;
 
 	post_processor_.AdjustConfig("video", &configuration_->at(0));
 
-	if (!options_->no_raw)
+	if (!options_->Get().no_raw)
 	{
-		options_->mode.update(configuration_->at(0).size, options_->framerate);
-		options_->mode = selectMode(options_->mode);
+		options_->Set().mode.update(configuration_->at(0).size, options_->Get().framerate);
+		options_->Set().mode = selectMode(options_->Get().mode);
 
-		configuration_->at(1).size = options_->mode.Size();
-		configuration_->at(1).pixelFormat = mode_to_pixel_format(options_->mode);
+		configuration_->at(1).size = options_->Get().mode.Size();
+		configuration_->at(1).pixelFormat = mode_to_pixel_format(options_->Get().mode);
 		configuration_->sensorConfig = libcamera::SensorConfiguration();
-		configuration_->sensorConfig->outputSize = options_->mode.Size();
-		configuration_->sensorConfig->bitDepth = options_->mode.bit_depth;
+		configuration_->sensorConfig->outputSize = options_->Get().mode.Size();
+		configuration_->sensorConfig->bitDepth = options_->Get().mode.bit_depth;
 		configuration_->at(1).bufferCount = configuration_->at(0).bufferCount;
 	}
 
 	if (have_lores_stream)
 	{
-		Size lores_size(options_->lores_width, options_->lores_height);
+		Size lores_size(options_->Get().lores_width, options_->Get().lores_height);
 		lores_size.alignDownTo(2, 2);
 		if (lores_size.width > configuration_->at(0).size.width ||
 			lores_size.height > configuration_->at(0).size.height)
@@ -591,13 +591,13 @@ void RPiCamApp::ConfigureVideo(unsigned int flags)
 		configuration_->at(lores_index).bufferCount = configuration_->at(0).bufferCount;
 		configuration_->at(lores_index).colorSpace = configuration_->at(0).colorSpace;
 	}
-	configuration_->orientation = libcamera::Orientation::Rotate0 * options_->transform;
+	configuration_->orientation = libcamera::Orientation::Rotate0 * options_->Get().transform;
 
-	configureDenoise(options_->denoise == "auto" ? "cdn_fast" : options_->denoise);
+	configureDenoise(options_->Get().denoise == "auto" ? "cdn_fast" : options_->Get().denoise);
 	setupCapture();
 
 	streams_["video"] = configuration_->at(0).stream();
-	if (!options_->no_raw)
+	if (!options_->Get().no_raw)
 		streams_["raw"] = configuration_->at(1).stream();
 	if (have_lores_stream)
 		streams_["lores"] = configuration_->at(lores_index).stream();
@@ -613,7 +613,7 @@ void RPiCamApp::Teardown()
 
 	post_processor_.Teardown();
 
-	if (!options_->help)
+	if (!options_->Get().help)
 		LOG(2, "Tearing down requests, buffers and configuration");
 
 	for (auto &iter : mapped_buffers_)
@@ -645,12 +645,12 @@ void RPiCamApp::StartCamera()
 		const Rectangle default_crop = camera_->controls().at(&controls::ScalerCrop).def().get<Rectangle>();
 		std::vector<Rectangle> crops;
 
-		if (options_->roi_width != 0 && options_->roi_height != 0)
+		if (options_->Get().roi_width != 0 && options_->Get().roi_height != 0)
 		{
-			int x = options_->roi_x * sensor_area.width;
-			int y = options_->roi_y * sensor_area.height;
-			unsigned int w = options_->roi_width * sensor_area.width;
-			unsigned int h = options_->roi_height * sensor_area.height;
+			int x = options_->Get().roi_x * sensor_area.width;
+			int y = options_->Get().roi_y * sensor_area.height;
+			unsigned int w = options_->Get().roi_width * sensor_area.width;
+			unsigned int h = options_->Get().roi_height * sensor_area.height;
 			crops.push_back({ x, y, w, h });
 			crops.back().translateBy(sensor_area.topLeft());
 		}
@@ -661,7 +661,7 @@ void RPiCamApp::StartCamera()
 
 		LOG(2, "Using crop (main) " << crops.back().toString());
 
-		if (options_->lores_width != 0 && options_->lores_height != 0 && !options_->lores_par)
+		if (options_->Get().lores_width != 0 && options_->Get().lores_height != 0 && !options_->Get().lores_par)
 		{
 			crops.push_back(crops.back());
 			LOG(2, "Using crop (lores) " << crops.back().toString());
@@ -673,14 +673,14 @@ void RPiCamApp::StartCamera()
 			controls_.set(controls::rpi::ScalerCrops, libcamera::Span<const Rectangle>(crops.data(), crops.size()));
 	}
 
-	if (!controls_.get(controls::AfWindows) && !controls_.get(controls::AfMetering) && options_->afWindow_width != 0 &&
-		options_->afWindow_height != 0)
+	if (!controls_.get(controls::AfWindows) && !controls_.get(controls::AfMetering) &&
+		options_->Get().afWindow_width != 0 && options_->Get().afWindow_height != 0)
 	{
 		Rectangle sensor_area = camera_->controls().at(&controls::ScalerCrop).max().get<Rectangle>();
-		int x = options_->afWindow_x * sensor_area.width;
-		int y = options_->afWindow_y * sensor_area.height;
-		int w = options_->afWindow_width * sensor_area.width;
-		int h = options_->afWindow_height * sensor_area.height;
+		int x = options_->Get().afWindow_x * sensor_area.width;
+		int y = options_->Get().afWindow_y * sensor_area.height;
+		int w = options_->Get().afWindow_width * sensor_area.width;
+		int h = options_->Get().afWindow_height * sensor_area.height;
 		Rectangle afwindows_rectangle[1];
 		afwindows_rectangle[0] = Rectangle(x, y, w, h);
 		afwindows_rectangle[0].translateBy(sensor_area.topLeft());
@@ -699,55 +699,55 @@ void RPiCamApp::StartCamera()
 		if (StillStream())
 			controls_.set(controls::FrameDurationLimits,
 						  libcamera::Span<const int64_t, 2>({ INT64_C(100), INT64_C(1000000000) }));
-		else if (!options_->framerate || options_->framerate.value() > 0)
+		else if (!options_->Get().framerate || options_->Get().framerate.value() > 0)
 		{
-			int64_t frame_time = 1000000 / options_->framerate.value_or(DEFAULT_FRAMERATE); // in us
+			int64_t frame_time = 1000000 / options_->Get().framerate.value_or(DEFAULT_FRAMERATE); // in us
 			controls_.set(controls::FrameDurationLimits,
 						  libcamera::Span<const int64_t, 2>({ frame_time, frame_time }));
 		}
 	}
 
-	if (!controls_.get(controls::ExposureTime) && options_->shutter)
+	if (!controls_.get(controls::ExposureTime) && options_->Get().shutter)
 	{
 		controls_.set(controls::ExposureTimeMode, controls::ExposureTimeModeManual);
-		controls_.set(controls::ExposureTime, options_->shutter.get<std::chrono::microseconds>());
+		controls_.set(controls::ExposureTime, options_->Get().shutter.get<std::chrono::microseconds>());
 	}
-	if (!controls_.get(controls::AnalogueGain) && options_->gain)
+	if (!controls_.get(controls::AnalogueGain) && options_->Get().gain)
 	{
 		controls_.set(controls::AnalogueGainMode, controls::AnalogueGainModeManual);
-		controls_.set(controls::AnalogueGain, options_->gain);
+		controls_.set(controls::AnalogueGain, options_->Get().gain);
 	}
 	if (!controls_.get(controls::AeMeteringMode))
-		controls_.set(controls::AeMeteringMode, options_->metering_index);
+		controls_.set(controls::AeMeteringMode, options_->Get().metering_index);
 	if (!controls_.get(controls::AeExposureMode))
-		controls_.set(controls::AeExposureMode, options_->exposure_index);
+		controls_.set(controls::AeExposureMode, options_->Get().exposure_index);
 	if (!controls_.get(controls::ExposureValue))
-		controls_.set(controls::ExposureValue, options_->ev);
+		controls_.set(controls::ExposureValue, options_->Get().ev);
 	if (!controls_.get(controls::AwbMode))
-		controls_.set(controls::AwbMode, options_->awb_index);
-	if (!controls_.get(controls::ColourGains) && options_->awb_gain_r && options_->awb_gain_b)
+		controls_.set(controls::AwbMode, options_->Get().awb_index);
+	if (!controls_.get(controls::ColourGains) && options_->Get().awb_gain_r && options_->Get().awb_gain_b)
 		controls_.set(controls::ColourGains,
-					  libcamera::Span<const float, 2>({ options_->awb_gain_r, options_->awb_gain_b }));
+					  libcamera::Span<const float, 2>({ options_->Get().awb_gain_r, options_->Get().awb_gain_b }));
 	if (!controls_.get(controls::Brightness))
-		controls_.set(controls::Brightness, options_->brightness);
+		controls_.set(controls::Brightness, options_->Get().brightness);
 	if (!controls_.get(controls::Contrast))
-		controls_.set(controls::Contrast, options_->contrast);
+		controls_.set(controls::Contrast, options_->Get().contrast);
 	if (!controls_.get(controls::Saturation))
-		controls_.set(controls::Saturation, options_->saturation);
+		controls_.set(controls::Saturation, options_->Get().saturation);
 	if (!controls_.get(controls::Sharpness))
-		controls_.set(controls::Sharpness, options_->sharpness);
-	if (!controls_.get(controls::HdrMode) &&
-	    (options_->hdr == "auto" || options_->hdr == "single-exp"))
+		controls_.set(controls::Sharpness, options_->Get().sharpness);
+	if (!controls_.get(controls::HdrMode) && (options_->Get().hdr == "auto" || options_->Get().hdr == "single-exp"))
 		controls_.set(controls::HdrMode, controls::HdrModeSingleExposure);
 
 	// AF Controls, where supported and not already set
 	if (!controls_.get(controls::AfMode) && camera_->controls().count(&controls::AfMode) > 0)
 	{
-		int afm = options_->afMode_index;
+		int afm = options_->Get().afMode_index;
 		if (afm == -1)
 		{
 			// Choose a default AF mode based on other options
-			if (options_->lens_position || options_->set_default_lens_position || options_->af_on_capture)
+			if (options_->Get().lens_position || options_->Get().set_default_lens_position ||
+				options_->Get().af_on_capture)
 				afm = controls::AfModeManual;
 			else
 				afm = camera_->controls().at(&controls::AfMode).max().get<int>();
@@ -755,9 +755,9 @@ void RPiCamApp::StartCamera()
 		controls_.set(controls::AfMode, afm);
 	}
 	if (!controls_.get(controls::AfRange) && camera_->controls().count(&controls::AfRange) > 0)
-		controls_.set(controls::AfRange, options_->afRange_index);
+		controls_.set(controls::AfRange, options_->Get().afRange_index);
 	if (!controls_.get(controls::AfSpeed) && camera_->controls().count(&controls::AfSpeed) > 0)
-		controls_.set(controls::AfSpeed, options_->afSpeed_index);
+		controls_.set(controls::AfSpeed, options_->Get().afSpeed_index);
 
 	if (controls_.get(controls::AfMode).value_or(controls::AfModeManual) == controls::AfModeAuto)
 	{
@@ -768,24 +768,24 @@ void RPiCamApp::StartCamera()
 		if (!StillStream() && !controls_.get(controls::AfTrigger))
 			controls_.set(controls::AfTrigger, controls::AfTriggerStart);
 	}
-	else if ((options_->lens_position || options_->set_default_lens_position) &&
+	else if ((options_->Get().lens_position || options_->Get().set_default_lens_position) &&
 			 camera_->controls().count(&controls::LensPosition) > 0 && !controls_.get(controls::LensPosition))
 	{
 		float f;
-		if (options_->lens_position)
-			f = options_->lens_position.value();
+		if (options_->Get().lens_position)
+			f = options_->Get().lens_position.value();
 		else
 			f = camera_->controls().at(&controls::LensPosition).def().get<float>();
 		LOG(2, "Setting LensPosition: " << f);
 		controls_.set(controls::LensPosition, f);
 	}
 
-	if (options_->flicker_period && !controls_.get(controls::AeFlickerMode) &&
+	if (options_->Get().flicker_period && !controls_.get(controls::AeFlickerMode) &&
 		camera_->controls().find(&controls::AeFlickerMode) != camera_->controls().end() &&
 		camera_->controls().find(&controls::AeFlickerPeriod) != camera_->controls().end())
 	{
 		controls_.set(controls::AeFlickerMode, controls::FlickerManual);
-		controls_.set(controls::AeFlickerPeriod, options_->flicker_period.get<std::chrono::microseconds>());
+		controls_.set(controls::AeFlickerPeriod, options_->Get().flicker_period.get<std::chrono::microseconds>());
 	}
 
 	if (camera_->start(&controls_))
@@ -836,7 +836,7 @@ void RPiCamApp::StopCamera()
 
 	controls_.clear(); // no need for mutex here
 
-	if (!options_->help)
+	if (!options_->Get().help)
 		LOG(2, "Camera stopped!");
 }
 
@@ -1206,9 +1206,9 @@ void RPiCamApp::previewThread()
 		}
 		preview_frames_displayed_++;
 		preview_->Show(fd, span, info);
-		if (!options_->info_text.empty())
+		if (!options_->Get().info_text.empty())
 		{
-			std::string s = frame_info.ToString(options_->info_text);
+			std::string s = frame_info.ToString(options_->Get().info_text);
 			preview_->SetInfoText(s);
 		}
 	}

@@ -25,7 +25,7 @@ public:
 
 	StillOptions *GetOptions() const
 	{
-		return static_cast<StillOptions *>(options_.get());
+		return static_cast<StillOptions *>(RPiCamApp::GetOptions());
 	}
 };
 
@@ -59,7 +59,7 @@ static void event_loop(RPiCamJpegApp &app)
 		if (app.ViewfinderStream())
 		{
 			auto now = std::chrono::high_resolution_clock::now();
-			if (options->timeout && (now - start_time) > options->timeout.value)
+			if (options->Get().timeout && (now - start_time) > options->Get().timeout.value)
 			{
 				app.StopCamera();
 				app.Teardown();
@@ -83,7 +83,7 @@ static void event_loop(RPiCamJpegApp &app)
 			CompletedRequestPtr &payload = std::get<CompletedRequestPtr>(msg.payload);
 			BufferReadSync r(&app, payload->buffers[stream]);
 			const std::vector<libcamera::Span<uint8_t>> mem = r.Get();
-			jpeg_save(mem, info, payload->metadata, options->output, app.CameraModel(), options);
+			jpeg_save(mem, info, payload->metadata, options->Get().output, app.CameraModel(), options);
 			return;
 		}
 	}
@@ -97,9 +97,9 @@ int main(int argc, char *argv[])
 		StillOptions *options = app.GetOptions();
 		if (options->Parse(argc, argv))
 		{
-			if (options->verbose >= 2)
-				options->Print();
-			if (options->output.empty())
+			if (options->Get().verbose >= 2)
+				options->Get().Print();
+			if (options->Get().output.empty())
 				throw std::runtime_error("output file name required");
 
 			event_loop(app);

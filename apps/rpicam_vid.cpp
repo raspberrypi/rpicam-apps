@@ -30,7 +30,7 @@ static int get_key_or_signal(VideoOptions const *options, pollfd p[1])
 	int key = 0;
 	if (signal_received == SIGINT)
 		return 'x';
-	if (options->keypress)
+	if (options->Get().keypress)
 	{
 		poll(p, 1, 0);
 		if (p[0].revents & POLLIN)
@@ -41,7 +41,7 @@ static int get_key_or_signal(VideoOptions const *options, pollfd p[1])
 			key = user_string[0];
 		}
 	}
-	if (options->signal)
+	if (options->Get().signal)
 	{
 		if (signal_received == SIGUSR1)
 			key = '\n';
@@ -70,7 +70,7 @@ static void event_loop(RPiCamEncoder &app)
 	app.SetMetadataReadyCallback(std::bind(&Output::MetadataReady, output.get(), _1));
 
 	app.OpenCamera();
-	app.ConfigureVideo(get_colourspace_flags(options->codec));
+	app.ConfigureVideo(get_colourspace_flags(options->Get().codec));
 	app.StartEncoder();
 	app.StartCamera();
 	auto start_time = std::chrono::high_resolution_clock::now();
@@ -105,13 +105,13 @@ static void event_loop(RPiCamEncoder &app)
 
 		LOG(2, "Viewfinder frame " << count);
 		auto now = std::chrono::high_resolution_clock::now();
-		bool timeout = !options->frames && options->timeout &&
-					   ((now - start_time) > options->timeout.value);
-		bool frameout = options->frames && count >= options->frames;
+		bool timeout = !options->Get().frames && options->Get().timeout &&
+					   ((now - start_time) > options->Get().timeout.value);
+		bool frameout = options->Get().frames && count >= options->Get().frames;
 		if (timeout || frameout || key == 'x' || key == 'X')
 		{
 			if (timeout)
-				LOG(1, "Halting: reached timeout of " << options->timeout.get<std::chrono::milliseconds>()
+				LOG(1, "Halting: reached timeout of " << options->Get().timeout.get<std::chrono::milliseconds>()
 													  << " milliseconds.");
 			app.StopCamera(); // stop complains if encoder very slow to close
 			app.StopEncoder();
@@ -137,8 +137,8 @@ int main(int argc, char *argv[])
 		VideoOptions *options = app.GetOptions();
 		if (options->Parse(argc, argv))
 		{
-			if (options->verbose >= 2)
-				options->Print();
+			if (options->Get().verbose >= 2)
+				options->Get().Print();
 
 			event_loop(app);
 		}

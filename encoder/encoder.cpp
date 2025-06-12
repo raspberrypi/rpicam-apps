@@ -28,7 +28,7 @@ static Encoder *h264_codec_select(VideoOptions *options, const StreamInfo &info)
 
 #if LIBAV_PRESENT
 	// No hardware codec available, use x264 through libav.
-	options->libav_video_codec = "libx264";
+	options->Set().libav_video_codec = "libx264";
 	return new LibAvEncoder(options, info);
 #endif
 
@@ -38,12 +38,12 @@ static Encoder *h264_codec_select(VideoOptions *options, const StreamInfo &info)
 #if LIBAV_PRESENT
 static Encoder *libav_codec_select(VideoOptions *options, const StreamInfo &info)
 {
-	if (options->libav_video_codec == "h264_v4l2m2m")
+	if (options->Get().libav_video_codec == "h264_v4l2m2m")
 	{
 		if (options->GetPlatform() == Platform::VC4)
 				return new LibAvEncoder(options, info);
 		// No h264_v4l2m2m libav codec available, use libx264 if nothing else is provided.
-		options->libav_video_codec = "libx264";
+		options->Set().libav_video_codec = "libx264";
 	}
 	return new LibAvEncoder(options, info);
 }
@@ -51,15 +51,15 @@ static Encoder *libav_codec_select(VideoOptions *options, const StreamInfo &info
 
 Encoder *Encoder::Create(VideoOptions *options, const StreamInfo &info)
 {
-	if (strcasecmp(options->codec.c_str(), "yuv420") == 0)
+	if (strcasecmp(options->Get().codec.c_str(), "yuv420") == 0)
 		return new NullEncoder(options);
-	else if (strcasecmp(options->codec.c_str(), "h264") == 0)
+	else if (strcasecmp(options->Get().codec.c_str(), "h264") == 0)
 		return h264_codec_select(options, info);
 #if LIBAV_PRESENT
-	else if (strcasecmp(options->codec.c_str(), "libav") == 0)
+	else if (strcasecmp(options->Get().codec.c_str(), "libav") == 0)
 		return libav_codec_select(options, info);
 #endif
-	else if (strcasecmp(options->codec.c_str(), "mjpeg") == 0)
+	else if (strcasecmp(options->Get().codec.c_str(), "mjpeg") == 0)
 		return new MjpegEncoder(options);
-	throw std::runtime_error("Unrecognised codec " + options->codec);
+	throw std::runtime_error("Unrecognised codec " + options->Get().codec);
 }
