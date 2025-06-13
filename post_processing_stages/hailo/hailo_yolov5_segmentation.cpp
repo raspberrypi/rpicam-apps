@@ -221,10 +221,10 @@ void YoloSegmentation::Read(boost::property_tree::ptree const &params)
 	confidence_threshold_ = params.get<float>("confidence_threshold", 0.6);
 
 	InitFuncPtr init = reinterpret_cast<InitFuncPtr>(postproc_.GetSymbol("init"));
-	const std::string config_file = params.get<std::string>("hailopp_config_file");
+	const std::string config_file = params.get<std::string>("hailopp_config_file", "");
 	if (init)
 	{
-		if (!fs::exists(config_file))
+		if (!config_file.empty() && !fs::exists(config_file))
 			throw std::runtime_error(std::string("hailo postprocess config file not found: ") + config_file);
 		yolo_params_ = init(config_file, "");
 	}
