@@ -5,39 +5,20 @@ on:
 
 jobs:
 
-  semgrep-diff:
+  Semgrep:
+    name: semgrep/ci
     runs-on: ubuntu-latest
+
     container:
-      image: returntocorp/semgrep
-
+      image: semgrep/semgrep
     steps:
+      - uses: actions/checkout@v4
+      - run: semgrep ci --sarif-output=semgrep-report.sarif
+        env:
+          SEMGREP_APP_TOKEN: ${{ secrets.SEMGREP_APP_TOKEN }}
 
-      # step 1
-      - name: clone application source code
-        uses: actions/checkout@v3
-        with:
-          fetch-depth: 0
-
-      # step 2
-      - name: differential scan
-        run: |
-          semgrep scan \
-            --sarif --output report-pr.sarif
-            --error \
-            --metrics=off \
-            --baseline-commit ${{ github.event.pull_request.base.sha }} \
-            --config="p/default"
-      
-      # step 3
-      - name: save report as pipeline artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: report-pr.sarif
-          path: report-pr.sarif
-
-      # step 4
-      - name: publish code scanning alerts
+      - name: Upload SARIF file for GitHub Advanced Security Dashboard
         uses: github/codeql-action/upload-sarif@v3
         with:
-          sarif_file: report-pr.sarif
-          category: semgrep
+          sarif_file: semgrep-report.sarif
+          category: semgrep-scan
