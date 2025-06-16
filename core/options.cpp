@@ -245,7 +245,7 @@ Options::Options()
 		("metering", value<std::string>(&metering)->default_value("centre"),
 			"Set the metering mode (centre, spot, average, custom)")
 		("exposure", value<std::string>(&exposure)->default_value("normal"),
-			"Set the exposure mode (normal, sport)")
+			"Set the exposure mode (normal, sport, short, long, custom)")
 		("ev", value<float>(&ev)->default_value(0),
 			"Set the EV exposure compensation, where 0 = no change")
 		("awb", value<std::string>(&awb)->default_value("auto"),
