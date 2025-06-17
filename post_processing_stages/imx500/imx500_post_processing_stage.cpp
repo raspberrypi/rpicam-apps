@@ -12,8 +12,11 @@
 #include <sstream>
 #include <string>
 #include <sys/ioctl.h>
+#include <sys/stat.h>
 #include <thread>
 #include <unistd.h>
+
+#include <linux/imx500.h>
 
 #include <boost/property_tree/ptree.hpp>
 
@@ -33,7 +36,6 @@ namespace
 {
 
 const unsigned int ROI_CTRL_ID = 0x00982900;
-const unsigned int NETWORK_FW_CTRL_ID = 0x00982901;
 
 inline int16_t conv_reg_signed(int16_t reg)
 {
@@ -122,8 +124,23 @@ void IMX500PostProcessingStage::Read(boost::property_tree::ptree const &params)
 
 	int fd = open(network_file.c_str(), O_RDONLY, 0);
 
-	v4l2_control ctrl { NETWORK_FW_CTRL_ID, fd };
-	int ret = ioctl(device_fd_, VIDIOC_S_CTRL, &ctrl);
+	struct stat stat;
+	int ret = fstat(fd, &stat);
+	if (ret)
+		throw std::runtime_error("Failed to get file stats for " + network_file);
+
+	struct imx500_network_weights network_weights;
+
+	network_weights.size = stat.st_size;
+	network_weights.data = malloc(stat.st_size);
+	if (!network_weights.data)
+		throw std::runtime_error("Failed to allocate buffer for network");
+
+	ret = read(fd, network_weights.data, network_weights.size);
+	if (ret < 0)
+		throw std::runtime_error("Failed to read network weights");
+
+	ret = ioctl(device_fd_, VIDIOC_IMX500_LOAD_NETWORK, &network_weights);
 	if (ret)
 		throw std::runtime_error("failed to set network fw ioctl");
 
