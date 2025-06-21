@@ -637,6 +637,7 @@ void RPiCamApp::StartCamera()
 	// This makes all the Request objects that we shall need.
 	makeRequests();
 
+#ifndef DISABLE_RPI_FEATURES
 	// Build a list of initial controls that we must set in the camera before starting it.
 	// We don't overwrite anything the application may have set before calling us.
 	if (!controls_.get(controls::ScalerCrop) && !controls_.get(controls::rpi::ScalerCrops))
@@ -672,6 +673,7 @@ void RPiCamApp::StartCamera()
 		else
 			controls_.set(controls::rpi::ScalerCrops, libcamera::Span<const Rectangle>(crops.data(), crops.size()));
 	}
+#endif
 
 	if (!controls_.get(controls::AfWindows) && !controls_.get(controls::AfMetering) &&
 		options_->Get().afWindow_width != 0 && options_->Get().afWindow_height != 0)
