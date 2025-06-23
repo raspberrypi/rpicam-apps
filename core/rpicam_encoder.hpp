@@ -65,13 +65,13 @@ public:
 		void *mem = span.data();
 		if (!buffer || !mem)
 			throw std::runtime_error("no buffer to encode");
-		auto ts = completed_request->metadata.get(controls::SensorTimestamp);
-		int64_t timestamp_ns = ts ? *ts : buffer->metadata().timestamp;
+		auto ts = completed_request->metadata.get(controls::FrameWallClock);
+		int64_t timestamp_us = ts ? *ts : buffer->metadata().timestamp / 1000;
 		{
 			std::lock_guard<std::mutex> lock(encode_buffer_queue_mutex_);
 			encode_buffer_queue_.push(completed_request); // creates a new reference
 		}
-		encoder_->EncodeBuffer(buffer->planes()[0].fd.get(), span.size(), mem, info, timestamp_ns / 1000);
+		encoder_->EncodeBuffer(buffer->planes()[0].fd.get(), span.size(), mem, info, timestamp_us);
 
 		// Tell our caller that encoding is underway.
 		return true;
