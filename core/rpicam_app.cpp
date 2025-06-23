@@ -1119,6 +1119,10 @@ void RPiCamApp::requestComplete(Request *request)
 		completed_requests_.insert(r);
 	}
 
+	// Framebuffer reports possibly being in a startup or error state, ignore these.
+	if (r->buffers.begin()->second->metadata().status != libcamera::FrameMetadata::FrameSuccess)
+		return;
+
 	// We calculate the instantaneous framerate in case anyone wants it.
 	// Use the sensor timestamp if possible as it ought to be less glitchy than
 	// the buffer timestamps.
