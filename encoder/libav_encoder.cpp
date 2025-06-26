@@ -218,6 +218,19 @@ void LibAvEncoder::initVideoCodec(VideoOptions const *options, StreamInfo const 
 			output_file_ += listen;
 	}
 
+	elementary_stream_ = (options->Get().libav_format.empty() || options->Get().libav_format == "h264") &&
+						 !output_file_.empty() &&
+						 (output_file_.find("264", output_file_.length() - 3) != std::string::npos ||
+						  output_file_.find("h264", output_file_.length() - 4) != std::string::npos);
+
+	if (!elementary_stream_ && (options->Get().circular || options->Get().segment || !options->Get().save_pts.empty() ||
+								options->Get().split || options->Get().initial == "pause"))
+	{
+		LOG_ERROR("\nERROR: The libav encoder does not currently support the circular, segment, save_pts, "
+				  "split, or pause command line options with non-elementary streams!\n");
+		throw std::runtime_error("libav: Incompatible options selected.");
+	}
+
 	assert(out_fmt_ctx_ == nullptr);
 	avformat_alloc_output_context2(&out_fmt_ctx_, nullptr, format, output_file_.c_str());
 	if (!out_fmt_ctx_)
@@ -355,16 +368,9 @@ void LibAvEncoder::initAudioOutCodec(VideoOptions const *options, StreamInfo con
 
 LibAvEncoder::LibAvEncoder(VideoOptions const *options, StreamInfo const &info)
 	: Encoder(options), output_ready_(false), abort_video_(false), abort_audio_(false), video_start_ts_(0),
-	  in_fmt_ctx_(nullptr), out_fmt_ctx_(nullptr), output_file_(options->Get().output), output_initialised_(false)
+	  in_fmt_ctx_(nullptr), out_fmt_ctx_(nullptr), output_file_(options->Get().output), output_initialised_(false),
+	  elementary_stream_(false)
 {
-	if (options->Get().circular || options->Get().segment || !options->Get().save_pts.empty() || options->Get().split ||
-		options->Get().initial == "pause")
-	{
-		LOG_ERROR("\nERROR: The libav encoder does not currently support the circular, segment, save_pts, "
-				  "split, or pause command line options!\n");
-		throw std::runtime_error("libav: Incompatible options selected.");
-	}
-
 	avdevice_register_all();
 
 	if (options->Get().verbose >= 2)
@@ -551,16 +557,25 @@ void LibAvEncoder::encode(AVPacket *pkt, unsigned int stream_id)
 		// Rescale from the codec timebase to the stream timebase.
 		av_packet_rescale_ts(pkt, codec_ctx_[stream_id]->time_base, out_fmt_ctx_->streams[stream_id]->time_base);
 
-		std::scoped_lock<std::mutex> lock(output_mutex_);
-		// pkt is now blank (av_interleaved_write_frame() takes ownership of
-		// its contents and resets pkt), so that no unreferencing is necessary.
-		// This would be different if one used av_write_frame().
-		ret = av_interleaved_write_frame(out_fmt_ctx_, pkt);
-		if (ret < 0)
+		if (!elementary_stream_)
 		{
-			char err[AV_ERROR_MAX_STRING_SIZE];
-			av_strerror(ret, err, sizeof(err));
-			throw std::runtime_error("libav: error writing output: " + std::string(err));
+			std::scoped_lock<std::mutex> lock(output_mutex_);
+			// pkt is now blank (av_interleaved_write_frame() takes ownership of
+			// its contents and resets pkt), so that no unreferencing is necessary.
+			// This would be different if one used av_write_frame().
+			ret = av_interleaved_write_frame(out_fmt_ctx_, pkt);
+			if (ret < 0)
+			{
+				char err[AV_ERROR_MAX_STRING_SIZE];
+				av_strerror(ret, err, sizeof(err));
+				throw std::runtime_error("libav: error writing output: " + std::string(err));
+			}
+		}
+		else
+		{
+			// H.264 elementary streams use the Output class to write encoded data so that they can use features such as
+			// pause/circular/split/metadata, etc.
+			output_ready_callback_(pkt->data, pkt->size, pkt->pts, pkt->flags & AV_PKT_FLAG_KEY);
 		}
 	}
 }
