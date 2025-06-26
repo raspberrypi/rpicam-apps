@@ -101,15 +101,15 @@ void Output::outputBuffer(void *mem, size_t size, int64_t timestamp_us, uint32_t
 
 Output *Output::Create(VideoOptions const *options)
 {
-	if (options->Get().codec == "libav" || (options->Get().codec == "h264" && options->GetPlatform() != Platform::VC4))
-		return new Output(options);
+	bool libav = options->Get().codec == "libav" ||
+				 (options->Get().codec == "h264" && options->GetPlatform() != Platform::VC4);
+	const std::string out_file = options->Get().output;
 
-	if (strncmp(options->Get().output.c_str(), "udp://", 6) == 0 ||
-		strncmp(options->Get().output.c_str(), "tcp://", 6) == 0)
+	if (!libav && (strncmp(out_file.c_str(), "udp://", 6) == 0 || strncmp(out_file.c_str(), "tcp://", 6) == 0))
 		return new NetOutput(options);
 	else if (options->Get().circular)
 		return new CircularOutput(options);
-	else if (!options->Get().output.empty())
+	else if (!out_file.empty())
 		return new FileOutput(options);
 	else
 		return new Output(options);

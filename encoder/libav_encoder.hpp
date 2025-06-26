@@ -78,4 +78,5 @@ private:
 
 	std::string output_file_;
 	bool output_initialised_;
+	bool elementary_stream_;
 };
