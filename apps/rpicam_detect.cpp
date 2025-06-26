@@ -82,10 +82,10 @@ static void event_loop(RPiCamDetectApp &app)
 				return;
 
 			std::vector<Detection> detections;
-			bool detected = completed_request->sequence - last_capture_frame >= options->Get().gap &&
+			bool detected = completed_request->sequence - last_capture_frame >= options->gap &&
 							completed_request->post_process_metadata.Get("object_detect.results", detections) == 0 &&
 							std::find_if(detections.begin(), detections.end(), [options](const Detection &d)
-										 { return d.name.find(options->Get().object) != std::string::npos; }) !=
+										 { return d.name.find(options->object) != std::string::npos; }) !=
 								detections.end();
 
 			app.ShowPreview(completed_request, app.ViewfinderStream());
@@ -96,7 +96,7 @@ static void event_loop(RPiCamDetectApp &app)
 				app.Teardown();
 				app.ConfigureStill();
 				app.StartCamera();
-				LOG(1, options->Get().object << " detected");
+				LOG(1, options->object << " detected");
 			}
 		}
 		// In still capture mode, save a jpeg and go back to preview.
@@ -118,7 +118,7 @@ static void event_loop(RPiCamDetectApp &app)
 				std::time(&raw_time);
 				char time_string[32];
 				std::tm *time_info = std::localtime(&raw_time);
-				std::strftime(time_string, sizeof(time_string), options->Get().timeformat.c_str(), time_info);
+				std::strftime(time_string, sizeof(time_string), options->timeformat.c_str(), time_info);
 				snprintf(filename, sizeof(filename), "%s%s.%s", options->Get().output.c_str(), time_string,
 						 options->Get().encoding.c_str());
 			}
