@@ -82,10 +82,10 @@ static void event_loop(RPiCamDetectApp &app)
 				return;
 
 			std::vector<Detection> detections;
-			bool detected = completed_request->sequence - last_capture_frame >= options->Get().gap &&
+			bool detected = completed_request->sequence - last_capture_frame >= options->gap &&
 							completed_request->post_process_metadata.Get("object_detect.results", detections) == 0 &&
 							std::find_if(detections.begin(), detections.end(), [options](const Detection &d)
-										 { return d.name.find(options->Get().object) != std::string::npos; }) !=
+										 { return d.name.find(options->object) != std::string::npos; }) !=
 								detections.end();
 
 			app.ShowPreview(completed_request, app.ViewfinderStream());
@@ -96,7 +96,7 @@ static void event_loop(RPiCamDetectApp &app)
 				app.Teardown();
 				app.ConfigureStill();
 				app.StartCamera();
-				LOG(1, options->Get().object << " detected");
+				LOG(1, options->object << " detected");
 			}
 		}
 		// In still capture mode, save a jpeg and go back to preview.
@@ -109,6 +109,7 @@ static void event_loop(RPiCamDetectApp &app)
 			libcamera::Stream *stream = app.StillStream(&info);
 			BufferReadSync r(&app, completed_request->buffers[stream]);
 			const std::vector<libcamera::Span<uint8_t>> mem = r.Get();
+			uint32_t framestart = options->Get().framestart;
 
 			// Generate a filename for the output and save it.
 			char filename[128];
@@ -118,7 +119,7 @@ static void event_loop(RPiCamDetectApp &app)
 				std::time(&raw_time);
 				char time_string[32];
 				std::tm *time_info = std::localtime(&raw_time);
-				std::strftime(time_string, sizeof(time_string), options->Get().timeformat.c_str(), time_info);
+				std::strftime(time_string, sizeof(time_string), options->timeformat.c_str(), time_info);
 				snprintf(filename, sizeof(filename), "%s%s.%s", options->Get().output.c_str(), time_string,
 						 options->Get().encoding.c_str());
 			}
@@ -126,9 +127,9 @@ static void event_loop(RPiCamDetectApp &app)
 				snprintf(filename, sizeof(filename), "%s%u.%s", options->Get().output.c_str(), (unsigned)time(NULL),
 						 options->Get().encoding.c_str());
 			else
-				snprintf(filename, sizeof(filename), options->Get().output.c_str(), options->Get().framestart);
+				snprintf(filename, sizeof(filename), options->Get().output.c_str(), framestart);
 			filename[sizeof(filename) - 1] = 0;
-			options->Get().framestart++;
+			options->Set().framestart = framestart + 1;
 			LOG(1, "Save image " << filename);
 			jpeg_save(mem, info, completed_request->metadata, std::string(filename), app.CameraModel(), options);
 
