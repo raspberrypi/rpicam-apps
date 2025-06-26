@@ -128,7 +128,7 @@ static void event_loop(RPiCamDetectApp &app)
 			else
 				snprintf(filename, sizeof(filename), options->Get().output.c_str(), options->Get().framestart);
 			filename[sizeof(filename) - 1] = 0;
-			options->Get().framestart++;
+			options->Set().framestart++;
 			LOG(1, "Save image " << filename);
 			jpeg_save(mem, info, completed_request->metadata, std::string(filename), app.CameraModel(), options);
 
