@@ -14,9 +14,10 @@ NetOutput::NetOutput(VideoOptions const *options) : Output(options)
 {
 	char protocol[4];
 	int start, end, a, b, c, d, port;
-	if (sscanf(options->output.c_str(), "%3s://%n%d.%d.%d.%d%n:%d", protocol, &start, &a, &b, &c, &d, &end, &port) != 6)
-		throw std::runtime_error("bad network address " + options->output);
-	std::string address = options->output.substr(start, end - start);
+	if (sscanf(options->Get().output.c_str(), "%3s://%n%d.%d.%d.%d%n:%d", protocol, &start, &a, &b, &c, &d, &end,
+			   &port) != 6)
+		throw std::runtime_error("bad network address " + options->Get().output);
+	std::string address = options->Get().output.substr(start, end - start);
 
 	if (strcmp(protocol, "udp") == 0)
 	{
@@ -36,7 +37,7 @@ NetOutput::NetOutput(VideoOptions const *options) : Output(options)
 	else if (strcmp(protocol, "tcp") == 0)
 	{
 		// WARNING: I've not actually tried this yet...
-		if (options->listen)
+		if (options->Get().listen)
 		{
 			// We are the server.
 			int listen_fd = socket(AF_INET, SOCK_STREAM, 0);
@@ -87,7 +88,7 @@ NetOutput::NetOutput(VideoOptions const *options) : Output(options)
 		sockaddr_in_size_ = 0;
 	}
 	else
-		throw std::runtime_error("unrecognised network protocol " + options->output);
+		throw std::runtime_error("unrecognised network protocol " + options->Get().output);
 }
 
 NetOutput::~NetOutput()

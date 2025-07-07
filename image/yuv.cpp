@@ -13,7 +13,7 @@
 static void yuv420_save(std::vector<libcamera::Span<uint8_t>> const &mem, StreamInfo const &info,
 						std::string const &filename, StillOptions const *options)
 {
-	if (options->encoding == "yuv420")
+	if (options->Get().encoding == "yuv420")
 	{
 		unsigned w = info.width, h = info.height, stride = info.stride;
 		if ((w & 1) || (h & 1))
@@ -55,13 +55,13 @@ static void yuv420_save(std::vector<libcamera::Span<uint8_t>> const &mem, Stream
 		}
 	}
 	else
-		throw std::runtime_error("output format " + options->encoding + " not supported");
+		throw std::runtime_error("output format " + options->Get().encoding + " not supported");
 }
 
 static void yuyv_save(std::vector<libcamera::Span<uint8_t>> const &mem, StreamInfo const &info,
 					  std::string const &filename, StillOptions const *options)
 {
-	if (options->encoding == "yuv420")
+	if (options->Get().encoding == "yuv420")
 	{
 		if ((info.width & 1) || (info.height & 1))
 			throw std::runtime_error("both width and height must be even");
@@ -109,13 +109,13 @@ static void yuyv_save(std::vector<libcamera::Span<uint8_t>> const &mem, StreamIn
 		}
 	}
 	else
-		throw std::runtime_error("output format " + options->encoding + " not supported");
+		throw std::runtime_error("output format " + options->Get().encoding + " not supported");
 }
 
 static void rgb_save(std::vector<libcamera::Span<uint8_t>> const &mem, StreamInfo const &info,
 					 std::string const &filename, StillOptions const *options)
 {
-	if (options->encoding != "rgb24" && options->encoding != "rgb48")
+	if (options->Get().encoding != "rgb24" && options->Get().encoding != "rgb48")
 		throw std::runtime_error("encoding should be set to rgb");
 	FILE *fp = filename == "-" ? stdout : fopen(filename.c_str(), "w");
 	if (!fp)
@@ -124,7 +124,7 @@ static void rgb_save(std::vector<libcamera::Span<uint8_t>> const &mem, StreamInf
 	{
 		uint8_t *ptr = (uint8_t *)mem[0].data();
 		unsigned int wr_stride = 3 * info.width;
-		if (options->encoding == "rgb48")
+		if (options->Get().encoding == "rgb48")
 			wr_stride *= 2;
 		for (unsigned int j = 0; j < info.height; j++, ptr += info.stride)
 		{

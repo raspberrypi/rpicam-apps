@@ -1,6 +1,6 @@
 project('rpicam-apps', 'c', 'cpp',
         meson_version : '>= 0.64.0',
-        version : '1.7.0',
+        version : '1.8.0',
         default_options : [
             'werror=true',
             'warning_level=3',
@@ -35,6 +35,10 @@ endif
 
 dl_dep = dependency('dl', required : true)
 libcamera_dep = dependency('libcamera', required : true)
+
+if get_option('disable_rpi_features') == true
+    cpp_arguments += '-DDISABLE_RPI_FEATURES'
+endif
 
 summary({
             'location' : libcamera_dep.get_variable('libdir'),
@@ -78,21 +82,15 @@ rpicam_app_src += version_cpp
 rpicam_app = library(
     'rpicam_app',
     rpicam_app_src,
-    soversion : meson.project_version(),
+    version : meson.project_version(),
     include_directories : include_directories('.'),
     install : true,
-    name_prefix : '',
     dependencies : rpicam_app_dep,
 )
 
 pkg = import('pkgconfig')
 pkg.generate(rpicam_app,
              version: meson.project_version())
-
-# Install a symlink to the old library name for legacy purposes.
-install_symlink('libcamera_app.so',
-                install_dir: get_option('libdir'),
-                pointing_to: 'rpicam_app.so')
 
 subdir('apps')
 

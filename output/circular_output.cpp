@@ -18,15 +18,15 @@ struct Header
 };
 static_assert(sizeof(Header) % ALIGN == 0, "Header should have aligned size");
 
-// Size of buffer (options->circular) is given in megabytes.
-CircularOutput::CircularOutput(VideoOptions const *options) : Output(options), cb_(options->circular<<20)
+// Size of buffer (options->Get().circular) is given in megabytes.
+CircularOutput::CircularOutput(VideoOptions const *options) : Output(options), cb_(options->Get().circular << 20)
 {
 	// Open this now, so that we can get any complaints out of the way
-	if (options_->output == "-")
+	if (options_->Get().output == "-")
 		fp_ = stdout;
-	else if (!options_->output.empty())
+	else if (!options_->Get().output.empty())
 	{
-		fp_ = fopen(options_->output.c_str(), "w");
+		fp_ = fopen(options_->Get().output.c_str(), "w");
 	}
 	if (!fp_)
 		throw std::runtime_error("could not open output file");

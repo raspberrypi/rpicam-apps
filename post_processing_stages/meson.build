@@ -20,6 +20,7 @@ core_postproc_src = files([
     'hdr_stage.cpp',
     'motion_detect_stage.cpp',
     'negate_stage.cpp',
+    'acoustic_focus_stage.cpp',
 ])
 
 # Core assets
@@ -27,6 +28,7 @@ postproc_assets += files([
     assets_dir / 'hdr.json',
     assets_dir / 'motion_detect.json',
     assets_dir / 'negate.json',
+    assets_dir / 'acoustic_focus.json',
 ])
 
 core_postproc_lib = shared_module('core-postproc', core_postproc_src,
