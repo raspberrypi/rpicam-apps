@@ -23,6 +23,7 @@ hailo_deps = [hailort_dep, hailo_tappas_dep, libcamera_dep, opencv_dep]
 # Hailo Tappas PP config files to be installed
 hailopp_config_files = files([
     assets_dir / 'yolov5_personface.json',
+    assets_dir / 'yolov5seg.json',
 ])
 
 hailo_postprocessing_src = files([
