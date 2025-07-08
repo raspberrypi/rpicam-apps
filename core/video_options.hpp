@@ -91,6 +91,8 @@ struct VideoOptions : public Options
 			 "Set the audio bitrate for encoding. If no units are provided, default to bits/second.")
 			("audio-samplerate", value<uint32_t>(&v_->audio_samplerate)->default_value(0),
 			 "Set the audio sampling rate in Hz for encoding. Set to 0 to use the input sample rate.")
+			("alsa-period-size", value<uint32_t>(&v_->alsa_period_size)->default_value(2048),
+			 "Set ALSA period size in frames for direct ALSA configuration. Only applies when using ALSA audio source. Set to 0 for default.")
 			("av-sync", value<std::string>(&v_->av_sync_)->default_value("0us"),
 			 "Add a time offset (in microseconds if no units provided) to the audio stream, relative to the video stream. "
 			 "The offset value can be either positive or negative.")

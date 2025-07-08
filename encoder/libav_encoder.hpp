@@ -28,9 +28,16 @@ extern "C"
 #include "libavutil/timestamp.h"
 #include "libavutil/version.h"
 #include "libswresample/swresample.h"
+#ifdef ALSA_PRESENT
+#include <alsa/asoundlib.h>
+#endif
 }
 
 #include "encoder.hpp"
+
+#ifdef ALSA_PRESENT
+void configureAlsaDevice(const std::string& device_name, unsigned int period_size);
+#endif
 
 class LibAvEncoder : public Encoder
 {

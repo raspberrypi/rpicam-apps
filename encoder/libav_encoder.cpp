@@ -119,6 +119,57 @@ const std::map<std::string, std::function<void(VideoOptions const *, AVCodecCont
 
 } // namespace
 
+void configureAlsaDevice(const std::string& device_name, unsigned int period_size)
+{
+    snd_pcm_t *handle;
+    snd_pcm_hw_params_t *params;
+    int ret;
+
+    // Open the ALSA device
+    ret = snd_pcm_open(&handle, device_name.c_str(), SND_PCM_STREAM_CAPTURE, 0);
+    if (ret < 0) {
+        LOG(1, "libav: Cannot open ALSA device " << device_name << ": " << snd_strerror(ret));
+        return;
+    }
+
+    // Allocate hardware parameters structure
+    ret = snd_pcm_hw_params_malloc(&params);
+    if (ret < 0) {
+        LOG(1, "libav: Cannot allocate ALSA hardware parameters: " << snd_strerror(ret));
+        snd_pcm_close(handle);
+        return;
+    }
+
+    // Initialize hardware parameters
+    ret = snd_pcm_hw_params_any(handle, params);
+    if (ret < 0) {
+        LOG(1, "libav: Cannot initialize ALSA hardware parameters: " << snd_strerror(ret));
+        snd_pcm_hw_params_free(params);
+        snd_pcm_close(handle);
+        return;
+    }
+
+    // Set period size
+	snd_pcm_uframes_t p = period_size;
+	int dir = 1;
+    ret = snd_pcm_hw_params_set_period_size_near(handle, params, &p, &dir);
+    if (ret < 0) {
+        LOG(1, "libav: Cannot set ALSA period size: " << snd_strerror(ret));
+    } else {
+        LOG(1, "libav: Set ALSA period size to " << p << " frames");
+    }
+
+    // Apply the parameters
+    ret = snd_pcm_hw_params(handle, params);
+    if (ret < 0) {
+        LOG(1, "libav: Cannot set ALSA hardware parameters: " << snd_strerror(ret));
+    }
+
+    // Clean up
+    snd_pcm_hw_params_free(params);
+    snd_pcm_close(handle);
+}
+
 void LibAvEncoder::initVideoCodec(VideoOptions const *options, StreamInfo const &info)
 {
 	const AVCodec *codec = avcodec_find_encoder_by_name(options->Get().libav_video_codec.c_str());
@@ -277,6 +328,22 @@ void LibAvEncoder::initAudioInCodec(VideoOptions const *options, StreamInfo cons
 
 	if (options->Get().audio_channels != 0)
 		ret = av_dict_set_int(&format_opts, "channels", options->Get().audio_channels, 0);
+
+#ifdef ALSA_PRESENT
+	// Configure ALSA device directly if using ALSA source
+	if (options->Get().audio_source == "alsa")
+	{
+		unsigned int period_size = 1024; // Default period size
+		if (options->Get().alsa_period_size > 0)
+			period_size = options->Get().alsa_period_size;
+
+		configureAlsaDevice(options->Get().audio_device, period_size);
+	}
+#endif
+
+	// Note: ALSA in FFmpeg/libav only supports 'sample_rate' and 'channels' parameters.
+	// The buffer size and period size are controlled by the audio processing loop
+	// through the audio_min_samples option.
 
 	ret = avformat_open_input(&in_fmt_ctx_, options->Get().audio_device.c_str(), input_fmt, &format_opts);
 	if (ret < 0)
@@ -811,7 +878,7 @@ void LibAvEncoder::audioThread()
 		}
 
 		// Avoid spinning this thread.
-		std::this_thread::sleep_for(5ms);
+		std::this_thread::sleep_for(20ms);
 	}
 
 	// Flush the encoder

@@ -275,6 +275,7 @@ struct OptsInternal
 	uint32_t audio_channels;
 	Bitrate audio_bitrate;
 	uint32_t audio_samplerate;
+	uint32_t alsa_period_size;
 	TimeVal<std::chrono::microseconds> av_sync;
 	std::string save_pts;
 	int quality;

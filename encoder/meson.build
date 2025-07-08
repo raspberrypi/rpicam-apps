@@ -25,10 +25,19 @@ foreach name : libav_dep_names
     libav_deps += dep
 endforeach
 
+# Add ALSA library dependency for direct ALSA support
+alsa_dep = dependency('alsa', required : true)
+if alsa_dep.found()
+    cpp_arguments += '-DALSA_PRESENT=1'
+endif
+
 if enable_libav
         rpicam_app_src += files('libav_encoder.cpp')
         encoder_headers += files('libav_encoder.hpp')
         rpicam_app_dep += libav_deps
+        if alsa_dep.found()
+            rpicam_app_dep += alsa_dep
+        endif
         cpp_arguments += '-DLIBAV_PRESENT=1'
 endif
 
