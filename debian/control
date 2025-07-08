@@ -2,7 +2,7 @@ Source: rpicam-apps
 Section: video
 Priority: optional
 Maintainer: Serge Schneider <serge@raspberrypi.com>
-Build-Depends: debhelper (>= 11),
+Build-Depends: debhelper-compat (= 13),
  meson,
  pkg-config,
  python3,
