@@ -69,7 +69,7 @@ Description: Pretrained AI models for the Raspberry Pi AI Camera (Sony IMX500)
 
 Package: imx500-all
 Architecture: all
-Depends: ${shlibs:Depends}, ${misc:Depends}, rpicam-apps-imx500-postprocess (= ${source:Version}), imx500-tools
+Depends: ${misc:Depends}, rpicam-apps-imx500-postprocess (>= ${source:Version}), imx500-tools
 Description: Full software stack for the Raspberry Pi AI Camera support (metapackage)
  imx500-all is a meta-package that installs all required software to enable and
  use the Raspberry Pi AI Camera. It includes device firmware, pretrained models,
