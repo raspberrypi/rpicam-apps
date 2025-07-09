@@ -28,17 +28,97 @@ Standards-Version: 4.1.3
 Homepage: https://github.com/raspberrypi/rpicam-apps/
 
 Package: rpicam-apps
-Architecture: armhf arm64
-Depends: ${shlibs:Depends}, ${misc:Depends}, python3:any
-Conflicts: rpicam-apps-lite
-Replaces: rpicam-apps-lite, libcamera-apps (<< 1.4.1-1~)
-Breaks: libcamera-apps (<< 1.4.1-1~)
+Architecture: all
+Depends:
+ ${misc:Depends},
+ rpicam-apps-core (>= ${source:Version}),
+ rpicam-apps-encoder (>= ${source:Version}),
+ rpicam-apps-opencv-postprocess (>= ${source:Version}),
+ rpicam-apps-preview (>= ${source:Version}),
 Description: Camera based applications for Raspberry Pi using the libcamera framework
  rpicam-apps is a suite of official command-line camera applications developed
  for Raspberry Pi, built on the libcamera framework. Tools like rpicam-still,
  rpicam-vid, and rpicam-preview enable high-quality image and video capture with
  official and 3rd party camera modules. The apps support a variety of controls
- and advanced features for flexible imaging use cases. 
+ and advanced features for flexible imaging use cases.
+ .
+ This is a metapackage that installs the core rpicam-apps applications as well
+ as the preview, opencv and encoder plugins.
+
+Package: rpicam-apps-core
+Architecture: armhf arm64
+Depends: ${shlibs:Depends}, ${misc:Depends}, python3:any
+Conflicts: rpicam-apps-lite (<<1.8.1-1~bookworm), rpicam-apps (<<1.8.1-1~bookworm)
+Replaces: rpicam-apps-lite (<<1.8.1-1~bookworm), rpicam-apps (<<1.8.1-1~bookworm), libcamera-apps (<< 1.4.1-1~)
+Breaks: rpicam-apps-lite (<<1.8.1-1~bookworm), rpicam-apps (<<1.8.1-1~bookworm), libcamera-apps (<< 1.4.1-1~)
+Description: Camera based applications for Raspberry Pi using the libcamera framework
+ rpicam-apps is a suite of official command-line camera applications developed
+ for Raspberry Pi, built on the libcamera framework. Tools like rpicam-still,
+ rpicam-vid, and rpicam-preview enable high-quality image and video capture with
+ official and 3rd party camera modules. The apps support a variety of controls
+ and advanced features for flexible imaging use cases.
+ .
+ This is a metapackage that installs the core rpicam-apps applications.
+
+Package: librpicam-app1
+Architecture: armhf arm64
+Multi-Arch: same
+Depends: ${misc:Depends}, ${shlibs:Depends}
+Description: Framework for rpicam-apps camera applications
+ The rpicam-apps libary is the core framework used by the rpicam-apps suite of
+ official command-line camera applications developed for Raspberry Pi, built on
+ the libcamera framework. Custom camera applications can be built using this
+ library.
+ .
+ This package contains the shared library.
+
+Package: librpicam-app-dev
+Section: libdevel
+Architecture: armhf arm64
+Multi-Arch: same
+Depends: ${misc:Depends}, librpicam-app1 (= ${binary:Version})
+Description: Framework for rpicam-apps camera applications
+ The rpicam-apps libary is the core framework used by the rpicam-apps suite of
+ official command-line camera applications developed for Raspberry Pi, built on
+ the libcamera framework. Custom camera applications can be built using this
+ library.
+ .
+ This package contains the development files.
+
+Package: rpicam-apps-encoder
+Architecture: armhf arm64
+Multi-Arch: same
+Depends: ${misc:Depends}, ${shlibs:Depends}
+Description: Framework for rpicam-apps camera applications
+ The rpicam-apps libary is the core framework used by the rpicam-apps suite of
+ official command-line camera applications developed for Raspberry Pi, built on
+ the libcamera framework. Custom camera applications can be built using this
+ library.
+ .
+ This package contains the encoder plugin.
+
+Package: rpicam-apps-preview
+Architecture: armhf arm64
+Multi-Arch: same
+Depends: ${misc:Depends}, ${shlibs:Depends}
+Description: Framework for rpicam-apps camera applications
+ The rpicam-apps libary is the core framework used by the rpicam-apps suite of
+ official command-line camera applications developed for Raspberry Pi, built on
+ the libcamera framework. Custom camera applications can be built using this
+ library.
+ .
+ This package contains the preview plugins.
+
+Package: rpicam-apps-opencv-postprocess
+Architecture: armhf arm64
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: Framework for rpicam-apps camera applications
+ The rpicam-apps libary is the core framework used by the rpicam-apps suite of
+ official command-line camera applications developed for Raspberry Pi, built on
+ the libcamera framework. Custom camera applications can be built using this
+ library.
+ .
+ This package contains the opencv plugin.
 
 Package: rpicam-apps-hailo-postprocess
 Architecture: arm64
@@ -77,15 +157,12 @@ Description: Full software stack for the Raspberry Pi AI Camera support (metapac
  assets.
 
 Package: rpicam-apps-lite
-Architecture: armhf arm64
-Depends: ${shlibs:Depends}, ${misc:Depends}, python3:any
-Conflicts: rpicam-apps
-Replaces: rpicam-apps, libcamera-apps-lite (<< 1.4.1-1~)
-Breaks: libcamera-apps-lite (<< 1.4.1-1~)
-Description: rpicam-apps-lite
- Small suite of libcamera-based apps that aim to copy the functionality of the
- existing "raspicam" apps. This version excludes features which require X11 and
- Qt
+Architecture: all
+Priority: optional
+Section: oldlibs
+Depends: rpicam-apps-core, ${misc:Depends}
+Description: transitional package
+ This is a transitional package. It can safely be removed.
 
 Package: libcamera-apps
 Architecture: all
@@ -99,6 +176,6 @@ Package: libcamera-apps-lite
 Architecture: all
 Priority: optional
 Section: oldlibs
-Depends: rpicam-apps-lite, ${misc:Depends}
+Depends: rpicam-apps-core, ${misc:Depends}
 Description: transitional package
  This is a transitional package. It can safely be removed.

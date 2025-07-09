@@ -1,0 +1,4 @@
+usr/bin/
+usr/lib/*/rpicam-apps-preview/drm-preview.so
+/usr/lib/*/rpicam-apps-postproc/core-postproc.so
+usr/share/rpi-camera-assets/

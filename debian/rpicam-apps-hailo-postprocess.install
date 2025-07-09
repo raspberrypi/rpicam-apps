@@ -1,1 +1,4 @@
 hailo-models usr/share/
+usr/share/hailo-models/
+usr/lib/*/rpicam-apps-postproc/hailo-postproc.so
+usr/share/rpi-camera-assets/hailo_*.json
