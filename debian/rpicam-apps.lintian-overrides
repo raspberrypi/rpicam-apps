@@ -1,0 +1,6 @@
+no-manual-page [usr/bin/camera-bug-report]
+no-manual-page [usr/bin/rpicam-hello]
+no-manual-page [usr/bin/rpicam-jpeg]
+no-manual-page [usr/bin/rpicam-raw]
+no-manual-page [usr/bin/rpicam-still]
+no-manual-page [usr/bin/rpicam-vid]
