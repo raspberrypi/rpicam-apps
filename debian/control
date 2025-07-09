@@ -33,35 +33,48 @@ Depends: ${shlibs:Depends}, ${misc:Depends}, python3:any
 Conflicts: rpicam-apps-lite
 Replaces: rpicam-apps-lite, libcamera-apps (<< 1.4.1-1~)
 Breaks: libcamera-apps (<< 1.4.1-1~)
-Description: rpicam-apps
- Small suite of libcamera-based apps that aim to copy the functionality of the
- existing "raspicam" apps
+Description: Camera based applications for Raspberry Pi using the libcamera framework
+ rpicam-apps is a suite of official command-line camera applications developed
+ for Raspberry Pi, built on the libcamera framework. Tools like rpicam-still,
+ rpicam-vid, and rpicam-preview enable high-quality image and video capture with
+ official and 3rd party camera modules. The apps support a variety of controls
+ and advanced features for flexible imaging use cases. 
 
 Package: rpicam-apps-hailo-postprocess
 Architecture: arm64
 Depends: ${shlibs:Depends}, ${misc:Depends}, rpicam-apps, hailort,
  hailo-tappas-core (>= 3.31.0),
-Description: rpicam-apps-hailo
- Small suite of libcamera-based apps that aim to copy the functionality of the
- existing "raspicam" apps. This package adds Hailo postprocessing support
+Description: Raspberry Pi AI HAT+ post-processing plugin for rpicam-apps
+ This package provides a post-processing module for rpicam-apps that integrates
+ with the Raspberry Pi AI HAT+ incorporating the Hailo AI accelerator. It
+ enables real-time CV inference (e.g., object detection) on frames captured by
+ the rpicam-apps framework.
 
 Package: rpicam-apps-imx500-postprocess
 Architecture: armhf arm64
 Depends: ${shlibs:Depends}, ${misc:Depends}, rpicam-apps, imx500-models (= ${source:Version})
-Description: rpicam-apps-imx500
- Small suite of libcamera-based apps that aim to copy the functionality of the
- existing "raspicam" apps. This package adds IMX500 postprocessing support
+Description: IMX500 AI metadata plugin for rpicam-apps
+ This package provides a post-processing module for rpicam-apps that integrates
+ with the Raspberry Pi AI Camera (Sony IMX500). It enables real-time CV
+ inference (e.g., object detection) on frames captured by the rpicam-apps
+ framework.
 
 Package: imx500-models
 Architecture: all
 Depends: ${misc:Depends}, imx500-firmware
-Description: AI models for the IMX500 camera module
- This package contains a set of AI models for the IMX500 camera module.
+Description: Pretrained AI models for the Raspberry Pi AI Camera (Sony IMX500)
+ This package includes a set of AI models optimized to run on the Raspberry Pi
+ AI Camera. The models support use cases such as object detection, pose
+ estimation, and object segmentation.
 
 Package: imx500-all
 Architecture: all
 Depends: ${shlibs:Depends}, ${misc:Depends}, rpicam-apps-imx500-postprocess (= ${source:Version}), imx500-tools
-Description: imx500 support (metapackage)
+Description: Full software stack for the Raspberry Pi AI Camera support (metapackage)
+ imx500-all is a meta-package that installs all required software to enable and
+ use the Raspberry Pi AI Camera. It includes device firmware, pretrained models,
+ neural network deployment tools, and rpicam-apps post-processing modules and
+ assets.
 
 Package: rpicam-apps-lite
 Architecture: armhf arm64
