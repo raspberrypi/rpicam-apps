@@ -11,7 +11,8 @@ CONFIG := -Ddownload_hailo_models=false \
 	  -Denable_tflite=disabled \
 	  -Denable_imx500=true
 
-ifeq ($(DEB_HOST_ARCH),arm64)
+#ifeq ($(DEB_HOST_ARCH),arm64)
+ifdef HAILO
 	CONFIG += -Denable_hailo=enabled
 
 # Hailo's packages are broken, so work around their limitations until they're fixed.
