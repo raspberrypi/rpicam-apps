@@ -4,7 +4,7 @@ Priority: optional
 Maintainer: Serge Schneider <serge@raspberrypi.com>
 Build-Depends: debhelper-compat (= 13),
  meson,
- pkg-config,
+ pkgconf,
  python3,
  libboost-dev,
  libboost-program-options-dev,
