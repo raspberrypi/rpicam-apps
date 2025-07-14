@@ -220,7 +220,9 @@ private:
 	std::vector<uint8_t> tmp_stripe_;
 };
 
-Preview *make_qt_preview(Options const *options)
+static Preview *Create(Options const *options)
 {
 	return new QtPreview(options);
 }
+
+static RegisterPreview reg("qt", &Create);

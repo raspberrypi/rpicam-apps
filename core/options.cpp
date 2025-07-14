@@ -235,6 +235,8 @@ Options::Options()
 			"Use a fullscreen preview window")
 		("qt-preview", value<bool>(&v_->qt_preview)->default_value(false)->implicit_value(true),
 			"Use Qt-based preview window (WARNING: causes heavy CPU load, fullscreen not supported)")
+		("preview-libs", value<std::string>(&v_->preview_libs)->default_value(""),
+			"Set a custom location for the preview library .so files")
 		("hflip", value<bool>(&v_->hflip_)->default_value(false)->implicit_value(true), "Request a horizontal flip transform")
 		("vflip", value<bool>(&v_->vflip_)->default_value(false)->implicit_value(true), "Request a vertical flip transform")
 		("rotation", value<int>(&v_->rotation_)->default_value(0), "Request an image rotation, 0 or 180")
@@ -378,7 +380,7 @@ bool OptsInternal::Parse(boost::program_options::variables_map &vm, RPiCamApp *a
 	if (version)
 	{
 		std::cout << "rpicam-apps build: " << RPiCamAppsVersion() << std::endl;
-		std::cout << "rpicam-apps capabilites: " << RPiCamAppsCapabilities() << std::endl;
+		std::cout << "rpicam-apps capabilites: " << RPiCamAppsCapabilities(preview_libs) << std::endl;
 		std::cout << "libcamera build: " << libcamera::CameraManager::version() << std::endl;
 		return false;
 	}

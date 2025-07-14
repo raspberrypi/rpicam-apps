@@ -38,6 +38,8 @@ PostProcessor::~PostProcessor()
 
 void PostProcessor::LoadModules(const std::string &lib_dir)
 {
+	static std::vector<DlLib> dynamic_stages_;
+
 	const fs::path path(!lib_dir.empty() ? lib_dir : POSTPROC_LIB_DIR);
 	const std::string ext(".so");
 
