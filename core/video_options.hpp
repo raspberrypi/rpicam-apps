@@ -35,11 +35,9 @@ struct VideoOptions : public Options
 			("inline", value<bool>(&v_->inline_headers)->default_value(false)->implicit_value(true),
 			 "Force PPS/SPS header with every I frame (h264 only)")
 			("codec", value<std::string>(&v_->codec)->default_value("h264"),
-			 "Set the codec to use, either h264, "
-#if LIBAV_PRESENT
-			  "libav, "
-#endif
-			  "mjpeg or yuv420")
+			 "Set the codec to use, either h264, libav (if available), mjpeg or yuv420")
+			("encoder-libs", value<std::string>(&v_->encoder_libs)->default_value(""),
+			 "Set a custom location for the encoder library .so files")
 			("save-pts", value<std::string>(&v_->save_pts),
 			 "Save a timestamp file with this name")
 			("quality,q", value<int>(&v_->quality)->default_value(50),
@@ -60,7 +58,6 @@ struct VideoOptions : public Options
 			 "Write output to a circular buffer of the given size (in MB) which is saved on exit")
 			("frames", value<unsigned int>(&v_->frames)->default_value(0),
 			 "Run for the exact number of frames specified. This will override any timeout set.")
-#if LIBAV_PRESENT
 			("libav-video-codec", value<std::string>(&v_->libav_video_codec)->default_value("h264_v4l2m2m"),
 			 "Sets the libav video codec to use. "
 			 "To list available codecs, run  the \"ffmpeg -codecs\" command.")
@@ -98,7 +95,6 @@ struct VideoOptions : public Options
 			 "The offset value can be either positive or negative.")
 			("low-latency", value<bool>(&v_->low_latency)->default_value(false)->implicit_value(true),
 			 "Enables the libav/libx264 low latency presets for video encoding.")
-#endif
 #ifndef DISABLE_RPI_FEATURES
 			 ("sync", value<std::string>(&v_->sync_)->default_value("off"),
 			  "Whether to synchronise with another camera. Use \"off\", \"server\" or \"client\".")

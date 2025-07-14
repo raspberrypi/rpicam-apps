@@ -64,3 +64,10 @@ void NullEncoder::outputThread()
 		output_ready_callback_(item.mem, item.length, item.timestamp_us, true);
 	}
 }
+
+static Encoder *Create(VideoOptions *options, [[maybe_unused]] StreamInfo const &info)
+{
+	return new NullEncoder(options);
+}
+
+static RegisterEncoder reg("null", &Create);

@@ -60,10 +60,7 @@ void PreviewFactory::LoadPreviewLibraries(const std::string &lib_dir)
 			{
 				preview_libraries_.emplace_back(library_path);
 				loaded_library_paths_.insert(library_path);
-				LOG(1, "Loaded preview library: " << library_path);
 			}
-			else
-				LOG(1, "Skipping already loaded library: " << library_path);
 		}
 	}
 }
