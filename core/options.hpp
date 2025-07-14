@@ -319,6 +319,8 @@ struct OptsInternal
 	bool immediate;
 	bool zsl;
 	std::string timelapse_;
+
+	std::string preview_libs;
 };
 
 struct Options
