@@ -21,6 +21,8 @@
 
 #include "core/options.hpp"
 
+#include "config.h"
+
 namespace fs = std::filesystem;
 
 static const std::map<int, std::string> cfa_map =

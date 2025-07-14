@@ -13,6 +13,8 @@
 
 #include "options.hpp"
 
+#include "config.h"
+
 struct VideoOptions : public Options
 {
 	VideoOptions() : Options()

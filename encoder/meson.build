@@ -29,7 +29,7 @@ if enable_libav
         rpicam_app_src += files('libav_encoder.cpp')
         encoder_headers += files('libav_encoder.hpp')
         rpicam_app_dep += libav_deps
-        cpp_arguments += '-DLIBAV_PRESENT=1'
+        conf_data.set('LIBAV_PRESENT', 1)
 endif
 
 install_headers(encoder_headers, subdir: meson.project_name() / 'encoder')
