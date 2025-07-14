@@ -40,6 +40,8 @@ if get_option('disable_rpi_features') == true
     cpp_arguments += '-DDISABLE_RPI_FEATURES'
 endif
 
+add_project_arguments(cpp_arguments, language : 'cpp')
+
 summary({
             'location' : libcamera_dep.get_variable('libdir'),
             'version' : libcamera_dep.version()
@@ -49,17 +51,17 @@ summary({
 rpicam_app_src = []
 rpicam_app_dep = [libcamera_dep, dl_dep]
 
+conf_data = configuration_data()
+
 subdir('core')
 subdir('encoder')
 subdir('image')
 subdir('output')
+subdir('post_processing_stages')
 subdir('preview')
 subdir('utils')
 
-add_project_arguments(cpp_arguments, language : 'cpp')
-
-# Must be put after add_project_arguments as it defines shared library targets.
-subdir('post_processing_stages')
+configure_file(output : 'config.h', configuration : conf_data)
 
 # Generate a version string.
 version_cmd = [meson.project_source_root() / 'utils' / 'version.py', meson.project_version()]

@@ -23,6 +23,8 @@
 #include "core/logging.hpp"
 #include "core/version.hpp"
 
+#include "config.h"
+
 static constexpr double DEFAULT_FRAMERATE = 30.0;
 
 struct Mode

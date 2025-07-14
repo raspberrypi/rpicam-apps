@@ -8,6 +8,8 @@
 
 #include "core/version.hpp"
 
+#include "config.h"
+
 #if LIBEGL_PRESENT
 static constexpr int egl = 1;
 #else

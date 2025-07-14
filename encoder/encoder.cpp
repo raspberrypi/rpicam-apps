@@ -17,6 +17,8 @@
 #include "mjpeg_encoder.hpp"
 #include "null_encoder.hpp"
 
+#include "config.h"
+
 #if LIBAV_PRESENT
 #include "libav_encoder.hpp"
 #endif

@@ -21,7 +21,7 @@
 
 #include <libcamera/formats.h>
 
-#include "post_processing_stages/postproc_lib.h"
+#include "config.h"
 
 namespace fs = std::filesystem;
 
