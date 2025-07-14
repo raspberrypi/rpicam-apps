@@ -298,7 +298,7 @@ public:
 private:
 	void runInference(const uint8_t *input, uint32_t *output);
 
-	PostProcessingLib postproc_;
+	DlLib postproc_;
 	ScrfdParams *params_;
 };
 

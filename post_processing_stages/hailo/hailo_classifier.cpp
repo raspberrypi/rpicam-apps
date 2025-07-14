@@ -42,7 +42,7 @@ public:
 private:
 	std::vector<HailoClassificationPtr> runInference(uint8_t *frame);
 
-	PostProcessingLib postproc_;
+	DlLib postproc_;
 
 	// Config params
 	float threshold_;

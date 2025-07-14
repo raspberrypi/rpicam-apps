@@ -63,7 +63,7 @@ private:
 
 	std::vector<LtObject> lt_objects_;
 	std::mutex lock_;
-	PostProcessingLib postproc_nms_;
+	DlLib postproc_nms_;
 	YoloParamsNMS *yolo_params_ = nullptr;
 
 	// Config params

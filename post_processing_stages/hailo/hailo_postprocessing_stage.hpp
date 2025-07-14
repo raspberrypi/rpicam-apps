@@ -20,6 +20,7 @@
 #include <hailo/hailort.hpp>
 #include "hailo_objects.hpp"
 
+#include "core/dl_lib.hpp"
 #include "core/rpicam_app.hpp"
 #include "post_processing_stages/post_processing_stage.hpp"
 
