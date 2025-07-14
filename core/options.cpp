@@ -380,7 +380,7 @@ bool OptsInternal::Parse(boost::program_options::variables_map &vm, RPiCamApp *a
 	if (version)
 	{
 		std::cout << "rpicam-apps build: " << RPiCamAppsVersion() << std::endl;
-		std::cout << "rpicam-apps capabilites: " << RPiCamAppsCapabilities(preview_libs) << std::endl;
+		std::cout << "rpicam-apps capabilites: " << RPiCamAppsCapabilities(preview_libs, encoder_libs) << std::endl;
 		std::cout << "libcamera build: " << libcamera::CameraManager::version() << std::endl;
 		return false;
 	}
@@ -742,10 +742,8 @@ void OptsInternal::Print() const
 bool OptsInternal::ParseVideo()
 {
 	bitrate.set(bitrate_);
-#if LIBAV_PRESENT
 	av_sync.set(av_sync_);
 	audio_bitrate.set(audio_bitrate_);
-#endif /* LIBAV_PRESENT */
 	if (width == 0)
 		width = 640;
 	if (height == 0)
