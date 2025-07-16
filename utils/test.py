@@ -97,30 +97,32 @@ def check_jpeg(file, preamble):
         raise TestFailure(preamble + "- bad EXIF data")
 
 
-def test_hello(exe_dir, output_dir):
+def test_hello(exe_dir, output_dir, preview_dir):
     executable = os.path.join(exe_dir, 'rpicam-hello')
     logfile = os.path.join(output_dir, 'log.txt')
     print("Testing", executable)
     check_exists(executable, 'test_hello')
     clean_dir(output_dir)
-
+    args = [executable]
+    if preview_dir:
+        args += ['--preview-libs', preview_dir]
     # "run test". Just see if the executable appeared to run.
     print("    run test")
-    retcode, time_taken = run_executable([executable, '-t', '2000'], logfile)
+    retcode, time_taken = run_executable(args + ['-t', '2000'], logfile)
     check_retcode(retcode, "test_hello: run test")
     check_time(time_taken, 1, 6, "test_hello: run test")
 
     # "roi test". Specify an roi and see if it blows up.
     print("    roi test")
     retcode, time_taken = run_executable(
-        [executable, '-t', '2000', '--roi', '0.25,0.25,0.5,0.5'], logfile)
+        args + ['-t', '2000', '--roi', '0.25,0.25,0.5,0.5'], logfile)
     check_retcode(retcode, "test_hello: roi test")
     check_time(time_taken, 1, 6, "test_hello: roi test")
 
     # "crops test". Specify an image crop with lores output and see if it blows up.
     print("    crop test")
     retcode, time_taken = run_executable(
-        [executable, '-t', '2000', '--roi', '0.25,0.25,0.5,0.5',
+        args + ['-t', '2000', '--roi', '0.25,0.25,0.5,0.5',
          '--lores-width', '640', '--lores-height', '640'], logfile)
     check_retcode(retcode, "test_hello: crop test")
     check_time(time_taken, 1, 6, "test_hello: crop test")
@@ -128,7 +130,7 @@ def test_hello(exe_dir, output_dir):
     # "controls test". Specify some image controls and see if it blows up.
     print("    controls test")
     retcode, time_taken = run_executable(
-        [executable, '-t', '2000', '--brightness', '0.2', '--contrast', '1.2',
+        args + ['-t', '2000', '--brightness', '0.2', '--contrast', '1.2',
          '--saturation', '1.3', '--sharpness', '1.5'], logfile)
     check_retcode(retcode, "test_hello: controls test")
     check_time(time_taken, 1, 6, "test_hello: controls test")
@@ -136,13 +138,13 @@ def test_hello(exe_dir, output_dir):
     # "controls test". Apply flips and see if it blows up.
     print("    flips test")
     retcode, time_taken = run_executable(
-        [executable, '-t', '2000', '--hflip', '--vflip'], logfile)
+        args + ['-t', '2000', '--hflip', '--vflip'], logfile)
     check_retcode(retcode, "test_hello: flips test")
     check_time(time_taken, 1, 6, "test_hello: flips test")
 
     # "no-raw". Run without a raw stream
     print("    no-raw test")
-    retcode, time_taken = run_executable([executable, '-t', '2000', '--no-raw'], logfile)
+    retcode, time_taken = run_executable(args + ['-t', '2000', '--no-raw'], logfile)
     check_retcode(retcode, "test_hello: no-raw test")
     check_time(time_taken, 1, 6, "test_hello: no-raw test")
 
@@ -206,7 +208,7 @@ def check_metadata_txt(file, preamble):
         raise TestFailure(preamble + " - metadata file does not contain expected data")
 
 
-def test_still(exe_dir, output_dir):
+def test_still(exe_dir, output_dir, preview_dir):
     platform = get_platform()
     executable = os.path.join(exe_dir, 'rpicam-still')
     output_jpg = os.path.join(output_dir, 'test.jpg')
@@ -220,31 +222,33 @@ def test_still(exe_dir, output_dir):
     print("Testing", executable)
     check_exists(executable, 'test_still')
     clean_dir(output_dir)
-
+    args = [executable]
+    if preview_dir:
+        args += ['--preview-libs', preview_dir]
     # "jpg test". See if the executable appears to run and write an jpg output file.
     print("    jpg test")
-    retcode, time_taken = run_executable([executable, '-t', '1000', '-o', output_jpg], logfile)
+    retcode, time_taken = run_executable(args + ['-t', '1000', '-o', output_jpg], logfile)
     check_retcode(retcode, "test_still: jpg test")
     check_time(time_taken, 1, 10, "test_still: jpg test")
     check_size(output_jpg, 1024, "test_still: jpg test")
 
     # "no-raw test". As above but without a raw stream.
     print("    no-raw test")
-    retcode, time_taken = run_executable([executable, '-t', '1000', '-o', output_jpg, '--no-raw'], logfile)
+    retcode, time_taken = run_executable(args + ['-t', '1000', '-o', output_jpg, '--no-raw'], logfile)
     check_retcode(retcode, "test_still: no-raw test")
     check_time(time_taken, 1, 10, "test_still: no-raw test")
     check_size(output_jpg, 1024, "test_still: no-raw test")
 
     # "zsl test". As above, but with zsl enabled
     print("    zsl test")
-    retcode, time_taken = run_executable([executable, '-t', '1000', '-o', output_jpg, '--zsl'], logfile)
+    retcode, time_taken = run_executable(args + ['-t', '1000', '-o', output_jpg, '--zsl'], logfile)
     check_retcode(retcode, "test_still: zsl test")
     check_time(time_taken, 1, 10, "test_still: zsl test")
     check_size(output_jpg, 1024, "test_still: zsl test")
 
     # "immediate test". Immediate capture test
     print("    immediate test")
-    retcode, time_taken = run_executable([executable, '-o', output_jpg, '--immediate', '--shutter', '20000',
+    retcode, time_taken = run_executable(args + ['-o', output_jpg, '--immediate', '--shutter', '20000',
                                           '--gain', '1.0', '--awbgains', '1.5,1.2'], logfile)
     check_retcode(retcode, "test_still: immediate test")
     check_time(time_taken, 0.2, 8, "test_still: immediate test")
@@ -253,7 +257,7 @@ def test_still(exe_dir, output_dir):
     # "png test". As above, but write a png.
     print("    png test")
     retcode, time_taken = run_executable(
-        [executable, '-t', '1000', '-e', 'png', '-o', output_png], logfile)
+        args + ['-t', '1000', '-e', 'png', '-o', output_png], logfile)
     check_retcode(retcode, "test_still: png test")
     check_time(time_taken, 1, 10, "test_still: png test")
     check_size(output_png, 1024, "test_still: png test")
@@ -261,7 +265,7 @@ def test_still(exe_dir, output_dir):
     # "bmp test". As above, but write a bmp.
     print("    bmp test")
     retcode, time_taken = run_executable(
-        [executable, '-t', '1000', '-e', 'bmp', '-o', output_bmp], logfile)
+        args + ['-t', '1000', '-e', 'bmp', '-o', output_bmp], logfile)
     check_retcode(retcode, "test_still: bmp test")
     check_time(time_taken, 1, 10, "test_still: bmp test")
     check_size(output_png, 1024, "test_still: bmp test")
@@ -270,7 +274,7 @@ def test_still(exe_dir, output_dir):
         # "rgb48 test". Writes a 16bpp RGB raw image.
         print("    48bpp test")
         retcode, time_taken = run_executable(
-            [executable, '-t', '1000', '-e', 'rgb48', '-o', output_rgb48], logfile)
+            args + ['-t', '1000', '-e', 'rgb48', '-o', output_rgb48], logfile)
         check_retcode(retcode, "test_still: rgb48 test")
         check_time(time_taken, 1.2, 10, "test_still: rgb48 test")
         check_size(output_rgb48, 1024 * 1024, "test_still: rgb48 test")
@@ -278,7 +282,7 @@ def test_still(exe_dir, output_dir):
     # "dng test". Write a dng along with the jpg.
     print("    dng test")
     retcode, time_taken = run_executable(
-        [executable, '-t', '1000', '-o', output_jpg, '-r'], logfile)
+        args + ['-t', '1000', '-o', output_jpg, '-r'], logfile)
     check_retcode(retcode, "test_still: dng test")
     check_time(time_taken, 1, 10, "test_still: dng test")
     check_size(output_jpg, 1024, "test_still: dng test")
@@ -287,7 +291,7 @@ def test_still(exe_dir, output_dir):
     # "timelapse test". Check that a timelapse sequence captures more than one jpg.
     print("    timelapse test")
     retcode, time_taken = run_executable(
-        [executable, '-t', '10000', '--timelapse', '3500', '-o', os.path.join(output_dir, 'test%03d.jpg')],
+        args + ['-t', '10000', '--timelapse', '3500', '-o', os.path.join(output_dir, 'test%03d.jpg')],
         logfile)
     check_retcode(retcode, "test_still: timelapse test")
     check_time(time_taken, 9, 20, "test_still: timelapse test")
@@ -298,7 +302,7 @@ def test_still(exe_dir, output_dir):
 
     # "metadata test". Check that the json metadata file is written and looks sensible
     print("    metadata test")
-    retcode, time_taken = run_executable([executable, '-t', '1000', '-o', output_jpg,
+    retcode, time_taken = run_executable(args + ['-t', '1000', '-o', output_jpg,
                                           '--metadata', output_metadata], logfile)
     check_retcode(retcode, "test_still: metadata test")
     check_time(time_taken, 1, 8, "test_still: metadata test")
@@ -307,7 +311,7 @@ def test_still(exe_dir, output_dir):
 
     # "metadata txt test". Check that the txt metadata file is written and looks sensible
     print("    metadata txt test")
-    retcode, time_taken = run_executable([executable, '-t', '1000', '-o', output_jpg,
+    retcode, time_taken = run_executable(args + ['-t', '1000', '-o', output_jpg,
                                           '--metadata', output_metadata_txt,
                                           '--metadata-format', 'txt'], logfile)
     check_retcode(retcode, "test_still: metadata txt test")
@@ -402,7 +406,7 @@ def check_timestamps(file, preamble):
         raise TestFailure(preamble + " - timestamps not increasing")
 
 
-def test_vid(exe_dir, output_dir):
+def test_vid(exe_dir, output_dir, preview_dir, encoder_dir):
     platform = get_platform()
     executable = os.path.join(exe_dir, 'rpicam-vid')
     output_h264 = os.path.join(output_dir, 'test.h264')
@@ -418,10 +422,14 @@ def test_vid(exe_dir, output_dir):
     print("Testing", executable)
     check_exists(executable, 'test_vid')
     clean_dir(output_dir)
-
+    args = [executable]
+    if preview_dir:
+        args += ['--preview-libs', preview_dir]
+    if encoder_dir:
+        args += ['--encoder-libs', encoder_dir]
     # "h264 test". See if the executable appears to run and write an h264 output file.
     print("    h264 test")
-    retcode, time_taken = run_executable([executable, '-t', '2000', '-o', output_h264],
+    retcode, time_taken = run_executable(args + ['-t', '2000', '-o', output_h264],
                                          logfile)
     check_retcode(retcode, "test_vid: h264 test")
     check_time(time_taken, 2, 6, "test_vid: h264 test")
@@ -429,7 +437,7 @@ def test_vid(exe_dir, output_dir):
 
     # "no-raw". As above, but with no raw stream
     print("    h264 no-raw ltest")
-    retcode, time_taken = run_executable([executable, '-t', '2000', '-o', output_h264, '--no-raw'],
+    retcode, time_taken = run_executable(args + ['-t', '2000', '-o', output_h264, '--no-raw'],
                                          logfile)
     check_retcode(retcode, "test_vid: no-raw test")
     check_time(time_taken, 2, 6, "test_vid: no-raw test")
@@ -437,7 +445,7 @@ def test_vid(exe_dir, output_dir):
 
     # "libav x264 mkv test". See if the executable appears to run and write an mkv output file.
     print("    libav libx264 mkv test")
-    retcode, time_taken = run_executable([executable, '-t', '2000', '-o', output_mkv, '--codec', 'libav',
+    retcode, time_taken = run_executable(args + ['-t', '2000', '-o', output_mkv, '--codec', 'libav',
                                           '--libav-video-codec', 'libx264'], logfile)
     check_retcode(retcode, "test_vid: libav libx264 mkv test")
     check_time(time_taken, 2, 6, "test_vid: libav libx264 mkv test")
@@ -445,7 +453,7 @@ def test_vid(exe_dir, output_dir):
 
     # "libav x264 mp4 test". As above, but with mp4
     print("    libav libx264 mp4 test")
-    retcode, time_taken = run_executable([executable, '-t', '2000', '-o', output_mp4, '--codec', 'libav',
+    retcode, time_taken = run_executable(args + ['-t', '2000', '-o', output_mp4, '--codec', 'libav',
                                           '--libav-video-codec', 'libx264'], logfile)
     check_retcode(retcode, "test_vid: libav libx264 mp4 test")
     check_time(time_taken, 2, 6, "test_vid: libav libx264 mp4 test")
@@ -453,7 +461,7 @@ def test_vid(exe_dir, output_dir):
 
     # "libav x264 options test". See if the executable appears to run and write an h264 output file with codec options.
     print("    libav libx264 options test")
-    retcode, time_taken = run_executable([executable, '-t', '2000', '-o', output_h264, '--codec', 'libav',
+    retcode, time_taken = run_executable(args + ['-t', '2000', '-o', output_h264, '--codec', 'libav',
                                           '--libav-video-codec', 'libx264',
                                           '--libav-video-codec-opts', 'preset=ultrafast;profile=high;partitions=i8x8,i4x4'], logfile)
     check_retcode(retcode, "test_vid: libav libx264 options test")
@@ -462,7 +470,7 @@ def test_vid(exe_dir, output_dir):
 
     # "mjpeg test". As above, but write an mjpeg file.
     print("    mjpeg test")
-    retcode, time_taken = run_executable([executable, '-t', '2000', '--codec', 'mjpeg',
+    retcode, time_taken = run_executable(args + ['-t', '2000', '--codec', 'mjpeg',
                                           '-o', output_mjpeg],
                                          logfile)
     check_retcode(retcode, "test_vid: mjpeg test")
@@ -475,7 +483,7 @@ def test_vid(exe_dir, output_dir):
 
     # "segment test". As above, write the output in single frame segements.
     print("    segment test")
-    retcode, time_taken = run_executable([executable, '-t', '2000', '--codec', 'mjpeg',
+    retcode, time_taken = run_executable(args + ['-t', '2000', '--codec', 'mjpeg',
                                           '--segment', '1', '-o', os.path.join(output_dir, 'test%03d.jpg')],
                                          logfile)
     check_retcode(retcode, "test_vid: segment test")
@@ -485,7 +493,7 @@ def test_vid(exe_dir, output_dir):
 
     # "circular test". Test circular buffer (really we should wait for it to wrap...)
     print("    circular test")
-    retcode, time_taken = run_executable([executable, '-t', '2000', '--inline', '--circular',
+    retcode, time_taken = run_executable(args + ['-t', '2000', '--inline', '--circular',
                                           '-o', output_circular], logfile)
     check_retcode(retcode, "test_vid: circular test")
     check_time(time_taken, 2, 6, "test_vid: circular test")
@@ -493,7 +501,7 @@ def test_vid(exe_dir, output_dir):
 
     # "pause test". Should be no output file if we start 'paused'.
     print("    pause test")
-    retcode, time_taken = run_executable([executable, '-t', '2000', '--inline',
+    retcode, time_taken = run_executable(args + ['-t', '2000', '--inline',
                                           '--initial', 'pause', '-o', output_pause], logfile)
     check_retcode(retcode, "test_vid: pause test")
     check_time(time_taken, 2, 6, "test_vid: pause test")
@@ -502,7 +510,7 @@ def test_vid(exe_dir, output_dir):
 
     # "timestamp test". Check that the timestamp file is written and looks sensible.
     print("    timestamp test")
-    retcode, time_taken = run_executable([executable, '-t', '2000', '-o', output_h264,
+    retcode, time_taken = run_executable(args + ['-t', '2000', '-o', output_h264,
                                           '--save-pts', output_timestamps], logfile)
     check_retcode(retcode, "test_vid: timestamp test")
     check_time(time_taken, 2, 6, "test_vid: timestamp test")
@@ -511,7 +519,7 @@ def test_vid(exe_dir, output_dir):
 
     # "metadata test". Check that the json metadata file is written and looks sensible
     print("    metadata test")
-    retcode, time_taken = run_executable([executable, '-t', '2000', '-o', output_h264,
+    retcode, time_taken = run_executable(args + ['-t', '2000', '-o', output_h264,
                                           '--save-pts', output_timestamps,
                                           '--metadata', output_metadata], logfile)
     check_retcode(retcode, "test_vid: metadata test")
@@ -521,7 +529,7 @@ def test_vid(exe_dir, output_dir):
 
     # "metadata txt test". Check that the txt metadata file is written and looks sensible
     print("    metadata txt test")
-    retcode, time_taken = run_executable([executable, '-t', '2000', '-o', output_h264,
+    retcode, time_taken = run_executable(args + ['-t', '2000', '-o', output_h264,
                                           '--metadata', output_metadata_txt,
                                           '--metadata-format', 'txt'], logfile)
     check_retcode(retcode, "test_vid: metadata txt test")
@@ -631,16 +639,16 @@ def test_post_processing(exe_dir, output_dir, json_dir, postproc_dir):
     print("post-processing tests passed")
 
 
-def test_all(apps, exe_dir, output_dir, json_dir, postproc_dir):
+def test_all(apps, exe_dir, output_dir, json_dir, postproc_dir, preview_dir, encoder_dir):
     try:
         if 'hello' in apps:
-            test_hello(exe_dir, output_dir)
+            test_hello(exe_dir, output_dir, preview_dir)
         if 'still' in apps:
-            test_still(exe_dir, output_dir)
+            test_still(exe_dir, output_dir, preview_dir)
         if 'jpeg' in apps:
             test_jpeg(exe_dir, output_dir)
         if 'vid' in apps:
-            test_vid(exe_dir, output_dir)
+            test_vid(exe_dir, output_dir, preview_dir, encoder_dir)
         if 'raw' in apps:
             test_raw(exe_dir, output_dir)
         if 'post-processing' in apps:
@@ -668,11 +676,18 @@ if __name__ == '__main__':
                         help='Directory name for JSON post-processing files')
     parser.add_argument('--post-process-libs', '-p', action='store', default=None,
                         help='Directory name custom post-processing libraries')
+    parser.add_argument('--preview-libs', action='store', default=None,
+                        help='Directory name custom preview libraries')
+    parser.add_argument('--encoder-libs', action='store', default=None,
+                        help='Directory name custom encoder libraries')
     args = parser.parse_args()
     apps = args.apps.split(',')
     exe_dir = args.exe_dir.rstrip('/')
     output_dir = args.output_dir
     json_dir = args.json_dir
     postproc_dir = args.post_process_libs
-    print("Exe_dir:", exe_dir, "Output_dir:", output_dir, "Json_dir:", json_dir, "Postproc_dir:", postproc_dir)
-    test_all(apps, exe_dir, output_dir, json_dir, postproc_dir)
+    preview_dir = args.preview_libs
+    encoder_dir = args.encoder_libs
+    print("Exe_dir:", exe_dir, "Output_dir:", output_dir, "Json_dir:", json_dir, "Postproc_dir:", postproc_dir,
+          "Preview dir:", preview_dir, "Encoder dir:", encoder_dir)
+    test_all(apps, exe_dir, output_dir, json_dir, postproc_dir, preview_dir, encoder_dir)
