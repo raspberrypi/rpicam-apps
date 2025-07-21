@@ -191,3 +191,10 @@ void MjpegEncoder::outputThread()
 		index++;
 	}
 }
+
+static Encoder *Create(VideoOptions *options, [[maybe_unused]] StreamInfo const &info)
+{
+	return new MjpegEncoder(options);
+}
+
+static RegisterEncoder reg("mjpeg", &Create);

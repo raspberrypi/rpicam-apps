@@ -21,6 +21,8 @@
 
 #include "core/options.hpp"
 
+#include "config.h"
+
 namespace fs = std::filesystem;
 
 static const std::map<int, std::string> cfa_map =
@@ -233,6 +235,8 @@ Options::Options()
 			"Use a fullscreen preview window")
 		("qt-preview", value<bool>(&v_->qt_preview)->default_value(false)->implicit_value(true),
 			"Use Qt-based preview window (WARNING: causes heavy CPU load, fullscreen not supported)")
+		("preview-libs", value<std::string>(&v_->preview_libs)->default_value(""),
+			"Set a custom location for the preview library .so files")
 		("hflip", value<bool>(&v_->hflip_)->default_value(false)->implicit_value(true), "Request a horizontal flip transform")
 		("vflip", value<bool>(&v_->vflip_)->default_value(false)->implicit_value(true), "Request a vertical flip transform")
 		("rotation", value<int>(&v_->rotation_)->default_value(0), "Request an image rotation, 0 or 180")
@@ -376,7 +380,7 @@ bool OptsInternal::Parse(boost::program_options::variables_map &vm, RPiCamApp *a
 	if (version)
 	{
 		std::cout << "rpicam-apps build: " << RPiCamAppsVersion() << std::endl;
-		std::cout << "rpicam-apps capabilites: " << RPiCamAppsCapabilities() << std::endl;
+		std::cout << "rpicam-apps capabilites: " << RPiCamAppsCapabilities(preview_libs, encoder_libs) << std::endl;
 		std::cout << "libcamera build: " << libcamera::CameraManager::version() << std::endl;
 		return false;
 	}
@@ -738,10 +742,8 @@ void OptsInternal::Print() const
 bool OptsInternal::ParseVideo()
 {
 	bitrate.set(bitrate_);
-#if LIBAV_PRESENT
 	av_sync.set(av_sync_);
 	audio_bitrate.set(audio_bitrate_);
-#endif /* LIBAV_PRESENT */
 	if (width == 0)
 		width = 640;
 	if (height == 0)

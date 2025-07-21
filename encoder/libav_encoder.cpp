@@ -826,3 +826,10 @@ void LibAvEncoder::audioThread()
 	av_packet_free(&out_pkt);
 	av_frame_free(&in_frame);
 }
+
+static Encoder *Create(VideoOptions *options, StreamInfo const &info)
+{
+	return new LibAvEncoder(options, info);
+}
+
+static RegisterEncoder reg("libav", &Create);

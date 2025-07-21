@@ -185,7 +185,7 @@ public:
 private:
 	bool runInference(uint8_t *input, uint32_t *output);
 
-	PostProcessingLib postproc_;
+	DlLib postproc_;
 	Yolov5segParams *yolo_params_ = nullptr;
 
 	// Config params

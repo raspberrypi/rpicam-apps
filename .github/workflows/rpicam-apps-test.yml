@@ -107,7 +107,7 @@ jobs:
       run: ldd ${{github.workspace}}/build/apps/rpicam-hello | grep libcamera
 
     - name: Test
-      run: ${{github.workspace}}/utils/test.py --exe-dir ${{github.workspace}}/build/apps/ --output-dir ${{github.workspace}}/test_output --json-dir ${{github.workspace}}/assets --post-process-libs ${{github.workspace}}/build/post_processing_stages/
+      run: ${{github.workspace}}/utils/test.py --exe-dir ${{github.workspace}}/build/apps/ --output-dir ${{github.workspace}}/test_output --json-dir ${{github.workspace}}/assets --post-process-libs ${{github.workspace}}/build/post_processing_stages/ --preview-libs ${{github.workspace}}/build/preview/ --encoder-libs ${{github.workspace}}/build/encoder/
       timeout-minutes: 8
 
     - name: Upload test output
