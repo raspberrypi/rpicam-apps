@@ -23,6 +23,8 @@
 #include "core/logging.hpp"
 #include "core/version.hpp"
 
+#include "config.h"
+
 static constexpr double DEFAULT_FRAMERATE = 30.0;
 
 struct Mode
@@ -292,10 +294,8 @@ struct OptsInternal
 	uint32_t sync;
 #endif
 	std::string bitrate_;
-#if LIBAV_PRESENT
 	std::string av_sync_;
 	std::string audio_bitrate_;
-#endif /* LIBAV_PRESENT */
 #ifndef DISABLE_RPI_FEATURES
 	std::string sync_;
 #endif
@@ -317,6 +317,9 @@ struct OptsInternal
 	bool immediate;
 	bool zsl;
 	std::string timelapse_;
+
+	std::string preview_libs;
+	std::string encoder_libs;
 };
 
 struct Options

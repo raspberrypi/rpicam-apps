@@ -1,8 +1,6 @@
 posproc_libdir = get_option('prefix') / get_option('libdir') / 'rpicam-apps-postproc'
 
-conf_data = configuration_data()
 conf_data.set('POSTPROC_LIB_DIR', '"' + posproc_libdir + '"')
-configure_file(output : 'postproc_lib.h', configuration : conf_data)
 
 # JSON (and other assets)
 assets_dir = meson.project_source_root() / 'assets'

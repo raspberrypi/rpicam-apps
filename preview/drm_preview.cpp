@@ -428,7 +428,10 @@ void DrmPreview::Reset()
 	first_time_ = true;
 }
 
-Preview *make_drm_preview(Options const *options)
+static Preview *Create(Options const *options)
 {
 	return new DrmPreview(options);
 }
+
+static RegisterPreview reg("drm", &Create);
+

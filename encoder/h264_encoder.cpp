@@ -376,3 +376,10 @@ void H264Encoder::outputThread()
 			throw std::runtime_error("failed to re-queue encoded buffer");
 	}
 }
+
+static Encoder *Create(VideoOptions *options, StreamInfo const &info)
+{
+	return new H264Encoder(options, info);
+}
+
+static RegisterEncoder reg("h264", &Create);
