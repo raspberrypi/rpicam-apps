@@ -16,22 +16,17 @@
 
 #include "core/logging.hpp"
 
-namespace
-{
-/*
- * /dev/dma-heap/vidbuf_cached sym links to either the system heap (Pi 5) or the
- * CMA allocator (Pi 4 and below). If missing, fallback to the CMA allocator.
- */
-const std::vector<const char *> heapNames
-{
-	"/dev/dma_heap/vidbuf_cached",
-	"/dev/dma_heap/linux,cma",
-};
-
-} // namespace
-
 DmaHeap::DmaHeap()
 {
+	/*
+	 * /dev/dma-heap/vidbuf_cached sym links to either the system heap (Pi 5) or the
+	 * CMA allocator (Pi 4 and below). If missing, fallback to the CMA allocator.
+	 */
+	static const std::vector<const char *> heapNames {
+		"/dev/dma_heap/vidbuf_cached",
+		"/dev/dma_heap/linux,cma",
+	};
+
 	for (const char *name : heapNames)
 	{
 		int ret = ::open(name, O_RDWR | O_CLOEXEC, 0);

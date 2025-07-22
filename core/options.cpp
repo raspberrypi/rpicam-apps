@@ -25,36 +25,48 @@
 
 namespace fs = std::filesystem;
 
-static const std::map<int, std::string> cfa_map =
+namespace
 {
-	{ properties::draft::ColorFilterArrangementEnum::RGGB, "RGGB" },
-	{ properties::draft::ColorFilterArrangementEnum::GRBG, "GRBG" },
-	{ properties::draft::ColorFilterArrangementEnum::GBRG, "GBRG" },
-	{ properties::draft::ColorFilterArrangementEnum::RGB, "RGB" },
-	{ properties::draft::ColorFilterArrangementEnum::MONO, "MONO" },
-};
 
-static const std::map<libcamera::PixelFormat, unsigned int> bayer_formats =
+const std::map<int, std::string> &cfa_map()
 {
-	{ libcamera::formats::SRGGB10_CSI2P, 10 },
-	{ libcamera::formats::SGRBG10_CSI2P, 10 },
-	{ libcamera::formats::SBGGR10_CSI2P, 10 },
-	{ libcamera::formats::R10_CSI2P,     10 },
-	{ libcamera::formats::SGBRG10_CSI2P, 10 },
-	{ libcamera::formats::SRGGB12_CSI2P, 12 },
-	{ libcamera::formats::SGRBG12_CSI2P, 12 },
-	{ libcamera::formats::SBGGR12_CSI2P, 12 },
-	{ libcamera::formats::SGBRG12_CSI2P, 12 },
-	{ libcamera::formats::SRGGB14_CSI2P, 14 },
-	{ libcamera::formats::SGRBG14_CSI2P, 14 },
-	{ libcamera::formats::SBGGR14_CSI2P, 14 },
-	{ libcamera::formats::SGBRG14_CSI2P, 14 },
-	{ libcamera::formats::SRGGB16,       16 },
-	{ libcamera::formats::SGRBG16,       16 },
-	{ libcamera::formats::SBGGR16,       16 },
-	{ libcamera::formats::SGBRG16,       16 },
-};
+	static const std::map<int, std::string> map {
+		{ properties::draft::ColorFilterArrangementEnum::RGGB, "RGGB" },
+		{ properties::draft::ColorFilterArrangementEnum::GRBG, "GRBG" },
+		{ properties::draft::ColorFilterArrangementEnum::GBRG, "GBRG" },
+		{ properties::draft::ColorFilterArrangementEnum::RGB, "RGB" },
+		{ properties::draft::ColorFilterArrangementEnum::MONO, "MONO" },
+	};
 
+	return map;
+}
+
+const std::map<libcamera::PixelFormat, unsigned int> &bayer_formats()
+{
+	static const std::map<libcamera::PixelFormat, unsigned int> map {
+		{ libcamera::formats::SRGGB10_CSI2P, 10 },
+		{ libcamera::formats::SGRBG10_CSI2P, 10 },
+		{ libcamera::formats::SBGGR10_CSI2P, 10 },
+		{ libcamera::formats::R10_CSI2P,     10 },
+		{ libcamera::formats::SGBRG10_CSI2P, 10 },
+		{ libcamera::formats::SRGGB12_CSI2P, 12 },
+		{ libcamera::formats::SGRBG12_CSI2P, 12 },
+		{ libcamera::formats::SBGGR12_CSI2P, 12 },
+		{ libcamera::formats::SGBRG12_CSI2P, 12 },
+		{ libcamera::formats::SRGGB14_CSI2P, 14 },
+		{ libcamera::formats::SGRBG14_CSI2P, 14 },
+		{ libcamera::formats::SBGGR14_CSI2P, 14 },
+		{ libcamera::formats::SGBRG14_CSI2P, 14 },
+		{ libcamera::formats::SRGGB16,       16 },
+		{ libcamera::formats::SGRBG16,       16 },
+		{ libcamera::formats::SBGGR16,       16 },
+		{ libcamera::formats::SGBRG16,       16 },
+	};
+
+	return map;
+}
+
+}
 
 Mode::Mode(std::string const &mode_string) : Mode()
 {
@@ -463,16 +475,16 @@ bool OptsInternal::Parse(boost::program_options::variables_map &vm, RPiCamApp *a
 				unsigned int bits = 0;
 				for (const auto &pix : formats.pixelformats())
 				{
-					const auto &b = bayer_formats.find(pix);
-					if (b != bayer_formats.end() && b->second > bits)
+					const auto &b = bayer_formats().find(pix);
+					if (b != bayer_formats().end() && b->second > bits)
 						bits = b->second;
 				}
 				if (bits)
 					sensor_props << bits << "-bit ";
 
 				auto cfa = cam->properties().get(properties::draft::ColorFilterArrangement);
-				if (cfa && cfa_map.count(*cfa))
-					sensor_props << cfa_map.at(*cfa) << " ";
+				if (cfa && cfa_map().count(*cfa))
+					sensor_props << cfa_map().at(*cfa) << " ";
 
 				sensor_props.seekp(-1, sensor_props.cur);
 				sensor_props << "] (" << cam->id() << ")";
