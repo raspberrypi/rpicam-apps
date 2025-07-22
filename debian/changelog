@@ -1,3 +1,10 @@
+rpicam-apps (1.8.1-1) trixie; urgency=medium
+
+  * Trixie changes
+  * Temporarily disable Hailo support
+
+ -- Serge Schneider <serge@raspberrypi.com>  Tue, 22 Jul 2025 13:18:51 +0100
+
 rpicam-apps (1.8.1-1~bookworm) bookworm; urgency=medium
 
   * New upstream version 1.8.1
