@@ -21,8 +21,6 @@
 
 #include "core/options.hpp"
 
-#include "config.h"
-
 namespace fs = std::filesystem;
 
 namespace
