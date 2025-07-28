@@ -70,33 +70,42 @@ endif
 
 # TFlite based postprocessing stages.
 enable_tflite = false
-tflite_dep = dependency('tensorflow-lite', required : get_option('enable_tflite'))
-if tflite_dep.found()
-    tflite_postproc_src = files([
-        'tf_stage.cpp',
-        'object_classify_tf_stage.cpp',
-        'object_detect_tf_stage.cpp',
-        'pose_estimation_tf_stage.cpp',
-        'segmentation_tf_stage.cpp',
-    ])
 
-    # TFlite assets
-    postproc_assets += files([
-        assets_dir / 'object_classify_tf.json',
-        assets_dir / 'object_detect_tf.json',
-        assets_dir / 'pose_estimation_tf.json',
-        assets_dir / 'segmentation_tf.json',
-    ])
+if not get_option('enable_tflite').disabled()
+    tflite_dep = dependency('tensorflow-lite', required : false)
+    if not tflite_dep.found()
+        # This may not have a pkg-config file, so try and find it directly
+        cc = meson.get_compiler('cpp')
+        tflite_dep = cc.find_library('tensorflow-lite', required : get_option('enable_tflite'))
+    endif
 
-    tflite_postproc_lib = shared_module('tflite-postproc', tflite_postproc_src,
-                                        include_directories : '../',
-                                        dependencies : [libcamera_dep, tflite_dep],
-                                        cpp_args : cpp_arguments,
-                                        install : true,
-                                        install_dir : posproc_libdir,
-                                        name_prefix : '',
-                                       )
-    enable_tflite = true
+    if tflite_dep.found()
+        tflite_postproc_src = files([
+            'tf_stage.cpp',
+            'object_classify_tf_stage.cpp',
+            'object_detect_tf_stage.cpp',
+            'pose_estimation_tf_stage.cpp',
+            'segmentation_tf_stage.cpp',
+        ])
+
+        # TFlite assets
+        postproc_assets += files([
+            assets_dir / 'object_classify_tf.json',
+            assets_dir / 'object_detect_tf.json',
+            assets_dir / 'pose_estimation_tf.json',
+            assets_dir / 'segmentation_tf.json',
+        ])
+
+        tflite_postproc_lib = shared_module('tflite-postproc', tflite_postproc_src,
+                                            include_directories : '../',
+                                            dependencies : [libcamera_dep, tflite_dep],
+                                            cpp_args : cpp_arguments,
+                                            install : true,
+                                            install_dir : posproc_libdir,
+                                            name_prefix : '',
+                                        )
+        enable_tflite = true
+    endif
 endif
 
 # Hailo postprocessing stages.
