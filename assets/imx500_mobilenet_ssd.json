@@ -118,6 +118,9 @@
 
     "object_detect_draw_cv":
     {
-        "line_thickness" : 2
+        "line_thickness" : 2,
+        "enable_ip": false,
+        "ip" : "127.0.0.1",
+        "port":12347
     }
 }
