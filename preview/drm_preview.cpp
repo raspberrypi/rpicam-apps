@@ -21,7 +21,7 @@ public:
 	DrmPreview(Options const *options);
 	~DrmPreview();
 	// Display the buffer. You get given the fd back in the BufferDoneCallback
-	// once its available for re-use.
+	// once it's available for re-use.
 	virtual void Show(int fd, libcamera::Span<uint8_t> span, StreamInfo const &info) override;
 	// Reset the preview window, clearing the current buffers and being ready to
 	// show new ones.
@@ -195,6 +195,11 @@ void DrmPreview::findPlane()
 	unsigned int i;
 	unsigned int j;
 
+	// TODO switch based on requested display
+	// Enable drmModeGetPlaneResources to fetch "primary" plane type, required for composite video
+	if (drmSetClientCap(drmfd_, DRM_CLIENT_CAP_UNIVERSAL_PLANES, 1))
+		throw std::runtime_error("drmSetClientCap failed: " + std::string(ERRSTR));
+
 	planes = drmModeGetPlaneResources(drmfd_);
 	if (!planes)
 		throw std::runtime_error("drmModeGetPlaneResources failed: " + std::string(ERRSTR));
@@ -244,7 +249,9 @@ void DrmPreview::findPlane()
 
 DrmPreview::DrmPreview(Options const *options) : Preview(options), last_fd_(-1), first_time_(true)
 {
-	drmfd_ = drmOpen("vc4", NULL);
+	// TODO switch drivers based on requested display
+	drmfd_ = drmOpen("drm-rp1-vec", NULL);
+	//drmfd_ = drmOpen("vc4", NULL);
 	if (drmfd_ < 0)
 		throw std::runtime_error("drmOpen failed: " + std::string(ERRSTR));
 
@@ -262,7 +269,8 @@ DrmPreview::DrmPreview(Options const *options) : Preview(options), last_fd_(-1),
 
 		conId_ = 0;
 		findCrtc();
-		out_fourcc_ = DRM_FORMAT_YUV420;
+		// TODO switch based on display capabilities
+		out_fourcc_ = DRM_FORMAT_XRGB8888; //DRM_FORMAT_YUV420;
 		findPlane();
 	}
 	catch (std::exception const &e)
@@ -308,6 +316,7 @@ static void get_colour_space_info(std::optional<libcamera::ColorSpace> const &cs
 		LOG(1, "DrmPreview: unexpected colour space " << libcamera::ColorSpace::toString(cs));
 }
 
+/* TODO commented to avoid "declared but not used" error
 static int drm_set_property(int fd, int plane_id, char const *name, char const *val)
 {
 	drmModeObjectPropertiesPtr properties = nullptr;
@@ -354,14 +363,16 @@ done:
 		drmModeFreeObjectProperties(properties);
 	return ret;
 }
+*/
 
 static void setup_colour_space(int fd, int plane_id, std::optional<libcamera::ColorSpace> const &cs)
 {
 	char const *encoding, *range;
 	get_colour_space_info(cs, encoding, range);
 
-	drm_set_property(fd, plane_id, "COLOR_ENCODING", encoding);
-	drm_set_property(fd, plane_id, "COLOR_RANGE", range);
+	// TODO these properties don't exist on the plane for composite video
+	//drm_set_property(fd, plane_id, "COLOR_ENCODING", encoding);
+	//drm_set_property(fd, plane_id, "COLOR_RANGE", range);
 }
 
 void DrmPreview::makeBuffer(int fd, size_t size, StreamInfo const &info, Buffer &buffer)
@@ -380,11 +391,16 @@ void DrmPreview::makeBuffer(int fd, size_t size, StreamInfo const &info, Buffer 
 	if (drmPrimeFDToHandle(drmfd_, fd, &buffer.bo_handle))
 		throw std::runtime_error("drmPrimeFDToHandle failed for fd " + std::to_string(fd));
 
+	/* TODO switch these based on requested display
 	uint32_t offsets[4] =
 		{ 0, info.stride * info.height, info.stride * info.height + (info.stride / 2) * (info.height / 2) };
 	uint32_t pitches[4] = { info.stride, info.stride / 2, info.stride / 2 };
 	uint32_t bo_handles[4] = { buffer.bo_handle, buffer.bo_handle, buffer.bo_handle };
+	*/
 
+	uint32_t offsets[4] = { 0 };
+	uint32_t pitches[4] = { info.stride };
+	uint32_t bo_handles[4] = { buffer.bo_handle };
 	if (drmModeAddFB2(drmfd_, info.width, info.height, out_fourcc_, bo_handles, pitches, offsets, &buffer.fb_handle, 0))
 		throw std::runtime_error("drmModeAddFB2 failed: " + std::string(ERRSTR));
 }
