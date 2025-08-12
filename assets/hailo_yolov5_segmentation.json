@@ -17,6 +17,7 @@
 
         "hef_file_8L": "/usr/share/hailo-models/yolov5n_seg_h8l_mz.hef",
         "hef_file_8": "/usr/share/hailo-models/yolov5n_seg_h8.hef",
+        "hef_file_10": "/usr/share/hailo-models/yolov5n_seg_h10.hef",
         "hailopp_config_file": "/usr/share/hailo-models/yolov5seg.json"
     }
 }

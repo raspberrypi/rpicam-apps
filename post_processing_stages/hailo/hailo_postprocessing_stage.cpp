@@ -14,6 +14,8 @@
 #include <opencv2/imgproc.hpp>
 #include <opencv2/opencv.hpp>
 
+#include "core/dl_lib.hpp"
+
 #include "hailo_postprocessing_stage.hpp"
 
 #include "hailo_postproc_lib.h"
@@ -162,6 +164,7 @@ void HailoPostProcessingStage::Read(boost::property_tree::ptree const &params)
 	hef_file_ = params.get<std::string>("hef_file", "");
 	hef_file_8_ = params.get<std::string>("hef_file_8", "");
 	hef_file_8L_ = params.get<std::string>("hef_file_8L", "");
+	hef_file_10_ = params.get<std::string>("hef_file_10", "");
 }
 
 void HailoPostProcessingStage::Configure()
@@ -198,11 +201,24 @@ int HailoPostProcessingStage::configureHailoRT()
 	device_id_ = devices[0].get().identify().release();
 
 	std::string hef_file;
-	if (device_id_.device_architecture == HAILO_ARCH_HAILO8 && !hef_file_8_.empty())
+	switch (device_id_.device_architecture)
+	{
+	case HAILO_ARCH_HAILO15H:
+	case HAILO_ARCH_HAILO10H:
+		hef_file = hef_file_10_;
+		break;
+	case HAILO_ARCH_HAILO8:
 		hef_file = hef_file_8_;
-	else if (!hef_file_8L_.empty())
+		break;
+	case HAILO_ARCH_HAILO8L:
 		hef_file = hef_file_8L_;
-	else
+		break;
+	default:
+		LOG_ERROR("Unexpected Hailo architecture detected: " << device_id_.device_architecture);
+		return -1;
+	}
+
+	if (hef_file.empty())
 		hef_file = hef_file_;
 
 	if (hef_file.empty())

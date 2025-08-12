@@ -1,5 +1,16 @@
 hailo_tappas_lib_dir = hailo_tappas_dep.get_variable('tappas_libdir')
 
+hailort_lib_path = ''
+hailort_dirs = [get_option('prefix') / 'lib', get_option('prefix') / get_option('libdir'),  '/usr/lib']
+foreach dir : hailort_dirs
+    message(dir)
+    if fs.exists(dir / 'libhailort.so')
+        hailort_lib_path = dir / 'libhailort.so'
+        break
+    endif
+endforeach
+conf_data.set('HAILORT_LIB_PATH', '"' + hailort_lib_path + '"')
+
 # Find the Tappas postprocessing *.so lib dir - this is different depending on the Tappas version.
 hailo_tappas_posproc_libdir = ''
 pp_dirs = ['post-process', 'post_processes']
@@ -18,7 +29,8 @@ hailo_conf_data = configuration_data()
 hailo_conf_data.set('HAILO_POSTPROC_LIB_DIR', '"' + hailo_tappas_posproc_libdir + '"')
 hailo_postproc_lib = configure_file(output : 'hailo_postproc_lib.h', configuration : hailo_conf_data)
 
-hailo_deps = [hailort_dep, hailo_tappas_dep, libcamera_dep, opencv_dep]
+# We do a runtime load of hailort_dep (libhailort.so) to allow compatibility between H8 and H10
+hailo_deps = [hailo_tappas_dep, libcamera_dep, opencv_dep]
 
 # Hailo Tappas PP config files to be installed
 hailopp_config_files = files([
