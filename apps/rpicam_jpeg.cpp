@@ -102,6 +102,13 @@ int main(int argc, char *argv[])
 			if (options->Get().output.empty())
 				throw std::runtime_error("output file name required");
 
+			if (options->GetPlatform() == Platform::PISP)
+			{
+				LOG_ERROR("WARNING: Capture will not make use of temporal denoise");
+				LOG_ERROR("         Consider using rpicam-still with the --zsl option for best results, for example:");
+				LOG_ERROR("         rpicam-still --zsl -o " << options->Get().output);
+			}
+
 			event_loop(app);
 		}
 	}
