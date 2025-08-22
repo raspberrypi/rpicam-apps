@@ -187,6 +187,8 @@ Platform get_platform()
 			return Platform::VC4;
 		else if (!strncmp((char *)caps.card, "pispbe", sizeof(caps.card)))
 			return Platform::PISP;
+		else if (!strncmp((char *)caps.card, "rp1-cfe", sizeof(caps.card)))
+    			return Platform::PISP;
 		else if (!strncmp((char *)caps.card, "bm2835 mmal", sizeof(caps.card)))
 			return Platform::LEGACY;
 		else
