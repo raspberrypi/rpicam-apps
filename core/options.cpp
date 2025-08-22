@@ -267,6 +267,8 @@ Options::Options()
 			"Set the AWB mode (auto, incandescent, tungsten, fluorescent, indoor, daylight, cloudy, custom)")
 		("awbgains", value<std::string>(&v_->awbgains)->default_value("0,0"),
 			"Set explict red and blue gains (disable the automatic AWB algorithm)")
+		("ccm", value<std::string>(&v_->ccm)->default_value(""),
+			"Set an explicit colour correction matrix (NOTE: must also set explicit AWB gains)")
 		("flush", value<bool>(&v_->flush)->default_value(false)->implicit_value(true),
 			"Flush output data as soon as possible")
 		("wrap", value<unsigned int>(&v_->wrap)->default_value(0),
@@ -652,6 +654,13 @@ bool OptsInternal::Parse(boost::program_options::variables_map &vm, RPiCamApp *a
 
 	if (sscanf(awbgains.c_str(), "%f,%f", &awb_gain_r, &awb_gain_b) != 2)
 		throw std::runtime_error("Invalid AWB gains");
+
+	if (!ccm.empty() &&
+		sscanf(ccm.c_str(), "%f,%f,%f,%f,%f,%f,%f,%f,%f",
+			   &ccm_values[0], &ccm_values[1], &ccm_values[2],
+			   &ccm_values[3], &ccm_values[4], &ccm_values[5],
+			   &ccm_values[6], &ccm_values[7], &ccm_values[8]) != 9)
+		throw std::runtime_error("Invalid CCM - expect 9 comma-separated floating point numbers");
 
 	brightness = std::clamp(brightness, -1.0f, 1.0f);
 	contrast = std::clamp(contrast, 0.0f, 15.99f); // limits are arbitrary..
