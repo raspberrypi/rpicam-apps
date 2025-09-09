@@ -1,3 +1,11 @@
+rpicam-apps (1.9.0-1) trixie; urgency=medium
+
+  * New upstream version 1.9.0
+  * d/: Add salsa-ci.yml
+  * postprocess: object_detect_udp: Fix compiler warnings and styling
+
+ -- Serge Schneider <serge@raspberrypi.com>  Tue, 09 Sep 2025 14:59:25 +0100
+
 rpicam-apps (1.8.1-1) trixie; urgency=medium
 
   * Trixie changes
