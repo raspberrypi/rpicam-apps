@@ -21,40 +21,50 @@
 
 #include "core/options.hpp"
 
-#include "config.h"
-
 namespace fs = std::filesystem;
 
-static const std::map<int, std::string> cfa_map =
+namespace
 {
-	{ properties::draft::ColorFilterArrangementEnum::RGGB, "RGGB" },
-	{ properties::draft::ColorFilterArrangementEnum::GRBG, "GRBG" },
-	{ properties::draft::ColorFilterArrangementEnum::GBRG, "GBRG" },
-	{ properties::draft::ColorFilterArrangementEnum::RGB, "RGB" },
-	{ properties::draft::ColorFilterArrangementEnum::MONO, "MONO" },
-};
 
-static const std::map<libcamera::PixelFormat, unsigned int> bayer_formats =
+const std::map<int, std::string> &cfa_map()
 {
-	{ libcamera::formats::SRGGB10_CSI2P, 10 },
-	{ libcamera::formats::SGRBG10_CSI2P, 10 },
-	{ libcamera::formats::SBGGR10_CSI2P, 10 },
-	{ libcamera::formats::R10_CSI2P,     10 },
-	{ libcamera::formats::SGBRG10_CSI2P, 10 },
-	{ libcamera::formats::SRGGB12_CSI2P, 12 },
-	{ libcamera::formats::SGRBG12_CSI2P, 12 },
-	{ libcamera::formats::SBGGR12_CSI2P, 12 },
-	{ libcamera::formats::SGBRG12_CSI2P, 12 },
-	{ libcamera::formats::SRGGB14_CSI2P, 14 },
-	{ libcamera::formats::SGRBG14_CSI2P, 14 },
-	{ libcamera::formats::SBGGR14_CSI2P, 14 },
-	{ libcamera::formats::SGBRG14_CSI2P, 14 },
-	{ libcamera::formats::SRGGB16,       16 },
-	{ libcamera::formats::SGRBG16,       16 },
-	{ libcamera::formats::SBGGR16,       16 },
-	{ libcamera::formats::SGBRG16,       16 },
-};
+	static const std::map<int, std::string> map {
+		{ properties::draft::ColorFilterArrangementEnum::RGGB, "RGGB" },
+		{ properties::draft::ColorFilterArrangementEnum::GRBG, "GRBG" },
+		{ properties::draft::ColorFilterArrangementEnum::GBRG, "GBRG" },
+		{ properties::draft::ColorFilterArrangementEnum::RGB, "RGB" },
+		{ properties::draft::ColorFilterArrangementEnum::MONO, "MONO" },
+	};
 
+	return map;
+}
+
+const std::map<libcamera::PixelFormat, unsigned int> &bayer_formats()
+{
+	static const std::map<libcamera::PixelFormat, unsigned int> map {
+		{ libcamera::formats::SRGGB10_CSI2P, 10 },
+		{ libcamera::formats::SGRBG10_CSI2P, 10 },
+		{ libcamera::formats::SBGGR10_CSI2P, 10 },
+		{ libcamera::formats::R10_CSI2P,     10 },
+		{ libcamera::formats::SGBRG10_CSI2P, 10 },
+		{ libcamera::formats::SRGGB12_CSI2P, 12 },
+		{ libcamera::formats::SGRBG12_CSI2P, 12 },
+		{ libcamera::formats::SBGGR12_CSI2P, 12 },
+		{ libcamera::formats::SGBRG12_CSI2P, 12 },
+		{ libcamera::formats::SRGGB14_CSI2P, 14 },
+		{ libcamera::formats::SGRBG14_CSI2P, 14 },
+		{ libcamera::formats::SBGGR14_CSI2P, 14 },
+		{ libcamera::formats::SGBRG14_CSI2P, 14 },
+		{ libcamera::formats::SRGGB16,       16 },
+		{ libcamera::formats::SGRBG16,       16 },
+		{ libcamera::formats::SBGGR16,       16 },
+		{ libcamera::formats::SGBRG16,       16 },
+	};
+
+	return map;
+}
+
+}
 
 Mode::Mode(std::string const &mode_string) : Mode()
 {
@@ -257,6 +267,8 @@ Options::Options()
 			"Set the AWB mode (auto, incandescent, tungsten, fluorescent, indoor, daylight, cloudy, custom)")
 		("awbgains", value<std::string>(&v_->awbgains)->default_value("0,0"),
 			"Set explict red and blue gains (disable the automatic AWB algorithm)")
+		("ccm", value<std::string>(&v_->ccm)->default_value(""),
+			"Set an explicit colour correction matrix (NOTE: must also set explicit AWB gains)")
 		("flush", value<bool>(&v_->flush)->default_value(false)->implicit_value(true),
 			"Flush output data as soon as possible")
 		("wrap", value<unsigned int>(&v_->wrap)->default_value(0),
@@ -463,16 +475,16 @@ bool OptsInternal::Parse(boost::program_options::variables_map &vm, RPiCamApp *a
 				unsigned int bits = 0;
 				for (const auto &pix : formats.pixelformats())
 				{
-					const auto &b = bayer_formats.find(pix);
-					if (b != bayer_formats.end() && b->second > bits)
+					const auto &b = bayer_formats().find(pix);
+					if (b != bayer_formats().end() && b->second > bits)
 						bits = b->second;
 				}
 				if (bits)
 					sensor_props << bits << "-bit ";
 
 				auto cfa = cam->properties().get(properties::draft::ColorFilterArrangement);
-				if (cfa && cfa_map.count(*cfa))
-					sensor_props << cfa_map.at(*cfa) << " ";
+				if (cfa && cfa_map().count(*cfa))
+					sensor_props << cfa_map().at(*cfa) << " ";
 
 				sensor_props.seekp(-1, sensor_props.cur);
 				sensor_props << "] (" << cam->id() << ")";
@@ -642,6 +654,13 @@ bool OptsInternal::Parse(boost::program_options::variables_map &vm, RPiCamApp *a
 
 	if (sscanf(awbgains.c_str(), "%f,%f", &awb_gain_r, &awb_gain_b) != 2)
 		throw std::runtime_error("Invalid AWB gains");
+
+	if (!ccm.empty() &&
+		sscanf(ccm.c_str(), "%f,%f,%f,%f,%f,%f,%f,%f,%f",
+			   &ccm_values[0], &ccm_values[1], &ccm_values[2],
+			   &ccm_values[3], &ccm_values[4], &ccm_values[5],
+			   &ccm_values[6], &ccm_values[7], &ccm_values[8]) != 9)
+		throw std::runtime_error("Invalid CCM - expect 9 comma-separated floating point numbers");
 
 	brightness = std::clamp(brightness, -1.0f, 1.0f);
 	contrast = std::clamp(contrast, 0.0f, 15.99f); // limits are arbitrary..

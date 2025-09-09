@@ -23,8 +23,6 @@
 #include "core/logging.hpp"
 #include "core/version.hpp"
 
-#include "config.h"
-
 static constexpr double DEFAULT_FRAMERATE = 30.0;
 
 struct Mode
@@ -213,6 +211,8 @@ struct OptsInternal
 	std::string awbgains;
 	float awb_gain_r;
 	float awb_gain_b;
+	std::string ccm;
+	float ccm_values[9];
 	bool flush;
 	unsigned int wrap;
 	float brightness;

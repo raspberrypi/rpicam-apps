@@ -10,12 +10,11 @@
 #include "encoder/encoder.hpp"
 #include "preview/preview.hpp"
 
-static const std::string version {"@VER@"};
-
 extern "C" {
 
 const char *RPiCamAppsVersion()
 {
+	static const std::string version {"@VER@"};
 	return version.c_str();
 }
 
