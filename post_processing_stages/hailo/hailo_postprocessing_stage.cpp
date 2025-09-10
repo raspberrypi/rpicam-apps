@@ -333,17 +333,31 @@ HailoROIPtr HailoPostProcessingStage::MakeROI(const std::vector<OutTensor> &outp
 
 	for (auto const &t : output_tensors)
 	{
-		hailo_vstream_info_t info;
+		hailo_tensor_metadata_t info;
 
 		strncpy(info.name, t.name.c_str(), sizeof(info.name));
 		// To keep GCC quiet...
 		info.name[HAILO_MAX_STREAM_NAME_SIZE - 1] = '\0';
-		info.format = t.format;
-		info.quant_info = t.quant_info;
-		if (HailoRTCommon::is_nms(info))
-			info.nms_shape = infer_model_->outputs()[0].get_nms_shape().release();
+		info.format.type = (HailoTensorFormatType)t.format.type;
+		info.format.is_nms = infer_model_->outputs()[0].is_nms();
+		info.quant_info.qp_zp = t.quant_info.qp_zp;
+		info.quant_info.qp_scale = t.quant_info.qp_scale;
+		info.quant_info.limvals_min = t.quant_info.limvals_min;
+		info.quant_info.limvals_max = t.quant_info.limvals_max;
+		if (info.format.is_nms)
+		{
+			auto i = infer_model_->outputs()[0].get_nms_shape().release();
+			info.nms_shape.number_of_classes = i.number_of_classes;
+			info.nms_shape.max_bboxes_per_class = i.max_bboxes_per_class;
+			info.nms_shape.max_bboxes_total = i.max_bboxes_total;
+			info.nms_shape.max_accumulated_mask_size = i.max_accumulated_mask_size;
+		}
 		else
-			info.shape = t.shape;
+		{
+			info.shape.height = t.shape.height;
+			info.shape.width = t.shape.width;
+			info.shape.features = t.shape.features;
+		}
 
 		roi->add_tensor(std::make_shared<HailoTensor>(t.data.get(), info));
 	}

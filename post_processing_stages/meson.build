@@ -111,9 +111,9 @@ endif
 
 # Hailo postprocessing stages.
 enable_hailo = false
-hailort_dep = dependency('HailoRT', modules : ['HailoRT::libhailort'], version: '>=4.18.0',
+hailort_dep = dependency('HailoRT', modules : ['HailoRT::libhailort'], version: '>=4.23.0',
                          required : get_option('enable_hailo'))
-hailo_tappas_dep = dependency('hailo-tappas-core', version: '>=3.31.0',
+hailo_tappas_dep = dependency('hailo-tappas-core', version: '>=5.1.0',
                               required : get_option('enable_hailo'))
 if hailort_dep.found() and hailo_tappas_dep.found() and opencv_dep.found()
     subdir('hailo')
