@@ -20,24 +20,24 @@ import os.path
 import subprocess
 import sys
 from timeit import default_timer as timer
-import v4l2
+import videodev2
 import numpy as np
 
 
 def get_platform():
     platform = 'vc4'
     try:
-        for num in range(5):
+        for num in range(64):
             device = '/dev/video' + str(num)
             if os.path.exists(device):
                 with open(device, 'rb+', buffering=0) as fd:
-                    caps = v4l2.v4l2_capability()
-                    fcntl.ioctl(fd, v4l2.VIDIOC_QUERYCAP, caps)
-                    decoded = caps.card.decode('utf-8')
-                    if decoded == 'rp1-cfe':
+                    caps = videodev2.v4l2_capability()
+                    fcntl.ioctl(fd, videodev2.VIDIOC_QUERYCAP, caps)
+                    decoded = videodev2.arr_to_str(caps.card)
+                    if decoded == "pispbe":
                         platform = 'pisp'
                         break
-                    elif decoded == 'unicam':
+                    elif decoded == "unicam":
                         break
     except Exception:
         pass
