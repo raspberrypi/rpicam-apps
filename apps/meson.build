@@ -35,3 +35,12 @@ if enable_tflite
                                link_with : rpicam_app,
                                install : true)
 endif
+
+if enable_qt
+    gui_moc = qt5_mod.preprocess(moc_sources : ['rpicam_gui.cpp'])
+    rpicam_gui = executable('rpicam-gui', ['rpicam_gui.cpp'] + gui_moc,
+                            include_directories : include_directories('..'),
+                            dependencies: [libcamera_dep, boost_dep, qt_dep],
+                            link_with : rpicam_app,
+                            install : true)
+endif
