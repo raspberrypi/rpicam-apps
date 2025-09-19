@@ -36,6 +36,10 @@ endif
 dl_dep = dependency('dl', required : true)
 libcamera_dep = dependency('libcamera', required : true)
 
+qt5_mod = import('qt5', required : get_option('enable_qt'))
+qt_dep = dependency('qt5', modules : ['Core', 'Widgets'], required : get_option('enable_qt'))
+enable_qt = qt_dep.found()
+
 if get_option('disable_rpi_features') == true
     cpp_arguments += '-DDISABLE_RPI_FEATURES'
 endif
