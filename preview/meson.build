@@ -9,6 +9,7 @@ rpicam_app_src += files([
 
 preview_headers = files([
     'preview.hpp',
+    'qt_preview.hpp',
 ])
 
 enable_drm = false
@@ -44,10 +45,9 @@ if x11_deps.found() and epoxy_deps.found()
     enable_egl = true
 endif
 
-enable_qt = false
-qt_dep = dependency('qt5', modules : ['Core', 'Widgets'], required : get_option('enable_qt'))
 if qt_dep.found()
-    egl_lib = shared_module('qt-preview', files('qt_preview.cpp'),
+    qt_sources = qt5_mod.preprocess(moc_headers : ['qt_preview.hpp'])
+    egl_lib = shared_module('qt-preview', ['qt_preview.cpp'] + qt_sources,
                             include_directories : '../',
                             dependencies : [qt_dep, libcamera_dep],
                             cpp_args : cpp_arguments,
@@ -57,6 +57,8 @@ if qt_dep.found()
     )
     conf_data.set('QT_PRESENT', 1)
     enable_qt = true
+else
+    enable_qt = false
 endif
 
 install_headers(preview_headers, subdir: meson.project_name() / 'preview')
