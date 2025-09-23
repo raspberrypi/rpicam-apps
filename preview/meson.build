@@ -45,7 +45,7 @@ if x11_deps.found() and epoxy_deps.found()
 endif
 
 enable_qt = false
-qt_dep = dependency('qt5', modules : ['Core', 'Widgets'], required : get_option('enable_qt'))
+qt_dep = dependency('qt6', modules : ['Core', 'Widgets'], required : get_option('enable_qt'))
 if qt_dep.found()
     egl_lib = shared_module('qt-preview', files('qt_preview.cpp'),
                             include_directories : '../',
