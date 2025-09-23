@@ -45,18 +45,27 @@ if x11_deps.found() and epoxy_deps.found()
 endif
 
 enable_qt = false
-qt_dep = dependency('qt5', modules : ['Core', 'Widgets'], required : get_option('enable_qt'))
-if qt_dep.found()
-    egl_lib = shared_module('qt-preview', files('qt_preview.cpp'),
-                            include_directories : '../',
-                            dependencies : [qt_dep, libcamera_dep],
-                            cpp_args : cpp_arguments,
-                            install : true,
-                            install_dir: preview_libdir,
-                            name_prefix : '',
-    )
-    conf_data.set('QT_PRESENT', 1)
-    enable_qt = true
+
+if not get_option('enable_qt').disabled()
+    qt_dep = dependency('qt6', modules : ['Core', 'Widgets'], required : false)
+
+    if not qt_dep.found()
+        message('Qt6 libraries not found, falling back to Qt5')
+        qt_dep = dependency('qt5', modules : ['Core', 'Widgets'], required : get_option('enable_qt'))
+    endif
+
+    if qt_dep.found()
+        qt_lib = shared_module('qt-preview', files('qt_preview.cpp'),
+                               include_directories : '../',
+                               dependencies : [qt_dep, libcamera_dep],
+                               cpp_args : cpp_arguments,
+                               install : true,
+                               install_dir: preview_libdir,
+                               name_prefix : '',
+        )
+        conf_data.set('QT_PRESENT', 1)
+        enable_qt = true
+    endif
 endif
 
 install_headers(preview_headers, subdir: meson.project_name() / 'preview')
