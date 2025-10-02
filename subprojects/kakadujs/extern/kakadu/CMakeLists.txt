@@ -2,11 +2,11 @@
 OPTION(KAKADU_SIMD_ACCELERATION "Enable Kakadu's heavily optimized implementation of HTJ2K" ON)
 
 # NOTE - Has not been tested yet
-option(KAKADU_THREADING "Build Kakadu with threading" OFF)
+option(KAKADU_THREADING "Build Kakadu with threading" ON)
 
 # disable threads if not enabled
 if(NOT KAKADU_THREADING)
-    add_compile_definitions(KDU_NO_THREADS)
+    # add_compile_definitions(KDU_NO_THREADS)
 endif()
 
 # configure for compiler options and link directories based on SIMD Acceleration enabled or not

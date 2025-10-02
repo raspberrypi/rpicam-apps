@@ -23,6 +23,8 @@
 
 #include "FrameInfo.hpp"
 
+#define MULTI_THREAD
+
 class kdu_buffer_target : public kdu_core::kdu_compressed_target {
  public:  // Member functions
   kdu_buffer_target(std::vector<uint8_t> &encoded) : encoded_(encoded) { encoded_.resize(0); }
@@ -148,6 +150,7 @@ class HTJ2KEncoder {
     
   #ifdef MULTI_THREAD
     env.create();
+    // two threads
     env.add_thread();
     env.add_thread();
   #endif
@@ -277,10 +280,6 @@ class HTJ2KEncoder {
     // Now compress the image in one hit, using `kdu_stripe_compressor'
     
   #ifdef MULTI_THREAD
-    kdu_supp::kdu_thread_env env;
-    env.create();
-    env.add_thread();
-    env.add_thread();
     compressor.start(codestream, 0, nullptr, nullptr, 0U, false, false, true, 0.0, 0, true, &env);
   #else
     compressor.start(codestream);
