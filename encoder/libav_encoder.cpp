@@ -24,12 +24,12 @@ namespace {
 void encoderOptionsGeneral(VideoOptions const *options, AVCodecContext *codec)
 {
 	codec->framerate = { (int)(options->Get().framerate.value_or(DEFAULT_FRAMERATE) * 1000), 1000 };
-	codec->profile = FF_PROFILE_UNKNOWN;
+	codec->profile = AV_PROFILE_UNKNOWN;
 
 	if (!options->Get().profile.empty())
 	{
 		const AVCodecDescriptor *desc = avcodec_descriptor_get(codec->codec_id);
-		for (const AVProfile *profile = desc->profiles; profile && profile->profile != FF_PROFILE_UNKNOWN; profile++)
+		for (const AVProfile *profile = desc->profiles; profile && profile->profile != AV_PROFILE_UNKNOWN; profile++)
 		{
 			if (!strncasecmp(options->Get().profile.c_str(), profile->name, options->Get().profile.size()))
 			{
@@ -37,11 +37,11 @@ void encoderOptionsGeneral(VideoOptions const *options, AVCodecContext *codec)
 				break;
 			}
 		}
-		if (codec->profile == FF_PROFILE_UNKNOWN)
+		if (codec->profile == AV_PROFILE_UNKNOWN)
 			throw std::runtime_error("libav: no such profile " + options->Get().profile);
 	}
 
-	codec->level = options->Get().level.empty() ? FF_LEVEL_UNKNOWN : std::stof(options->Get().level) * 10;
+	codec->level = options->Get().level.empty() ? AV_LEVEL_UNKNOWN : std::stof(options->Get().level) * 10;
 	codec->gop_size = options->Get().intra ? options->Get().intra
 										   : (int)(options->Get().framerate.value_or(DEFAULT_FRAMERATE));
 
@@ -264,11 +264,7 @@ void LibAvEncoder::initVideoCodec(VideoOptions const *options, StreamInfo const 
 
 void LibAvEncoder::initAudioInCodec(VideoOptions const *options, StreamInfo const &info)
 {
-#if LIBAVUTIL_VERSION_MAJOR < 58
-	AVInputFormat *input_fmt = (AVInputFormat *)av_find_input_format(options->Get().audio_source.c_str());
-#else
 	const AVInputFormat *input_fmt = (AVInputFormat *)av_find_input_format(options->Get().audio_source.c_str());
-#endif
 
 	assert(in_fmt_ctx_ == nullptr);
 
@@ -325,12 +321,7 @@ void LibAvEncoder::initAudioOutCodec(VideoOptions const *options, StreamInfo con
 
 	assert(stream_[AudioIn]);
 
-#if LIBAVUTIL_VERSION_MAJOR < 57
-	codec_ctx_[AudioOut]->channels = stream_[AudioIn]->codecpar->channels;
-	codec_ctx_[AudioOut]->channel_layout = av_get_default_channel_layout(stream_[AudioIn]->codecpar->channels);
-#else
 	av_channel_layout_default(&codec_ctx_[AudioOut]->ch_layout, stream_[AudioIn]->codecpar->ch_layout.nb_channels);
-#endif
 
 	codec_ctx_[AudioOut]->sample_rate = options->Get().audio_samplerate ? options->Get().audio_samplerate
 																  : stream_[AudioIn]->codecpar->sample_rate;
@@ -646,24 +637,11 @@ void LibAvEncoder::audioThread()
 	constexpr std::chrono::milliseconds min_start_delta(10);
 	int ret;
 
-#if LIBAVUTIL_VERSION_MAJOR < 57
-	uint32_t out_channels = codec_ctx_[AudioOut]->channels;
-#else
 	uint32_t out_channels = codec_ctx_[AudioOut]->ch_layout.nb_channels;
-#endif
 
 	SwrContext *conv = nullptr;
 	AVAudioFifo *fifo;
 
-#if LIBAVUTIL_VERSION_MAJOR < 57
-	conv = swr_alloc_set_opts(nullptr, av_get_default_channel_layout(codec_ctx_[AudioOut]->channels), required_fmt,
-							  stream_[AudioOut]->codecpar->sample_rate,
-							  av_get_default_channel_layout(codec_ctx_[AudioIn]->channels),
-							  codec_ctx_[AudioIn]->sample_fmt, codec_ctx_[AudioIn]->sample_rate, 0, nullptr);
-
-	// 2 seconds FIFO buffer
-	fifo = av_audio_fifo_alloc(required_fmt, codec_ctx_[AudioOut]->channels, codec_ctx_[AudioOut]->sample_rate * 2);
-#else
 	ret = swr_alloc_set_opts2(&conv, &codec_ctx_[AudioOut]->ch_layout, required_fmt,
 							  stream_[AudioOut]->codecpar->sample_rate, &codec_ctx_[AudioIn]->ch_layout,
 							  codec_ctx_[AudioIn]->sample_fmt, codec_ctx_[AudioIn]->sample_rate, 0, nullptr);
@@ -673,8 +651,6 @@ void LibAvEncoder::audioThread()
 	// 2 seconds FIFO buffer
 	fifo = av_audio_fifo_alloc(required_fmt, codec_ctx_[AudioOut]->ch_layout.nb_channels,
 							   codec_ctx_[AudioOut]->sample_rate * 2);
-#endif
-
 	swr_init(conv);
 
 	AVPacket *in_pkt = av_packet_alloc();
@@ -771,12 +747,7 @@ void LibAvEncoder::audioThread()
 			AVFrame *out_frame = av_frame_alloc();
 			out_frame->nb_samples = codec_ctx_[AudioOut]->frame_size;
 
-#if LIBAVUTIL_VERSION_MAJOR < 57
-			out_frame->channels = codec_ctx_[AudioOut]->channels;
-			out_frame->channel_layout = av_get_default_channel_layout(codec_ctx_[AudioOut]->channels);
-#else
 			av_channel_layout_copy(&out_frame->ch_layout, &codec_ctx_[AudioOut]->ch_layout);
-#endif
 
 			out_frame->format = required_fmt;
 			out_frame->sample_rate = codec_ctx_[AudioOut]->sample_rate;
