@@ -337,13 +337,13 @@ void LibAvEncoder::initAudioOutCodec(VideoOptions const *options, StreamInfo con
 #if LIBAVCODEC_VERSION_MAJOR < 61
 	codec_ctx_[AudioOut]->sample_fmt = codec->sample_fmts[0];
 #else
-	enum AVSampleFormat **sample_fmts = nullptr;
+	const enum AVSampleFormat *sample_fmts = nullptr;
 	avcodec_get_supported_config(codec_ctx_[AudioOut], codec, AV_CODEC_CONFIG_SAMPLE_FORMAT, 0,
 								 (const void **)&sample_fmts, nullptr);
 	if (!sample_fmts)
 		throw std::runtime_error("libav: no supported sample formats for audio codec");
 	else
-		codec_ctx_[AudioOut]->sample_fmt = (*sample_fmts)[0];
+		codec_ctx_[AudioOut]->sample_fmt = sample_fmts[0];
 #endif
 
 	codec_ctx_[AudioOut]->bit_rate = options->Get().audio_bitrate.bps();
@@ -652,7 +652,7 @@ void LibAvEncoder::audioThread()
 	uint32_t out_channels = codec_ctx_[AudioOut]->ch_layout.nb_channels;
 #endif
 
-	SwrContext *conv;
+	SwrContext *conv = nullptr;
 	AVAudioFifo *fifo;
 
 #if LIBAVUTIL_VERSION_MAJOR < 57
