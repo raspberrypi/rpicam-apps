@@ -1,3 +1,11 @@
+rpicam-apps (1.9.1-1) trixie; urgency=medium
+
+  * New upstream version 1.9.1
+  * Remove merged patch
+  * Update gbp.conf
+
+ -- Serge Schneider <serge@raspberrypi.com>  Thu, 09 Oct 2025 14:07:39 +0100
+
 rpicam-apps (1.9.0-1) trixie; urgency=medium
 
   * New upstream version 1.9.0
