@@ -10,8 +10,6 @@ project('rpicam-apps', 'c', 'cpp',
         ],
         license : 'BSD-2-Clause')
 
-meson.add_dist_script('utils' / 'gen-dist.sh')
-
 fs = import('fs')
 
 cpp_arguments = ['-pedantic', '-Wno-unused-parameter', '-faligned-new']
@@ -65,13 +63,6 @@ configure_file(output : 'config.h', configuration : conf_data)
 
 # Generate a version string.
 version_cmd = [meson.project_source_root() / 'utils' / 'version.py', meson.project_version()]
-
-# Check if a version.gen file is present.
-# This would have been generated from the meson dist command.
-dist_version_file = meson.project_source_root() / 'version.gen'
-if fs.is_file(dist_version_file)
-    version_cmd += fs.read(dist_version_file)
-endif
 
 version_cpp = vcs_tag(command : version_cmd,
                       replace_string: '@VER@',
