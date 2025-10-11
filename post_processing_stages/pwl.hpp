@@ -76,7 +76,7 @@ public:
 	// Make "this" match (at least) the given domain. Any extension my be
 	// clipped or linear.
 	void MatchDomain(Interval const &domain, bool clip = true, const double eps = 1e-6);
-	// Generate a LUT for this funciton.
+	// Generate a LUT for this function.
 	template <typename T> std::vector<T> GenerateLut() const
 	{
 		int end = Domain().end + 1, span = 0;
