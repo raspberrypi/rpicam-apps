@@ -641,7 +641,11 @@ void RPiCamApp::StartCamera()
 
 	// Build a list of initial controls that we must set in the camera before starting it.
 	// We don't overwrite anything the application may have set before calling us.
-	if (!controls_.get(controls::ScalerCrop) && !controls_.get(controls::rpi::ScalerCrops))
+	#ifndef DISABLE_RPI_FEATURES
+	if (!controls_.get(controls::ScalerCrop) && !controls_.get(controls::rpi::ScalerCrops))	
+	#else
+	if (!controls_.get(controls::ScalerCrop))
+	#endif
 	{
 		const Rectangle sensor_area = camera_->controls().at(&controls::ScalerCrop).max().get<Rectangle>();
 		const Rectangle default_crop = camera_->controls().at(&controls::ScalerCrop).def().get<Rectangle>();
@@ -669,10 +673,15 @@ void RPiCamApp::StartCamera()
 			LOG(2, "Using crop (lores) " << crops.back().toString());
 		}
 
+		#ifndef DISABLE_RPI_FEATURES
 		if (options_->GetPlatform() == Platform::VC4)
 			controls_.set(controls::ScalerCrop, crops[0]);
 		else
 			controls_.set(controls::rpi::ScalerCrops, libcamera::Span<const Rectangle>(crops.data(), crops.size()));
+		#else
+		if (options_->GetPlatform() == Platform::VC4)
+			controls_.set(controls::ScalerCrop, crops[0]);
+		#endif
 	}
 
 	if (!controls_.get(controls::AfWindows) && !controls_.get(controls::AfMetering) &&

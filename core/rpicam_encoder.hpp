@@ -99,6 +99,7 @@ private:
 		// pairs.)
 		assert(mem == nullptr);
 		{
+            (void)mem;
 			std::lock_guard<std::mutex> lock(encode_buffer_queue_mutex_);
 			if (encode_buffer_queue_.empty())
 				throw std::runtime_error("no buffer available to return");
