@@ -11,6 +11,7 @@
 
 #include "object_detect.hpp"
 
+#include <array>
 #include <string>
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -112,7 +113,9 @@ template <typename T>
 void append(std::vector<char> &buffer, const T &value)
 {
 	const char *raw = reinterpret_cast<const char *>(&value);
-	buffer.insert(buffer.end(), raw, raw + sizeof(T));
+	size_t old_size = buffer.size();
+	buffer.resize(old_size + sizeof(T));
+	std::memcpy(buffer.data() + old_size, raw, sizeof(T));
 }
 
 bool ObjectDetectUDPStage::Process(CompletedRequestPtr &completed_request)
@@ -154,8 +157,8 @@ bool ObjectDetectUDPStage::Process(CompletedRequestPtr &completed_request)
 		constexpr uint8_t name_length = 255;
 		udp_data_buffer.push_back(static_cast<char>(name_length));
 
-		uint8_t name[name_length];
-		memcpy(name, detection.name.c_str(), name_length - 2);
+		std::array<uint8_t, name_length> name;
+		memcpy(name.data(), detection.name.c_str(), name_length - 2);
 		name[name_length - 1] = '\0';
 		append(udp_data_buffer, name);
 
