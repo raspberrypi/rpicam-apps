@@ -418,7 +418,7 @@ bool OptsInternal::Parse(boost::program_options::variables_map &vm, RPiCamApp *a
 	std::vector<std::shared_ptr<libcamera::Camera>> cameras = app->GetCameras();
 	if (camera < cameras.size())
 	{
-		const std::string cam_id = *cameras[camera]->properties().get(libcamera::properties::Model);
+		const std::string_view cam_id = *cameras[camera]->properties().get(libcamera::properties::Model);
 
 		if (cam_id.find("imx708") != std::string::npos)
 		{
