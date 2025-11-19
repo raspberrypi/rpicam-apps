@@ -1,3 +1,16 @@
+rpicam-apps (1.10.0-1) trixie; urgency=medium
+
+  [ Naushir Patuck ]
+  * postprocess: object_detect_udp_stage: Fix compiler warnings
+  * core: Switch libcamera string controls to use std::string_view
+  * postprocess: hailo: Updates for Hailo support on Trixie
+  * build: Update release version to v1.10.0
+
+  [ Serge Schneider ]
+  * Re-enable Hailo support
+
+ -- Serge Schneider <serge@raspberrypi.com>  Wed, 19 Nov 2025 10:56:04 +0000
+
 rpicam-apps (1.9.1-1) trixie; urgency=medium
 
   * New upstream version 1.9.1
