@@ -21,8 +21,8 @@ Build-Depends: debhelper-compat (= 13),
  libavdevice-dev,
  libavformat-dev,
  libopencv-dev,
-# hailort [arm64],
-# hailo-tappas-core (>= 3.31.0) [arm64],
+ hailort (>= 4.23.0) [arm64],
+ hailo-tappas-core (>= 5.1.0) [arm64],
  libswresample-dev
 Standards-Version: 4.1.3
 Homepage: https://github.com/raspberrypi/rpicam-apps/
@@ -120,15 +120,15 @@ Description: Framework for rpicam-apps camera applications
  .
  This package contains the opencv plugin.
 
-#Package: rpicam-apps-hailo-postprocess
-#Architecture: arm64
-#Depends: ${shlibs:Depends}, ${misc:Depends}, rpicam-apps, hailort,
-# hailo-tappas-core (>= 3.31.0),
-#Description: Raspberry Pi AI HAT+ post-processing plugin for rpicam-apps
-# This package provides a post-processing module for rpicam-apps that integrates
-# with the Raspberry Pi AI HAT+ incorporating the Hailo AI accelerator. It
-# enables real-time CV inference (e.g., object detection) on frames captured by
-# the rpicam-apps framework.
+Package: rpicam-apps-hailo-postprocess
+Architecture: arm64
+Depends: ${shlibs:Depends}, ${misc:Depends}, rpicam-apps, hailort (>= 4.23.0),
+ hailo-tappas-core (>= 5.1.0),
+Description: Raspberry Pi AI HAT+ post-processing plugin for rpicam-apps
+ This package provides a post-processing module for rpicam-apps that integrates
+ with the Raspberry Pi AI HAT+ incorporating the Hailo AI accelerator. It
+ enables real-time CV inference (e.g., object detection) on frames captured by
+ the rpicam-apps framework.
 
 Package: rpicam-apps-imx500-postprocess
 Architecture: armhf arm64
