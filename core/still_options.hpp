@@ -49,7 +49,7 @@ struct StillOptions : public Options
 			("autofocus-on-capture", value<bool>(&v_->af_on_capture)->default_value(false)->implicit_value(true),
 			 "Switch to AfModeAuto and trigger a scan just before capturing a still")
 			("zsl", value<bool>(&v_->zsl)->default_value(false)->implicit_value(true),
-			 "Switch to AfModeAuto and trigger a scan just before capturing a still")
+			 "Use the capture mode for preview in order to reduce the shutter lag for the final capture")
 			;
 		// clang-format on
 	}
