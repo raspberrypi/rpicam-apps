@@ -20,6 +20,10 @@
 #define MAKE_STRING "Raspberry Pi"
 #endif
 
+#ifndef PHOTOMETRIC_LINEARRAW
+#define PHOTOMETRIC_LINEARRAW 34892
+#endif
+
 using namespace libcamera;
 
 static char TIFF_RGGB[4] = { 0, 1, 1, 2 };
@@ -34,47 +38,53 @@ struct BayerFormat
 	char const *order;
 	bool packed;
 	bool compressed;
+	bool monochrome;
 };
 
 static const std::map<PixelFormat, BayerFormat> bayer_formats =
 {
-	{ formats::SRGGB10_CSI2P, { "RGGB-10", 10, TIFF_RGGB, true, false } },
-	{ formats::SGRBG10_CSI2P, { "GRBG-10", 10, TIFF_GRBG, true, false } },
-	{ formats::SBGGR10_CSI2P, { "BGGR-10", 10, TIFF_BGGR, true, false } },
-	{ formats::SGBRG10_CSI2P, { "GBRG-10", 10, TIFF_GBRG, true, false } },
+	{ formats::SRGGB10_CSI2P, { "RGGB-10", 10, TIFF_RGGB, true, false, false } },
+	{ formats::SGRBG10_CSI2P, { "GRBG-10", 10, TIFF_GRBG, true, false, false } },
+	{ formats::SBGGR10_CSI2P, { "BGGR-10", 10, TIFF_BGGR, true, false, false } },
+	{ formats::SGBRG10_CSI2P, { "GBRG-10", 10, TIFF_GBRG, true, false, false } },
 
-	{ formats::SRGGB10, { "RGGB-10", 10, TIFF_RGGB, false, false } },
-	{ formats::SGRBG10, { "GRBG-10", 10, TIFF_GRBG, false, false } },
-	{ formats::SBGGR10, { "BGGR-10", 10, TIFF_BGGR, false, false } },
-	{ formats::SGBRG10, { "GBRG-10", 10, TIFF_GBRG, false, false } },
+	{ formats::SRGGB10, { "RGGB-10", 10, TIFF_RGGB, false, false, false } },
+	{ formats::SGRBG10, { "GRBG-10", 10, TIFF_GRBG, false, false, false } },
+	{ formats::SBGGR10, { "BGGR-10", 10, TIFF_BGGR, false, false, false } },
+	{ formats::SGBRG10, { "GBRG-10", 10, TIFF_GBRG, false, false, false } },
 
-	{ formats::SRGGB12_CSI2P, { "RGGB-12", 12, TIFF_RGGB, true, false } },
-	{ formats::SGRBG12_CSI2P, { "GRBG-12", 12, TIFF_GRBG, true, false } },
-	{ formats::SBGGR12_CSI2P, { "BGGR-12", 12, TIFF_BGGR, true, false } },
-	{ formats::SGBRG12_CSI2P, { "GBRG-12", 12, TIFF_GBRG, true, false } },
+	{ formats::SRGGB12_CSI2P, { "RGGB-12", 12, TIFF_RGGB, true, false, false } },
+	{ formats::SGRBG12_CSI2P, { "GRBG-12", 12, TIFF_GRBG, true, false, false } },
+	{ formats::SBGGR12_CSI2P, { "BGGR-12", 12, TIFF_BGGR, true, false, false } },
+	{ formats::SGBRG12_CSI2P, { "GBRG-12", 12, TIFF_GBRG, true, false, false } },
 
-	{ formats::SRGGB12, { "RGGB-12", 12, TIFF_RGGB, false, false } },
-	{ formats::SGRBG12, { "GRBG-12", 12, TIFF_GRBG, false, false } },
-	{ formats::SBGGR12, { "BGGR-12", 12, TIFF_BGGR, false, false } },
-	{ formats::SGBRG12, { "GBRG-12", 12, TIFF_GBRG, false, false } },
+	{ formats::SRGGB12, { "RGGB-12", 12, TIFF_RGGB, false, false, false } },
+	{ formats::SGRBG12, { "GRBG-12", 12, TIFF_GRBG, false, false, false } },
+	{ formats::SBGGR12, { "BGGR-12", 12, TIFF_BGGR, false, false, false } },
+	{ formats::SGBRG12, { "GBRG-12", 12, TIFF_GBRG, false, false, false } },
 
-	{ formats::SRGGB16, { "RGGB-16", 16, TIFF_RGGB, false, false } },
-	{ formats::SGRBG16, { "GRBG-16", 16, TIFF_GRBG, false, false } },
-	{ formats::SBGGR16, { "BGGR-16", 16, TIFF_BGGR, false, false } },
-	{ formats::SGBRG16, { "GBRG-16", 16, TIFF_GBRG, false, false } },
-
-	{ formats::R10_CSI2P, { "BGGR-10", 10, TIFF_BGGR, true, false } },
-	{ formats::R10, { "BGGR-10", 10, TIFF_BGGR, false, false } },
-	// Currently not in the main libcamera branch
-	//{ formats::R12_CSI2P, { "BGGR-12", 12, TIFF_BGGR, true } },
-	{ formats::R12, { "BGGR-12", 12, TIFF_BGGR, false, false } },
+	{ formats::SRGGB16, { "RGGB-16", 16, TIFF_RGGB, false, false, false } },
+	{ formats::SGRBG16, { "GRBG-16", 16, TIFF_GRBG, false, false, false } },
+	{ formats::SBGGR16, { "BGGR-16", 16, TIFF_BGGR, false, false, false } },
+	{ formats::SGBRG16, { "GBRG-16", 16, TIFF_GBRG, false, false, false } },
 
 	/* PiSP compressed formats. */
-	{ formats::RGGB_PISP_COMP1, { "RGGB-16-PISP", 16, TIFF_RGGB, false, true } },
-	{ formats::GRBG_PISP_COMP1, { "GRBG-16-PISP", 16, TIFF_GRBG, false, true } },
-	{ formats::GBRG_PISP_COMP1, { "GBRG-16-PISP", 16, TIFF_GBRG, false, true } },
-	{ formats::BGGR_PISP_COMP1, { "BGGR-16-PISP", 16, TIFF_BGGR, false, true } },
+	{ formats::RGGB_PISP_COMP1, { "RGGB-16-PISP", 16, TIFF_RGGB, false, true, false } },
+	{ formats::GRBG_PISP_COMP1, { "GRBG-16-PISP", 16, TIFF_GRBG, false, true, false } },
+	{ formats::GBRG_PISP_COMP1, { "GBRG-16-PISP", 16, TIFF_GBRG, false, true, false } },
+	{ formats::BGGR_PISP_COMP1, { "BGGR-16-PISP", 16, TIFF_BGGR, false, true, false } },
+
+	/* Monochrome formats */
+	{ formats::R10_CSI2P, { "MONO-10", 10, NULL, false, false, true } },
+	{ formats::R12_CSI2P, { "MONO-12", 12, NULL, false, false, true } },
+	//{ formats::R14_CSI2P, { "MONO-14", 14, false, false, true } },
+	{ formats::R16,       { "MONO-16", 16, NULL, false, false, true } },
+
+	/* Monochrome + PISP compressed format */
+	{ formats::MONO_PISP_COMP1,   { "MONO-16-PISP", 16, NULL, false, true, true } },
+
 };
+
 
 static void unpack_10bit(uint8_t const *src, StreamInfo const &info, uint16_t *dest)
 {
@@ -337,13 +347,20 @@ void dng_save(std::vector<libcamera::Span<uint8_t>> const &mem, StreamInfo const
 	auto bl = metadata.get(controls::SensorBlackLevels);
 	if (bl)
 	{
-		// levels is in the order R, Gr, Gb, B. Re-order it for the actual bayer order.
-		for (int i = 0; i < 4; i++)
+		if (!bayer_format.monochrome)
 		{
-			int j = bayer_format.order[i];
-			j = j == 0 ? 0 : (j == 2 ? 3 : 1 + !!bayer_format.order[i ^ 1]);
-			black_levels[j] = (*bl)[i] * (1 << bayer_format.bits) / 65536.0;
+			// levels is in the order R, Gr, Gb, B. Re-order it for the actual bayer order.
+			for (int i = 0; i < 4; i++)
+			{
+				int j = bayer_format.order[i];
+				j = j == 0 ? 0 : (j == 2 ? 3 : 1 + !!bayer_format.order[i ^ 1]);
+				black_levels[j] = (*bl)[i] * (1 << bayer_format.bits) / 65536.0;
+			}
 		}
+		else{
+			black_levels[0] = (*bl)[0] * (1 << bayer_format.bits) / 65536.0;
+		}
+
 	}
 	else
 		LOG_ERROR("WARNING: no black level found, using default");
@@ -431,9 +448,12 @@ void dng_save(std::vector<libcamera::Span<uint8_t>> const &mem, StreamInfo const
 		TIFFSetField(tif, TIFFTAG_SAMPLESPERPIXEL, 3);
 		TIFFSetField(tif, TIFFTAG_PLANARCONFIG, PLANARCONFIG_CONTIG);
 		TIFFSetField(tif, TIFFTAG_SOFTWARE, "rpicam-still");
-		TIFFSetField(tif, TIFFTAG_COLORMATRIX1, 9, CAM_XYZ.m);
-		TIFFSetField(tif, TIFFTAG_ASSHOTNEUTRAL, 3, NEUTRAL);
-		TIFFSetField(tif, TIFFTAG_CALIBRATIONILLUMINANT1, 21);
+		if (!bayer_format.monochrome)
+		{
+			TIFFSetField(tif, TIFFTAG_COLORMATRIX1, 9, CAM_XYZ.m);
+			TIFFSetField(tif, TIFFTAG_ASSHOTNEUTRAL, 3, NEUTRAL);
+			TIFFSetField(tif, TIFFTAG_CALIBRATIONILLUMINANT1, 21);
+		}
 		TIFFSetField(tif, TIFFTAG_SUBIFD, 1, &offset_subifd);
 		TIFFSetField(tif, TIFFTAG_EXIFIFD, offset_exififd);
 
@@ -462,19 +482,32 @@ void dng_save(std::vector<libcamera::Span<uint8_t>> const &mem, StreamInfo const
 		TIFFSetField(tif, TIFFTAG_IMAGEWIDTH, info.width);
 		TIFFSetField(tif, TIFFTAG_IMAGELENGTH, info.height);
 		TIFFSetField(tif, TIFFTAG_BITSPERSAMPLE, 16);
-		TIFFSetField(tif, TIFFTAG_PHOTOMETRIC, PHOTOMETRIC_CFA);
+		if (!bayer_format.monochrome)
+			TIFFSetField(tif, TIFFTAG_PHOTOMETRIC, PHOTOMETRIC_CFA);
+		else
+			TIFFSetField(tif, TIFFTAG_PHOTOMETRIC, PHOTOMETRIC_LINEARRAW);
 		TIFFSetField(tif, TIFFTAG_SAMPLESPERPIXEL, 1);
 		TIFFSetField(tif, TIFFTAG_PLANARCONFIG, PLANARCONFIG_CONTIG);
-		TIFFSetField(tif, TIFFTAG_CFAREPEATPATTERNDIM, cfa_repeat_pattern_dim);
+		if (!bayer_format.monochrome)
+		{
+			TIFFSetField(tif, TIFFTAG_CFAREPEATPATTERNDIM, cfa_repeat_pattern_dim);
 #if TIFFLIB_VERSION >= 20201219 // version 4.2.0 or later
-		TIFFSetField(tif, TIFFTAG_CFAPATTERN, 4, bayer_format.order);
+			TIFFSetField(tif, TIFFTAG_CFAPATTERN, 4, bayer_format.order);
 #else
-		TIFFSetField(tif, TIFFTAG_CFAPATTERN, bayer_format.order);
+			TIFFSetField(tif, TIFFTAG_CFAPATTERN, bayer_format.order);
 #endif
-		TIFFSetField(tif, TIFFTAG_WHITELEVEL, 1, &white);
-		const uint16_t black_level_repeat_dim[] = { 2, 2 };
-		TIFFSetField(tif, TIFFTAG_BLACKLEVELREPEATDIM, &black_level_repeat_dim);
-		TIFFSetField(tif, TIFFTAG_BLACKLEVEL, 4, &black_levels);
+			TIFFSetField(tif, TIFFTAG_WHITELEVEL, 1, &white);
+			const uint16_t black_level_repeat_dim[] = { 2, 2 };
+			TIFFSetField(tif, TIFFTAG_BLACKLEVELREPEATDIM, &black_level_repeat_dim);
+			TIFFSetField(tif, TIFFTAG_BLACKLEVEL, 4, &black_levels);
+		}
+		else{
+			const uint16_t black_level_repeat_dim[] = { 1, 1 };
+			TIFFSetField(tif, TIFFTAG_BLACKLEVELREPEATDIM, &black_level_repeat_dim);
+			float black_level = black_levels[0];
+			TIFFSetField(tif, TIFFTAG_BLACKLEVEL, 1, &black_level);
+		}
+
 
 		for (unsigned int y = 0; y < info.height; y++)
 		{
