@@ -66,13 +66,3 @@ hailo_postprocessing_lib = shared_module('hailo-postproc', hailo_postprocessing_
 
 install_data(hailopp_config_files,
              install_dir : get_option('datadir') / 'hailo-models')
-
-if get_option('download_hailo_models')
-    download_script = meson.project_source_root() / 'utils' / 'download-hailo-models.sh'
-    custom_target('hailo-models',
-                  command : [ download_script, '@OUTPUT@' ],
-                  output : 'hailo-models',
-                  install : true,
-                  install_dir : get_option('datadir'),
-                 )
-endif
