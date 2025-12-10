@@ -1,9 +1,7 @@
 #!/usr/bin/make -f
 #export DH_VERBOSE = 1
 
-CONFIG := -Ddownload_hailo_models=false \
-	  -Ddownload_imx500_models=false \
-	  -Denable_drm=enabled \
+CONFIG := -Denable_drm=enabled \
 	  -Denable_egl=enabled \
 	  -Denable_libav=enabled \
 	  -Denable_opencv=enabled \
@@ -25,8 +23,8 @@ endif
 	dh $@
 
 execute_after_dh_install:
-	rm -f $(addsuffix _*.json, $(addprefix debian/rpicam-apps-core/usr/share/rpi-camera-assets/,hailo imx500))
-	rm -f debian/rpicam-apps-preview/usr/lib/*/rpicam-apps-preview/drm-preview.so
+	rm -v -f $(addsuffix _*.json, $(addprefix debian/rpicam-apps-core/usr/share/rpi-camera-assets/,hailo imx500))
+	rm -v -f debian/rpicam-apps-preview/usr/lib/*/rpicam-apps-preview/drm-preview.so
 
 override_dh_auto_configure:
 	dh_auto_configure -- $(CONFIG)

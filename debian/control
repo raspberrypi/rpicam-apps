@@ -123,7 +123,7 @@ Description: Framework for rpicam-apps camera applications
 Package: rpicam-apps-hailo-postprocess
 Architecture: arm64
 Depends: ${shlibs:Depends}, ${misc:Depends}, rpicam-apps, hailort (>= 4.23.0),
- hailo-tappas-core (>= 5.1.0),
+ hailo-tappas-core (>= 5.1.0), hailo-models (>= 1.0.0)
 Description: Raspberry Pi AI HAT+ post-processing plugin for rpicam-apps
  This package provides a post-processing module for rpicam-apps that integrates
  with the Raspberry Pi AI HAT+ incorporating the Hailo AI accelerator. It
@@ -132,20 +132,12 @@ Description: Raspberry Pi AI HAT+ post-processing plugin for rpicam-apps
 
 Package: rpicam-apps-imx500-postprocess
 Architecture: armhf arm64
-Depends: ${shlibs:Depends}, ${misc:Depends}, rpicam-apps, imx500-models (= ${source:Version})
+Depends: ${shlibs:Depends}, ${misc:Depends}, rpicam-apps, imx500-models (>= 1:1.0.0)
 Description: IMX500 AI metadata plugin for rpicam-apps
  This package provides a post-processing module for rpicam-apps that integrates
  with the Raspberry Pi AI Camera (Sony IMX500). It enables real-time CV
  inference (e.g., object detection) on frames captured by the rpicam-apps
  framework.
-
-Package: imx500-models
-Architecture: all
-Depends: ${misc:Depends}, imx500-firmware
-Description: Pretrained AI models for the Raspberry Pi AI Camera (Sony IMX500)
- This package includes a set of AI models optimized to run on the Raspberry Pi
- AI Camera. The models support use cases such as object detection, pose
- estimation, and object segmentation.
 
 Package: imx500-all
 Architecture: all
