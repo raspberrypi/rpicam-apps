@@ -22,12 +22,18 @@
 
 using namespace libcamera;
 
+#ifndef PHOTOMETRIC_LINEARRAW
+#define PHOTOMETRIC_LINEARRAW 34892
+#endif
+
+using namespace libcamera;
+
 static char TIFF_RGGB[4] = { 0, 1, 1, 2 };
 static char TIFF_GRBG[4] = { 1, 0, 2, 1 };
 static char TIFF_BGGR[4] = { 2, 1, 1, 0 };
 static char TIFF_GBRG[4] = { 1, 2, 0, 1 };
 
-struct BayerFormat
+struct FormatInfo
 {
 	char const *name;
 	int bits;
@@ -36,7 +42,7 @@ struct BayerFormat
 	bool compressed;
 };
 
-static const std::map<PixelFormat, BayerFormat> bayer_formats =
+static const std::map<PixelFormat, FormatInfo> bayer_formats =
 {
 	{ formats::SRGGB10_CSI2P, { "RGGB-10", 10, TIFF_RGGB, true, false } },
 	{ formats::SGRBG10_CSI2P, { "GRBG-10", 10, TIFF_GRBG, true, false } },
@@ -63,18 +69,29 @@ static const std::map<PixelFormat, BayerFormat> bayer_formats =
 	{ formats::SBGGR16, { "BGGR-16", 16, TIFF_BGGR, false, false } },
 	{ formats::SGBRG16, { "GBRG-16", 16, TIFF_GBRG, false, false } },
 
-	{ formats::R10_CSI2P, { "BGGR-10", 10, TIFF_BGGR, true, false } },
-	{ formats::R10, { "BGGR-10", 10, TIFF_BGGR, false, false } },
-	// Currently not in the main libcamera branch
-	//{ formats::R12_CSI2P, { "BGGR-12", 12, TIFF_BGGR, true } },
-	{ formats::R12, { "BGGR-12", 12, TIFF_BGGR, false, false } },
-
 	/* PiSP compressed formats. */
 	{ formats::RGGB_PISP_COMP1, { "RGGB-16-PISP", 16, TIFF_RGGB, false, true } },
 	{ formats::GRBG_PISP_COMP1, { "GRBG-16-PISP", 16, TIFF_GRBG, false, true } },
 	{ formats::GBRG_PISP_COMP1, { "GBRG-16-PISP", 16, TIFF_GBRG, false, true } },
 	{ formats::BGGR_PISP_COMP1, { "BGGR-16-PISP", 16, TIFF_BGGR, false, true } },
 };
+
+static const std::map<PixelFormat, FormatInfo> mono_formats =
+{
+	/* Monochrome formats */
+	{ formats::R10_CSI2P, { "MONO-10", 10, NULL, false, false } },
+	{ formats::R12_CSI2P, { "MONO-12", 12, NULL, false, false } },
+	{ formats::R16,		  { "MONO-16", 16, NULL, false, false } },
+
+	/* Monochrome + PISP compressed format */
+	{ formats::MONO_PISP_COMP1, { "MONO-16-PISP", 16, NULL, false, true } },
+};
+
+static bool is_mono(const PixelFormat &format)
+{
+	auto it = mono_formats.find(format);
+	return it != mono_formats.end();
+}
 
 static void unpack_10bit(uint8_t const *src, StreamInfo const &info, uint16_t *dest)
 {
@@ -299,26 +316,36 @@ Matrix(float m0, float m1, float m2,
 void dng_save(std::vector<libcamera::Span<uint8_t>> const &mem, StreamInfo const &info, ControlList const &metadata,
 			  std::string const &filename, std::string const &cam_model, StillOptions const *options)
 {
-	// Check the Bayer format and unpack it to u16.
+	FormatInfo format;
+	bool mono = is_mono(info.pixel_format);
 
-	auto it = bayer_formats.find(info.pixel_format);
-	if (it == bayer_formats.end())
-		throw std::runtime_error("unsupported Bayer format");
-	BayerFormat const &bayer_format = it->second;
-	LOG(1, "Bayer format is " << bayer_format.name);
+	if (mono)
+	{
+		format = mono_formats.find(info.pixel_format)->second;
+		LOG(1, "Mono format is " << format.name);
+	}
+	else
+	{
+		// Check the Bayer format and unpack it to u16.
+		auto it = bayer_formats.find(info.pixel_format);
+		if (it == bayer_formats.end())
+			throw std::runtime_error("unsupported Bayer format");
+		format = it->second;
+		LOG(1, "Bayer format is " << format.name);
+	}
 
 	// Decompression will require a buffer that's 8 pixels aligned.
 	unsigned int buf_stride_pixels = info.width;
 	unsigned int buf_stride_pixels_padded = (buf_stride_pixels + 7) & ~7;
 	std::vector<uint16_t> buf(buf_stride_pixels_padded * info.height);
-	if (bayer_format.compressed)
+	if (format.compressed)
 	{
 		uncompress(mem[0].data(), info, &buf[0]);
 		buf_stride_pixels = buf_stride_pixels_padded;
 	}
-	else if (bayer_format.packed)
+	else if (format.packed)
 	{
-		switch (bayer_format.bits)
+		switch (format.bits)
 		{
 		case 10:
 			unpack_10bit(mem[0].data(), info, &buf[0]);
@@ -332,18 +359,23 @@ void dng_save(std::vector<libcamera::Span<uint8_t>> const &mem, StreamInfo const
 		unpack_16bit(mem[0].data(), info, &buf[0]);
 
 	// We need to fish out some metadata values for the DNG.
-	float black = 4096 * (1 << bayer_format.bits) / 65536.0;
+	float black = 4096 * (1 << format.bits) / 65536.0;
 	float black_levels[] = { black, black, black, black };
 	auto bl = metadata.get(controls::SensorBlackLevels);
 	if (bl)
 	{
-		// levels is in the order R, Gr, Gb, B. Re-order it for the actual bayer order.
-		for (int i = 0; i < 4; i++)
+		if (!mono)
 		{
-			int j = bayer_format.order[i];
-			j = j == 0 ? 0 : (j == 2 ? 3 : 1 + !!bayer_format.order[i ^ 1]);
-			black_levels[j] = (*bl)[i] * (1 << bayer_format.bits) / 65536.0;
+			// levels is in the order R, Gr, Gb, B. Re-order it for the actual bayer order.
+			for (int i = 0; i < 4; i++)
+			{
+				int j = format.order[i];
+				j = j == 0 ? 0 : (j == 2 ? 3 : 1 + !!format.order[i ^ 1]);
+				black_levels[j] = (*bl)[i] * (1 << format.bits) / 65536.0;
+			}
 		}
+		else
+			black_levels[0] = (*bl)[0] * (1 << format.bits) / 65536.0;
 	}
 	else
 		LOG_ERROR("WARNING: no black level found, using default");
@@ -382,7 +414,7 @@ void dng_save(std::vector<libcamera::Span<uint8_t>> const &mem, StreamInfo const
 	{
 		CCM = Matrix((*ccm)[0], (*ccm)[1], (*ccm)[2], (*ccm)[3], (*ccm)[4], (*ccm)[5], (*ccm)[6], (*ccm)[7], (*ccm)[8]);
 	}
-	else
+	else if (!mono)
 		LOG_ERROR("WARNING: no CCM metadata found");
 
 	// This maxtrix from http://www.brucelindbloom.com/index.html?Eqn_RGB_XYZ_Matrix.html
@@ -406,7 +438,7 @@ void dng_save(std::vector<libcamera::Span<uint8_t>> const &mem, StreamInfo const
 	try
 	{
 		const short cfa_repeat_pattern_dim[] = { 2, 2 };
-		uint32_t white = (1 << bayer_format.bits) - 1;
+		uint32_t white = (1 << format.bits) - 1;
 		toff_t offset_subifd = 0, offset_exififd = 0;
 		std::string unique_model = std::string(MAKE_STRING " ") + cam_model;
 
@@ -431,11 +463,14 @@ void dng_save(std::vector<libcamera::Span<uint8_t>> const &mem, StreamInfo const
 		TIFFSetField(tif, TIFFTAG_SAMPLESPERPIXEL, 3);
 		TIFFSetField(tif, TIFFTAG_PLANARCONFIG, PLANARCONFIG_CONTIG);
 		TIFFSetField(tif, TIFFTAG_SOFTWARE, "rpicam-still");
-		TIFFSetField(tif, TIFFTAG_COLORMATRIX1, 9, CAM_XYZ.m);
-		TIFFSetField(tif, TIFFTAG_ASSHOTNEUTRAL, 3, NEUTRAL);
-		TIFFSetField(tif, TIFFTAG_CALIBRATIONILLUMINANT1, 21);
-		TIFFSetField(tif, TIFFTAG_SUBIFD, 1, &offset_subifd);
-		TIFFSetField(tif, TIFFTAG_EXIFIFD, offset_exififd);
+		if (!mono)
+		{
+			TIFFSetField(tif, TIFFTAG_COLORMATRIX1, 9, CAM_XYZ.m);
+			TIFFSetField(tif, TIFFTAG_ASSHOTNEUTRAL, 3, NEUTRAL);
+			TIFFSetField(tif, TIFFTAG_CALIBRATIONILLUMINANT1, 21);
+			TIFFSetField(tif, TIFFTAG_SUBIFD, 1, &offset_subifd);
+			TIFFSetField(tif, TIFFTAG_EXIFIFD, offset_exififd);
+		}
 
 		// Make a small greyscale thumbnail, just to give some clue what's in here.
 		std::vector<uint8_t> thumb_buf((info.width >> 4) * 3);
@@ -447,7 +482,7 @@ void dng_save(std::vector<libcamera::Span<uint8_t>> const &mem, StreamInfo const
 				unsigned int off = (y * buf_stride_pixels + x) << 4;
 				uint32_t grey =
 					buf[off] + buf[off + 1] + buf[off + buf_stride_pixels] + buf[off + buf_stride_pixels + 1];
-				grey = (grey << 14) >> bayer_format.bits;
+				grey = (grey << 14) >> format.bits;
 				grey = sqrt((double)grey); // simple "gamma correction"
 				thumb_buf[3 * x] = thumb_buf[3 * x + 1] = thumb_buf[3 * x + 2] = grey;
 			}
@@ -462,19 +497,30 @@ void dng_save(std::vector<libcamera::Span<uint8_t>> const &mem, StreamInfo const
 		TIFFSetField(tif, TIFFTAG_IMAGEWIDTH, info.width);
 		TIFFSetField(tif, TIFFTAG_IMAGELENGTH, info.height);
 		TIFFSetField(tif, TIFFTAG_BITSPERSAMPLE, 16);
-		TIFFSetField(tif, TIFFTAG_PHOTOMETRIC, PHOTOMETRIC_CFA);
+		TIFFSetField(tif, TIFFTAG_PHOTOMETRIC, mono ? PHOTOMETRIC_LINEARRAW : PHOTOMETRIC_CFA);
 		TIFFSetField(tif, TIFFTAG_SAMPLESPERPIXEL, 1);
 		TIFFSetField(tif, TIFFTAG_PLANARCONFIG, PLANARCONFIG_CONTIG);
-		TIFFSetField(tif, TIFFTAG_CFAREPEATPATTERNDIM, cfa_repeat_pattern_dim);
+
+		if (!mono)
+		{
+			TIFFSetField(tif, TIFFTAG_CFAREPEATPATTERNDIM, cfa_repeat_pattern_dim);
 #if TIFFLIB_VERSION >= 20201219 // version 4.2.0 or later
-		TIFFSetField(tif, TIFFTAG_CFAPATTERN, 4, bayer_format.order);
+			TIFFSetField(tif, TIFFTAG_CFAPATTERN, 4, format.order);
 #else
-		TIFFSetField(tif, TIFFTAG_CFAPATTERN, bayer_format.order);
+			TIFFSetField(tif, TIFFTAG_CFAPATTERN, format.order);
 #endif
-		TIFFSetField(tif, TIFFTAG_WHITELEVEL, 1, &white);
-		const uint16_t black_level_repeat_dim[] = { 2, 2 };
-		TIFFSetField(tif, TIFFTAG_BLACKLEVELREPEATDIM, &black_level_repeat_dim);
-		TIFFSetField(tif, TIFFTAG_BLACKLEVEL, 4, &black_levels);
+			TIFFSetField(tif, TIFFTAG_WHITELEVEL, 1, &white);
+			const uint16_t black_level_repeat_dim[] = { 2, 2 };
+			TIFFSetField(tif, TIFFTAG_BLACKLEVELREPEATDIM, &black_level_repeat_dim);
+			TIFFSetField(tif, TIFFTAG_BLACKLEVEL, 4, &black_levels);
+		}
+		else
+		{
+			const uint16_t black_level_repeat_dim[] = { 1, 1 };
+			TIFFSetField(tif, TIFFTAG_BLACKLEVELREPEATDIM, &black_level_repeat_dim);
+			float black_level = black_levels[0];
+			TIFFSetField(tif, TIFFTAG_BLACKLEVEL, 1, &black_level);
+		}
 
 		for (unsigned int y = 0; y < info.height; y++)
 		{
