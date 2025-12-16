@@ -122,8 +122,9 @@ Description: Framework for rpicam-apps camera applications
 
 Package: rpicam-apps-hailo-postprocess
 Architecture: arm64
-Depends: ${shlibs:Depends}, ${misc:Depends}, rpicam-apps, hailort (>= 4.23.0),
- hailo-tappas-core (>= 5.1.0), hailo-models (>= 1.0.0)
+Depends: ${shlibs:Depends}, ${misc:Depends}, rpicam-apps,
+ h10-hailort (>= 5.1.1) | hailort (>= 4.23.0), hailo-tappas-core (>= 5.1.0),
+ hailo-models (>= 1.0.0)
 Description: Raspberry Pi AI HAT+ post-processing plugin for rpicam-apps
  This package provides a post-processing module for rpicam-apps that integrates
  with the Raspberry Pi AI HAT+ incorporating the Hailo AI accelerator. It

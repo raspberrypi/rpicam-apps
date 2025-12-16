@@ -14,7 +14,7 @@ ifeq ($(DEB_HOST_ARCH),arm64)
 
 # Hailo's packages are broken, so work around their limitations until they're fixed.
 override_dh_shlibdeps:
-	dh_shlibdeps --dpkg-shlibdeps-params=--ignore-missing-info
+	dh_shlibdeps -- --ignore-missing-info -xhailort -xh10-hailort
 else
 	CONFIG += -Denable_hailo=disabled
 endif
