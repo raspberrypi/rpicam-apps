@@ -7,6 +7,8 @@
 
 #pragma once
 
+#include <dlfcn.h>
+
 #include <map>
 #include <memory>
 #include <mutex>
@@ -15,7 +17,7 @@
 class DlLib
 {
 public:
-	DlLib(const std::string &lib);
+	DlLib(const std::string &lib, int flags = RTLD_LAZY);
 	DlLib(DlLib &&other);
 	DlLib(const DlLib &other) = delete;
 	DlLib &operator=(const DlLib &other) = delete;
