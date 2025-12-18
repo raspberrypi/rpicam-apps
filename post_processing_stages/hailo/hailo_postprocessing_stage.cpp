@@ -6,6 +6,9 @@
  */
 
 #include <algorithm>
+#include <array>
+#include <iostream>
+#include <memory>
 #include <mutex>
 #include <string>
 #include <sys/mman.h>
@@ -89,6 +92,37 @@ public:
 private:
 	vdevice() {}
 };
+
+// Sigh :(
+std::string get_hailo_architecture()
+{
+	const std::string cmd("hailortcli fw-control identify");
+	const std::string target_label("Device Architecture: ");
+	std::array<char, 128> buffer;
+
+	auto deleter = [](FILE *f) { pclose(f); };
+	std::unique_ptr<FILE, decltype(deleter)> pipe(popen(cmd.c_str(), "r"), deleter);
+
+	if (!pipe)
+	{
+		LOG_ERROR("Could not open pipe for Hailo identify");
+		return {};
+	}
+
+	while (fgets(buffer.data(), buffer.size(), pipe.get()) != nullptr)
+	{
+		std::string line(buffer.data());
+		size_t pos = line.find(target_label);
+		if (pos != std::string::npos)
+		{
+			std::string arch = line.substr(pos + target_label.length());
+			arch.erase(arch.find_last_not_of(" \n\r\t") + 1);
+			return arch;
+		}
+	}
+
+	return {};
+}
 
 } // namespace
 
@@ -196,27 +230,24 @@ int HailoPostProcessingStage::configureHailoRT()
 		return -1;
 	}
 
-	// Pull the device id.
-	auto devices = vdevice_->get_physical_devices().release();
-	device_id_ = devices[0].get().identify().release();
+	std::string device = get_hailo_architecture();
+	if (device.empty())
+	{
+		LOG_ERROR("Defaulting to HAILO8 architecture");
+		device = "HAILO8";
+	}
+	else
+		LOG(1, "Hailo device: " << device);
 
 	std::string hef_file;
-	switch (device_id_.device_architecture)
-	{
-	case HAILO_ARCH_HAILO15H:
-	case HAILO_ARCH_HAILO10H:
+	if (device == "HAILO10H")
 		hef_file = hef_file_10_;
-		break;
-	case HAILO_ARCH_HAILO8:
+	else if (device == "HAILO8")
 		hef_file = hef_file_8_;
-		break;
-	case HAILO_ARCH_HAILO8L:
+	else if (device == "HAILO8L")
 		hef_file = hef_file_8L_;
-		break;
-	default:
-		LOG_ERROR("Unexpected Hailo architecture detected: " << device_id_.device_architecture);
-		return -1;
-	}
+	else
+		LOG_ERROR("Unexpected Hailo architecture detected: " << device);
 
 	if (hef_file.empty())
 		hef_file = hef_file_;

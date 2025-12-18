@@ -199,5 +199,4 @@ private:
 	hailort::ConfiguredInferModel::Bindings bindings_;
 	std::chrono::time_point<std::chrono::steady_clock> last_frame_;
 	libcamera::Size input_tensor_size_;
-	hailo_device_identity_t device_id_;
 };
