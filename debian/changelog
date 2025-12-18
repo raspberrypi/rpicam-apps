@@ -1,3 +1,22 @@
+rpicam-apps (1.11.0-1) trixie; urgency=medium
+
+  [ Kletternaut ]
+  * apps: Fix rpicam-jpeg --metadata option
+
+  [ Naushir Patuck ]
+  * dng: Add support for mono formats
+  * build: Remove NN model downloads
+  * core: Allow custom floags for dlopen
+  * postpocess: hailo: Add initial Hailo H10 support
+  * postprocess: hailo: Rework Hailo device architecture identification
+  * build: Update relase to v1.11.0
+
+  [ Serge Schneider ]
+  * Split models intro separate source packages
+  * Add H10 dependencies
+
+ -- Serge Schneider <serge@raspberrypi.com>  Thu, 18 Dec 2025 13:45:58 +0000
+
 rpicam-apps (1.10.1-1) trixie; urgency=medium
 
   [ David Plowman ]
