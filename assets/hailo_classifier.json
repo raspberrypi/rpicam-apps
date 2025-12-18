@@ -11,6 +11,7 @@
 
     "hailo_classifier":
     {
+        "hef_file_10": "/usr/share/hailo-models/resnet_v1_50_h10.hef",
         "hef_file": "/usr/share/hailo-models/resnet_v1_50_h8l.hef"
     },
 

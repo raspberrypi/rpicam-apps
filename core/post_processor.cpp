@@ -9,6 +9,7 @@
 #include <filesystem>
 #include <iostream>
 #include <map>
+#include <string>
 
 #include "core/options.hpp"
 #include "core/rpicam_app.hpp"
@@ -50,6 +51,14 @@ void PostProcessor::LoadModules(const std::string &lib_dir)
 	// This will automatically register the stages with the factory.
 	for (auto const &p : fs::recursive_directory_iterator(path))
 	{
+#ifdef HAILORT_LIB_PATH
+		if (p.path().string().find("hailo-postproc") != std::string::npos)
+		{
+			// Special case where we need to load libhailort.so as the Hailo postprocessing stages rely on symbols
+			// within it.
+			static DlLib hailort(HAILORT_LIB_PATH, RTLD_GLOBAL | RTLD_NOW);
+		}
+#endif
 		if (p.path().extension() == ext)
 			dynamic_stages_.emplace_back(p.path().string());
 	}

@@ -19,13 +19,3 @@ imx500_postprocessing_lib = shared_module('imx500-postproc', imx500_postprocessi
                                           install_dir : posproc_libdir,
                                           name_prefix : '',
                                          )
-
-if get_option('download_imx500_models')
-    download_script = meson.project_source_root() / 'utils' / 'download-imx500-models.sh'
-    custom_target('imx500-models',
-                  command : [ download_script, '@OUTPUT@' ],
-                  output : 'imx500-models',
-                  install : true,
-                  install_dir : get_option('datadir'),
-                 )
-endif
