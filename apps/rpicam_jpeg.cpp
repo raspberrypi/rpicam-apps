@@ -10,6 +10,8 @@
 #include "core/rpicam_app.hpp"
 #include "core/still_options.hpp"
 
+#include "output/output.hpp"
+
 #include "image/image.hpp"
 
 using namespace std::placeholders;
@@ -28,6 +30,22 @@ public:
 		return static_cast<StillOptions *>(RPiCamApp::GetOptions());
 	}
 };
+
+// Save metadata to file
+static void save_metadata(StillOptions const *options, libcamera::ControlList &metadata)
+{
+	std::streambuf *buf = std::cout.rdbuf();
+	std::ofstream of;
+	const std::string &filename = options->Get().metadata;
+
+	if (filename.compare("-"))
+	{
+		of.open(filename, std::ios::out);
+		buf = of.rdbuf();
+	}
+
+	write_metadata(buf, options->Get().metadata_format, metadata, true);
+}
 
 // The main even loop for the application.
 
@@ -84,6 +102,8 @@ static void event_loop(RPiCamJpegApp &app)
 			BufferReadSync r(&app, payload->buffers[stream]);
 			const std::vector<libcamera::Span<uint8_t>> mem = r.Get();
 			jpeg_save(mem, info, payload->metadata, options->Get().output, app.CameraModel(), options);
+			if (!options->Get().metadata.empty())
+				save_metadata(options, payload->metadata);
 			return;
 		}
 	}

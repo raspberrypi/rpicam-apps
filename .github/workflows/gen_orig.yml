@@ -31,10 +31,6 @@ jobs:
             exit 1
           fi
           mv "build/meson-dist/$TARBALL" rpicam-apps_${GITHUB_REF_NAME:1}.orig.tar.xz
-          ./utils/download-hailo-models.sh hailo-models
-          XZ_OPT=-9 tar -cJf rpicam-apps_${GITHUB_REF_NAME:1}.orig-hailo-models.tar.xz hailo-models
-          ./utils/download-imx500-models.sh imx500-models
-          XZ_OPT=-9 tar -cJf rpicam-apps_${GITHUB_REF_NAME:1}.orig-imx500-models.tar.xz imx500-models
       - name: Release tarballs
         uses: softprops/action-gh-release@v2
         with:

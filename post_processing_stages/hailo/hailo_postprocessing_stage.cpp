@@ -6,6 +6,9 @@
  */
 
 #include <algorithm>
+#include <array>
+#include <iostream>
+#include <memory>
 #include <mutex>
 #include <string>
 #include <sys/mman.h>
@@ -13,6 +16,8 @@
 #include <opencv2/highgui.hpp>
 #include <opencv2/imgproc.hpp>
 #include <opencv2/opencv.hpp>
+
+#include "core/dl_lib.hpp"
 
 #include "hailo_postprocessing_stage.hpp"
 
@@ -88,6 +93,37 @@ private:
 	vdevice() {}
 };
 
+// Sigh :(
+std::string get_hailo_architecture()
+{
+	const std::string cmd("hailortcli fw-control identify");
+	const std::string target_label("Device Architecture: ");
+	std::array<char, 128> buffer;
+
+	auto deleter = [](FILE *f) { pclose(f); };
+	std::unique_ptr<FILE, decltype(deleter)> pipe(popen(cmd.c_str(), "r"), deleter);
+
+	if (!pipe)
+	{
+		LOG_ERROR("Could not open pipe for Hailo identify");
+		return {};
+	}
+
+	while (fgets(buffer.data(), buffer.size(), pipe.get()) != nullptr)
+	{
+		std::string line(buffer.data());
+		size_t pos = line.find(target_label);
+		if (pos != std::string::npos)
+		{
+			std::string arch = line.substr(pos + target_label.length());
+			arch.erase(arch.find_last_not_of(" \n\r\t") + 1);
+			return arch;
+		}
+	}
+
+	return {};
+}
+
 } // namespace
 
 
@@ -162,6 +198,7 @@ void HailoPostProcessingStage::Read(boost::property_tree::ptree const &params)
 	hef_file_ = params.get<std::string>("hef_file", "");
 	hef_file_8_ = params.get<std::string>("hef_file_8", "");
 	hef_file_8L_ = params.get<std::string>("hef_file_8L", "");
+	hef_file_10_ = params.get<std::string>("hef_file_10", "");
 }
 
 void HailoPostProcessingStage::Configure()
@@ -193,16 +230,26 @@ int HailoPostProcessingStage::configureHailoRT()
 		return -1;
 	}
 
-	// Pull the device id.
-	auto devices = vdevice_->get_physical_devices().release();
-	device_id_ = devices[0].get().identify().release();
+	std::string device = get_hailo_architecture();
+	if (device.empty())
+	{
+		LOG_ERROR("Defaulting to HAILO8 architecture");
+		device = "HAILO8";
+	}
+	else
+		LOG(1, "Hailo device: " << device);
 
 	std::string hef_file;
-	if (device_id_.device_architecture == HAILO_ARCH_HAILO8 && !hef_file_8_.empty())
+	if (device == "HAILO10H")
+		hef_file = hef_file_10_;
+	else if (device == "HAILO8")
 		hef_file = hef_file_8_;
-	else if (!hef_file_8L_.empty())
+	else if (device == "HAILO8L")
 		hef_file = hef_file_8L_;
 	else
+		LOG_ERROR("Unexpected Hailo architecture detected: " << device);
+
+	if (hef_file.empty())
 		hef_file = hef_file_;
 
 	if (hef_file.empty())

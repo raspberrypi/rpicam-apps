@@ -5,16 +5,14 @@
  * dl_lib.cpp - Dynamic loading library
  */
 
-#include <dlfcn.h>
-
 #include "core/dl_lib.hpp"
 #include "core/logging.hpp"
 
-DlLib::DlLib(const std::string &lib)
+DlLib::DlLib(const std::string &lib, int flags)
 {
 	if (!lib.empty())
 	{
-		lib_ = dlopen(lib.c_str(), RTLD_LAZY);
+		lib_ = dlopen(lib.c_str(), flags);
 		if (!lib_)
 			LOG_ERROR("Unable to open " << lib << " with error: " << dlerror());
 	}

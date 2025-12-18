@@ -39,20 +39,10 @@ option('enable_hailo',
         value : 'auto',
         description : 'Enable Hailo postprocessing support')
 
-option('download_hailo_models',
-        type : 'boolean',
-        value : true,
-        description : 'Download and install the Hailo postprocessing models')
-
 option('enable_imx500',
         type : 'boolean',
         value : false,
         description : 'Enable IMX500 postprocessing support')
-
-option('download_imx500_models',
-        type : 'boolean',
-        value : false,
-        description : 'Download and install the IMX500 postprocessing models')
 
 option('disable_rpi_features',
         type : 'boolean',
