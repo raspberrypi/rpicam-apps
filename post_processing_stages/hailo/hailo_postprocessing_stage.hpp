@@ -189,6 +189,10 @@ protected:
 	std::shared_ptr<hailort::ConfiguredInferModel> configured_infer_model_;
 	MessageQueue &msg_queue_;
 
+	int display_window_width_ = 320;
+	int display_window_height_ = 320;
+	bool display_fullscreen_ = false;
+
 private:
 	int configureHailoRT();
 	void displayThread();
