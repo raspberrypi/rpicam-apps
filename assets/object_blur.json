@@ -1,0 +1,18 @@
+{
+    "object_blur": {
+        "overlay_blur": ["wine glass", "cup", "bottle", "cell phone"],
+        "blur_type": "pixelate",
+        "blur_strength": 16,
+        "expand_box": false,
+        "expand_pixels": 0,
+        "_info": {
+            "description": "Blur detected objects based on COCO class names",
+            "overlay_blur": "Array of COCO class names to blur (required)",
+            "blur_type": "Blur method: 'pixelate' (default, fastest), 'gaussian' (smooth), 'median' (noise reduction)",
+            "blur_strength": "Blur intensity: 0=auto, pixelate:8-32, gaussian/median:15-51 (must be odd)",
+            "gaussian_sigma": "Gaussian blur sigma: 0=auto (kernel_size/6), higher=stronger blur",
+            "expand_box": "Expand bounding box before blur: true/false",
+            "expand_pixels": "Pixels to expand box: 0=auto 10% if expand_box=true, or fixed pixel value"
+        }
+    }
+}
