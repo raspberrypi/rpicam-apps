@@ -48,6 +48,7 @@ if opencv_dep.found()
         'annotate_cv_stage.cpp',
         'plot_pose_cv_stage.cpp',
         'object_detect_draw_cv_stage.cpp',
+        'object_blur_stage.cpp',
         'object_detect_udp_stage.cpp',
     ])
 
@@ -58,10 +59,17 @@ if opencv_dep.found()
         assets_dir / 'annotate_cv.json',
     ])
 
+    # Add clang-specific flag to suppress C11 extension warnings when including OpenCV headers
+    opencv_cpp_args = cpp_arguments
+    cxx = meson.get_compiler('cpp')
+    if cxx.get_id() == 'clang'
+        opencv_cpp_args += '-Wno-c11-extensions'
+    endif
+
     opencv_postproc_lib = shared_module('opencv-postproc', opencv_postproc_src,
                                         include_directories : '../',
                                         dependencies : [libcamera_dep, opencv_dep],
-                                        cpp_args : cpp_arguments,
+                                        cpp_args : opencv_cpp_args,
                                         install : true,
                                         install_dir : posproc_libdir,
                                         name_prefix : '',

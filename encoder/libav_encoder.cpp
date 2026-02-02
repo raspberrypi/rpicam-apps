@@ -477,7 +477,7 @@ void LibAvEncoder::initOutput()
 	avcodec_parameters_from_context(stream_[Video]->codecpar, codec_ctx_[Video]);
 
 	char err[64];
-	if (!(out_fmt_ctx_->flags & AVFMT_NOFILE))
+	if (!(out_fmt_ctx_->oformat->flags & AVFMT_NOFILE))
 	{
 		std::string filename = output_file_.empty() ? "/dev/null" : output_file_;
 
