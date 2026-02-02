@@ -1,3 +1,20 @@
+rpicam-apps (1.11.1-1) trixie; urgency=medium
+
+  [ David Plowman ]
+  * Check correctly for protocols that handle their own files
+  * Improve software sync when frames are missing sync metadata
+
+  [ Kletternaut ]
+  * post_processing: Add object_blur stage for privacy-focused live
+    blurring
+
+  [ Naushir Patuck ]
+  * build: Supress C11 extension errors in clang builds
+  * core: Don't overwrite request controls
+  * build: Update relase to v1.11.1
+
+ -- Serge Schneider <serge@raspberrypi.com>  Mon, 02 Feb 2026 18:47:33 +0000
+
 rpicam-apps (1.11.0-1) trixie; urgency=medium
 
   [ Kletternaut ]
