@@ -54,8 +54,14 @@ public:
 #ifndef DISABLE_RPI_FEATURES
 		// If sync was enabled, and SyncReady is still "false" then we must skip this frame. Tell our
 		// caller through the return value that we're not yet encoding anything.
-		if (GetOptions()->Get().sync && !completed_request->metadata.get(controls::rpi::SyncReady).value_or(false))
+		if (!sync_achieved_ &&
+			GetOptions()->Get().sync && !completed_request->metadata.get(controls::rpi::SyncReady).value_or(false))
 			return false;
+
+		// Setting this means that we won't skip frames that are missing sync metadata even though
+		// we had previously achieved sync. This could happen if the control algorithm doesn't run
+		// every frame.
+		sync_achieved_ = true;
 #endif
 
 		StreamInfo info = GetStreamInfo(stream);
@@ -113,4 +119,5 @@ private:
 	std::mutex encode_buffer_queue_mutex_;
 	EncodeOutputReadyCallback encode_output_ready_callback_;
 	MetadataReadyCallback metadata_ready_callback_;
+	bool sync_achieved_ = false;
 };

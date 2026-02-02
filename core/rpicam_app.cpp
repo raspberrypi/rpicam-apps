@@ -904,7 +904,8 @@ void RPiCamApp::queueRequest(CompletedRequest *completed_request)
 
 	{
 		std::lock_guard<std::mutex> lock(control_mutex_);
-		request->controls() = std::move(controls_);
+		request->controls().merge(controls_, ControlList::MergePolicy::OverwriteExisting);
+		controls_.clear();
 	}
 
 	if (camera_->queueRequest(request) < 0)
