@@ -79,8 +79,8 @@ static const std::map<PixelFormat, FormatInfo> bayer_formats =
 static const std::map<PixelFormat, FormatInfo> mono_formats =
 {
 	/* Monochrome formats */
-	{ formats::R10_CSI2P, { "MONO-10", 10, NULL, false, false } },
-	{ formats::R12_CSI2P, { "MONO-12", 12, NULL, false, false } },
+	{ formats::R10_CSI2P, { "MONO-10", 10, NULL, true, false } },
+	{ formats::R12_CSI2P, { "MONO-12", 12, NULL, true, false } },
 	{ formats::R16,		  { "MONO-16", 16, NULL, false, false } },
 
 	/* Monochrome + PISP compressed format */
@@ -500,6 +500,7 @@ void dng_save(std::vector<libcamera::Span<uint8_t>> const &mem, StreamInfo const
 		TIFFSetField(tif, TIFFTAG_PHOTOMETRIC, mono ? PHOTOMETRIC_LINEARRAW : PHOTOMETRIC_CFA);
 		TIFFSetField(tif, TIFFTAG_SAMPLESPERPIXEL, 1);
 		TIFFSetField(tif, TIFFTAG_PLANARCONFIG, PLANARCONFIG_CONTIG);
+		TIFFSetField(tif, TIFFTAG_WHITELEVEL, 1, &white);
 
 		if (!mono)
 		{
@@ -509,7 +510,6 @@ void dng_save(std::vector<libcamera::Span<uint8_t>> const &mem, StreamInfo const
 #else
 			TIFFSetField(tif, TIFFTAG_CFAPATTERN, format.order);
 #endif
-			TIFFSetField(tif, TIFFTAG_WHITELEVEL, 1, &white);
 			const uint16_t black_level_repeat_dim[] = { 2, 2 };
 			TIFFSetField(tif, TIFFTAG_BLACKLEVELREPEATDIM, &black_level_repeat_dim);
 			TIFFSetField(tif, TIFFTAG_BLACKLEVEL, 4, &black_levels);
