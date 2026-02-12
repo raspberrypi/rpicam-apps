@@ -36,11 +36,30 @@ class Display
 public:
 	static MessageQueue &GetDisplayMsgQueue()
 	{
-		static Display display_instance;
-		return display_instance.msg_queue_;
+		return GetInstance().msg_queue_;
+	}
+
+	static void SetDisplayConfig(int width, int height, bool fullscreen)
+	{
+		Display &instance = GetInstance();
+		instance.window_width_ = width;
+		instance.window_height_ = height;
+		instance.fullscreen_ = fullscreen;
+	}
+
+	static void ToggleFullscreen()
+	{
+		Display &instance = GetInstance();
+		instance.fullscreen_ = !instance.fullscreen_;
 	}
 
 private:
+	static Display &GetInstance()
+	{
+		static Display display_instance;
+		return display_instance;
+	}
+
 	Display()
 	{
 		display_thread_ = std::thread(&Display::displayThread, this);
@@ -62,6 +81,9 @@ private:
 
 	std::thread display_thread_;
 	bool init_ = false;
+	int window_width_ = 320;
+	int window_height_ = 320;
+	bool fullscreen_ = false;
 };
 
 // Singleton class for the hardware virtual device.
@@ -199,6 +221,9 @@ void HailoPostProcessingStage::Read(boost::property_tree::ptree const &params)
 	hef_file_8_ = params.get<std::string>("hef_file_8", "");
 	hef_file_8L_ = params.get<std::string>("hef_file_8L", "");
 	hef_file_10_ = params.get<std::string>("hef_file_10", "");
+	display_window_width_ = params.get<int>("display_window_width", 320);
+	display_window_height_ = params.get<int>("display_window_height", 320);
+	display_fullscreen_ = params.get<bool>("display_fullscreen", false);
 }
 
 void HailoPostProcessingStage::Configure()
@@ -216,6 +241,8 @@ void HailoPostProcessingStage::Configure()
 		if (!configureHailoRT())
 			init_ = true;
 	}
+
+	Display::SetDisplayConfig(display_window_width_, display_window_height_, display_fullscreen_);
 
 	allocator_.Reset();
 	last_frame_ = {};
@@ -440,6 +467,42 @@ Rectangle HailoPostProcessingStage::ConvertInferenceCoordinates(const std::vecto
 	return obj_scaled;
 }
 
+// Mouse callback for exiting fullscreen
+void mouseCallback(int event, int, int, int, void* userdata)
+{
+	if (event == cv::EVENT_LBUTTONDOWN)
+	{
+		Display::ToggleFullscreen();
+	}
+}
+
+cv::Size getScreenDimensions()
+{
+	const char* wayland_display = std::getenv("WAYLAND_DISPLAY");
+	const char* x_display = std::getenv("DISPLAY");
+	
+	if (wayland_display || x_display)
+	{
+		std::ifstream fbinfo("/sys/class/graphics/fb0/virtual_size");
+		if (fbinfo.is_open())
+		{
+			std::string line;
+			if (std::getline(fbinfo, line))
+			{
+				std::istringstream iss(line);
+				int width, height;
+				char comma;
+				if (iss >> width >> comma >> height)
+				{	
+					return {width, height};
+				}
+			}
+		}
+	}
+	
+	return {800, 600};
+}
+
 void Display::displayThread()
 {
 	RgbImagePtr current_image;
@@ -470,8 +533,26 @@ void Display::displayThread()
 			cv::Mat image(msg.size.height, msg.size.width, CV_8UC3, (void *)current_image.get(),
 						  msg.size.width * 3);
 
-			cv::imshow(msg.window_title, image);
-			cv::resizeWindow(msg.window_title, cv::Size(320, 320));
+			cv::namedWindow(msg.window_title, cv::WINDOW_NORMAL);
+			cv::setMouseCallback(msg.window_title, mouseCallback, nullptr);
+			cv::Mat display_image = image;
+			if (fullscreen_)
+			{
+				cv::setWindowProperty(msg.window_title, cv::WND_PROP_FULLSCREEN, cv::WINDOW_FULLSCREEN);
+
+				auto screen = getScreenDimensions();
+				if (screen.width > 0 && screen.height > 0)
+				{
+					cv::resize(image, display_image, screen, 0, 0, cv::INTER_LINEAR);
+				}
+			}
+			else
+			{
+				cv::setWindowProperty(msg.window_title, cv::WND_PROP_FULLSCREEN, cv::WINDOW_NORMAL);
+				cv::resizeWindow(msg.window_title, cv::Size(window_width_, window_height_));
+			}
+
+			cv::imshow(msg.window_title, display_image);
 			cv::waitKey(1);
 		}
 	}
