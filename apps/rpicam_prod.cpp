@@ -108,7 +108,7 @@ struct ProdOptions : public VideoOptions
 	{
 		using namespace boost::program_options;
 		// clang-format off
-		options_.add_options()
+		options_->add_options()
 			("cal", value<bool>(&cal)->default_value(false)->implicit_value(true),
 			 "Switches on calibration mode")
 			("focus-test", value<bool>(&focus_test)->default_value(false)->implicit_value(true),
@@ -169,9 +169,9 @@ struct ProdOptions : public VideoOptions
 
 		/* Ensure AF is disabled when libcamera_prod drives the lens */
 		if (focus_test || focus_fix != INT_MIN) {
-			afMode_index = libcamera::controls::AfModeManual;
-			lens_position = std::nullopt;
-			set_default_lens_position = false;
+			v_->afMode_index = libcamera::controls::AfModeManual;
+			v_->lens_position = std::nullopt;
+			v_->set_default_lens_position = false;
 		}
 
 		return true;
@@ -858,9 +858,9 @@ static void event_loop(RPicamProd &app)
 
 		LOG(2, "Viewfinder frame " << count);
 		auto now = std::chrono::high_resolution_clock::now();
-		bool timeout = !options->frames && options->timeout &&
-					   (now - start_time > options->timeout.value);
-		bool frameout = options->frames && count >= options->frames;
+		bool timeout = !options->Get().frames && options->Get().timeout &&
+					   (now - start_time > options->Get().timeout.value);
+		bool frameout = options->Get().frames && count >= options->Get().frames;
 		if (timeout || frameout)
 			break;
 
@@ -909,39 +909,39 @@ int main(int argc, char *argv[])
 		ProdOptions *options = static_cast<ProdOptions *>(app.GetOptions());
 		if (options->Parse(argc, argv))
 		{
-			options->denoise = "cdn_off";
+			options->Set().denoise = "cdn_off";
 
 			if (options->quad_test)
 			{
-				options->mode_string = "1920:1080:12:U";
-				options->mode = Mode(options->mode_string);
+				options->Set().mode_string = "1920:1080:12:U";
+				options->Set().mode = Mode(options->Get().mode_string);
 				options->focus_test = false;
 				options->dust_test = false;
 				options->imx500_inference_test = false;
 			}
 			else if (options->dust_test || options->cal)
 			{
-				options->mode_string = "10000:10000:12:U";
-				options->mode = Mode(options->mode_string);
+				options->Set().mode_string = "10000:10000:12:U";
+				options->Set().mode = Mode(options->Get().mode_string);
 				options->focus_test = false;
 			}
 			else if (options->imx500_inference_test)
 			{
-				options->post_process_file = "/usr/share/rpi-camera-assets/imx500_mobilenet_ssd.json";
+				options->Set().post_process_file = "/usr/share/rpi-camera-assets/imx500_mobilenet_ssd.json";
 				options->focus_test = false;
 				options->dust_test = false;
 			}
 
 			if (options->focus_test)
 			{
-				options->frames = 0;
-				options->timeout.set("0s");
+				options->Set().frames = 0;
+				options->Set().timeout.set("0s");
 
-				if (!options->shutter || !options->gain)
+				if (!options->Get().shutter || !options->Get().gain)
 					throw std::runtime_error("Must set fixed shutter and gain for the focus test!");
 			}
 
-			if (options->verbose > 1)
+			if (options->Get().verbose > 1)
 				options->Print();
 
 			event_loop(app);
