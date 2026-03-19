@@ -1,0 +1,2 @@
+usr/lib/*/rpicam-apps-postproc/tflite-postproc.so
+usr/share/rpi-camera-assets/*_tf.json
