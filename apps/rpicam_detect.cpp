@@ -59,7 +59,7 @@ static void event_loop(RPiCamDetectApp &app)
 	auto start_time = std::chrono::high_resolution_clock::now();
 	unsigned int last_capture_frame = 0;
 
-	for (unsigned int count = 0;; count++)
+	while (true)
 	{
 		RPiCamApp::Msg msg = app.Wait();
 		if (msg.type == RPiCamApp::MsgType::Timeout)
