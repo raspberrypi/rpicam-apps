@@ -53,6 +53,20 @@ def detect_hailo():
     return None
 
 
+def detect_num_cameras(exe_dir):
+    """Count the number of cameras detected by rpicam-hello --list-cameras."""
+    import re
+    try:
+        executable = os.path.join(exe_dir, 'rpicam-hello')
+        result = subprocess.run([executable, '--list-cameras'],
+                                capture_output=True, text=True, timeout=10)
+        if result.returncode == 0:
+            return len(re.findall(r'^\d+ : ', result.stdout, re.MULTILINE))
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        pass
+    return 0
+
+
 def get_platform():
     platform = 'vc4'
     try:
@@ -176,6 +190,38 @@ def test_hello(exe_dir, output_dir, preview_dir):
     retcode, time_taken = run_executable(args + ['-t', '2000', '--no-raw'], logfile)
     check_retcode(retcode, "test_hello: no-raw test")
     check_time(time_taken, 1, 6, "test_hello: no-raw test")
+
+    # Multi-camera tests. Require at least 2 cameras.
+    num_cameras = detect_num_cameras(exe_dir)
+    if num_cameras < 2:
+        print("    Skipping multi-camera tests - less than 2 cameras detected")
+    else:
+        # "camera selection test". Run with --camera 1 to verify non-default camera works.
+        print("    camera selection test")
+        retcode, time_taken = run_executable(
+            args + ['-t', '2000', '--camera', '1'], logfile)
+        check_retcode(retcode, "test_hello: camera selection test")
+        check_time(time_taken, 1, 6, "test_hello: camera selection test")
+
+        # "dual camera test". Run two cameras simultaneously.
+        print("    dual camera test")
+        logfile0 = os.path.join(output_dir, 'log0.txt')
+        logfile1 = os.path.join(output_dir, 'log1.txt')
+        args0 = [executable, '-t', '10000', '--camera', '0']
+        args1 = [executable, '-t', '10000', '--camera', '1']
+        if preview_dir:
+            args0 += ['--preview-libs', preview_dir]
+            args1 += ['--preview-libs', preview_dir]
+        start_time = timer()
+        with open(logfile0, 'w') as lf0, open(logfile1, 'w') as lf1:
+            p0 = subprocess.Popen(args0, stdout=lf0, stderr=subprocess.STDOUT)
+            p1 = subprocess.Popen(args1, stdout=lf1, stderr=subprocess.STDOUT)
+            p0.communicate()
+            p1.communicate()
+        time_taken = timer() - start_time
+        check_retcode(p0.returncode, "test_hello: dual camera test (camera 0)")
+        check_retcode(p1.returncode, "test_hello: dual camera test (camera 1)")
+        check_time(time_taken, 8, 20, "test_hello: dual camera test")
 
     print("rpicam-hello tests passed")
 
