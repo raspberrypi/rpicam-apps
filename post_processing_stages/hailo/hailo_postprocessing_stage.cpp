@@ -73,7 +73,9 @@ public:
 
 	static VDevice *get_instance()
 	{
-		static std::unique_ptr<VDevice> _vdevice {};
+		// Deliberately leaked to avoid a segfault in libhailort's
+		// VDevice destructor during static destruction at exit.
+		static VDevice *_vdevice = nullptr;
 
 		if (!_vdevice)
 		{
@@ -83,10 +85,10 @@ public:
 				LOG_ERROR("Failed create vdevice, status = " << vdevice_exp.status());
 				return nullptr;
 			}
-			_vdevice = vdevice_exp.release();
+			_vdevice = vdevice_exp.release().release();
 		}
 
-		return _vdevice.get();
+		return _vdevice;
 	}
 
 private:
