@@ -24,6 +24,7 @@ endif
 
 execute_after_dh_install:
 	rm -v -f $(addsuffix _*.json, $(addprefix debian/rpicam-apps-core/usr/share/rpi-camera-assets/,hailo imx500))
+	rm -v -f debian/rpicam-apps-core/usr/share/rpi-camera-assets/*_tf.json
 	rm -v -f debian/rpicam-apps-preview/usr/lib/*/rpicam-apps-preview/drm-preview.so
 
 override_dh_auto_configure:
