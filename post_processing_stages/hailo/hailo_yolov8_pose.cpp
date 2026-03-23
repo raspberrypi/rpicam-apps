@@ -46,6 +46,7 @@ private:
 	void runInference(const uint8_t *input, uint32_t *output, const std::vector<Rectangle> &scaler_crops);
 
 	DlLib postproc_;
+	bool draw_detection_boxes_ = true;
 };
 
 YoloPose::YoloPose(RPiCamApp *app)
@@ -61,6 +62,7 @@ char const *YoloPose::Name() const
 void YoloPose::Read(boost::property_tree::ptree const &params)
 {
 	HailoPostProcessingStage::Read(params);
+	draw_detection_boxes_ = params.get<bool>("draw_detection_boxes", true);
 }
 
 void YoloPose::Configure()
@@ -181,19 +183,22 @@ void YoloPose::runInference(const uint8_t *input, uint32_t *output, const std::v
 	cv::Mat image(InputTensorSize().height, InputTensorSize().width, CV_8UC3, (void *)input,
 				  InputTensorSize().width * 3);
 
-	for (auto &detection : detections)
+	if (draw_detection_boxes_)
 	{
-		if (detection->get_confidence() == 0)
-			continue;
+		for (auto &detection : detections)
+		{
+			if (detection->get_confidence() == 0)
+				continue;
 
-		HailoBBox bbox = detection->get_bbox();
-		const float x0 = std::max(bbox.xmin(), 0.0f);
-		const float x1 = std::min(bbox.xmax(), 1.0f);
-		const float y0 = std::max(bbox.ymin(), 0.0f);
-		const float y1 = std::min(bbox.ymax(), 1.0f);
-		Rectangle r = ConvertInferenceCoordinates({ x0, y0, x1 - x0, y1 - y0 }, scaler_crops);
-		cv::rectangle(image, cv::Point2f(r.x, r.y), cv::Point2f(r.x + r.width, r.y + r.height), cv::Scalar(0, 0, 255),
-					  1);
+			HailoBBox bbox = detection->get_bbox();
+			const float x0 = std::max(bbox.xmin(), 0.0f);
+			const float x1 = std::min(bbox.xmax(), 1.0f);
+			const float y0 = std::max(bbox.ymin(), 0.0f);
+			const float y1 = std::min(bbox.ymax(), 1.0f);
+			Rectangle r = ConvertInferenceCoordinates({ x0, y0, x1 - x0, y1 - y0 }, scaler_crops);
+			cv::rectangle(image, cv::Point2f(r.x, r.y), cv::Point2f(r.x + r.width, r.y + r.height), cv::Scalar(0, 0, 255),
+						  1);
+		}
 	}
 
 	for (auto &keypoint : keypoints_and_pairs.first)
