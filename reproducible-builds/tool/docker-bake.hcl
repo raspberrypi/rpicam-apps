@@ -9,6 +9,10 @@ variable "VCS_REF" {
   default = ""
 }
 
+variable "SOURCE_DATE_EPOCH" {
+  default = "0"
+}
+
 variable "OUTPUT_DIR" {
   default = "./reproducible-builds/out"
 }
@@ -19,12 +23,13 @@ group "default" {
 
 target "export" {
   context    = "."
-  dockerfile = "reproducible-builds/Dockerfile"
+  dockerfile = "reproducible-builds/tool/Dockerfile"
   target     = "export"
   platforms  = [PLATFORM]
   output     = ["type=local,dest=${OUTPUT_DIR}"]
 
   args = {
-    VCS_REF = VCS_REF
+    SOURCE_DATE_EPOCH = SOURCE_DATE_EPOCH
+    VCS_REF           = VCS_REF
   }
 }

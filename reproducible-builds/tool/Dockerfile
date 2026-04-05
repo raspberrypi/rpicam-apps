@@ -7,6 +7,7 @@ ARG DEBIAN_FRONTEND=noninteractive
 ARG LIBCAMERA_VERSION=0.4.0+rpt20250213-1
 ARG LIBCAMERA_ARCH=arm64
 ARG RPI_DIST=bookworm
+ARG SOURCE_DATE_EPOCH=0
 ARG VCS_REF=
 ARG LIBCAMERA_POOL_URL=https://mirror.fsmg.org.nz/pub/raspberrypi/debian/pool/main/libc/libcamera
 
@@ -74,6 +75,7 @@ WORKDIR /src
 COPY . .
 
 RUN set -eux; \
+    export SOURCE_DATE_EPOCH; \
     if [[ -n "${VCS_REF}" ]]; then \
       printf '%s\n' "${VCS_REF}" > /src/version.gen; \
     fi; \

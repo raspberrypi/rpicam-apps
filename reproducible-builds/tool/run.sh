@@ -6,12 +6,14 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPRO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
-REPO_DIR="$(cd "$REPRO_DIR/.." && pwd)"
-OUT_DIR="$REPRO_DIR/out"
+DEFAULT_REPO_DIR="$(cd "$REPRO_DIR/.." && pwd)"
+REPO_DIR="${REPO_DIR:-$DEFAULT_REPO_DIR}"
+OUT_DIR="${OUT_DIR:-$REPRO_DIR/out}"
 BAKE_FILE="$SCRIPT_DIR/docker-bake.hcl"
 PLATFORM="${PLATFORM:-linux/arm64}"
 EXPORT_DIR="$(mktemp -d "${TMPDIR:-/tmp}/rpicam-apps-out.XXXXXX")"
 VCS_REF="${VCS_REF:-$(git -C "$REPO_DIR" rev-parse HEAD 2>/dev/null || true)}"
+SOURCE_DATE_EPOCH="${SOURCE_DATE_EPOCH:-$(git -C "$REPO_DIR" log -1 --format=%ct 2>/dev/null || printf '0')}"
 
 cleanup() {
   rm -rf "$EXPORT_DIR"
@@ -27,6 +29,7 @@ cd "$REPO_DIR"
 docker_env=(
   "PLATFORM=$PLATFORM"
   "OUTPUT_DIR=$EXPORT_DIR"
+  "SOURCE_DATE_EPOCH=$SOURCE_DATE_EPOCH"
 )
 
 if [[ -n "$VCS_REF" ]]; then
