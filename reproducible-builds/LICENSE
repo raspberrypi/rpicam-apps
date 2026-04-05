@@ -1,0 +1,7 @@
+SPDX-License-Identifier: GPL-3.0-or-later
+
+Unless a file states otherwise, the Secluso-authored files in this directory tree are licensed under the GNU General Public License, version 3 or, at your option, any later version.
+
+This license notice applies only to the `reproducible-builds/` subtree and does not change the upstream license of the rest of `rpicam-apps`.
+
+The full GPL text is available at <https://www.gnu.org/licenses/gpl-3.0.txt>.

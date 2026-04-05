@@ -8,10 +8,16 @@ Build
 -----
 For usage and build instructions, see the official Raspberry Pi documentation pages [here.](https://www.raspberrypi.com/documentation/computers/camera_software.html#building-libcamera-and-rpicam-apps)
 
+Reproducible Builds
+-------------------
+Secluso's reproducible build and verification tooling is located in reproducible-builds/. That subtree contains the Docker-based builder, release packager, and verification notes for checking a packaged release against reproducible-builds/out/. See reproducible-builds/README.md.
+
 License
 -------
 
 The source code is made available under the simplified [BSD 2-Clause license](https://spdx.org/licenses/BSD-2-Clause.html).
+
+The Secluso-authored files under reproducible-builds/ are separate tooling and carry their own LICENSE, COPYRIGHT, and NOTICE files.
 
 Status
 ------

@@ -1,0 +1,7 @@
+.git
+.github
+.idea
+build
+reproducible-builds/dist
+reproducible-builds/out
+reproducible-builds/work
