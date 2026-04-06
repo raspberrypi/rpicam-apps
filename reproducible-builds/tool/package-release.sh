@@ -17,7 +17,12 @@ tar_bin() {
     return
   fi
 
-  printf '%s\n' tar
+  if tar --version 2>/dev/null | grep -q 'GNU tar'; then
+    printf '%s\n' tar
+    return
+  fi
+
+  printf '%s\n' ''
 }
 
 sha256_cmd() {
@@ -50,12 +55,66 @@ sha256_file() {
 tar_flavor() {
   local tar_tool="$1"
 
+  if [[ -z "$tar_tool" ]]; then
+    printf '%s\n' none
+    return
+  fi
+
   if "$tar_tool" --version 2>/dev/null | grep -q 'GNU tar'; then
     printf '%s\n' gnu
     return
   fi
 
   printf '%s\n' bsd
+}
+
+package_with_gnu_tar() {
+  local tar_tool="$1"
+  local tar_root="$2"
+  local tar_list="$3"
+  local archive_path="$4"
+
+  COPYFILE_DISABLE=1 COPY_EXTENDED_ATTRIBUTES_DISABLE=1 "$tar_tool" \
+    --no-recursion \
+    --sort=name \
+    --format=posix \
+    --pax-option=exthdr.name=%d/PaxHeaders/%f,delete=atime,delete=ctime \
+    --owner=0 \
+    --group=0 \
+    --numeric-owner \
+    -cf - \
+    -C "$tar_root" \
+    -T "$tar_list" | gzip -n > "$archive_path"
+}
+
+package_with_docker_gnu_tar() {
+  local tar_root="$1"
+  local tar_list="$2"
+  local archive_path="$3"
+
+  command -v docker >/dev/null 2>&1 || {
+    echo "GNU tar is required for deterministic packaging. Install gnu-tar or make Docker available." >&2
+    exit 1
+  }
+
+  docker run --rm \
+    -v "$tar_root:/work" \
+    -w /work \
+    debian:bookworm \
+    bash -lc '
+      set -euo pipefail
+      tar \
+        --no-recursion \
+        --sort=name \
+        --format=posix \
+        --pax-option=exthdr.name=%d/PaxHeaders/%f,delete=atime,delete=ctime \
+        --owner=0 \
+        --group=0 \
+        --numeric-owner \
+        -cf - \
+        -C /work \
+        -T /work/file-list.txt | gzip -n
+    ' > "$archive_path"
 }
 
 touch_timestamp() {
@@ -67,6 +126,16 @@ touch_timestamp() {
   fi
 
   date -u -d "@$epoch" +%Y%m%d%H%M.%S
+}
+
+strip_macos_metadata() {
+  local target_dir="$1"
+
+  find "$target_dir" -name '._*' -type f -delete
+
+  if command -v xattr >/dev/null 2>&1; then
+    xattr -cr "$target_dir" 2>/dev/null || true
+  fi
 }
 
 project_version="$(
@@ -97,7 +166,11 @@ cleanup() {
 trap cleanup EXIT
 
 mkdir -p "$DIST_DIR" "$staging_dir"
-rsync -a --delete "$OUT_DIR"/ "$staging_dir"/
+rsync -a --delete \
+  --exclude '.DS_Store' \
+  --exclude '._*' \
+  "$OUT_DIR"/ "$staging_dir"/
+strip_macos_metadata "$staging_dir"
 find "$staging_dir" -exec touch -h -t "$timestamp" {} +
 (
   cd "$tmp_root"
@@ -113,28 +186,9 @@ archive_path="$DIST_DIR/${release_name}.tar.gz"
 checksum_path="${archive_path}.sha256"
 
 if [[ "$tar_kind" == "gnu" ]]; then
-  "$tar_tool" \
-    --no-recursion \
-    --sort=name \
-    --format=posix \
-    --pax-option=exthdr.name=%d/PaxHeaders/%f,delete=atime,delete=ctime \
-    --owner=0 \
-    --group=0 \
-    --numeric-owner \
-    -cf - \
-    -C "$tmp_root" \
-    -T "$file_list" | gzip -n > "$archive_path"
+  package_with_gnu_tar "$tar_tool" "$tmp_root" "$file_list" "$archive_path"
 else
-  "$tar_tool" \
-    --no-recursion \
-    --format pax \
-    --uid 0 \
-    --gid 0 \
-    --uname root \
-    --gname root \
-    -cf - \
-    -C "$tmp_root" \
-    -T "$file_list" | gzip -n > "$archive_path"
+  package_with_docker_gnu_tar "$tmp_root" "$file_list" "$archive_path"
 fi
 
 checksum_value="$(sha256_file "$archive_path" "$checksum_tool")"

@@ -96,14 +96,7 @@ RUN set -eux; \
     rm -rf /staging/usr/include; \
     install -d /staging/manifest; \
     find /staging/usr/bin -maxdepth 1 \( -type f -o -type l \) | sort > /staging/manifest/installed-binaries.txt; \
-    find /staging/usr/lib -maxdepth 3 \( -type f -o -type l \) | sort > /staging/manifest/installed-libs.txt; \
-    export LD_LIBRARY_PATH=/staging/usr/lib/aarch64-linux-gnu; \
-    : > /staging/manifest/runtime-libs.txt; \
-    for exe in /staging/usr/bin/rpicam-*; do \
-      printf '== %s ==\n' "$(basename "$exe")" >> /staging/manifest/runtime-libs.txt; \
-      ldd "$exe" >> /staging/manifest/runtime-libs.txt; \
-      printf '\n' >> /staging/manifest/runtime-libs.txt; \
-    done
+    find /staging/usr/lib -maxdepth 3 \( -type f -o -type l \) | sort > /staging/manifest/installed-libs.txt
 
 FROM scratch AS export
 COPY --from=build /staging/ /

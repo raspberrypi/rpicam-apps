@@ -47,6 +47,10 @@ hash_file() {
   fi
 }
 
+apple_metadata_pattern() {
+  printf '%s\n' '(^|/)(__MACOSX(/|$)|\._[^/]+$|\.DS_Store$)'
+}
+
 resolve_archive_path() {
   local candidate="$1"
 
@@ -175,6 +179,36 @@ verify_signatures() {
   done
 }
 
+fail_if_tree_has_apple_metadata() {
+  local tree_path="$1"
+  local kind="$2"
+  local matches=()
+
+  while IFS= read -r path; do
+    matches+=("$path")
+  done < <(find "$tree_path" \( -name '._*' -o -name '.DS_Store' -o -name '__MACOSX' \) | sort)
+
+  if [[ "${#matches[@]}" -gt 0 ]]; then
+    echo "$kind contains macOS metadata files; this release is not portable/reproducible." >&2
+    printf '  %s\n' "${matches[@]}" >&2
+    exit 1
+  fi
+}
+
+fail_if_archive_has_apple_metadata() {
+  local archive_path="$1"
+  local matches_file="$TMP_DIR/archive-apple-metadata.txt"
+  local pattern
+
+  pattern="$(apple_metadata_pattern)"
+
+  if tar -tzf "$archive_path" | LC_ALL=C grep -E "$pattern" > "$matches_file"; then
+    echo "Release archive contains macOS metadata entries; rebuild it with the cleaned packaging script." >&2
+    cat "$matches_file" >&2
+    exit 1
+  fi
+}
+
 ARCHIVE_PATH="$(resolve_archive_path "$ARCHIVE_PATH")"
 CHECKSUM_PATH="${ARCHIVE_PATH}.sha256"
 TMP_DIR="$(mktemp -d "${TMPDIR:-/tmp}/rpicam-apps-verify.XXXXXX")"
@@ -190,6 +224,7 @@ trap cleanup EXIT
 echo "Verifying checksum for $(basename "$ARCHIVE_PATH")"
 verify_checksum "$ARCHIVE_PATH" "$CHECKSUM_PATH"
 verify_signatures "$CHECKSUM_PATH"
+fail_if_archive_has_apple_metadata "$ARCHIVE_PATH"
 
 if [[ "$SKIP_BUILD" -eq 0 ]]; then
   release_ref="$(release_short_ref "$ARCHIVE_PATH")"
@@ -225,6 +260,8 @@ fi
   exit 1
 }
 
+fail_if_tree_has_apple_metadata "$BUILD_OUT" "Built output tree"
+
 echo "Extracting release archive..."
 tar -xzf "$ARCHIVE_PATH" -C "$TMP_DIR"
 RELEASE_ROOT="$(find "$TMP_DIR" -mindepth 1 -maxdepth 1 -type d | head -n 1)"
@@ -235,8 +272,7 @@ RELEASE_ROOT="$(find "$TMP_DIR" -mindepth 1 -maxdepth 1 -type d | head -n 1)"
 }
 
 echo "Comparing extracted release against reproducible-builds/out..."
-# runtime-libs.txt is diagnostic output from ldd and includes load addresses, so ignore it here.
-if diff -ruN --no-dereference -x 'runtime-libs.txt' "$RELEASE_ROOT" "$BUILD_OUT" > "$DIFF_PATH"; then
+if diff -ruN --no-dereference "$RELEASE_ROOT" "$BUILD_OUT" > "$DIFF_PATH"; then
   echo "OK: release archive matches reproducible-builds/out"
 else
   echo "Release archive differs from reproducible-builds/out:" >&2
