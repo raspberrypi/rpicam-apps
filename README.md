@@ -15,9 +15,15 @@ Secluso's reproducible build and verification tooling is located in reproducible
 License
 -------
 
-The source code is made available under the simplified [BSD 2-Clause license](https://spdx.org/licenses/BSD-2-Clause.html).
+The original upstream rpicam-apps source code remains available under the
+simplified [BSD 2-Clause license](https://spdx.org/licenses/BSD-2-Clause.html),
+as reflected by license.txt and the upstream file headers.
 
-The Secluso-authored files under reproducible-builds/ are separate tooling and carry their own LICENSE, COPYRIGHT, and NOTICE files.
+This fork also contains Secluso-authored material. Repo-level notices for that
+material are provided in LICENSE.secluso, COPYRIGHT, and NOTICE.
+
+The Secluso-authored files under reproducible-builds/ are separate tooling and
+carry their own LICENSE, COPYRIGHT, and NOTICE files.
 
 Status
 ------

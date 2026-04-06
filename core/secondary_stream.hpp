@@ -1,3 +1,12 @@
+/*
+ * secondary_stream.hpp - secondary raw-frame stream over a UNIX domain socket.
+ *
+ * Copyright (C) 2025 Secluso, Inc.
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ *
+ * Additional terms apply; see the NOTICE file in the repository root.
+ */
+
 #ifndef SECONDARY_STREAM_HPP
 #define SECONDARY_STREAM_HPP
 

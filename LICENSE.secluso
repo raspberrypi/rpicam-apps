@@ -1,0 +1,11 @@
+SPDX-License-Identifier: GPL-3.0-or-later
+
+Unless a file states otherwise, the Secluso-authored material in this fork is
+licensed under the GNU General Public License, version 3 or, at your option,
+any later version.
+
+This notice applies to Secluso-authored fork material and does not replace or
+alter the upstream BSD 2-Clause license for the original `rpicam-apps` source
+tree, which remains available in `license.txt` and the upstream file headers.
+
+The full GPL text is available at <https://www.gnu.org/licenses/gpl-3.0.txt>.

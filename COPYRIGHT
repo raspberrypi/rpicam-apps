@@ -1,0 +1,11 @@
+Copyright (C) 2025-2026 Secluso, Inc.
+
+This fork contains upstream rpicam-apps material and Secluso-authored fork
+material.
+
+The upstream rpicam-apps source tree remains available under the BSD 2-Clause
+license in license.txt, subject to the notices carried in the individual
+files.
+
+For Secluso-authored fork material, the additional term in NOTICE applies
+under Section 7 of the GNU General Public License, version 3.
