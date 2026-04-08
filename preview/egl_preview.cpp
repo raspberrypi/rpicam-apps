@@ -182,10 +182,10 @@ EglPreview::EglPreview(Options const *options) : Preview(options), last_fd_(-1),
 	if (!eglInitialize(egl_display_, &egl_major, &egl_minor))
 		throw std::runtime_error("eglInitialize() failed");
 
-	x_ = options_->preview_x;
-	y_ = options_->preview_y;
-	width_ = options_->preview_width;
-	height_ = options_->preview_height;
+	x_ = options_->Get().preview_x;
+	y_ = options_->Get().preview_y;
+	width_ = options_->Get().preview_width;
+	height_ = options_->Get().preview_height;
 	makeWindow("rpicam-app");
 
 	// gl_setup() has to happen later, once we're sure we're in the display thread.
@@ -255,7 +255,7 @@ void EglPreview::makeWindow(char const *name)
 		height_ = 768;
 	}
 
-	if (options_->fullscreen || x_ + width_ > screen_width || y_ + height_ > screen_height)
+	if (options_->Get().fullscreen || x_ + width_ > screen_width || y_ + height_ > screen_height)
 	{
 		x_ = y_ = 0;
 		width_ = DisplayWidth(display_, screen_num);
@@ -295,7 +295,7 @@ void EglPreview::makeWindow(char const *name)
 	window_ = XCreateWindow(display_, root, x_, y_, width_, height_, 0, visinfo->depth, InputOutput, visinfo->visual,
 							mask, &attr);
 
-	if (options_->fullscreen)
+	if (options_->Get().fullscreen)
 		no_border(display_, window_);
 
 	/* set hints and properties */
@@ -450,7 +450,9 @@ bool EglPreview::Quit()
 	return false;
 }
 
-Preview *make_egl_preview(Options const *options)
+static Preview *Create(Options const *options)
 {
 	return new EglPreview(options);
 }
+
+static RegisterPreview reg("egl", &Create);

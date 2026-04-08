@@ -174,7 +174,7 @@ void DrmPreview::findCrtc()
 		throw std::runtime_error("connector supports no mode");
 	}
 
-	if (options_->fullscreen || width_ == 0 || height_ == 0)
+	if (options_->Get().fullscreen || width_ == 0 || height_ == 0)
 	{
 		drmModeCrtc *crtc = drmModeGetCrtc(drmfd_, crtcId_);
 		x_ = crtc->x;
@@ -248,10 +248,10 @@ DrmPreview::DrmPreview(Options const *options) : Preview(options), last_fd_(-1),
 	if (drmfd_ < 0)
 		throw std::runtime_error("drmOpen failed: " + std::string(ERRSTR));
 
-	x_ = options_->preview_x;
-	y_ = options_->preview_y;
-	width_ = options_->preview_width;
-	height_ = options_->preview_height;
+	x_ = options_->Get().preview_x;
+	y_ = options_->Get().preview_y;
+	width_ = options_->Get().preview_width;
+	height_ = options_->Get().preview_height;
 	screen_width_ = 0;
 	screen_height_ = 0;
 
@@ -272,7 +272,7 @@ DrmPreview::DrmPreview(Options const *options) : Preview(options), last_fd_(-1),
 	}
 
 	// Default behaviour here is to go fullscreen.
-	if (options_->fullscreen || width_ == 0 || height_ == 0 || x_ + width_ > screen_width_ ||
+	if (options_->Get().fullscreen || width_ == 0 || height_ == 0 || x_ + width_ > screen_width_ ||
 		y_ + height_ > screen_height_)
 	{
 		x_ = y_ = 0;
@@ -428,7 +428,10 @@ void DrmPreview::Reset()
 	first_time_ = true;
 }
 
-Preview *make_drm_preview(Options const *options)
+static Preview *Create(Options const *options)
 {
 	return new DrmPreview(options);
 }
+
+static RegisterPreview reg("drm", &Create);
+

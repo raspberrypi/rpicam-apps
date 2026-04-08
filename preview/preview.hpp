@@ -8,13 +8,17 @@
 #pragma once
 
 #include <functional>
+#include <map>
+#include <set>
 #include <string>
+#include <vector>
 
 #include <libcamera/base/span.h>
 
 #include "core/stream_info.hpp"
 
 struct Options;
+class DlLib;
 
 class Preview
 {
@@ -41,6 +45,39 @@ public:
 protected:
 	DoneCallback done_callback_;
 	Options const *options_;
+};
+
+typedef Preview *(*PreviewCreateFunc)(Options const *options);
+
+class PreviewFactory
+{
+public:
+	static PreviewFactory &GetInstance();
+
+	// Prevent copying and assignment
+	PreviewFactory(const PreviewFactory &) = delete;
+	PreviewFactory &operator=(const PreviewFactory &) = delete;
+
+	void RegisterPreview(const std::string &name, PreviewCreateFunc create_func);
+	void LoadPreviewLibraries(const std::string &lib_dir);
+
+	PreviewCreateFunc CreatePreview(const std::string &name);
+
+	bool HasPreview(const std::string &name) const;
+	const std::map<std::string, PreviewCreateFunc> &GetPreviews() const { return previews_; }
+
+private:
+	PreviewFactory() = default;
+	~PreviewFactory() = default;
+
+	std::map<std::string, PreviewCreateFunc> previews_;
+	std::vector<DlLib> preview_libraries_;
+	std::set<std::string> loaded_library_paths_;
+};
+
+struct RegisterPreview
+{
+	RegisterPreview(char const *name, PreviewCreateFunc create_func);
 };
 
 Preview *make_preview(Options const *options);

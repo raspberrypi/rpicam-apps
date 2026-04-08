@@ -7,47 +7,31 @@
 #include <string>
 
 #include "core/version.hpp"
-
-#if LIBEGL_PRESENT
-static constexpr int egl = 1;
-#else
-static constexpr int egl = 0;
-#endif
-
-#if QT_PRESENT
-static constexpr int qt = 1;
-#else
-static constexpr int qt = 0;
-#endif
-
-#if LIBDRM_PRESENT
-static constexpr int drm = 1;
-#else
-static constexpr int drm = 0;
-#endif
-
-#if LIBAV_PRESENT
-static int libav = 1;
-#else
-static int libav = 0;
-#endif
-
-static const std::string version {"@VER@"};
-
-static const std::string caps {"egl:" + std::to_string(egl) +
-							   " qt:" + std::to_string(qt) +
-							   " drm:" + std::to_string(drm) +
-							   " libav:" + std::to_string(libav)};
+#include "encoder/encoder.hpp"
+#include "preview/preview.hpp"
 
 extern "C" {
 
 const char *RPiCamAppsVersion()
 {
+	static const std::string version {"@VER@"};
 	return version.c_str();
 }
 
-const char *RPiCamAppsCapabilities()
+const char *RPiCamAppsCapabilities(const std::string &preview_libs, const std::string &encoder_libs)
 {
+	auto &p = PreviewFactory::GetInstance();
+	p.LoadPreviewLibraries(preview_libs);
+
+	auto &e = EncoderFactory::GetInstance();
+	e.LoadEncoderLibraries(encoder_libs);
+
+	static const std::string caps = 
+		"egl:" + std::to_string(p.HasPreview("egl")) + 
+		" qt:" + std::to_string(p.HasPreview("qt")) +
+		" drm:" + std::to_string(p.HasPreview("drm")) +
+		" libav:" + std::to_string(e.HasEncoder("libav"));
+
 	return caps.c_str();
 }
 

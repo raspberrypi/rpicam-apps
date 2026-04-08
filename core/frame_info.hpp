@@ -18,7 +18,7 @@ struct FrameInfo
 {
 	FrameInfo(const CompletedRequestPtr &completed_request)
 		: exposure_time(0.0), digital_gain(0.0), colour_gains({ { 0.0f, 0.0f } }), focus(0.0), aelock(false),
-		  lens_position(-1.0), af_state(0)
+		  lens_position(-1.0), af_state(0), sensor_temp(0.0)
 	{
 		const libcamera::ControlList &ctrls = completed_request->metadata;
 
@@ -47,13 +47,17 @@ struct FrameInfo
 		if (fom)
 			focus = *fom;
 
-		auto ae = ctrls.get(libcamera::controls::AeLocked);
+		auto ae = ctrls.get(libcamera::controls::AeState);
 		if (ae)
-			aelock = *ae;
+			aelock = *ae == libcamera::controls::AeStateConverged;
 
 		auto lp = ctrls.get(libcamera::controls::LensPosition);
 		if (lp)
 			lens_position = *lp;
+
+		auto temp = ctrls.get(libcamera::controls::SensorTemperature);
+		if (temp)
+			sensor_temp = *temp;
 
 		auto afs = ctrls.get(libcamera::controls::AfState);
 		if (afs)
@@ -92,6 +96,8 @@ struct FrameInfo
 					value << aelock;
 				else if (t == "%lp")
 					value << lens_position;
+				else if (t == "%temp")
+					value << sensor_temp;
 				else if (t == "%afstate")
 				{
 					switch (af_state)
@@ -127,10 +133,12 @@ struct FrameInfo
 	bool aelock;
 	float lens_position;
 	int af_state;
+	float sensor_temp;
 
 private:
 	// Info text tokens.
-	inline static const std::string tokens[] = { "%frame", "%fps", "%exp", "%ag", "%dg",
-						     "%rg", "%bg",  "%focus", "%aelock",
-						     "%lp", "%afstate" };
+	inline static const std::string tokens[] = {
+		"%frame", "%fps", "%exp", "%ag", "%dg", "%rg", "%bg",  "%focus",
+		"%aelock","%lp", "%temp", "%afstate"
+	};
 };

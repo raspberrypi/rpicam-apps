@@ -1,3 +1,6 @@
+encoder_libdir = get_option('prefix') / get_option('libdir') / 'rpicam-apps-encoder'
+conf_data.set('ENCODER_LIB_DIR', '"' + encoder_libdir + '"')
+
 rpicam_app_src += files([
     'encoder.cpp',
     'h264_encoder.cpp',
@@ -26,10 +29,15 @@ foreach name : libav_dep_names
 endforeach
 
 if enable_libav
-        rpicam_app_src += files('libav_encoder.cpp')
-        encoder_headers += files('libav_encoder.hpp')
-        rpicam_app_dep += libav_deps
-        cpp_arguments += '-DLIBAV_PRESENT=1'
+        shared_module('libav-encoder',  files('libav_encoder.cpp'),
+                            include_directories : '../',
+                            dependencies : [libav_deps, libcamera_dep],
+                            cpp_args : cpp_arguments,
+                            install : true,
+                            install_dir: encoder_libdir,
+                            name_prefix : '',
+        )
+        conf_data.set('LIBAV_PRESENT', 1)
 endif
 
 install_headers(encoder_headers, subdir: meson.project_name() / 'encoder')

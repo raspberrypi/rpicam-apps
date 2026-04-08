@@ -31,17 +31,19 @@ public:
 		encoder_->SetInputDoneCallback(std::bind(&RPiCamEncoder::encodeBufferDone, this, std::placeholders::_1));
 		encoder_->SetOutputReadyCallback(encode_output_ready_callback_);
 
+#ifndef DISABLE_RPI_FEATURES
 		// Set up the encode function to wait for synchronisation with another camera system,
 		// when this has been requested in the options.
 		VideoOptions const *options = GetOptions();
 		libcamera::ControlList cl;
-		if (options->sync == 0)
+		if (options->Get().sync == 0)
 			cl.set(libcamera::controls::rpi::SyncMode, libcamera::controls::rpi::SyncModeOff);
-		else if (options->sync == 1)
+		else if (options->Get().sync == 1)
 			cl.set(libcamera::controls::rpi::SyncMode, libcamera::controls::rpi::SyncModeServer);
-		else if (options->sync == 2)
+		else if (options->Get().sync == 2)
 			cl.set(libcamera::controls::rpi::SyncMode, libcamera::controls::rpi::SyncModeClient);
 		SetControls(cl);
+#endif
 
 		// Start secondary streaming background task (pending request from outside program)
 		secondary_stream.start();
@@ -54,10 +56,12 @@ public:
 	{
 		assert(encoder_);
 
+#ifndef DISABLE_RPI_FEATURES
 		// If sync was enabled, and SyncReady is still "false" then we must skip this frame. Tell our
 		// caller through the return value that we're not yet encoding anything.
-		if (GetOptions()->sync && !completed_request->metadata.get(controls::rpi::SyncReady).value_or(false))
+		if (GetOptions()->Get().sync && !completed_request->metadata.get(controls::rpi::SyncReady).value_or(false))
 			return false;
+#endif
 
 		StreamInfo info = GetStreamInfo(stream);
 		FrameBuffer *buffer = completed_request->buffers[stream];
@@ -73,7 +77,7 @@ public:
 			secondary_stream.pushFrame(span);
 		}
 
-		auto ts = completed_request->metadata.get(controls::SensorTimestamp);
+		auto ts = completed_request->metadata.get(controls::FrameWallClock);
 		int64_t timestamp_ns = ts ? *ts : buffer->metadata().timestamp;
 		{
 			std::lock_guard<std::mutex> lock(encode_buffer_queue_mutex_);
@@ -85,8 +89,7 @@ public:
 		// Tell our caller that encoding is underway.
 		return true;
 	}
-
-	VideoOptions *GetOptions() const { return static_cast<VideoOptions *>(options_.get()); }
+	VideoOptions *GetOptions() const { return static_cast<VideoOptions *>(RPiCamApp::GetOptions()); }
 	void StopEncoder() { encoder_.reset(); }
 
 protected:
@@ -113,7 +116,7 @@ private:
 			if (encode_buffer_queue_.empty())
 				throw std::runtime_error("no buffer available to return");
 			CompletedRequestPtr &completed_request = encode_buffer_queue_.front();
-			if (metadata_ready_callback_ && !GetOptions()->metadata.empty())
+			if (metadata_ready_callback_ && !GetOptions()->Get().metadata.empty())
 				metadata_ready_callback_(completed_request->metadata);
 			encode_buffer_queue_.pop(); // drop shared_ptr reference
 		}

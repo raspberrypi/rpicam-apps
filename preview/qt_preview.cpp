@@ -60,8 +60,8 @@ class QtPreview : public Preview
 public:
 	QtPreview(Options const *options) : Preview(options)
 	{
-		window_width_ = options->preview_width;
-		window_height_ = options->preview_height;
+		window_width_ = options->Get().preview_width;
+		window_height_ = options->Get().preview_height;
 		if (window_width_ % 2 || window_height_ % 2)
 			throw std::runtime_error("QtPreview: expect even dimensions");
 		// This preview window is expensive, so make it small by default.
@@ -204,7 +204,7 @@ private:
 		MyWidget pane(&main_window, window_width_, window_height_);
 		main_window.setCentralWidget(&pane);
 		// Need to get the window border sizes (it seems to be unreasonably difficult...)
-		main_window.move(options->preview_x + 2, options->preview_y + 28);
+		main_window.move(options->Get().preview_x + 2, options->Get().preview_y + 28);
 		main_window.show();
 		pane_ = &pane;
 		cond_var_.notify_one();
@@ -220,7 +220,9 @@ private:
 	std::vector<uint8_t> tmp_stripe_;
 };
 
-Preview *make_qt_preview(Options const *options)
+static Preview *Create(Options const *options)
 {
 	return new QtPreview(options);
 }
+
+static RegisterPreview reg("qt", &Create);

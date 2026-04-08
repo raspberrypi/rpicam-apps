@@ -2,7 +2,7 @@
 This is a small suite of libcamera-based applications to drive the cameras on a Raspberry Pi platform.
 
 >[!WARNING]
->These applications and libraries have been renamed from `libcamera-*` to `rpicam-*`. Symbolic links are installed to allow users to keep using the old application names, but these will be deprecated soon. Users are encouraged to adopt the new application and library names as soon as possible.
+>These applications and libraries have been renamed from `libcamera-*` to `rpicam-*`. Symbolic links to allow users to keep using the old application names have now been removed.
 
 Build
 -----

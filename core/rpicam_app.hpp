@@ -155,7 +155,7 @@ public:
 	Stream *LoresStream(StreamInfo *info = nullptr) const;
 	Stream *GetMainStream() const;
 
-	const CameraManager *GetCameraManager() const;
+	const CameraManager *GetCameraManager();
 	std::vector<std::shared_ptr<libcamera::Camera>> GetCameras()
 	{
 		return GetCameras(camera_manager_.get());
@@ -187,7 +187,7 @@ public:
 	friend class BufferWriteSync;
 	friend class BufferReadSync;
 	friend class PostProcessor;
-	friend struct Options;
+	friend struct OptsInternal;
 
 protected:
 	std::unique_ptr<Options> options_;

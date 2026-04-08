@@ -8,6 +8,7 @@
 #pragma once
 
 #include <functional>
+#include <map>
 
 #include "core/stream_info.hpp"
 #include "core/video_options.hpp"
@@ -38,3 +39,37 @@ protected:
 	OutputReadyCallback output_ready_callback_;
 	VideoOptions const *options_;
 };
+
+typedef Encoder *(*EncoderCreateFunc)(VideoOptions *options, StreamInfo const &info);
+
+class EncoderFactory
+{
+public:
+	static EncoderFactory &GetInstance();
+
+	// Prevent copying and assignment
+	EncoderFactory(const EncoderFactory &) = delete;
+	EncoderFactory &operator=(const EncoderFactory &) = delete;
+
+	void RegisterEncoder(const std::string &name, EncoderCreateFunc create_func);
+	void LoadEncoderLibraries(const std::string &lib_dir);
+
+	EncoderCreateFunc CreateEncoder(const std::string &name);
+
+	bool HasEncoder(const std::string &name) const;
+	const std::map<std::string, EncoderCreateFunc> &GetEncoders() const { return encoders_; }
+
+private:
+	EncoderFactory() = default;
+	~EncoderFactory() = default;
+
+	std::map<std::string, EncoderCreateFunc> encoders_;
+	std::vector<DlLib> encoder_libraries_;
+	std::set<std::string> loaded_library_paths_;
+};
+
+struct RegisterEncoder
+{
+	RegisterEncoder(char const *name, EncoderCreateFunc create_func);
+};
+

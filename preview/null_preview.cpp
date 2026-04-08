@@ -30,7 +30,10 @@ public:
 private:
 };
 
-Preview *make_null_preview(Options const *options)
+static Preview *Create(Options const *options)
 {
 	return new NullPreview(options);
 }
+
+static RegisterPreview reg("null", &Create);
+

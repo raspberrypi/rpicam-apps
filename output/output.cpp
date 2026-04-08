@@ -17,34 +17,34 @@ Output::Output(VideoOptions const *options)
 	: options_(options), fp_timestamps_(nullptr), state_(WAITING_KEYFRAME), time_offset_(0), last_timestamp_(0),
 	  buf_metadata_(std::cout.rdbuf()), of_metadata_()
 {
-	if (!options->save_pts.empty())
+	if (!options->Get().save_pts.empty())
 	{
-		fp_timestamps_ = fopen(options->save_pts.c_str(), "w");
+		fp_timestamps_ = fopen(options->Get().save_pts.c_str(), "w");
 		if (!fp_timestamps_)
-			throw std::runtime_error("Failed to open timestamp file " + options->save_pts);
+			throw std::runtime_error("Failed to open timestamp file " + options->Get().save_pts);
 		fprintf(fp_timestamps_, "# timecode format v2\n");
 	}
-	if (!options->metadata.empty())
+	if (!options->Get().metadata.empty())
 	{
-		const std::string &filename = options_->metadata;
+		const std::string &filename = options_->Get().metadata;
 
 		if (filename.compare("-"))
 		{
 			of_metadata_.open(filename, std::ios::out);
 			buf_metadata_ = of_metadata_.rdbuf();
-			start_metadata_output(buf_metadata_, options_->metadata_format);
+			start_metadata_output(buf_metadata_, options_->Get().metadata_format);
 		}
 	}
 
-	enable_ = !options->pause;
+	enable_ = !options->Get().pause;
 }
 
 Output::~Output()
 {
 	if (fp_timestamps_)
 		fclose(fp_timestamps_);
-	if (!options_->metadata.empty())
-		stop_metadata_output(buf_metadata_, options_->metadata_format);
+	if (!options_->Get().metadata.empty())
+		stop_metadata_output(buf_metadata_, options_->Get().metadata_format);
 }
 
 void Output::Signal()
@@ -78,10 +78,10 @@ void Output::OutputReady(void *mem, size_t size, int64_t timestamp_us, bool keyf
 		timestampReady(last_timestamp_);
 	}
 
-	if (!options_->metadata.empty())
+	if (!options_->Get().metadata.empty())
 	{
 		libcamera::ControlList metadata = metadata_queue_.front();
-		write_metadata(buf_metadata_, options_->metadata_format, metadata, !metadata_started_);
+		write_metadata(buf_metadata_, options_->Get().metadata_format, metadata, !metadata_started_);
 		metadata_started_ = true;
 		metadata_queue_.pop();
 	}
@@ -90,7 +90,7 @@ void Output::OutputReady(void *mem, size_t size, int64_t timestamp_us, bool keyf
 void Output::timestampReady(int64_t timestamp)
 {
 	fprintf(fp_timestamps_, "%" PRId64 ".%03" PRId64 "\n", timestamp / 1000, timestamp % 1000);
-	if (options_->flush)
+	if (options_->Get().flush)
 		fflush(fp_timestamps_);
 }
 
@@ -101,14 +101,15 @@ void Output::outputBuffer(void *mem, size_t size, int64_t timestamp_us, uint32_t
 
 Output *Output::Create(VideoOptions const *options)
 {
-	if (options->codec == "libav" || (options->codec == "h264" && options->GetPlatform() != Platform::VC4))
-		return new Output(options);
+	bool libav = options->Get().codec == "libav" ||
+				 (options->Get().codec == "h264" && options->GetPlatform() != Platform::VC4);
+	const std::string out_file = options->Get().output;
 
-	if (strncmp(options->output.c_str(), "udp://", 6) == 0 || strncmp(options->output.c_str(), "tcp://", 6) == 0)
+	if (!libav && (strncmp(out_file.c_str(), "udp://", 6) == 0 || strncmp(out_file.c_str(), "tcp://", 6) == 0))
 		return new NetOutput(options);
-	else if (options->circular)
+	else if (options->Get().circular)
 		return new CircularOutput(options);
-	else if (!options->output.empty())
+	else if (!out_file.empty())
 		return new FileOutput(options);
 	else
 		return new Output(options);
@@ -116,7 +117,7 @@ Output *Output::Create(VideoOptions const *options)
 
 void Output::MetadataReady(libcamera::ControlList &metadata)
 {
-	if (options_->metadata.empty())
+	if (options_->Get().metadata.empty())
 		return;
 
 	metadata_queue_.push(metadata);

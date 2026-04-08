@@ -21,56 +21,9 @@
 
 #include <libcamera/formats.h>
 
-#include "post_processing_stages/postproc_lib.h"
+#include "config.h"
 
 namespace fs = std::filesystem;
-
-PostProcessingLib::PostProcessingLib(const std::string &lib)
-{
-	if (!lib.empty())
-	{
-		lib_ = dlopen(lib.c_str(), RTLD_LAZY);
-		if (!lib_)
-			LOG_ERROR("Unable to open " << lib << " with error: " << dlerror());
-	}
-}
-
-PostProcessingLib::PostProcessingLib(PostProcessingLib &&other)
-{
-	lib_ = other.lib_;
-	symbol_map_ = std::move(other.symbol_map_);
-	other.lib_ = nullptr;
-}
-
-PostProcessingLib::~PostProcessingLib()
-{
-	if (lib_)
-		dlclose(lib_);
-}
-
-const void *PostProcessingLib::GetSymbol(const std::string &symbol)
-{
-	if (!lib_)
-		return nullptr;
-
-	std::scoped_lock<std::mutex> l(lock_);
-
-	const auto it = symbol_map_.find(symbol);
-	if (it == symbol_map_.end())
-	{
-		const void *fn = dlsym(lib_, symbol.c_str());
-
-		if (!fn)
-		{
-			LOG_ERROR("Unable to find postprocessing symbol " << symbol << " with error: " << dlerror());
-			return nullptr;
-		}
-
-		symbol_map_[symbol] = fn;
-	}
-
-	return symbol_map_[symbol];
-}
 
 PostProcessor::PostProcessor(RPiCamApp *app) : app_(app)
 {
@@ -85,6 +38,8 @@ PostProcessor::~PostProcessor()
 
 void PostProcessor::LoadModules(const std::string &lib_dir)
 {
+	static std::vector<DlLib> dynamic_stages_;
+
 	const fs::path path(!lib_dir.empty() ? lib_dir : POSTPROC_LIB_DIR);
 	const std::string ext(".so");
 
@@ -120,7 +75,7 @@ void PostProcessor::Read(std::string const &filename)
 
 				unsigned int lores_width = node.get<unsigned int>("lores.width");
 				unsigned int lores_height = node.get<unsigned int>("lores.height");
-				bool lores_par = node.get<bool>("lores.par", app_->GetOptions()->lores_par);
+				bool lores_par = node.get<bool>("lores.par", app_->GetOptions()->Get().lores_par);
 				std::string lores_format_str = node.get<std::string>("lores.format", "yuv420");
 
 				libcamera::PixelFormat lores_format = libcamera::formats::YUV420;
@@ -131,9 +86,9 @@ void PostProcessor::Read(std::string const &filename)
 				else
 					lores_format = it->second;
 
-				app_->GetOptions()->lores_width = lores_width;
-				app_->GetOptions()->lores_height = lores_height;
-				app_->GetOptions()->lores_par = lores_par;
+				app_->GetOptions()->Set().lores_width = lores_width;
+				app_->GetOptions()->Set().lores_height = lores_height;
+				app_->GetOptions()->Set().lores_par = lores_par;
 				app_->lores_format_ = lores_format;
 
 				LOG(1, "Postprocessing requested lores: " << lores_width << "x" << lores_height << " " << lores_format);

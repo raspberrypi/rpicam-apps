@@ -18,6 +18,7 @@ extern "C"
 {
 #include "libavcodec/avcodec.h"
 #include "libavcodec/codec_desc.h"
+#include "libavcodec/version.h"
 #include "libavdevice/avdevice.h"
 #include "libavformat/avformat.h"
 #include "libavutil/audio_fifo.h"
@@ -57,7 +58,6 @@ private:
 	bool abort_video_;
 	bool abort_audio_;
 	uint64_t video_start_ts_;
-	uint64_t audio_samples_;
 
 	std::queue<AVFrame *> frame_queue_;
 	std::mutex video_mutex_;
@@ -78,4 +78,5 @@ private:
 
 	std::string output_file_;
 	bool output_initialised_;
+	bool elementary_stream_;
 };

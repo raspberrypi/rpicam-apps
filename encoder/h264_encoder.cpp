@@ -49,52 +49,52 @@ H264Encoder::H264Encoder(VideoOptions const *options, StreamInfo const &info)
 		throw std::runtime_error("failed to open V4L2 H264 encoder");
 	LOG(2, "Opened H264Encoder on " << device_name << " as fd " << fd_);
 
-	// Apply any options->
+	// Apply any options->Get().
 
 	v4l2_control ctrl = {};
-	if (options->bitrate)
+	if (options->Get().bitrate)
 	{
 		ctrl.id = V4L2_CID_MPEG_VIDEO_BITRATE;
-		ctrl.value = options->bitrate.bps();
+		ctrl.value = options->Get().bitrate.bps();
 		if (xioctl(fd_, VIDIOC_S_CTRL, &ctrl) < 0)
 			throw std::runtime_error("failed to set bitrate");
 	}
-	if (!options->profile.empty())
+	if (!options->Get().profile.empty())
 	{
 		static const std::map<std::string, int> profile_map =
 			{ { "baseline", V4L2_MPEG_VIDEO_H264_PROFILE_BASELINE },
 			  { "main", V4L2_MPEG_VIDEO_H264_PROFILE_MAIN },
 			  { "high", V4L2_MPEG_VIDEO_H264_PROFILE_HIGH } };
-		auto it = profile_map.find(options->profile);
+		auto it = profile_map.find(options->Get().profile);
 		if (it == profile_map.end())
-			throw std::runtime_error("no such profile " + options->profile);
+			throw std::runtime_error("no such profile " + options->Get().profile);
 		ctrl.id = V4L2_CID_MPEG_VIDEO_H264_PROFILE;
 		ctrl.value = it->second;
 		if (xioctl(fd_, VIDIOC_S_CTRL, &ctrl) < 0)
 			throw std::runtime_error("failed to set profile");
 	}
-	if (!options->level.empty())
+	if (!options->Get().level.empty())
 	{
 		static const std::map<std::string, int> level_map =
 			{ { "4", V4L2_MPEG_VIDEO_H264_LEVEL_4_0 },
 			  { "4.1", V4L2_MPEG_VIDEO_H264_LEVEL_4_1 },
 			  { "4.2", V4L2_MPEG_VIDEO_H264_LEVEL_4_2 } };
-		auto it = level_map.find(options->level);
+		auto it = level_map.find(options->Get().level);
 		if (it == level_map.end())
-			throw std::runtime_error("no such level " + options->level);
+			throw std::runtime_error("no such level " + options->Get().level);
 		ctrl.id = V4L2_CID_MPEG_VIDEO_H264_LEVEL;
 		ctrl.value = it->second;
 		if (xioctl(fd_, VIDIOC_S_CTRL, &ctrl) < 0)
 			throw std::runtime_error("failed to set level");
 	}
-	if (options->intra)
+	if (options->Get().intra)
 	{
 		ctrl.id = V4L2_CID_MPEG_VIDEO_H264_I_PERIOD;
-		ctrl.value = options->intra;
+		ctrl.value = options->Get().intra;
 		if (xioctl(fd_, VIDIOC_S_CTRL, &ctrl) < 0)
 			throw std::runtime_error("failed to set intra period");
 	}
-	if (options->inline_headers)
+	if (options->Get().inline_headers)
 	{
 		ctrl.id = V4L2_CID_MPEG_VIDEO_REPEAT_SEQ_HEADER;
 		ctrl.value = 1;
@@ -120,8 +120,8 @@ H264Encoder::H264Encoder(VideoOptions const *options, StreamInfo const &info)
 
 	fmt = {};
 	fmt.type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
-	fmt.fmt.pix_mp.width = options->width;
-	fmt.fmt.pix_mp.height = options->height;
+	fmt.fmt.pix_mp.width = options->Get().width;
+	fmt.fmt.pix_mp.height = options->Get().height;
 	fmt.fmt.pix_mp.pixelformat = V4L2_PIX_FMT_H264;
 	fmt.fmt.pix_mp.field = V4L2_FIELD_ANY;
 	fmt.fmt.pix_mp.colorspace = V4L2_COLORSPACE_DEFAULT;
@@ -131,7 +131,7 @@ H264Encoder::H264Encoder(VideoOptions const *options, StreamInfo const &info)
 	if (xioctl(fd_, VIDIOC_S_FMT, &fmt) < 0)
 		throw std::runtime_error("failed to set capture format");
 
-	double frate = options->framerate.value_or(DEFAULT_FRAMERATE);
+	double frate = options->Get().framerate.value_or(DEFAULT_FRAMERATE);
 	if (frate > 0.0)
 	{
 		struct v4l2_streamparm parm = {};
@@ -376,3 +376,10 @@ void H264Encoder::outputThread()
 			throw std::runtime_error("failed to re-queue encoded buffer");
 	}
 }
+
+static Encoder *Create(VideoOptions *options, StreamInfo const &info)
+{
+	return new H264Encoder(options, info);
+}
+
+static RegisterEncoder reg("h264", &Create);
