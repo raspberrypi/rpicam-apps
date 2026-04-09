@@ -87,15 +87,28 @@ struct HdrConfig
 
 struct HdrImage
 {
-	HdrImage() : width(0), height(0), dynamic_range(0) {}
-	HdrImage(int w, int h, int num_pixels) : width(w), height(h), pixels(num_pixels), dynamic_range(0) {}
+	HdrImage() : width(0), height(0), dynamic_range(0)
+	{
+	}
+	HdrImage(int w, int h, int num_pixels) : width(w), height(h), pixels(num_pixels), dynamic_range(0)
+	{
+	}
 	int width;
 	int height;
 	std::vector<int16_t> pixels;
 	int dynamic_range; // 1 more than the maximum pixel value
-	int16_t &P(unsigned int offset) { return pixels[offset]; }
-	int16_t P(unsigned int offset) const { return pixels[offset]; }
-	void Clear() { std::fill(pixels.begin(), pixels.end(), 0); }
+	int16_t &P(unsigned int offset)
+	{
+		return pixels[offset];
+	}
+	int16_t P(unsigned int offset) const
+	{
+		return pixels[offset];
+	}
+	void Clear()
+	{
+		std::fill(pixels.begin(), pixels.end(), 0);
+	}
 	void Accumulate(uint8_t const *src, int stride);
 	HdrImage LpFilter(LpFilterConfig const &config) const;
 	Pwl CreateTonemap(GlobalTonemapConfig const &config) const;
@@ -377,7 +390,9 @@ void HdrImage::Scale(double factor)
 class HdrStage : public PostProcessingStage
 {
 public:
-	HdrStage(RPiCamApp *app) : PostProcessingStage(app) {}
+	HdrStage(RPiCamApp *app) : PostProcessingStage(app)
+	{
+	}
 
 	char const *Name() const override;
 
@@ -427,14 +442,18 @@ void HdrStage::Read(boost::property_tree::ptree const &params)
 	config_.local_tonemap.colour_scale = params.get<double>("local_colour_scale");
 
 	// A strength of 1 should give the value in the function; a strength of 0 should give the value 1.
-	pos_strength.Map([this, strength](double x, double y) {
-		y = y * strength + 1 - strength;
-		config_.local_tonemap.pos_strength.Append(x, y);
-	});
-	neg_strength.Map([this, strength](double x, double y) {
-		y = y * strength + 1 - strength;
-		config_.local_tonemap.neg_strength.Append(x, y);
-	});
+	pos_strength.Map(
+		[this, strength](double x, double y)
+		{
+			y = y * strength + 1 - strength;
+			config_.local_tonemap.pos_strength.Append(x, y);
+		});
+	neg_strength.Map(
+		[this, strength](double x, double y)
+		{
+			y = y * strength + 1 - strength;
+			config_.local_tonemap.neg_strength.Append(x, y);
+		});
 
 	config_.jpeg_filename = params.get<std::string>("jpeg_filename", "");
 }

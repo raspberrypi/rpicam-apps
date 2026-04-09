@@ -17,8 +17,8 @@
 
 #include <libcamera/geometry.h>
 
-#include <hailo/hailort.hpp>
 #include "hailo_objects.hpp"
+#include <hailo/hailort.hpp>
 
 #include "core/dl_lib.hpp"
 #include "core/rpicam_app.hpp"
@@ -41,8 +41,7 @@ private:
 
 	struct AllocInfo
 	{
-		AllocInfo(uint8_t *_ptr, unsigned int _size, bool _free)
-			: ptr(_ptr), size(_size), free(_free)
+		AllocInfo(uint8_t *_ptr, unsigned int _size, bool _free) : ptr(_ptr), size(_size), free(_free)
 		{
 		}
 
@@ -96,7 +95,9 @@ using RgbImagePtr = std::shared_ptr<uint8_t>;
 
 struct Msg
 {
-	Msg(MsgType const &t) : type(t) {}
+	Msg(MsgType const &t) : type(t)
+	{
+	}
 	template <typename T>
 	Msg(MsgType const &t, T p, const libcamera::Size &sz, const std::string &title)
 		: type(t), payload(std::forward<T>(p)), size(sz), window_title(title)
@@ -138,6 +139,7 @@ public:
 								 [&display](const Msg &m) { return m.window_title == display; });
 		queue_.erase(it, queue_.end());
 	}
+
 private:
 	std::deque<Msg> queue_;
 	std::mutex mutex_;

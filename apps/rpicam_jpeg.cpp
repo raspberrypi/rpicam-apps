@@ -20,8 +20,7 @@ using libcamera::Stream;
 class RPiCamJpegApp : public RPiCamApp
 {
 public:
-	RPiCamJpegApp()
-		: RPiCamApp(std::make_unique<StillOptions>())
+	RPiCamJpegApp() : RPiCamApp(std::make_unique<StillOptions>())
 	{
 	}
 

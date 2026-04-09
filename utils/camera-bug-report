@@ -19,13 +19,19 @@ class Report:
         self._file = file
 
     def __run_cmd(self, cmd):
-        print(f'** {cmd} **', file=self._file)
+        print(f"** {cmd} **", file=self._file)
         try:
-            p = subprocess.run(cmd, text=True, check=False, shell=True,
-                               stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+            p = subprocess.run(
+                cmd,
+                text=True,
+                check=False,
+                shell=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+            )
             print(p.stdout, file=self._file)
         except RuntimeError as e:
-            print(f'Error: {e}', file=self._file)
+            print(f"Error: {e}", file=self._file)
 
     def add_cmd(self, c):
         self._cmds.append(c)
@@ -34,7 +40,7 @@ class Report:
         self._strs.append(s)
 
     def exec(self):
-        print(f'{"-"*80}\n{self._id}\n{"-"*80}', file=self._file)
+        print(f"{'-' * 80}\n{self._id}\n{'-' * 80}", file=self._file)
 
         for c in self._cmds:
             self.__run_cmd(c)
@@ -44,96 +50,124 @@ class Report:
 
 
 def run_prog(cmd, t):
-    cmd = cmd.split(' ')
+    cmd = cmd.split(" ")
     out = []
     try:
         start = time.time()
-        p = subprocess.Popen(cmd, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, errors='ignore')
+        p = subprocess.Popen(
+            cmd,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            errors="ignore",
+        )
         poll = select.poll()
         poll.register(p.stdout, select.POLLIN)
 
         while p.poll() is None:
             if poll.poll(0):
                 line = p.stdout.readline()
-                print(line, end='', flush=True)
+                print(line, end="", flush=True)
                 out.append(line)
 
             if (t != 0) and (time.time() - start > t):
                 p.kill()
                 out = out + p.communicate()[0].splitlines(keepends=True)
-                out.append('Error: ***** TIMEOUT *****')
+                out.append("Error: ***** TIMEOUT *****")
                 break
 
     except KeyboardInterrupt:
         p.kill()
         out = out + p.communicate()[0].splitlines(keepends=True)
-        out.append('Error: ***** INTERRUPT *****')
+        out.append("Error: ***** INTERRUPT *****")
 
     p.wait()
-    return ''.join(out)
+    return "".join(out)
 
 
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='rpicam-apps Bug Report Generator')
-    parser.add_argument('-o', help='Report filename', type=str, default='bug-report.txt')
-    parser.add_argument('-t', help='Timeout (seconds) for the command to run. A value of 0 \
-                                    disables the timeout.', type=float, default=0)
-    parser.add_argument('-c', help='Command to run, e.g. -c "rpicam-still -t 1000 -o test.jpg"', type=str)
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="rpicam-apps Bug Report Generator")
+    parser.add_argument(
+        "-o", help="Report filename", type=str, default="bug-report.txt"
+    )
+    parser.add_argument(
+        "-t",
+        help="Timeout (seconds) for the command to run. A value of 0 \
+                                    disables the timeout.",
+        type=float,
+        default=0,
+    )
+    parser.add_argument(
+        "-c",
+        help='Command to run, e.g. -c "rpicam-still -t 1000 -o test.jpg"',
+        type=str,
+    )
     args = parser.parse_args()
 
     # This is the app the user is actually running.
-    app = 'rpicam-hello'
+    app = "rpicam-hello"
     if args.c:
         app = args.c.split(" ")[0]
         # Can we identify the app?  If not, use rpicam-hello for version checks.
-        if not any([s in app for s in ['rpicam-still', 'rpicam-vid', 'rpicam-hello', 'rpicam-raw', 'rpicam-jpeg']]):
-            app = 'rpicam-hello'
+        if not any(
+            [
+                s in app
+                for s in [
+                    "rpicam-still",
+                    "rpicam-vid",
+                    "rpicam-hello",
+                    "rpicam-raw",
+                    "rpicam-jpeg",
+                ]
+            ]
+        ):
+            app = "rpicam-hello"
 
     reports = []
-    with open(args.o, 'wt') as file:
-        title = Report('rpicam-apps Bug Report', file)
-        title.add_str(f'Date: {datetime.now().strftime("%d-%m-%Y (%H:%M:%S)")}')
-        title.add_str(f'Command: {" ".join(sys.argv)}\n')
+    with open(args.o, "wt") as file:
+        title = Report("rpicam-apps Bug Report", file)
+        title.add_str(f"Date: {datetime.now().strftime('%d-%m-%Y (%H:%M:%S)')}")
+        title.add_str(f"Command: {' '.join(sys.argv)}\n")
         reports.append(title)
 
-        hwinfo = Report('Hardware information', file)
-        hwinfo.add_cmd('hostname')
-        hwinfo.add_cmd('cat /proc/cpuinfo')
+        hwinfo = Report("Hardware information", file)
+        hwinfo.add_cmd("hostname")
+        hwinfo.add_cmd("cat /proc/cpuinfo")
         reports.append(hwinfo)
 
-        config = Report('Configuration', file)
-        config.add_cmd('cat /boot/firmware/cmdline.txt')
-        config.add_cmd('cat /boot/firmware/config.txt')
+        config = Report("Configuration", file)
+        config.add_cmd("cat /boot/firmware/cmdline.txt")
+        config.add_cmd("cat /boot/firmware/config.txt")
         reports.append(config)
 
-        logs = Report('Logs', file)
-        logs.add_cmd('dmesg')
-        logs.add_cmd('sudo vclog log --msg')
-        logs.add_cmd('sudo vclog log --assert')
+        logs = Report("Logs", file)
+        logs.add_cmd("dmesg")
+        logs.add_cmd("sudo vclog log --msg")
+        logs.add_cmd("sudo vclog log --assert")
         reports.append(logs)
 
-        mem = Report('Memory', file)
-        mem.add_cmd('cat /proc/meminfo')
-        mem.add_cmd('sudo cat /sys/kernel/debug/dma_buf/bufinfo')
-        mem.add_cmd('sudo cat /sys/kernel/debug/vcsm-cma/state')
+        mem = Report("Memory", file)
+        mem.add_cmd("cat /proc/meminfo")
+        mem.add_cmd("sudo cat /sys/kernel/debug/dma_buf/bufinfo")
+        mem.add_cmd("sudo cat /sys/kernel/debug/vcsm-cma/state")
         reports.append(mem)
 
-        media = Report('Media Devices', file)
+        media = Report("Media Devices", file)
         for i in range(5):
-            media.add_cmd(f'media-ctl -d {i} -p')
+            media.add_cmd(f"media-ctl -d {i} -p")
         reports.append(media)
 
         # Get the camera list with the same program specified in the run command
-        cam = Report('Cameras', file)
-        cam.add_cmd(f'{app} --list-cameras')
+        cam = Report("Cameras", file)
+        cam.add_cmd(f"{app} --list-cameras")
         reports.append(cam)
 
         # Get the version with the same program specified in the run command
-        ver = Report('Versions', file)
-        ver.add_cmd('uname -a')
-        ver.add_cmd('cat /etc/os-release')
-        ver.add_cmd('vcgencmd version')
-        ver.add_cmd(f'{app} --version')
+        ver = Report("Versions", file)
+        ver.add_cmd("uname -a")
+        ver.add_cmd("cat /etc/os-release")
+        ver.add_cmd("vcgencmd version")
+        ver.add_cmd(f"{app} --version")
         reports.append(ver)
 
         # Run the actual application before executing the reports!
@@ -148,6 +182,6 @@ if __name__ == '__main__':
         for r in reports:
             r.exec()
 
-        print(f'\nBug report generated to {args.o}')
-        print('Please upload this file when you create a new bug report at:')
-        print('https://github.com/raspberrypi/rpicam-apps/issues/')
+        print(f"\nBug report generated to {args.o}")
+        print("Please upload this file when you create a new bug report at:")
+        print("https://github.com/raspberrypi/rpicam-apps/issues/")

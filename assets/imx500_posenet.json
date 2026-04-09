@@ -25,5 +25,5 @@
     "plot_pose_cv":
     {
         "confidence_threshold" : 0.2
-    }    
+    }
 }

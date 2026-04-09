@@ -8,8 +8,8 @@
 #include "preview/preview.hpp"
 
 #include "core/frame_info.hpp"
-#include "core/rpicam_app.hpp"
 #include "core/options.hpp"
+#include "core/rpicam_app.hpp"
 
 #include <cmath>
 #include <fcntl.h>
@@ -45,7 +45,8 @@ static libcamera::PixelFormat mode_to_pixel_format(Mode const &mode)
 		{ Mode(0, 0, 16, true), libcamera::formats::SBGGR16 },
 	};
 
-	auto it = std::find_if(table.begin(), table.end(), [&mode] (auto &m) { return mode.bit_depth == m.first.bit_depth && mode.packed == m.first.packed; });
+	auto it = std::find_if(table.begin(), table.end(), [&mode](auto &m)
+						   { return mode.bit_depth == m.first.bit_depth && mode.packed == m.first.packed; });
 	if (it != table.end())
 		return it->second;
 
@@ -93,8 +94,9 @@ RPiCamApp::RPiCamApp(std::unique_ptr<Options> opts)
 	}
 	else if (platform == Platform::UNKNOWN)
 	{
-		fprintf(stderr, "ERROR: rpicam-apps currently only supports the Raspberry Pi platforms.\n"
-						"Contributions for other platforms are welcome at https://github.com/raspberrypi/rpicam-apps.\n");
+		fprintf(stderr,
+				"ERROR: rpicam-apps currently only supports the Raspberry Pi platforms.\n"
+				"Contributions for other platforms are welcome at https://github.com/raspberrypi/rpicam-apps.\n");
 		exit(-1);
 	}
 
@@ -104,9 +106,8 @@ RPiCamApp::RPiCamApp(std::unique_ptr<Options> opts)
 RPiCamApp::~RPiCamApp()
 {
 	if (!options_->Get().help)
-		LOG(2, "Closing RPiCam application"
-				   << "(frames displayed " << preview_frames_displayed_ << ", dropped " << preview_frames_dropped_
-				   << ")");
+		LOG(2, "Closing RPiCam application" << "(frames displayed " << preview_frames_displayed_ << ", dropped "
+											<< preview_frames_dropped_ << ")");
 	StopCamera();
 	Teardown();
 	CloseCamera();
@@ -166,8 +167,8 @@ void RPiCamApp::OpenCamera()
 		post_processor_.Read(options_->Get().post_process_file);
 	}
 	// The queue takes over ownership from the post-processor.
-	post_processor_.SetCallback(
-		[this](CompletedRequestPtr &r) { this->msg_queue_.Post(Msg(MsgType::RequestComplete, std::move(r))); });
+	post_processor_.SetCallback([this](CompletedRequestPtr &r)
+								{ this->msg_queue_.Post(Msg(MsgType::RequestComplete, std::move(r))); });
 
 	// We're going to make a list of all the available sensor modes, but we only populate
 	// the framerate field if the user has requested a framerate (as this requires us actually
@@ -703,8 +704,7 @@ void RPiCamApp::StartCamera()
 		else if (!options_->Get().framerate || options_->Get().framerate.value() > 0)
 		{
 			int64_t frame_time = 1000000 / options_->Get().framerate.value_or(DEFAULT_FRAMERATE); // in us
-			controls_.set(controls::FrameDurationLimits,
-						  libcamera::Span<const int64_t, 2>({ frame_time, frame_time }));
+			controls_.set(controls::FrameDurationLimits, libcamera::Span<const int64_t, 2>({ frame_time, frame_time }));
 		}
 	}
 
@@ -729,7 +729,8 @@ void RPiCamApp::StartCamera()
 	if (!controls_.get(controls::ColourGains) && options_->Get().awb_gain_r && options_->Get().awb_gain_b)
 		controls_.set(controls::ColourGains,
 					  libcamera::Span<const float, 2>({ options_->Get().awb_gain_r, options_->Get().awb_gain_b }));
-	if (!controls_.get(controls::ColourCorrectionMatrix) && !options_->Get().ccm.empty()) {
+	if (!controls_.get(controls::ColourCorrectionMatrix) && !options_->Get().ccm.empty())
+	{
 		if (!controls_.get(controls::ColourGains))
 			LOG_ERROR("WARNING: cannot set colour correction matrix without explicit AWB gains (--awbgains)");
 		else
@@ -1047,7 +1048,7 @@ void RPiCamApp::setupCapture()
 			fb.push_back(std::make_unique<FrameBuffer>(plane));
 			void *memory = mmap(NULL, config.frameSize, PROT_READ | PROT_WRITE, MAP_SHARED, plane[0].fd.get(), 0);
 			mapped_buffers_[fb.back().get()].push_back(
-						libcamera::Span<uint8_t>(static_cast<uint8_t *>(memory), config.frameSize));
+				libcamera::Span<uint8_t>(static_cast<uint8_t *>(memory), config.frameSize));
 		}
 
 		frame_buffers_[stream] = std::move(fb);

@@ -1,0 +1,8 @@
+[general]
+contrib=contrib-body-requires-signed-off-by
+
+[title-max-length]
+line-length=80
+
+[body-max-line-length]
+line-length=80

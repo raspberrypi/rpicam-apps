@@ -26,7 +26,9 @@ using Stream = libcamera::Stream;
 class AnnotateCvStage : public PostProcessingStage
 {
 public:
-	AnnotateCvStage(RPiCamApp *app) : PostProcessingStage(app) {}
+	AnnotateCvStage(RPiCamApp *app) : PostProcessingStage(app)
+	{
+	}
 
 	char const *Name() const override;
 

@@ -79,7 +79,6 @@ RegisterEncoder::RegisterEncoder(char const *name, EncoderCreateFunc create_func
 	EncoderFactory::GetInstance().RegisterEncoder(name, create_func);
 }
 
-
 static Encoder *h264_codec_select(VideoOptions *options, const StreamInfo &info)
 {
 	auto &factory = EncoderFactory::GetInstance();

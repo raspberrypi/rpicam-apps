@@ -16,8 +16,7 @@ uint64_t Histogram::CumulativeFreq(double bin) const
 	else if (bin >= Bins())
 		return Total();
 	int b = (int)bin;
-	return cumulative_[b] +
-	       (bin - b) * (cumulative_[b + 1] - cumulative_[b]);
+	return cumulative_[b] + (bin - b) * (cumulative_[b + 1] - cumulative_[b]);
 }
 
 double Histogram::Quantile(double q, int first, int last) const
@@ -37,9 +36,9 @@ double Histogram::Quantile(double q, int first, int last) const
 			first = middle + 1; // after middle
 	}
 	assert(items >= cumulative_[first] && items <= cumulative_[last + 1]);
-	double frac = cumulative_[first + 1] == cumulative_[first] ? 0
-		      : (double)(items - cumulative_[first]) /
-				  (cumulative_[first + 1] - cumulative_[first]);
+	double frac = cumulative_[first + 1] == cumulative_[first]
+					  ? 0
+					  : (double)(items - cumulative_[first]) / (cumulative_[first + 1] - cumulative_[first]);
 	return first + frac;
 }
 
@@ -49,11 +48,10 @@ double Histogram::InterQuantileMean(double q_lo, double q_hi) const
 	double p_lo = Quantile(q_lo);
 	double p_hi = Quantile(q_hi, (int)p_lo);
 	double sum_bin_freq = 0, cumul_freq = 0;
-	for (double p_next = floor(p_lo) + 1.0; p_next <= ceil(p_hi);
-	     p_lo = p_next, p_next += 1.0) {
+	for (double p_next = floor(p_lo) + 1.0; p_next <= ceil(p_hi); p_lo = p_next, p_next += 1.0)
+	{
 		int bin = floor(p_lo);
-		double freq = (cumulative_[bin + 1] - cumulative_[bin]) *
-			      (std::min(p_next, p_hi) - p_lo);
+		double freq = (cumulative_[bin + 1] - cumulative_[bin]) * (std::min(p_next, p_hi) - p_lo);
 		sum_bin_freq += bin * freq;
 		cumul_freq += freq;
 	}

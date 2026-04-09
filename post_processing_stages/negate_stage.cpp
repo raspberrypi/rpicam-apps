@@ -16,11 +16,15 @@ using Stream = libcamera::Stream;
 class NegateStage : public PostProcessingStage
 {
 public:
-	NegateStage(RPiCamApp *app) : PostProcessingStage(app) {}
+	NegateStage(RPiCamApp *app) : PostProcessingStage(app)
+	{
+	}
 
 	char const *Name() const override;
 
-	void Read(boost::property_tree::ptree const &params) override {}
+	void Read(boost::property_tree::ptree const &params) override
+	{
+	}
 
 	void Configure() override;
 

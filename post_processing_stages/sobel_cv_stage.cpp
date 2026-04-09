@@ -21,7 +21,9 @@ using Stream = libcamera::Stream;
 class SobelCvStage : public PostProcessingStage
 {
 public:
-	SobelCvStage(RPiCamApp *app) : PostProcessingStage(app) {}
+	SobelCvStage(RPiCamApp *app) : PostProcessingStage(app)
+	{
+	}
 
 	char const *Name() const override;
 

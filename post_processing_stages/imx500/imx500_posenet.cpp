@@ -108,7 +108,9 @@ struct Point
 // An adjacency list representing the directed edges connecting keypoints.
 struct AdjacencyList
 {
-	explicit AdjacencyList(const int num_nodes) : child_ids(num_nodes), edge_ids(num_nodes) {}
+	explicit AdjacencyList(const int num_nodes) : child_ids(num_nodes), edge_ids(num_nodes)
+	{
+	}
 
 	// child_ids[i] is a vector holding the node ids of all children of the i-th
 	// node and edge_ids[i] is a vector holding the edge ids of all edges stemming
@@ -122,15 +124,23 @@ struct AdjacencyList
 // Defines a 2-D keypoint with (x, y) float coordinates and its type id.
 struct KeypointWithScore
 {
-	KeypointWithScore(const Point &_pt, const int _id, const float _score) : point(_pt), id(_id), score(_score) {}
+	KeypointWithScore(const Point &_pt, const int _id, const float _score) : point(_pt), id(_id), score(_score)
+	{
+	}
 
 	[[maybe_unused]] friend std::ostream &operator<<(std::ostream &ost, const KeypointWithScore &keypoint)
 	{
 		return ost << keypoint.point.y << ", " << keypoint.point.x << ", " << keypoint.id << ", " << keypoint.score;
 	}
 
-	bool operator<(const KeypointWithScore &other) const { return score < other.score; }
-	bool operator>(const KeypointWithScore &other) const { return score > other.score; }
+	bool operator<(const KeypointWithScore &other) const
+	{
+		return score < other.score;
+	}
+	bool operator>(const KeypointWithScore &other) const
+	{
+		return score > other.score;
+	}
 
 	Point point;
 	int id;
@@ -323,7 +333,7 @@ KeypointQueue build_keypoint_queue(const std::vector<float> &scores, const std::
 						for (unsigned int x_current = x_start; x_current < x_end; ++x_current)
 						{
 							if (scores[y_current * MAP_SIZE.width * NUM_KEYPOINTS + x_current * NUM_KEYPOINTS + j] >
-									score)
+								score)
 							{
 								local_maximum = false;
 								break;
@@ -494,7 +504,9 @@ void perform_soft_keypoint_NMS(std::vector<float> &all_instance_scores, const st
 class PoseNet : public IMX500PostProcessingStage
 {
 public:
-	PoseNet(RPiCamApp *app) : IMX500PostProcessingStage(app) {}
+	PoseNet(RPiCamApp *app) : IMX500PostProcessingStage(app)
+	{
+	}
 
 	char const *Name() const override;
 
@@ -774,9 +786,8 @@ void PoseNet::translateCoordinates(std::vector<PoseResults> &results, const Rect
 	{
 		for (auto &keypoint : r.pose_keypoints)
 		{
-			std::vector<float> coords{ keypoint.x / (INPUT_TENSOR_SIZE.width - 1),
-									   keypoint.y / (INPUT_TENSOR_SIZE.height - 1),
-									   0, 0 };
+			std::vector<float> coords { keypoint.x / (INPUT_TENSOR_SIZE.width - 1),
+										keypoint.y / (INPUT_TENSOR_SIZE.height - 1), 0, 0 };
 			Rectangle translated = ConvertInferenceCoordinates(coords, scaler_crop);
 			keypoint.x = translated.x;
 			keypoint.y = translated.y;
@@ -855,7 +866,7 @@ void PoseNet::filterOutputObjects(const std::vector<PoseResults> &results)
 
 	// Remove now invisible objects from the long term list.
 	lt_results_.erase(std::remove_if(lt_results_.begin(), lt_results_.end(),
-						[] (const LtResults &obj) { return !obj.matched && !obj.visible; }),
+									 [](const LtResults &obj) { return !obj.matched && !obj.visible; }),
 					  lt_results_.end());
 }
 

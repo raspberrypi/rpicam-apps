@@ -60,11 +60,14 @@ struct ExifException
 
 // libexif knows the formats of many tags, but not all (I mean, why not?!?).
 // Exceptions can be listed here.
+// clang-format off
 static std::map<ExifTag, ExifException> exif_exceptions =
 {
 	{ EXIF_TAG_YCBCR_COEFFICIENTS, { EXIF_FORMAT_RATIONAL, 3 } },
 };
+// clang-format on
 
+// clang-format off
 static std::map<std::string, ExifIfd> exif_ifd_map =
 {
 	{ "EXIF", EXIF_IFD_EXIF },
@@ -73,7 +76,9 @@ static std::map<std::string, ExifIfd> exif_ifd_map =
 	{ "EINT", EXIF_IFD_INTEROPERABILITY },
 	{ "GPS",  EXIF_IFD_GPS }
 };
+// clang-format on
 
+// clang-format off
 static ExifReadFunction const exif_read_functions[] =
 {
 	// Same order as ExifFormat enum.
@@ -89,7 +94,7 @@ static ExifReadFunction const exif_read_functions[] =
 	exif_read_slong,
 	exif_read_srational
 };
-
+// clang-format on
 
 int exif_read_short(char const *str, unsigned char *mem)
 {
@@ -253,9 +258,9 @@ void exif_read_tag(ExifData *exif, char const *str)
 	}
 }
 
-static void YUYV_to_JPEG(const uint8_t *input, StreamInfo const &info,
-						 const unsigned int output_width, const unsigned int output_height,
-						 const int quality, const unsigned int restart, uint8_t *&jpeg_buffer, jpeg_mem_len_t &jpeg_len)
+static void YUYV_to_JPEG(const uint8_t *input, StreamInfo const &info, const unsigned int output_width,
+						 const unsigned int output_height, const int quality, const unsigned int restart,
+						 uint8_t *&jpeg_buffer, jpeg_mem_len_t &jpeg_len)
 {
 	struct jpeg_compress_struct cinfo;
 	struct jpeg_error_mgr jerr;
@@ -307,9 +312,8 @@ static void YUYV_to_JPEG(const uint8_t *input, StreamInfo const &info,
 	jpeg_destroy_compress(&cinfo);
 }
 
-static void YUV420_to_JPEG_fast(const uint8_t *input, StreamInfo const &info,
-								const int quality, const unsigned int restart,
-								uint8_t *&jpeg_buffer, jpeg_mem_len_t &jpeg_len)
+static void YUV420_to_JPEG_fast(const uint8_t *input, StreamInfo const &info, const int quality,
+								const unsigned int restart, uint8_t *&jpeg_buffer, jpeg_mem_len_t &jpeg_len)
 {
 	struct jpeg_compress_struct cinfo;
 	struct jpeg_error_mgr jerr;
@@ -358,10 +362,9 @@ static void YUV420_to_JPEG_fast(const uint8_t *input, StreamInfo const &info,
 	jpeg_destroy_compress(&cinfo);
 }
 
-static void YUV420_to_JPEG(const uint8_t *input, StreamInfo const &info,
-						   const unsigned int output_width, const unsigned int output_height,
-						   const int quality, const unsigned int restart, uint8_t *&jpeg_buffer,
-						   jpeg_mem_len_t &jpeg_len)
+static void YUV420_to_JPEG(const uint8_t *input, StreamInfo const &info, const unsigned int output_width,
+						   const unsigned int output_height, const int quality, const unsigned int restart,
+						   uint8_t *&jpeg_buffer, jpeg_mem_len_t &jpeg_len)
 {
 	if (info.width == output_width && info.height == output_height)
 	{

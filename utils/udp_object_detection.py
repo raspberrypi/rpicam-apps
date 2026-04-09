@@ -21,12 +21,14 @@ from dataclasses import dataclass
 @dataclass
 class ParsedDetection:
     """A data class to hold the parsed detection data received over UDP."""
+
     x: int
     y: int
     width: int
     height: int
     name: str
     confidence: float
+
 
 # --- UDP_AI_Receiver Class Definition ---
 
@@ -36,6 +38,7 @@ class UDP_AI_Receiver:
     The UDP_AI_Receiver class handles the establishment of a UDP socket,
     receiving incoming data, and parsing it into the ParsedDetection format.
     """
+
     MAX_BUFFER_SIZE = 1024
 
     def __init__(self, port: int):
@@ -49,7 +52,7 @@ class UDP_AI_Receiver:
             # SOCK_DGRAM specifies a UDP (datagram) socket.
             self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             # Bind the created socket to the specified IP address and port.
-            self.sock.bind(('', port))
+            self.sock.bind(("", port))
         except socket.error as e:
             print(f"Failed to create or bind socket: {e}", file=sys.stderr)
             sys.exit(1)
@@ -91,7 +94,7 @@ class UDP_AI_Receiver:
             return None
 
         # Check for the presence of the start delimiter.
-        delimiter = struct.unpack('<I', buffer[0:4])[0]
+        delimiter = struct.unpack("<I", buffer[0:4])[0]
         if delimiter != START_DELIMITER_LE:
             print("Invalid packet: delimiter not found.", file=sys.stderr)
             return None
@@ -100,32 +103,34 @@ class UDP_AI_Receiver:
 
         try:
             # Unpack the integer coordinates and dimensions.
-            x, y, width, height = struct.unpack('<iiii', buffer[offset:offset + 16])
+            x, y, width, height = struct.unpack("<iiii", buffer[offset : offset + 16])
             offset += 16
 
             # Unpack the length of the object's name.
-            name_length = struct.unpack('<B', buffer[offset:offset + 1])[0]
+            name_length = struct.unpack("<B", buffer[offset : offset + 1])[0]
             offset += 1
 
             # Check for a malformed packet where the reported name length
             # would exceed the received buffer size.
             if offset + name_length + 4 > len(buffer):
-                print("Invalid packet: name length exceeds buffer size.",
-                      file=sys.stderr)
+                print(
+                    "Invalid packet: name length exceeds buffer size.", file=sys.stderr
+                )
                 return None
 
             # Unpack the name string.
-            name = buffer[offset:offset + name_length].decode('utf-8')
+            name = buffer[offset : offset + name_length].decode("utf-8")
             offset += name_length
 
             # Unpack the confidence score.
-            confidence = struct.unpack('<f', buffer[offset:offset + 4])[0]
+            confidence = struct.unpack("<f", buffer[offset : offset + 4])[0]
 
             return ParsedDetection(x, y, width, height, name, confidence)
 
         except struct.error as e:
             print(f"Error unpacking packet data: {e}", file=sys.stderr)
             return None
+
 
 # --- Example Usage of the Receiver Class ---
 
@@ -142,6 +147,7 @@ if __name__ == "__main__":
             # If a packet was successfully received and parsed, print its contents.
             print("Received Detection:")
             print(
-                f"  Box: ({detection.x}, {detection.y}, {detection.width}, {detection.height})")
+                f"  Box: ({detection.x}, {detection.y}, {detection.width}, {detection.height})"
+            )
             print(f"  Name: {detection.name}")
             print(f"  Confidence: {detection.confidence}")

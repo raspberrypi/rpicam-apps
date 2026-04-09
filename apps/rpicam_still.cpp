@@ -30,9 +30,14 @@ namespace fs = std::filesystem;
 class RPiCamStillApp : public RPiCamApp
 {
 public:
-	RPiCamStillApp() : RPiCamApp(std::make_unique<StillOptions>()) {}
+	RPiCamStillApp() : RPiCamApp(std::make_unique<StillOptions>())
+	{
+	}
 
-	StillOptions *GetOptions() const { return static_cast<StillOptions *>(RPiCamApp::GetOptions()); }
+	StillOptions *GetOptions() const
+	{
+		return static_cast<StillOptions *>(RPiCamApp::GetOptions());
+	}
 };
 
 static std::string generate_filename(StillOptions const *options)
@@ -77,8 +82,7 @@ static void update_latest_link(std::string const &filename, StillOptions const *
 	}
 }
 
-static void save_image(RPiCamStillApp &app, CompletedRequestPtr &payload, Stream *stream,
-					   std::string const &filename)
+static void save_image(RPiCamStillApp &app, CompletedRequestPtr &payload, Stream *stream, std::string const &filename)
 {
 	StillOptions const *options = app.GetOptions();
 	StreamInfo info = app.GetStreamInfo(stream);
