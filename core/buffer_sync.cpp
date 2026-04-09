@@ -10,11 +10,10 @@
 #include <sys/mman.h>
 
 #include "core/buffer_sync.hpp"
-#include "core/rpicam_app.hpp"
 #include "core/logging.hpp"
+#include "core/rpicam_app.hpp"
 
-BufferWriteSync::BufferWriteSync(RPiCamApp *app, libcamera::FrameBuffer *fb)
-	: fb_(fb)
+BufferWriteSync::BufferWriteSync(RPiCamApp *app, libcamera::FrameBuffer *fb) : fb_(fb)
 {
 	struct dma_buf_sync dma_sync {};
 	dma_sync.flags = DMA_BUF_SYNC_START | DMA_BUF_SYNC_RW;

@@ -29,10 +29,16 @@ public:
 	{
 		config_ = std::make_unique<ObjectDetectTfConfig>();
 	}
-	char const *Name() const override { return NAME; }
+	char const *Name() const override
+	{
+		return NAME;
+	}
 
 protected:
-	ObjectDetectTfConfig *config() const { return static_cast<ObjectDetectTfConfig *>(config_.get()); }
+	ObjectDetectTfConfig *config() const
+	{
+		return static_cast<ObjectDetectTfConfig *>(config_.get());
+	}
 
 	// Read the label file, plus some thresholds.
 	void readExtras(boost::property_tree::ptree const &params) override;

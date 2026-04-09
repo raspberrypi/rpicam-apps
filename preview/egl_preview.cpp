@@ -50,7 +50,9 @@ public:
 private:
 	struct Buffer
 	{
-		Buffer() : fd(-1) {}
+		Buffer() : fd(-1)
+		{
+		}
 		int fd;
 		size_t size;
 		StreamInfo info;
@@ -262,14 +264,9 @@ void EglPreview::makeWindow(char const *name)
 		height_ = DisplayHeight(display_, screen_num);
 	}
 
-	static const EGLint attribs[] =
-		{
-			EGL_RED_SIZE, 1,
-			EGL_GREEN_SIZE, 1,
-			EGL_BLUE_SIZE, 1,
-			EGL_RENDERABLE_TYPE, EGL_OPENGL_ES2_BIT,
-			EGL_NONE
-		};
+	static const EGLint attribs[] = { EGL_RED_SIZE,	 1, EGL_GREEN_SIZE,		 1,
+									  EGL_BLUE_SIZE, 1, EGL_RENDERABLE_TYPE, EGL_OPENGL_ES2_BIT,
+									  EGL_NONE };
 	EGLConfig config;
 	EGLint num_configs;
 	if (!eglChooseConfig(egl_display_, attribs, &config, 1, &num_configs))
@@ -312,10 +309,7 @@ void EglPreview::makeWindow(char const *name)
 
 	eglBindAPI(EGL_OPENGL_ES_API);
 
-	static const EGLint ctx_attribs[] = {
-		EGL_CONTEXT_CLIENT_VERSION, 2,
-		EGL_NONE
-	};
+	static const EGLint ctx_attribs[] = { EGL_CONTEXT_CLIENT_VERSION, 2, EGL_NONE };
 	egl_context_ = eglCreateContext(egl_display_, config, EGL_NO_CONTEXT, ctx_attribs);
 	if (!egl_context_)
 		throw std::runtime_error("eglCreateContext failed");
@@ -375,23 +369,35 @@ void EglPreview::makeBuffer(int fd, size_t size, StreamInfo const &info, Buffer 
 	EGLint encoding, range;
 	get_colour_space_info(info.colour_space, encoding, range);
 
-	EGLint attribs[] = {
-		EGL_WIDTH, static_cast<EGLint>(info.width),
-		EGL_HEIGHT, static_cast<EGLint>(info.height),
-		EGL_LINUX_DRM_FOURCC_EXT, DRM_FORMAT_YUV420,
-		EGL_DMA_BUF_PLANE0_FD_EXT, fd,
-		EGL_DMA_BUF_PLANE0_OFFSET_EXT, 0,
-		EGL_DMA_BUF_PLANE0_PITCH_EXT, static_cast<EGLint>(info.stride),
-		EGL_DMA_BUF_PLANE1_FD_EXT, fd,
-		EGL_DMA_BUF_PLANE1_OFFSET_EXT, static_cast<EGLint>(info.stride * info.height),
-		EGL_DMA_BUF_PLANE1_PITCH_EXT, static_cast<EGLint>(info.stride / 2),
-		EGL_DMA_BUF_PLANE2_FD_EXT, fd,
-		EGL_DMA_BUF_PLANE2_OFFSET_EXT, static_cast<EGLint>(info.stride * info.height + (info.stride / 2) * (info.height / 2)),
-		EGL_DMA_BUF_PLANE2_PITCH_EXT, static_cast<EGLint>(info.stride / 2),
-		EGL_YUV_COLOR_SPACE_HINT_EXT, encoding,
-		EGL_SAMPLE_RANGE_HINT_EXT, range,
-		EGL_NONE
-	};
+	EGLint attribs[] = { EGL_WIDTH,
+						 static_cast<EGLint>(info.width),
+						 EGL_HEIGHT,
+						 static_cast<EGLint>(info.height),
+						 EGL_LINUX_DRM_FOURCC_EXT,
+						 DRM_FORMAT_YUV420,
+						 EGL_DMA_BUF_PLANE0_FD_EXT,
+						 fd,
+						 EGL_DMA_BUF_PLANE0_OFFSET_EXT,
+						 0,
+						 EGL_DMA_BUF_PLANE0_PITCH_EXT,
+						 static_cast<EGLint>(info.stride),
+						 EGL_DMA_BUF_PLANE1_FD_EXT,
+						 fd,
+						 EGL_DMA_BUF_PLANE1_OFFSET_EXT,
+						 static_cast<EGLint>(info.stride * info.height),
+						 EGL_DMA_BUF_PLANE1_PITCH_EXT,
+						 static_cast<EGLint>(info.stride / 2),
+						 EGL_DMA_BUF_PLANE2_FD_EXT,
+						 fd,
+						 EGL_DMA_BUF_PLANE2_OFFSET_EXT,
+						 static_cast<EGLint>(info.stride * info.height + (info.stride / 2) * (info.height / 2)),
+						 EGL_DMA_BUF_PLANE2_PITCH_EXT,
+						 static_cast<EGLint>(info.stride / 2),
+						 EGL_YUV_COLOR_SPACE_HINT_EXT,
+						 encoding,
+						 EGL_SAMPLE_RANGE_HINT_EXT,
+						 range,
+						 EGL_NONE };
 
 	EGLImage image = eglCreateImageKHR(egl_display_, EGL_NO_CONTEXT, EGL_LINUX_DMA_BUF_EXT, NULL, attribs);
 	if (!image)

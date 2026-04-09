@@ -48,9 +48,7 @@ inline int16_t conv_reg_signed(int16_t reg)
 
 } // namespace
 
-
-IMX500PostProcessingStage::IMX500PostProcessingStage(RPiCamApp *app)
-	: PostProcessingStage(app), device_fd_(-1)
+IMX500PostProcessingStage::IMX500PostProcessingStage(RPiCamApp *app) : PostProcessingStage(app), device_fd_(-1)
 {
 	for (unsigned int i = 0; i < 16; i++)
 	{
@@ -129,7 +127,8 @@ void IMX500PostProcessingStage::Read(boost::property_tree::ptree const &params)
 
 	close(fd);
 
-	LOG(1, "\n------------------------------------------------------------------------------------------------------------------\n"
+	LOG(1,
+		"\n------------------------------------------------------------------------------------------------------------------\n"
 		"NOTE: Loading network firmware onto the IMX500 can take several minutes, please do not close down the application."
 		"\n------------------------------------------------------------------------------------------------------------------\n");
 }
@@ -193,8 +192,8 @@ Rectangle IMX500PostProcessingStage::ConvertInferenceCoordinates(const std::vect
 	// -> and finally scaled to the ISP output.
 	const Rectangle obj_scaled = obj_translated.scaledBy(isp_output_size, sensor_crop.size());
 
-	LOG(2, obj << " -> (sensor) " << obj_sensor << " -> (bound) " << obj_bound
-			   << " -> (translate) " << obj_translated << " -> (scaled) " << obj_scaled);
+	LOG(2, obj << " -> (sensor) " << obj_sensor << " -> (bound) " << obj_bound << " -> (translate) " << obj_translated
+			   << " -> (scaled) " << obj_scaled);
 
 	return obj_scaled;
 }

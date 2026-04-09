@@ -71,7 +71,12 @@ private:
 	std::thread audio_thread_;
 
 	// The ordering in the enum below must not change!
-	enum Context { Video = 0, AudioOut = 1, AudioIn = 2 };
+	enum Context
+	{
+		Video = 0,
+		AudioOut = 1,
+		AudioIn = 2
+	};
 	AVCodecContext *codec_ctx_[3];
 	AVStream *stream_[3];
 	AVFormatContext *in_fmt_ctx_;

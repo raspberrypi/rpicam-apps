@@ -12,8 +12,8 @@
 #include <string>
 
 #include "core/options.hpp"
-#include "core/rpicam_app.hpp"
 #include "core/post_processor.hpp"
+#include "core/rpicam_app.hpp"
 
 #include "post_processing_stages/post_processing_stage.hpp"
 
@@ -168,7 +168,8 @@ void PostProcessor::Process(CompletedRequestPtr &request)
 	requests_.push(std::move(request)); // caller has given us ownership of this reference
 
 	std::promise<bool> promise;
-	auto process_fn = [this](CompletedRequestPtr &request, std::promise<bool> promise) {
+	auto process_fn = [this](CompletedRequestPtr &request, std::promise<bool> promise)
+	{
 		bool drop_request = false;
 		for (auto &stage : stages_)
 		{
@@ -198,10 +199,12 @@ void PostProcessor::outputThread()
 		{
 			std::unique_lock<std::mutex> l(mutex_);
 
-			cv_.wait(l, [this] {
-				return (quit_ && futures_.empty()) ||
-					   (!futures_.empty() && futures_.front().wait_for(0s) == std::future_status::ready);
-			});
+			cv_.wait(l,
+					 [this]
+					 {
+						 return (quit_ && futures_.empty()) ||
+								(!futures_.empty() && futures_.front().wait_for(0s) == std::future_status::ready);
+					 });
 
 			// Only quit when the futures_ queue is empty.
 			if (quit_ && futures_.empty())

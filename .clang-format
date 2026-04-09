@@ -21,7 +21,7 @@ AllowAllParametersOfDeclarationOnNextLine: false
 AllowShortBlocksOnASingleLine: false
 AllowShortCaseLabelsOnASingleLine: false
 AllowShortLambdasOnASingleLine: Inline
-AllowShortFunctionsOnASingleLine: InlineOnly
+AllowShortFunctionsOnASingleLine: None
 AllowShortIfStatementsOnASingleLine: false
 AllowShortLoopsOnASingleLine: false
 AlwaysBreakAfterDefinitionReturnType: None
@@ -35,6 +35,8 @@ BraceWrapping:
   SplitEmptyFunction: true
   SplitEmptyRecord: true
   SplitEmptyNamespace: true
+  AfterNamespace: true
+  AfterClass: true
 BreakBeforeBinaryOperators: None
 BreakBeforeInheritanceComma: false
 BreakInheritanceList: BeforeColon
@@ -44,7 +46,7 @@ BreakAfterJavaFieldAnnotations: false
 BreakStringLiterals: false
 CommentPragmas: '^ IWYU pragma:'
 CompactNamespaces: false
-ConstructorInitializerAllOnOneLineOrOnePerLine: false
+PackConstructorInitializers: BinPack
 Cpp11BracedListStyle: false
 DerivePointerAlignment: false
 DisableFormat: false

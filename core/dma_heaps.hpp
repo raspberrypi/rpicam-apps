@@ -16,7 +16,10 @@ class DmaHeap
 public:
 	DmaHeap();
 	~DmaHeap();
-	bool isValid() const { return dmaHeapHandle_.isValid(); }
+	bool isValid() const
+	{
+		return dmaHeapHandle_.isValid();
+	}
 	libcamera::UniqueFD alloc(const char *name, std::size_t size) const;
 
 private:

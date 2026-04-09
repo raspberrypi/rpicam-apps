@@ -16,8 +16,14 @@ class PoseEstimationTfStage : public TfStage
 {
 public:
 	// The model we use expects 257x257 images. Really.
-	PoseEstimationTfStage(RPiCamApp *app) : TfStage(app, 257, 257) { config_ = std::make_unique<TfConfig>(); }
-	char const *Name() const override { return NAME; }
+	PoseEstimationTfStage(RPiCamApp *app) : TfStage(app, 257, 257)
+	{
+		config_ = std::make_unique<TfConfig>();
+	}
+	char const *Name() const override
+	{
+		return NAME;
+	}
 
 protected:
 	void readExtras(boost::property_tree::ptree const &params) override;
@@ -112,4 +118,3 @@ static PostProcessingStage *Create(RPiCamApp *app)
 }
 
 static RegisterStage reg(NAME, &Create);
-

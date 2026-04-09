@@ -42,6 +42,7 @@ struct FormatInfo
 	bool compressed;
 };
 
+// clang-format off
 static const std::map<PixelFormat, FormatInfo> bayer_formats =
 {
 	{ formats::SRGGB10_CSI2P, { "RGGB-10", 10, TIFF_RGGB, true, false } },
@@ -86,6 +87,7 @@ static const std::map<PixelFormat, FormatInfo> mono_formats =
 	/* Monochrome + PISP compressed format */
 	{ formats::MONO_PISP_COMP1, { "MONO-16-PISP", 16, NULL, false, true } },
 };
+// clang-format on
 
 static bool is_mono(const PixelFormat &format)
 {
@@ -241,7 +243,7 @@ static void uncompress(uint8_t const *src, StreamInfo const &info, uint16_t *des
 		uint16_t *dp = dest + y * buf_stride_pixels;
 		uint8_t const *sp = src + y * info.stride;
 
-		for (unsigned int x = 0; x < info.width; x+=8)
+		for (unsigned int x = 0; x < info.width; x += 8)
 		{
 			if (COMPRESS_MODE & 1)
 			{
@@ -264,6 +266,7 @@ static void uncompress(uint8_t const *src, StreamInfo const &info, uint16_t *des
 	}
 }
 
+// clang-format off
 struct Matrix
 {
 Matrix(float m0, float m1, float m2,
@@ -312,6 +315,7 @@ Matrix(float m0, float m1, float m2,
 		return result;
 	}
 };
+// clang-format on
 
 void dng_save(std::vector<libcamera::Span<uint8_t>> const &mem, StreamInfo const &info, ControlList const &metadata,
 			  std::string const &filename, std::string const &cam_model, StillOptions const *options)
@@ -406,9 +410,11 @@ void dng_save(std::vector<libcamera::Span<uint8_t>> const &mem, StreamInfo const
 	}
 
 	// Use a slightly plausible default CCM in case the metadata doesn't have one (it should!).
+	// clang-format off
 	Matrix CCM(1.90255, -0.77478, -0.12777,
 			   -0.31338, 1.88197, -0.56858,
 			   -0.06001, -0.61785, 1.67786);
+	// clang-format on
 	auto ccm = metadata.get(controls::ColourCorrectionMatrix);
 	if (ccm)
 	{
@@ -418,9 +424,11 @@ void dng_save(std::vector<libcamera::Span<uint8_t>> const &mem, StreamInfo const
 		LOG_ERROR("WARNING: no CCM metadata found");
 
 	// This maxtrix from http://www.brucelindbloom.com/index.html?Eqn_RGB_XYZ_Matrix.html
+	// clang-format off
 	Matrix RGB2XYZ(0.4124564, 0.3575761, 0.1804375,
 				   0.2126729, 0.7151522, 0.0721750,
 				   0.0193339, 0.1191920, 0.9503041);
+	// clang-format on
 	Matrix CAM_XYZ = (RGB2XYZ * CCM * WB_GAINS).Inv();
 
 	LOG(2, "Black levels " << black_levels[0] << " " << black_levels[1] << " " << black_levels[2] << " "

@@ -36,7 +36,9 @@ public:
 private:
 	struct Buffer
 	{
-		Buffer() : fd(-1) {}
+		Buffer() : fd(-1)
+		{
+		}
 		int fd;
 		size_t size;
 		StreamInfo info;
@@ -380,8 +382,8 @@ void DrmPreview::makeBuffer(int fd, size_t size, StreamInfo const &info, Buffer 
 	if (drmPrimeFDToHandle(drmfd_, fd, &buffer.bo_handle))
 		throw std::runtime_error("drmPrimeFDToHandle failed for fd " + std::to_string(fd));
 
-	uint32_t offsets[4] =
-		{ 0, info.stride * info.height, info.stride * info.height + (info.stride / 2) * (info.height / 2) };
+	uint32_t offsets[4] = { 0, info.stride * info.height,
+							info.stride * info.height + (info.stride / 2) * (info.height / 2) };
 	uint32_t pitches[4] = { info.stride, info.stride / 2, info.stride / 2 };
 	uint32_t bo_handles[4] = { buffer.bo_handle, buffer.bo_handle, buffer.bo_handle };
 
@@ -434,4 +436,3 @@ static Preview *Create(Options const *options)
 }
 
 static RegisterPreview reg("drm", &Create);
-

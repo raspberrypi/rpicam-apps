@@ -142,8 +142,8 @@ static void rgb_save(std::vector<libcamera::Span<uint8_t>> const &mem, StreamInf
 	}
 }
 
-void yuv_save(std::vector<libcamera::Span<uint8_t>> const &mem, StreamInfo const &info,
-			  std::string const &filename, StillOptions const *options)
+void yuv_save(std::vector<libcamera::Span<uint8_t>> const &mem, StreamInfo const &info, std::string const &filename,
+			  StillOptions const *options)
 {
 	if (info.pixel_format == libcamera::formats::YUYV)
 		yuyv_save(mem, info, filename, options);

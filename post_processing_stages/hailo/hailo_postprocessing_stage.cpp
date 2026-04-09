@@ -92,7 +92,9 @@ public:
 	}
 
 private:
-	vdevice() {}
+	vdevice()
+	{
+	}
 };
 
 // Sigh :(
@@ -102,7 +104,10 @@ std::string get_hailo_architecture()
 	const std::string target_label("Device Architecture: ");
 	std::array<char, 128> buffer;
 
-	auto deleter = [](FILE *f) { pclose(f); };
+	auto deleter = [](FILE *f)
+	{
+		pclose(f);
+	};
 	std::unique_ptr<FILE, decltype(deleter)> pipe(popen(cmd.c_str(), "r"), deleter);
 
 	if (!pipe)
@@ -127,7 +132,6 @@ std::string get_hailo_architecture()
 }
 
 } // namespace
-
 
 Allocator::Allocator()
 {
@@ -178,8 +182,8 @@ void Allocator::free(uint8_t *ptr)
 {
 	std::scoped_lock<std::mutex> l(lock_);
 
-	auto info =	std::find_if(alloc_info_.begin(), alloc_info_.end(),
-							 [ptr](const AllocInfo &info) { return info.ptr == ptr; });
+	auto info =
+		std::find_if(alloc_info_.begin(), alloc_info_.end(), [ptr](const AllocInfo &info) { return info.ptr == ptr; });
 	if (info != alloc_info_.end())
 		info->free = true;
 }
@@ -355,8 +359,8 @@ hailo_status HailoPostProcessingStage::DispatchJob(const uint8_t *input, AsyncIn
 		const auto frame_time = std::chrono::duration_cast<std::chrono::milliseconds>(this_frame - last_frame_);
 
 		if (frame_time < inf_time)
-			LOG(2, "Warning: model inferencing time of " << inf_time.count() << "ms " <<
-				   "> current job interval of " << frame_time.count() << "ms!");
+			LOG(2, "Warning: model inferencing time of " << inf_time.count() << "ms " << "> current job interval of "
+														 << frame_time.count() << "ms!");
 	}
 
 	last_frame_ = this_frame;
@@ -468,9 +472,8 @@ void Display::displayThread()
 					ptr += 3;
 				}
 			}
-			
-			cv::Mat image(msg.size.height, msg.size.width, CV_8UC3, (void *)current_image.get(),
-						  msg.size.width * 3);
+
+			cv::Mat image(msg.size.height, msg.size.width, CV_8UC3, (void *)current_image.get(), msg.size.width * 3);
 
 			cv::imshow(msg.window_title, image);
 			cv::resizeWindow(msg.window_title, cv::Size(320, 320));

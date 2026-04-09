@@ -25,12 +25,21 @@ class Preview
 public:
 	typedef std::function<void(int fd)> DoneCallback;
 
-	Preview(Options const *options) : options_(options) {}
-	virtual ~Preview() {}
+	Preview(Options const *options) : options_(options)
+	{
+	}
+	virtual ~Preview()
+	{
+	}
 	// This is where the application sets the callback it gets whenever the viewfinder
 	// is no longer displaying the buffer and it can be safely recycled.
-	void SetDoneCallback(DoneCallback callback) { done_callback_ = callback; }
-	virtual void SetInfoText(const std::string &text) {}
+	void SetDoneCallback(DoneCallback callback)
+	{
+		done_callback_ = callback;
+	}
+	virtual void SetInfoText(const std::string &text)
+	{
+	}
 	// Display the buffer. You get given the fd back in the BufferDoneCallback
 	// once its available for re-use.
 	virtual void Show(int fd, libcamera::Span<uint8_t> span, StreamInfo const &info) = 0;
@@ -38,7 +47,10 @@ public:
 	// show new ones.
 	virtual void Reset() = 0;
 	// Check if preview window has been shut down.
-	virtual bool Quit() { return false; }
+	virtual bool Quit()
+	{
+		return false;
+	}
 	// Return the maximum image size allowed.
 	virtual void MaxImageSize(unsigned int &w, unsigned int &h) const = 0;
 
@@ -64,7 +76,10 @@ public:
 	PreviewCreateFunc CreatePreview(const std::string &name);
 
 	bool HasPreview(const std::string &name) const;
-	const std::map<std::string, PreviewCreateFunc> &GetPreviews() const { return previews_; }
+	const std::map<std::string, PreviewCreateFunc> &GetPreviews() const
+	{
+		return previews_;
+	}
 
 private:
 	PreviewFactory() = default;

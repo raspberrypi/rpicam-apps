@@ -1,7 +1,7 @@
 ## AcousticFocusStage – Documentation (English)
 
-**Purpose:**  
-The AcousticFocusStage is a post-processing stage for rpicam-apps that provides acoustic feedback based on the libcamera Focus Figure of Merit (FoM).  
+**Purpose:**
+The AcousticFocusStage is a post-processing stage for rpicam-apps that provides acoustic feedback based on the libcamera Focus Figure of Merit (FoM).
 This allows you to find the optimal focus point of a manual lens **without needing to look at or interpret the preview image**.
 
 ### Features
@@ -80,8 +80,8 @@ Create a config file `acoustic_focus.json` (example):
 
 ## AcousticFocusStage – Dokumentation (Deutsch)
 
-**Zweck:**  
-Die AcousticFocusStage ist eine Post-Processing-Stage für rpicam-apps, die akustisches Feedback auf Basis des libcamera Focus Figure of Merit (FoM) gibt.  
+**Zweck:**
+Die AcousticFocusStage ist eine Post-Processing-Stage für rpicam-apps, die akustisches Feedback auf Basis des libcamera Focus Figure of Merit (FoM) gibt.
 Damit findest du den optimalen Fokuspunkt einer manuellen Linse **ohne auf die Vorschau schauen oder diese interpretieren zu müssen**.
 
 ### Funktionen
@@ -158,5 +158,5 @@ Beispiel für `acoustic_focus.json`:
 
 ---
 
-**Hinweis:**  
+**Hinweis:**
 Die Stage ist ein reines Hilfsmittel für das manuelle Fokussieren und benötigt keinen Blickkontakt zum Monitor!

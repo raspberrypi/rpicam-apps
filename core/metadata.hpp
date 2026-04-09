@@ -97,8 +97,14 @@ public:
 	// Note: use of (lowercase) lock and unlock means you can create scoped
 	// locks with the standard lock classes.
 	// e.g. std::lock_guard<RPiController::Metadata> lock(metadata)
-	void lock() { mutex_.lock(); }
-	void unlock() { mutex_.unlock(); }
+	void lock()
+	{
+		mutex_.lock();
+	}
+	void unlock()
+	{
+		mutex_.unlock();
+	}
 
 private:
 	mutable std::mutex mutex_;
