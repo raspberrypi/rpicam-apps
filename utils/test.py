@@ -909,9 +909,9 @@ def test_post_processing(exe_dir, output_dir, json_dir, postproc_dir):
     executable = os.path.join(exe_dir, "rpicam-hello")
     check_exists(executable, "post-processing")
     json_file = os.path.join(json_dir, "object_detect_tf.json")
-    check_exists(json_file, "post-processing")
-    # Not finding the model files, or the stage not loading, produce warnings but are not errors.
+    # Not finding the JSON / model files, or the stage not loading, produce warnings but are not errors.
     try:
+        check_exists(json_file, "post-processing")
         json_object = json.load(open(json_file, "r"))
         model_file = json_object["object_detect_tf"]["model_file"]
         labels_file = json_object["object_detect_tf"]["labels_file"]
