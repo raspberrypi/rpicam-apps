@@ -72,6 +72,25 @@ def detect_num_cameras(exe_dir):
     return 0
 
 
+def get_max_camera_size(exe_dir):
+    """Largest reported camera resolution as (W, H), or None if not detectable."""
+    import re
+
+    try:
+        executable = os.path.join(exe_dir, "rpicam-hello")
+        result = subprocess.run(
+            [executable, "--list-cameras"], capture_output=True, text=True, timeout=10
+        )
+        if result.returncode != 0:
+            return None
+        sizes = re.findall(r"^\d+ : \S+ \[(\d+)x(\d+) ", result.stdout, re.MULTILINE)
+        if not sizes:
+            return None
+        return max((int(w), int(h)) for w, h in sizes)
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        return None
+
+
 def get_platform():
     platform = "vc4"
     try:
@@ -188,7 +207,16 @@ def test_hello(exe_dir, output_dir, preview_dir):
     check_time(time_taken, 1, 6, "test_hello: roi test")
 
     # "crops test". Specify an image crop with lores output and see if it blows up.
+    # Lores must be <= ROI'd viewfinder; clamp to the sensor so this also passes
+    # on smaller sensors (e.g. imx296 at 1456x1088 -> 728x544 viewfinder).
     print("    crop test")
+    size = get_max_camera_size(exe_dir)
+    if size:
+        w, h = size
+        lores_w = max(64, min(640, w // 2 - 64))
+        lores_h = max(64, min(640, h // 2 - 64))
+    else:
+        lores_w, lores_h = 640, 640
     retcode, time_taken = run_executable(
         args
         + [
@@ -197,9 +225,9 @@ def test_hello(exe_dir, output_dir, preview_dir):
             "--roi",
             "0.25,0.25,0.5,0.5",
             "--lores-width",
-            "640",
+            str(lores_w),
             "--lores-height",
-            "640",
+            str(lores_h),
         ],
         logfile,
     )
@@ -503,6 +531,8 @@ def test_still(exe_dir, output_dir, preview_dir):
 
 def check_jpeg_shutter(file, shutter_string, iso_string, preamble):
     # Verify that the expected shutter_string and iso_string are in the exif.
+    # ISO is checked with a +/-2 tolerance because IPAs quantise analogue gain
+    # to discrete sensor steps, so e.g. --gain 2.0 may yield ISO 199 not 200.
     try:
         p = subprocess.Popen(
             ["exiftool", file], stdout=subprocess.PIPE, stderr=subprocess.PIPE
@@ -515,12 +545,21 @@ def check_jpeg_shutter(file, shutter_string, iso_string, preamble):
     if len(shutter_line) != 1:
         print("WARNING:", preamble, "- shutter speed not matched")
     elif shutter_string not in shutter_line[0]:
-        raise (preamble + " - bad shutter value")
+        raise TestFailure(preamble + " - bad shutter value")
     iso_line = [line for line in stdout if "ISO" in line]
     if len(iso_line) != 1:
         print("WARNING:", preamble, "- ISO not matched")
-    elif iso_string not in iso_line[0]:
-        raise (preamble + " - bad ISO value")
+    else:
+        import re as _re
+
+        m = _re.search(r"\d+", iso_line[0].split(":", 1)[-1])
+        if not m:
+            print("WARNING:", preamble, "- ISO value not parseable")
+        elif abs(int(m.group(0)) - int(iso_string)) > 2:
+            raise TestFailure(
+                preamble
+                + f" - bad ISO value (expected ~{iso_string}, got {m.group(0)})"
+            )
 
 
 def test_jpeg(exe_dir, output_dir):
