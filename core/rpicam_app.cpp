@@ -11,7 +11,10 @@
 #include "core/options.hpp"
 #include "core/rpicam_app.hpp"
 
+#include "config.h"
+
 #include <cmath>
+#include <dlfcn.h>
 #include <fcntl.h>
 #include <stdlib.h>
 
@@ -80,6 +83,16 @@ static void set_pipeline_configuration(Platform platform)
 RPiCamApp::RPiCamApp(std::unique_ptr<Options> opts)
 	: options_(std::move(opts)), controls_(controls::controls), post_processor_(this)
 {
+#ifdef HAILORT_LIB_PATH
+	// Preload libhailort with RTLD_GLOBAL so its symbols (notably the vtable for
+	// hailort::AsyncInferJob) are visible to hailo-postproc.so when it gets dlopened.
+	// Preview/encoder/postproc factories all scan the same dir on this system (afterbuild.sh
+	// symlinks every .so into build/apps), so without this preload the first factory to run
+	// (PreviewFactory) tries to dlopen hailo-postproc.so first and fails.
+	static void *const _hailort_handle = dlopen(HAILORT_LIB_PATH, RTLD_GLOBAL | RTLD_NOW);
+	(void)_hailort_handle;
+#endif
+
 	if (!options_)
 		options_ = std::make_unique<Options>();
 

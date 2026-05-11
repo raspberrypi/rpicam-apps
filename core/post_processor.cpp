@@ -49,16 +49,11 @@ void PostProcessor::LoadModules(const std::string &lib_dir)
 
 	// Dynamically load all .so files from the system postprocessing lib path.
 	// This will automatically register the stages with the factory.
+	// (libhailort is preloaded globally in RPiCamApp's ctor — see rpicam_app.cpp —
+	// because preview/encoder factories scan the same dir and would otherwise try
+	// to dlopen hailo-postproc.so before libhailort is loaded.)
 	for (auto const &p : fs::recursive_directory_iterator(path))
 	{
-#ifdef HAILORT_LIB_PATH
-		if (p.path().string().find("hailo-postproc") != std::string::npos)
-		{
-			// Special case where we need to load libhailort.so as the Hailo postprocessing stages rely on symbols
-			// within it.
-			static DlLib hailort(HAILORT_LIB_PATH, RTLD_GLOBAL | RTLD_NOW);
-		}
-#endif
 		if (p.path().extension() == ext)
 			dynamic_stages_.emplace_back(p.path().string());
 	}
