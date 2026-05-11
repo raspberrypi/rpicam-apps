@@ -6,7 +6,6 @@
  */
 
 #include <chrono>
-#include <limits>
 
 #include "core/options.hpp"
 #include "core/rpicam_app.hpp"
@@ -48,7 +47,9 @@ static void event_loop(RPiCamApp &app)
 	app.StartCamera();
 
 	const int64_t archive_interval_us = static_cast<int64_t>(options->Get().archive_min_interval_ms) * 1000;
-	int64_t last_archive_us = std::numeric_limits<int64_t>::min();
+	// Sentinel: a value far enough below any plausible now_us that the first frame
+	// passes the gate without signed-overflow on (now_us - sentinel).
+	int64_t last_archive_us = 0;
 
 	auto start_time = std::chrono::high_resolution_clock::now();
 	for (unsigned int count = 0;; count++)
