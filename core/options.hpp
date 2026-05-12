@@ -27,15 +27,23 @@ static constexpr double DEFAULT_FRAMERATE = 30.0;
 
 struct Mode
 {
-	Mode() : Mode(0, 0, 0, true) {}
-	Mode(unsigned int w, unsigned int h, unsigned int b, bool p) : width(w), height(h), bit_depth(b), packed(p), framerate(0) {}
+	Mode() : Mode(0, 0, 0, true)
+	{
+	}
+	Mode(unsigned int w, unsigned int h, unsigned int b, bool p)
+		: width(w), height(h), bit_depth(b), packed(p), framerate(0)
+	{
+	}
 	Mode(std::string const &mode_string);
 	unsigned int width;
 	unsigned int height;
 	unsigned int bit_depth;
 	bool packed;
 	double framerate;
-	libcamera::Size Size() const { return libcamera::Size(width, height); }
+	libcamera::Size Size() const
+	{
+		return libcamera::Size(width, height);
+	}
 	std::string ToString() const;
 	void update(const libcamera::Size &size, const std::optional<float> &fps);
 };
@@ -43,10 +51,13 @@ struct Mode
 template <typename DEFAULT>
 struct TimeVal
 {
-	TimeVal() : value(0) {}
+	TimeVal() : value(0)
+	{
+	}
 
 	void set(const std::string &s)
 	{
+		// clang-format off
 		static const std::map<std::string, std::chrono::nanoseconds> match
 		{
 			{ "min", std::chrono::minutes(1) },
@@ -56,6 +67,7 @@ struct TimeVal
 			{ "us", std::chrono::microseconds(1) },
 			{ "ns", std::chrono::nanoseconds(1) },
 		};
+		// clang-format on
 
 		try
 		{
@@ -95,10 +107,13 @@ struct TimeVal
 struct Bitrate
 {
 public:
-	Bitrate() : bps_(0) {}
+	Bitrate() : bps_(0)
+	{
+	}
 
 	void set(const std::string &s)
 	{
+		// clang-format off
 		static const std::map<std::string, uint64_t> match
 		{
 			{ "bps", 1 },
@@ -110,6 +125,7 @@ public:
 			{ "m", 1000 * 1000 },
 			{ "M", 1000 },
 		};
+		// clang-format on
 
 		try
 		{
@@ -167,8 +183,7 @@ enum class Platform
 
 struct OptsInternal
 {
-	OptsInternal():
-		set_default_lens_position(false), af_on_capture(false)
+	OptsInternal() : set_default_lens_position(false), af_on_capture(false)
 	{
 	}
 
@@ -325,16 +340,33 @@ struct OptsInternal
 struct Options
 {
 	Options();
-	virtual ~Options() {}
+	virtual ~Options()
+	{
+	}
 
 	virtual bool Parse(int argc, char *argv[]);
-	virtual void Print() const { v_->Print(); }
+	virtual void Print() const
+	{
+		v_->Print();
+	}
 
-	const OptsInternal &Get() const { return *v_.get(); }
-	OptsInternal &Set() const { return *v_.get(); }
+	const OptsInternal &Get() const
+	{
+		return *v_.get();
+	}
+	OptsInternal &Set() const
+	{
+		return *v_.get();
+	}
 
-	void SetApp(RPiCamApp *app) { app_ = app; }
-	Platform GetPlatform() const { return platform_; };
+	void SetApp(RPiCamApp *app)
+	{
+		app_ = app;
+	}
+	Platform GetPlatform() const
+	{
+		return platform_;
+	};
 
 protected:
 	std::unique_ptr<boost::program_options::options_description> options_;

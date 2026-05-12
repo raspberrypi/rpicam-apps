@@ -61,10 +61,12 @@ H264Encoder::H264Encoder(VideoOptions const *options, StreamInfo const &info)
 	}
 	if (!options->Get().profile.empty())
 	{
+		// clang-format off
 		static const std::map<std::string, int> profile_map =
 			{ { "baseline", V4L2_MPEG_VIDEO_H264_PROFILE_BASELINE },
 			  { "main", V4L2_MPEG_VIDEO_H264_PROFILE_MAIN },
 			  { "high", V4L2_MPEG_VIDEO_H264_PROFILE_HIGH } };
+		// clang-format on
 		auto it = profile_map.find(options->Get().profile);
 		if (it == profile_map.end())
 			throw std::runtime_error("no such profile " + options->Get().profile);
@@ -75,10 +77,12 @@ H264Encoder::H264Encoder(VideoOptions const *options, StreamInfo const &info)
 	}
 	if (!options->Get().level.empty())
 	{
+		// clang-format off
 		static const std::map<std::string, int> level_map =
 			{ { "4", V4L2_MPEG_VIDEO_H264_LEVEL_4_0 },
 			  { "4.1", V4L2_MPEG_VIDEO_H264_LEVEL_4_1 },
 			  { "4.2", V4L2_MPEG_VIDEO_H264_LEVEL_4_2 } };
+		// clang-format on
 		auto it = level_map.find(options->Get().level);
 		if (it == level_map.end())
 			throw std::runtime_error("no such level " + options->Get().level);

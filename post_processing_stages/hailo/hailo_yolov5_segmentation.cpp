@@ -338,11 +338,11 @@ bool YoloSegmentation::runInference(uint8_t *input, uint32_t *output)
 
 		auto bbox = detection->get_bbox();
 
-		cv::rectangle(image, cv::Point2f(bbox.xmin() * float(InputTensorSize().width),
-										 bbox.ymin() * float(InputTensorSize().height)),
-							 cv::Point2f(bbox.xmax() * float(InputTensorSize().width),
-										 bbox.ymax() * float(InputTensorSize().height)),
-					  cv::Scalar(0, 0, 255), 1);
+		cv::rectangle(
+			image,
+			cv::Point2f(bbox.xmin() * float(InputTensorSize().width), bbox.ymin() * float(InputTensorSize().height)),
+			cv::Point2f(bbox.xmax() * float(InputTensorSize().width), bbox.ymax() * float(InputTensorSize().height)),
+			cv::Scalar(0, 0, 255), 1);
 
 		draw_all(image, detection, 0);
 	}

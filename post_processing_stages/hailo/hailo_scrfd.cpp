@@ -299,8 +299,7 @@ private:
 	ScrfdParams *params_;
 };
 
-Scrfd::Scrfd(RPiCamApp *app)
-	: HailoPostProcessingStage(app), postproc_(PostProcLibDir(POSTPROC_LIB))
+Scrfd::Scrfd(RPiCamApp *app) : HailoPostProcessingStage(app), postproc_(PostProcLibDir(POSTPROC_LIB))
 {
 }
 
@@ -441,8 +440,8 @@ void Scrfd::runInference(const uint8_t *input, uint32_t *output)
 		if (landmarks.size() > 0)
 		{
 			for (auto &p : landmarks[0]->get_points())
-				cv::circle(image, cv::Point(x0 + p.x() * (x1 - x0), y0 + p.y() * (y1 - y0)), 3,
-						   cv::Scalar(0, 255, 0), -1);
+				cv::circle(image, cv::Point(x0 + p.x() * (x1 - x0), y0 + p.y() * (y1 - y0)), 3, cv::Scalar(0, 255, 0),
+						   -1);
 		}
 	}
 }

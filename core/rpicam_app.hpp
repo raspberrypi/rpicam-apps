@@ -69,7 +69,9 @@ public:
 	typedef std::variant<CompletedRequestPtr> MsgPayload;
 	struct Msg
 	{
-		Msg(MsgType const &t) : type(t) {}
+		Msg(MsgType const &t) : type(t)
+		{
+		}
 		template <typename T>
 		Msg(MsgType const &t, T p) : type(t), payload(std::forward<T>(p))
 		{
@@ -79,8 +81,7 @@ public:
 	};
 	struct SensorMode
 	{
-		SensorMode()
-			: size({}), format({}), fps(0)
+		SensorMode() : size({}), format({}), fps(0)
 		{
 		}
 		SensorMode(libcamera::Size _size, libcamera::PixelFormat _format, double _fps)
@@ -93,10 +94,11 @@ public:
 			// But apart from duplicating the massive bayer format table, there is
 			// no other way to determine this.
 			std::string fmt = format.toString();
-			unsigned int mode_depth = fmt.find("8") != std::string::npos ? 8 :
-									  fmt.find("10") != std::string::npos ? 10 :
-									  fmt.find("12") != std::string::npos ? 12 :
-									  fmt.find("14") != std::string::npos ? 14 : 16;
+			unsigned int mode_depth = fmt.find("8") != std::string::npos	? 8
+									  : fmt.find("10") != std::string::npos ? 10
+									  : fmt.find("12") != std::string::npos ? 12
+									  : fmt.find("14") != std::string::npos ? 14
+																			: 16;
 			return mode_depth;
 		}
 		libcamera::Size size;
@@ -128,7 +130,10 @@ public:
 	RPiCamApp(std::unique_ptr<Options> const opts = nullptr);
 	virtual ~RPiCamApp();
 
-	Options *GetOptions() const { return options_.get(); }
+	Options *GetOptions() const
+	{
+		return options_.get();
+	}
 
 	std::string const &CameraId() const;
 	std::string CameraModel() const;
@@ -171,7 +176,10 @@ public:
 	}
 
 	static unsigned int verbosity;
-	static unsigned int GetVerbosity() { return verbosity; }
+	static unsigned int GetVerbosity()
+	{
+		return verbosity;
+	}
 
 	static std::vector<std::shared_ptr<libcamera::Camera>> GetCameras(const CameraManager *cm)
 	{
@@ -225,8 +233,12 @@ private:
 	};
 	struct PreviewItem
 	{
-		PreviewItem() : stream(nullptr) {}
-		PreviewItem(CompletedRequestPtr &b, Stream *s) : completed_request(b), stream(s) {}
+		PreviewItem() : stream(nullptr)
+		{
+		}
+		PreviewItem(CompletedRequestPtr &b, Stream *s) : completed_request(b), stream(s)
+		{
+		}
 		PreviewItem &operator=(PreviewItem &&other)
 		{
 			completed_request = std::move(other.completed_request);

@@ -96,7 +96,7 @@ The stage reads object detections from previous stages (e.g., `hailo_yolo_infere
 #### `overlay_blur` (required)
 - **Type**: Array of Strings
 - **Description**: List of COCO class names to be blurred
-- **Examples**: 
+- **Examples**:
   - `["person"]` - blur persons only
   - `["wine glass", "cup", "bottle"]` - beverage-related objects only
   - `["cell phone", "laptop"]` - electronic devices
@@ -112,7 +112,7 @@ The stage reads object detections from previous stages (e.g., `hailo_yolo_infere
 #### `blur_strength` (optional)
 - **Type**: Integer
 - **Default**: `0` (automatically calculated based on object size)
-- **Description**: 
+- **Description**:
   - For `pixelate`: Block size in pixels (larger values = stronger pixelation)
     - Recommended values: 8, 12, 16, 20, 24, 32
   - For `gaussian`/`median`: Kernel size (must be odd)
@@ -334,7 +334,7 @@ Die Stage liest Objekterkennungen aus vorherigen Stages (z.B. `hailo_yolo_infere
 #### `overlay_blur` (erforderlich)
 - **Typ**: Array von Strings
 - **Beschreibung**: Liste der COCO-Klassennamen, die geblurred werden sollen
-- **Beispiele**: 
+- **Beispiele**:
   - `["person"]` - nur Personen blurren
   - `["wine glass", "cup", "bottle"]` - nur Getränke-bezogene Objekte
   - `["cell phone", "laptop"]` - elektronische Geräte
@@ -350,7 +350,7 @@ Die Stage liest Objekterkennungen aus vorherigen Stages (z.B. `hailo_yolo_infere
 #### `blur_strength` (optional)
 - **Typ**: Integer
 - **Standard**: `0` (automatisch berechnet basierend auf Objektgröße)
-- **Beschreibung**: 
+- **Beschreibung**:
   - Für `pixelate`: Blockgröße in Pixeln (größere Werte = stärkere Verpixelung)
     - Empfohlene Werte: 8, 12, 16, 20, 24, 32
   - Für `gaussian`/`median`: Kernel-Größe (muss ungerade sein)

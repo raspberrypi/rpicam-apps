@@ -19,7 +19,8 @@
 
 #include "libav_encoder.hpp"
 
-namespace {
+namespace
+{
 
 void encoderOptionsGeneral(VideoOptions const *options, AVCodecContext *codec)
 {
@@ -111,8 +112,7 @@ void encoderOptionsLibx264(VideoOptions const *options, AVCodecContext *codec)
 	av_opt_set(codec->priv_data, "mixed_ref", "0", 0);
 }
 
-const std::map<std::string, std::function<void(VideoOptions const *, AVCodecContext *)>> optionsMap =
-{
+const std::map<std::string, std::function<void(VideoOptions const *, AVCodecContext *)>> optionsMap = {
 	{ "h264_v4l2m2m", encoderOptionsH264M2M },
 	{ "libx264", encoderOptionsLibx264 },
 };
@@ -174,8 +174,8 @@ void LibAvEncoder::initVideoCodec(VideoOptions const *options, StreamInfo const 
 			throw std::runtime_error("libav: no match for ycbcr encoding in " + info.colour_space->toString());
 		codec_ctx_[Video]->colorspace = it_cs->second;
 
-		codec_ctx_[Video]->color_range =
-			info.colour_space->range == ColorSpace::Range::Full ? AVCOL_RANGE_JPEG : AVCOL_RANGE_MPEG;
+		codec_ctx_[Video]->color_range = info.colour_space->range == ColorSpace::Range::Full ? AVCOL_RANGE_JPEG
+																							 : AVCOL_RANGE_MPEG;
 	}
 
 	// Apply any codec specific options:
@@ -194,9 +194,8 @@ void LibAvEncoder::initVideoCodec(VideoOptions const *options, StreamInfo const 
 	if (options->Get().libav_format.empty())
 	{
 		// Check if output_file_ starts with a "tcp://" or "udp://" url.
-		// C++ 20 has a convenient starts_with() function for this which we may eventually use.		
-		if (output_file_.empty() ||
-			output_file_.find(tcp.c_str(), 0, tcp.length()) != std::string::npos ||
+		// C++ 20 has a convenient starts_with() function for this which we may eventually use.
+		if (output_file_.empty() || output_file_.find(tcp.c_str(), 0, tcp.length()) != std::string::npos ||
 			output_file_.find(udp.c_str(), 0, udp.length()) != std::string::npos)
 		{
 			if (options->Get().libav_video_codec == "h264_v4l2m2m" || options->Get().libav_video_codec == "libx264")
@@ -324,7 +323,7 @@ void LibAvEncoder::initAudioOutCodec(VideoOptions const *options, StreamInfo con
 	av_channel_layout_default(&codec_ctx_[AudioOut]->ch_layout, stream_[AudioIn]->codecpar->ch_layout.nb_channels);
 
 	codec_ctx_[AudioOut]->sample_rate = options->Get().audio_samplerate ? options->Get().audio_samplerate
-																  : stream_[AudioIn]->codecpar->sample_rate;
+																		: stream_[AudioIn]->codecpar->sample_rate;
 #if LIBAVCODEC_VERSION_MAJOR < 61
 	codec_ctx_[AudioOut]->sample_fmt = codec->sample_fmts[0];
 #else
@@ -737,7 +736,8 @@ void LibAvEncoder::audioThread()
 			int64_t audio_timestamp = sample_time_us + delta;
 
 			// Apply synchronization offset
-			audio_timestamp = audio_timestamp +
+			audio_timestamp =
+				audio_timestamp +
 				(options_->Get().av_sync.value > 0us ? options_->Get().av_sync.get<std::chrono::microseconds>() : 0);
 
 			out_frame->pts = audio_timestamp;

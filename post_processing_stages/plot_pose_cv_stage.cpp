@@ -51,7 +51,9 @@ constexpr int FEATURE_SIZE = 17;
 class PlotPoseCvStage : public PostProcessingStage
 {
 public:
-	PlotPoseCvStage(RPiCamApp *app) : PostProcessingStage(app) {}
+	PlotPoseCvStage(RPiCamApp *app) : PostProcessingStage(app)
+	{
+	}
 
 	char const *Name() const override;
 

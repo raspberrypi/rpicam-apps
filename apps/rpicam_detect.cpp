@@ -21,11 +21,13 @@ struct DetectOptions : public StillOptions
 	DetectOptions() : StillOptions()
 	{
 		using namespace boost::program_options;
+		// clang-format off
 		options_->add_options()
 			("object", value<std::string>(&object), "Name of object to detect")
 			("gap", value<unsigned int>(&gap)->default_value(30), "Smallest gap between captures in frames")
 			("timeformat", value<std::string>(&timeformat)->default_value("%m%d%H%M%S"), "Date/Time format string - see C++ strftime()")
 			;
+		// clang-format on
 	}
 
 	std::string object;
@@ -44,8 +46,13 @@ struct DetectOptions : public StillOptions
 class RPiCamDetectApp : public RPiCamApp
 {
 public:
-	RPiCamDetectApp() : RPiCamApp(std::make_unique<DetectOptions>()) {}
-	DetectOptions *GetOptions() const { return static_cast<DetectOptions *>(RPiCamApp::GetOptions()); }
+	RPiCamDetectApp() : RPiCamApp(std::make_unique<DetectOptions>())
+	{
+	}
+	DetectOptions *GetOptions() const
+	{
+		return static_cast<DetectOptions *>(RPiCamApp::GetOptions());
+	}
 };
 
 // The main even loop for the application.
@@ -59,7 +66,7 @@ static void event_loop(RPiCamDetectApp &app)
 	auto start_time = std::chrono::high_resolution_clock::now();
 	unsigned int last_capture_frame = 0;
 
-	for (unsigned int count = 0;; count++)
+	while (true)
 	{
 		RPiCamApp::Msg msg = app.Wait();
 		if (msg.type == RPiCamApp::MsgType::Timeout)

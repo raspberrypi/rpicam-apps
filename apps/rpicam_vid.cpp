@@ -85,7 +85,7 @@ static void event_loop(RPiCamEncoder &app)
 	signal(SIGPIPE, default_signal_handler);
 	pollfd p[1] = { { STDIN_FILENO, POLLIN, 0 } };
 
-	for (unsigned int count = 0; ; count++)
+	for (unsigned int count = 0;; count++)
 	{
 		RPiCamEncoder::Msg msg = app.Wait();
 		if (msg.type == RPiCamApp::MsgType::Timeout)

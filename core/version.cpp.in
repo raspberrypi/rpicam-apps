@@ -26,8 +26,8 @@ const char *RPiCamAppsCapabilities(const std::string &preview_libs, const std::s
 	auto &e = EncoderFactory::GetInstance();
 	e.LoadEncoderLibraries(encoder_libs);
 
-	static const std::string caps = 
-		"egl:" + std::to_string(p.HasPreview("egl")) + 
+	static const std::string caps =
+		"egl:" + std::to_string(p.HasPreview("egl")) +
 		" qt:" + std::to_string(p.HasPreview("qt")) +
 		" drm:" + std::to_string(p.HasPreview("drm")) +
 		" libav:" + std::to_string(e.HasEncoder("libav"));

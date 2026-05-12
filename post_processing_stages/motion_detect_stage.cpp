@@ -31,7 +31,9 @@ using Stream = libcamera::Stream;
 class MotionDetectStage : public PostProcessingStage
 {
 public:
-	MotionDetectStage(RPiCamApp *app) : PostProcessingStage(app) {}
+	MotionDetectStage(RPiCamApp *app) : PostProcessingStage(app)
+	{
+	}
 
 	char const *Name() const override;
 

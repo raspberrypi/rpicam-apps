@@ -21,7 +21,9 @@ using Stream = libcamera::Stream;
 class ObjectDetectDrawCvStage : public PostProcessingStage
 {
 public:
-	ObjectDetectDrawCvStage(RPiCamApp *app) : PostProcessingStage(app) {}
+	ObjectDetectDrawCvStage(RPiCamApp *app) : PostProcessingStage(app)
+	{
+	}
 
 	char const *Name() const override;
 

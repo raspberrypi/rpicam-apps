@@ -65,6 +65,8 @@ if opencv_dep.found()
     if cxx.get_id() == 'clang'
         opencv_cpp_args += '-Wno-c11-extensions'
     endif
+    # OpenCV headers trigger deprecated-enum-enum-conversion under C++20.
+    opencv_cpp_args += '-Wno-deprecated-enum-enum-conversion'
 
     opencv_postproc_lib = shared_module('opencv-postproc', opencv_postproc_src,
                                         include_directories : '../',

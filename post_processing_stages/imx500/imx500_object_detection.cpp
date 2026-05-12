@@ -45,7 +45,9 @@ struct ObjectDetectionOutput
 class ObjectDetection : public IMX500PostProcessingStage
 {
 public:
-	ObjectDetection(RPiCamApp *app) : IMX500PostProcessingStage(app) {}
+	ObjectDetection(RPiCamApp *app) : IMX500PostProcessingStage(app)
+	{
+	}
 
 	char const *Name() const override;
 
@@ -261,13 +263,12 @@ int ObjectDetection::processOutputTensor(std::vector<Detection> &objects, const 
 
 		// Extract bounding box co-ordinates in the inference image co-ordinates and convert to the final ISP output
 		// co-ordinates.
-		std::vector<float> coords{ output.bboxes[i].x0, output.bboxes[i].y0,
-								   output.bboxes[i].x1 - output.bboxes[i].x0,
-								   output.bboxes[i].y1 - output.bboxes[i].y0 };
+		std::vector<float> coords { output.bboxes[i].x0, output.bboxes[i].y0, output.bboxes[i].x1 - output.bboxes[i].x0,
+									output.bboxes[i].y1 - output.bboxes[i].y0 };
 		const Rectangle obj_scaled = ConvertInferenceCoordinates(coords, scaler_crop);
 
-		objects.emplace_back(class_index, classes_[class_index], output.scores[i],
-							 obj_scaled.x, obj_scaled.y, obj_scaled.width, obj_scaled.height);
+		objects.emplace_back(class_index, classes_[class_index], output.scores[i], obj_scaled.x, obj_scaled.y,
+							 obj_scaled.width, obj_scaled.height);
 	}
 
 	LOG(2, "Number of objects detected: " << objects.size());
@@ -336,7 +337,7 @@ void ObjectDetection::filterOutputObjects(std::vector<Detection> &objects)
 
 	// Remove now invisible objects from the long term list.
 	lt_objects_.erase(std::remove_if(lt_objects_.begin(), lt_objects_.end(),
-						[] (const LtObject &obj) { return !obj.matched && !obj.visible; }),
+									 [](const LtObject &obj) { return !obj.matched && !obj.visible; }),
 					  lt_objects_.end());
 }
 

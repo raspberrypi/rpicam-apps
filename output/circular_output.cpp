@@ -44,7 +44,8 @@ CircularOutput::~CircularOutput()
 	{
 		uint8_t *dst = (uint8_t *)&header;
 		cb_.Read(
-			[&dst](void *src, int n) {
+			[&dst](void *src, int n)
+			{
 				memcpy(dst, src, n);
 				dst += n;
 			},
@@ -79,7 +80,8 @@ void CircularOutput::outputBuffer(void *mem, size_t size, int64_t timestamp_us, 
 		Header header;
 		uint8_t *dst = (uint8_t *)&header;
 		cb_.Read(
-			[&dst](void *src, int n) {
+			[&dst](void *src, int n)
+			{
 				memcpy(dst, src, n);
 				dst += n;
 			},

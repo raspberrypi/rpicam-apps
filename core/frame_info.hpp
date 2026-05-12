@@ -137,8 +137,10 @@ struct FrameInfo
 
 private:
 	// Info text tokens.
+	// clang-format off
 	inline static const std::string tokens[] = {
 		"%frame", "%fps", "%exp", "%ag", "%dg", "%rg", "%bg",  "%focus",
 		"%aelock","%lp", "%temp", "%afstate"
 	};
+	// clang-format on
 };

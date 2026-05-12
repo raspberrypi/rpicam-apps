@@ -29,7 +29,9 @@ using Stream = libcamera::Stream;
 class FaceDetectCvStage : public PostProcessingStage
 {
 public:
-	FaceDetectCvStage(RPiCamApp *app) : PostProcessingStage(app) {}
+	FaceDetectCvStage(RPiCamApp *app) : PostProcessingStage(app)
+	{
+	}
 
 	char const *Name() const override;
 

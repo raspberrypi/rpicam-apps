@@ -12,7 +12,8 @@
 
 void Pwl::Read(boost::property_tree::ptree const &params)
 {
-	for (auto it = params.begin(); it != params.end(); it++) {
+	for (auto it = params.begin(); it != params.end(); it++)
+	{
 		double x = it->second.get_value<double>();
 		assert(it == params.begin() || x > points_.back().x);
 		it++;
@@ -58,8 +59,7 @@ double Pwl::Eval(double x, int *span_ptr, bool update_span) const
 	if (span_ptr && update_span)
 		*span_ptr = span;
 	return points_[span].y +
-		(x - points_[span].x) * (points_[span + 1].y - points_[span].y) /
-		       (points_[span + 1].x - points_[span].x);
+		   (x - points_[span].x) * (points_[span + 1].y - points_[span].y) / (points_[span + 1].x - points_[span].x);
 }
 
 int Pwl::findSpan(double x, int span) const
@@ -81,26 +81,33 @@ Pwl::PerpType Pwl::Invert(Point const &xy, Point &perp, int &span, const double 
 {
 	assert(span >= -1);
 	bool prev_off_end = false;
-	for (span = span + 1; span < (int)points_.size() - 1; span++) {
+	for (span = span + 1; span < (int)points_.size() - 1; span++)
+	{
 		Point span_vec = points_[span + 1] - points_[span];
 		double t = ((xy - points_[span]) % span_vec) / span_vec.Len2();
 		if (t < -eps) // off the start of this span
 		{
-			if (span == 0) {
+			if (span == 0)
+			{
 				perp = points_[span];
 				return PerpType::Start;
-			} else if (prev_off_end) {
+			}
+			else if (prev_off_end)
+			{
 				perp = points_[span];
 				return PerpType::Vertex;
 			}
-		} else if (t > 1 + eps) // off the end of this span
+		}
+		else if (t > 1 + eps) // off the end of this span
 		{
-			if (span == (int)points_.size() - 2) {
+			if (span == (int)points_.size() - 2)
+			{
 				perp = points_[span + 1];
 				return PerpType::End;
 			}
 			prev_off_end = true;
-		} else // a true perpendicular
+		}
+		else // a true perpendicular
 		{
 			perp = points_[span] + span_vec * t;
 			return PerpType::Perpendicular;
@@ -114,33 +121,30 @@ Pwl Pwl::Compose(Pwl const &other, const double eps) const
 	double this_x = points_[0].x, this_y = points_[0].y;
 	int this_span = 0, other_span = other.findSpan(this_y, 0);
 	Pwl result({ { this_x, other.Eval(this_y, &other_span, false) } });
-	while (this_span != (int)points_.size() - 1) {
+	while (this_span != (int)points_.size() - 1)
+	{
 		double dx = points_[this_span + 1].x - points_[this_span].x,
-		       dy = points_[this_span + 1].y - points_[this_span].y;
-		if (abs(dy) > eps &&
-		    other_span + 1 < (int)other.points_.size() &&
-		    points_[this_span + 1].y >=
-			    other.points_[other_span + 1].x + eps) {
+			   dy = points_[this_span + 1].y - points_[this_span].y;
+		if (abs(dy) > eps && other_span + 1 < (int)other.points_.size() &&
+			points_[this_span + 1].y >= other.points_[other_span + 1].x + eps)
+		{
 			// next control point in result will be where this
 			// function's y reaches the next span in other
-			this_x = points_[this_span].x +
-				 (other.points_[other_span + 1].x -
-				  points_[this_span].y) * dx / dy;
+			this_x = points_[this_span].x + (other.points_[other_span + 1].x - points_[this_span].y) * dx / dy;
 			this_y = other.points_[++other_span].x;
-		} else if (abs(dy) > eps && other_span > 0 &&
-			   points_[this_span + 1].y <=
-				   other.points_[other_span - 1].x - eps) {
+		}
+		else if (abs(dy) > eps && other_span > 0 && points_[this_span + 1].y <= other.points_[other_span - 1].x - eps)
+		{
 			// next control point in result will be where this
 			// function's y reaches the previous span in other
-			this_x = points_[this_span].x +
-				 (other.points_[other_span + 1].x -
-				  points_[this_span].y) * dx / dy;
+			this_x = points_[this_span].x + (other.points_[other_span + 1].x - points_[this_span].y) * dx / dy;
 			this_y = other.points_[--other_span].x;
-		} else {
+		}
+		else
+		{
 			// we stay in the same span in other
 			this_span++;
-			this_x = points_[this_span].x,
-			this_y = points_[this_span].y;
+			this_x = points_[this_span].x, this_y = points_[this_span].y;
 		}
 		result.Append(this_x, other.Eval(this_y, &other_span, false), eps);
 	}
@@ -153,13 +157,13 @@ void Pwl::Map(std::function<void(double x, double y)> f) const
 		f(pt.x, pt.y);
 }
 
-void Pwl::Map2(Pwl const &pwl0, Pwl const &pwl1,
-			   std::function<void(double x, double y0, double y1)> f)
+void Pwl::Map2(Pwl const &pwl0, Pwl const &pwl1, std::function<void(double x, double y0, double y1)> f)
 {
 	int span0 = 0, span1 = 0;
 	double x = std::min(pwl0.points_[0].x, pwl1.points_[0].x);
 	f(x, pwl0.Eval(x, &span0, false), pwl1.Eval(x, &span1, false));
-	while (span0 < (int)pwl0.points_.size() - 1 || span1 < (int)pwl1.points_.size() - 1) {
+	while (span0 < (int)pwl0.points_.size() - 1 || span1 < (int)pwl1.points_.size() - 1)
+	{
 		if (span0 == (int)pwl0.points_.size() - 1)
 			x = pwl1.points_[++span1].x;
 		else if (span1 == (int)pwl1.points_.size() - 1)
@@ -172,13 +176,11 @@ void Pwl::Map2(Pwl const &pwl0, Pwl const &pwl1,
 	}
 }
 
-Pwl Pwl::Combine(Pwl const &pwl0, Pwl const &pwl1,
-				 std::function<double(double x, double y0, double y1)> f, const double eps)
+Pwl Pwl::Combine(Pwl const &pwl0, Pwl const &pwl1, std::function<double(double x, double y0, double y1)> f,
+				 const double eps)
 {
 	Pwl result;
-	Map2(pwl0, pwl1, [&](double x, double y0, double y1) {
-		result.Append(x, f(x, y0, y1), eps);
-	});
+	Map2(pwl0, pwl1, [&](double x, double y0, double y1) { result.Append(x, f(x, y0, y1), eps); });
 	return result;
 }
 
