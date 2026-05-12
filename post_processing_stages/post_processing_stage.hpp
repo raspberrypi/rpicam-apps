@@ -66,7 +66,7 @@ protected:
 	// For functions returning a value, the simplest thing would be to wrap the call in a lambda and capture
 	// the return value.
 	template <class R = std::micro, class T = std::chrono::steady_clock, class F, class... Args>
-	static auto ExecutionTime(F &&f, Args &&... args)
+	static auto ExecutionTime(F &&f, Args &&...args)
 	{
 		auto t1 = T::now();
 		std::invoke(std::forward<decltype(f)>(f), std::forward<Args>(args)...);

@@ -57,26 +57,37 @@ public:
 	void Stop() override;
 
 protected:
-	TfConfig *config() const { return config_.get(); }
+	TfConfig *config() const
+	{
+		return config_.get();
+	}
 
 	// Instead of redefining the above public interface, derived class should implement
 	// the following four virtual methods.
 
 	// Read additional parameters required by the stage. Can also do some model checking.
-	virtual void readExtras(boost::property_tree::ptree const &params) {}
+	virtual void readExtras(boost::property_tree::ptree const &params)
+	{
+	}
 
 	// Check the stream and image configuration. Here the stage should report any errors
 	// and/or fail.
-	virtual void checkConfiguration() {}
+	virtual void checkConfiguration()
+	{
+	}
 
 	// This runs asynchronously from the main thread right after the model has run. The
 	// outputs should be processed into a form where applyResults can make use of them.
-	virtual void interpretOutputs() {}
+	virtual void interpretOutputs()
+	{
+	}
 
 	// Here we run synchronously again and so should not take too long. The results
 	// produced by interpretOutputs can be used now, for example as metadata to attach
 	// to the image, or even drawn onto the image itself.
-	virtual void applyResults(CompletedRequestPtr &completed_request) {}
+	virtual void applyResults(CompletedRequestPtr &completed_request)
+	{
+	}
 
 	std::unique_ptr<TfConfig> config_;
 

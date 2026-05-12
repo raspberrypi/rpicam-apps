@@ -13,7 +13,9 @@
 
 struct StreamInfo
 {
-	StreamInfo() : width(0), height(0), stride(0) {}
+	StreamInfo() : width(0), height(0), stride(0)
+	{
+	}
 	unsigned int width;
 	unsigned int height;
 	unsigned int stride;

@@ -22,7 +22,9 @@ public:
 	using Stream = libcamera::Stream;
 	using FrameBuffer = libcamera::FrameBuffer;
 
-	RPiCamEncoder() : RPiCamApp(std::make_unique<VideoOptions>()) {}
+	RPiCamEncoder() : RPiCamApp(std::make_unique<VideoOptions>())
+	{
+	}
 
 	void StartEncoder()
 	{
@@ -45,8 +47,14 @@ public:
 #endif
 	}
 	// This is callback when the encoder gives you the encoded output data.
-	void SetEncodeOutputReadyCallback(EncodeOutputReadyCallback callback) { encode_output_ready_callback_ = callback; }
-	void SetMetadataReadyCallback(MetadataReadyCallback callback) { metadata_ready_callback_ = callback; }
+	void SetEncodeOutputReadyCallback(EncodeOutputReadyCallback callback)
+	{
+		encode_output_ready_callback_ = callback;
+	}
+	void SetMetadataReadyCallback(MetadataReadyCallback callback)
+	{
+		metadata_ready_callback_ = callback;
+	}
 	bool EncodeBuffer(CompletedRequestPtr &completed_request, Stream *stream)
 	{
 		assert(encoder_);
@@ -54,8 +62,8 @@ public:
 #ifndef DISABLE_RPI_FEATURES
 		// If sync was enabled, and SyncReady is still "false" then we must skip this frame. Tell our
 		// caller through the return value that we're not yet encoding anything.
-		if (!sync_achieved_ &&
-			GetOptions()->Get().sync && !completed_request->metadata.get(controls::rpi::SyncReady).value_or(false))
+		if (!sync_achieved_ && GetOptions()->Get().sync &&
+			!completed_request->metadata.get(controls::rpi::SyncReady).value_or(false))
 			return false;
 
 		// Setting this means that we won't skip frames that are missing sync metadata even though
@@ -82,8 +90,14 @@ public:
 		// Tell our caller that encoding is underway.
 		return true;
 	}
-	VideoOptions *GetOptions() const { return static_cast<VideoOptions *>(RPiCamApp::GetOptions()); }
-	void StopEncoder() { encoder_.reset(); }
+	VideoOptions *GetOptions() const
+	{
+		return static_cast<VideoOptions *>(RPiCamApp::GetOptions());
+	}
+	void StopEncoder()
+	{
+		encoder_.reset();
+	}
 
 protected:
 	virtual void createEncoder()

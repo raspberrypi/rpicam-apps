@@ -21,15 +21,25 @@ class Encoder
 public:
 	static Encoder *Create(VideoOptions *options, StreamInfo const &info);
 
-	Encoder(VideoOptions const *options) : options_(options) {}
-	virtual ~Encoder() {}
+	Encoder(VideoOptions const *options) : options_(options)
+	{
+	}
+	virtual ~Encoder()
+	{
+	}
 	// This is where the application sets the callback it gets whenever the encoder
 	// has finished with an input buffer, so the application can re-use it.
-	void SetInputDoneCallback(InputDoneCallback callback) { input_done_callback_ = callback; }
+	void SetInputDoneCallback(InputDoneCallback callback)
+	{
+		input_done_callback_ = callback;
+	}
 	// This callback is how the application is told that an encoded buffer is
 	// available. The application may not hang on to the memory once it returns
 	// (but the callback is already running in its own thread).
-	void SetOutputReadyCallback(OutputReadyCallback callback) { output_ready_callback_ = callback; }
+	void SetOutputReadyCallback(OutputReadyCallback callback)
+	{
+		output_ready_callback_ = callback;
+	}
 	// Encode the given buffer. The buffer is specified both by an fd and size
 	// describing a DMABUF, and by a mmapped userland pointer.
 	virtual void EncodeBuffer(int fd, size_t size, void *mem, StreamInfo const &info, int64_t timestamp_us) = 0;
@@ -57,7 +67,10 @@ public:
 	EncoderCreateFunc CreateEncoder(const std::string &name);
 
 	bool HasEncoder(const std::string &name) const;
-	const std::map<std::string, EncoderCreateFunc> &GetEncoders() const { return encoders_; }
+	const std::map<std::string, EncoderCreateFunc> &GetEncoders() const
+	{
+		return encoders_;
+	}
 
 private:
 	EncoderFactory() = default;
@@ -72,4 +85,3 @@ struct RegisterEncoder
 {
 	RegisterEncoder(char const *name, EncoderCreateFunc create_func);
 };
-

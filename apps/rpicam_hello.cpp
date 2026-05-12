@@ -7,8 +7,8 @@
 
 #include <chrono>
 
-#include "core/rpicam_app.hpp"
 #include "core/options.hpp"
+#include "core/rpicam_app.hpp"
 
 using namespace std::placeholders;
 
@@ -24,7 +24,7 @@ static void event_loop(RPiCamApp &app)
 
 	auto start_time = std::chrono::high_resolution_clock::now();
 
-	for (unsigned int count = 0; ; count++)
+	for (unsigned int count = 0;; count++)
 	{
 		RPiCamApp::Msg msg = app.Wait();
 		if (msg.type == RPiCamApp::MsgType::Timeout)

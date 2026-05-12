@@ -26,10 +26,16 @@ public:
 	{
 		config_ = std::make_unique<ObjectClassifyTfConfig>();
 	}
-	char const *Name() const override { return NAME; }
+	char const *Name() const override
+	{
+		return NAME;
+	}
 
 protected:
-	ObjectClassifyTfConfig *config() const { return static_cast<ObjectClassifyTfConfig *>(config_.get()); }
+	ObjectClassifyTfConfig *config() const
+	{
+		return static_cast<ObjectClassifyTfConfig *>(config_.get());
+	}
 
 	// Read the label file, plus some confidence thresholds.
 	void readExtras(boost::property_tree::ptree const &params) override;
@@ -156,8 +162,8 @@ void ObjectClassifyTfStage::getTopResults(uint8_t *prediction, int prediction_si
 
 		// Consider keeping if above the high threshold or it was in the old list.
 		if (confidence >= config()->threshold_high ||
-			std::find_if(top_results_old.begin(), top_results_old.end(),
-						 [i] (auto &p) { return p.second == i; }) != top_results_old.end())
+			std::find_if(top_results_old.begin(), top_results_old.end(), [i](auto &p) { return p.second == i; }) !=
+				top_results_old.end())
 		{
 			top_result_pq.push(std::pair<float, int>(confidence, i));
 

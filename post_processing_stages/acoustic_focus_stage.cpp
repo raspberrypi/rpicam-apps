@@ -32,7 +32,10 @@ public:
 	{
 	}
 
-	char const *Name() const override { return "acoustic_focus"; }
+	char const *Name() const override
+	{
+		return "acoustic_focus";
+	}
 
 	void Read(boost::property_tree::ptree const &params) override
 	{

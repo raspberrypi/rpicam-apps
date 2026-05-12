@@ -28,10 +28,16 @@ public:
 	{
 		config_ = std::make_unique<SegmentationTfConfig>();
 	}
-	char const *Name() const override { return NAME; }
+	char const *Name() const override
+	{
+		return NAME;
+	}
 
 protected:
-	SegmentationTfConfig *config() const { return static_cast<SegmentationTfConfig *>(config_.get()); }
+	SegmentationTfConfig *config() const
+	{
+		return static_cast<SegmentationTfConfig *>(config_.get());
+	}
 
 	void readExtras(boost::property_tree::ptree const &params) override;
 
@@ -85,7 +91,7 @@ void SegmentationTfStage::applyResults(CompletedRequestPtr &completed_request)
 {
 	// Store the segmentation in image metadata.
 	completed_request->post_process_metadata.Set("segmentation.result",
-												Segmentation(WIDTH, HEIGHT, labels_, segmentation_));
+												 Segmentation(WIDTH, HEIGHT, labels_, segmentation_));
 
 	// Optionally, draw the segmentation in the bottom right corner of the main image.
 	if (!config()->draw)
@@ -156,4 +162,3 @@ static PostProcessingStage *Create(RPiCamApp *app)
 }
 
 static RegisterStage reg(NAME, &Create);
-

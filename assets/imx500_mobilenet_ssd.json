@@ -20,7 +20,7 @@
             "visible_frames": 4,
             "hidden_frames": 2
         },
-    
+
         "classes":
         [
             "person",

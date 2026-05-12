@@ -24,7 +24,7 @@
 
 using Rectangle = libcamera::Rectangle;
 using Size = libcamera::Size;
-using PostProcFuncPtr = std::pair<std::vector<KeyPt>, std::vector<PairPairs>>(*)(HailoROIPtr);
+using PostProcFuncPtr = std::pair<std::vector<KeyPt>, std::vector<PairPairs>> (*)(HailoROIPtr);
 
 #define NAME "hailo_yolo_pose"
 #define POSTPROC_LIB "libyolov8pose_post.so"
@@ -48,8 +48,7 @@ private:
 	DlLib postproc_;
 };
 
-YoloPose::YoloPose(RPiCamApp *app)
-	: HailoPostProcessingStage(app), postproc_(PostProcLibDir(POSTPROC_LIB))
+YoloPose::YoloPose(RPiCamApp *app) : HailoPostProcessingStage(app), postproc_(PostProcLibDir(POSTPROC_LIB))
 {
 }
 

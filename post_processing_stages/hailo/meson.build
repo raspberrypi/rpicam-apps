@@ -50,7 +50,7 @@ hailo_postprocessing_src = files([
     # Instance segmentation
     'hailo_yolov5_segmentation.cpp',
     # Face landmarking
-    'hailo_scrfd.cpp',    
+    'hailo_scrfd.cpp',
 ])
 
 postproc_assets += files([

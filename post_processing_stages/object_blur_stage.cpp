@@ -19,8 +19,8 @@
 #include <libcamera/stream.h>
 
 #include "core/rpicam_app.hpp"
-#include "post_processing_stages/post_processing_stage.hpp"
 #include "post_processing_stages/object_detect.hpp"
+#include "post_processing_stages/post_processing_stage.hpp"
 
 #include "opencv2/imgproc.hpp"
 
@@ -30,7 +30,9 @@ using Stream = libcamera::Stream;
 class ObjectBlurStage : public PostProcessingStage
 {
 public:
-	ObjectBlurStage(RPiCamApp *app) : PostProcessingStage(app) {}
+	ObjectBlurStage(RPiCamApp *app) : PostProcessingStage(app)
+	{
+	}
 
 	char const *Name() const override;
 
@@ -78,10 +80,10 @@ void ObjectBlurStage::Read(boost::property_tree::ptree const &params)
 	gaussian_sigma_ = params.get<int>("gaussian_sigma", 0);
 	expand_box_ = params.get<bool>("expand_box", false);
 	expand_pixels_ = params.get<int>("expand_pixels", 0);
-	
-	LOG(1, "ObjectBlur: blur_type=" << blur_type_ << ", blur_strength=" << blur_strength_ 
-	       << ", expand_box=" << expand_box_ << ", expand_pixels=" << expand_pixels_);
-	
+
+	LOG(1, "ObjectBlur: blur_type=" << blur_type_ << ", blur_strength=" << blur_strength_
+									<< ", expand_box=" << expand_box_ << ", expand_pixels=" << expand_pixels_);
+
 	if (blur_labels_.empty())
 	{
 		LOG(1, "ObjectBlur: Warning - no labels specified in 'overlay_blur'");
@@ -116,7 +118,7 @@ bool ObjectBlurStage::Process(CompletedRequestPtr &completed_request)
 		if (shouldBlurObject(detection.name))
 		{
 			Rect roi(detection.box.x, detection.box.y, detection.box.width, detection.box.height);
-			
+
 			// Optional: expand bounding box
 			if (expand_box_ || expand_pixels_ > 0)
 			{
@@ -126,7 +128,7 @@ bool ObjectBlurStage::Process(CompletedRequestPtr &completed_request)
 				roi.width += 2 * expand;
 				roi.height += 2 * expand;
 			}
-			
+
 			// Clamp to image bounds
 			roi.x = std::max(0, roi.x);
 			roi.y = std::max(0, roi.y);
@@ -136,22 +138,22 @@ bool ObjectBlurStage::Process(CompletedRequestPtr &completed_request)
 			if (roi.width > 0 && roi.height > 0)
 			{
 				Mat region = image(roi);
-				
+
 				if (blur_type_ == "gaussian")
 				{
 					// Gaussian blur
 					int kernel_size = blur_strength_;
 					if (kernel_size == 0)
 						kernel_size = std::max(5, std::min(51, (int)(roi.width / 10)));
-					
+
 					// Kernel size must be odd
 					if (kernel_size % 2 == 0)
 						kernel_size++;
-					
+
 					double sigma = gaussian_sigma_;
 					if (sigma == 0)
 						sigma = kernel_size / 6.0;
-					
+
 					GaussianBlur(region, region, Size(kernel_size, kernel_size), sigma);
 				}
 				else if (blur_type_ == "median")
@@ -160,11 +162,11 @@ bool ObjectBlurStage::Process(CompletedRequestPtr &completed_request)
 					int kernel_size = blur_strength_;
 					if (kernel_size == 0)
 						kernel_size = std::max(5, std::min(51, (int)(roi.width / 10)));
-					
+
 					// Kernel size must be odd
 					if (kernel_size % 2 == 0)
 						kernel_size++;
-					
+
 					medianBlur(region, region, kernel_size);
 				}
 				else // pixelate (default)
@@ -176,15 +178,15 @@ bool ObjectBlurStage::Process(CompletedRequestPtr &completed_request)
 						// Auto-calculate based on bounding box size
 						block_size = std::max(8, std::min(32, (int)(roi.width / 15)));
 					}
-					
+
 					int small_width = std::max(1, roi.width / block_size);
 					int small_height = std::max(1, roi.height / block_size);
-					
+
 					Mat small;
 					resize(region, small, Size(small_width, small_height), 0, 0, INTER_LINEAR);
 					resize(small, region, Size(roi.width, roi.height), 0, 0, INTER_NEAREST);
 				}
-				
+
 				blurred_count++;
 			}
 		}

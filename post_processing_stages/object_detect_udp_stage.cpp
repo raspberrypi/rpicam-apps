@@ -11,17 +11,15 @@
 
 #include "object_detect.hpp"
 
+#include <arpa/inet.h>
 #include <array>
+#include <iostream>
+#include <netinet/in.h>
+#include <sstream>
 #include <string>
 #include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
 #include <unistd.h>
-#include <iostream>
-#include <string>
 #include <vector>
-#include <sstream>
-
 
 using Rectange = libcamera::Rectangle;
 using Stream = libcamera::Stream;
@@ -35,18 +33,20 @@ constexpr static uint32_t START_DELIMITER = 0xDDCCBBAA; // little-endian represe
 class ObjectDetectUDPStage : public PostProcessingStage
 {
 public:
-	ObjectDetectUDPStage(RPiCamApp *app) : PostProcessingStage(app), sockfd_(-1) {}
+	ObjectDetectUDPStage(RPiCamApp *app) : PostProcessingStage(app), sockfd_(-1)
+	{
+	}
 
 	char const *Name() const override;
 
 	void Read(boost::property_tree::ptree const &params) override;
 
 	void Configure() override;
-	
+
 	bool Process(CompletedRequestPtr &completed_request) override;
 
 	virtual ~ObjectDetectUDPStage() override;
-	
+
 private:
 	Stream *stream_;
 	std::string udp_broadcast_address = "127.0.0.1";
@@ -62,7 +62,6 @@ char const *ObjectDetectUDPStage::Name() const
 	return NAME;
 }
 
-
 ObjectDetectUDPStage::~ObjectDetectUDPStage()
 {
 	if (sockfd_ != -1)
@@ -72,11 +71,10 @@ ObjectDetectUDPStage::~ObjectDetectUDPStage()
 	}
 }
 
-
 void ObjectDetectUDPStage::Configure()
 {
 	stream_ = app_->GetMainStream();
-	
+
 	// Initialize UDP socket
 	sockfd_ = socket(AF_INET, SOCK_DGRAM, 0);
 	if (sockfd_ < 0)
@@ -99,8 +97,8 @@ void ObjectDetectUDPStage::Configure()
 		return;
 	}
 
-	std::cerr
-		<< "UDP socket initialized for IP: " << udp_broadcast_address << ", Port: " << udp_broadcast_port << std::endl;
+	std::cerr << "UDP socket initialized for IP: " << udp_broadcast_address << ", Port: " << udp_broadcast_port
+			  << std::endl;
 }
 
 void ObjectDetectUDPStage::Read(boost::property_tree::ptree const &params)
@@ -135,7 +133,7 @@ bool ObjectDetectUDPStage::Process(CompletedRequestPtr &completed_request)
 		std::stringstream text_stream;
 		text_stream << detection.name << " " << (int)(detection.confidence * 100) << "%";
 		std::string text = text_stream.str();
-		
+
 		// Use a vector to dynamically build the binary message
 		std::vector<char> udp_data_buffer;
 
