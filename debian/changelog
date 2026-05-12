@@ -1,3 +1,22 @@
+rpicam-apps (1.12.0-1) trixie; urgency=medium
+
+  [ Nick Hollinghurst ]
+  * image: dng: Fix for packed monochrome formats
+
+  [ Naushir Patuck ]
+  * actions: Switch to new test system
+  * rpicam_detect: Fix unused variable warning
+  * tests: Add hailo and imx500 tests
+  * ci: Fix script to run on forks
+  * tests: Add dual camera test
+  * postprocess: hailo: Workaround an exception in the hailort library
+  * ci: Replace checkstyle.py with pre-commit framework
+  * build: Switch to C++ 20
+  * tests: Skip detect test when object_detect_tf.json is missing
+  * build: Update relase to v1.12.0
+
+ -- Serge Schneider <serge@raspberrypi.com>  Tue, 12 May 2026 12:49:26 +0100
+
 rpicam-apps (1.11.1-1) trixie; urgency=medium
 
   [ David Plowman ]
