@@ -116,6 +116,7 @@ class HTJ2KEncoder {
       codestream.access_siz()->parse_string(param);
       // snprintf(param, 32, "Qstep=%f", quantizationStep_);
       // codestream.access_siz()->parse_string(param);
+      // codestream.access_siz()->parse_string("Cplex={6,EST,0.25,0}");
     }
 
     switch (progressionOrder_) {
@@ -278,6 +279,8 @@ class HTJ2KEncoder {
     // Now compress the image in one hit, using `kdu_stripe_compressor'
     
   #ifdef MULTI_THREAD
+    // kdu_core::kdu_long max_bytes[1] = {(kdu_core::kdu_long)(frameInfo_.width * frameInfo_.height * 0.125 * 0.9)};  // 0.9bpp
+    // compressor.start(codestream, 1, max_bytes, nullptr, 0U, false, false, true, 0.0, 0, true, &env);
     compressor.start(codestream, 0, nullptr, nullptr, 0U, false, false, true, 0.0, 0, true, &env);
   #else
     compressor.start(codestream);
