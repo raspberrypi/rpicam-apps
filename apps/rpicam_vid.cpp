@@ -11,6 +11,7 @@
 #include <sys/signalfd.h>
 #include <sys/stat.h>
 
+#include "apps/control_socket.hpp"
 #include "core/rpicam_encoder.hpp"
 #include "output/output.hpp"
 
@@ -28,7 +29,7 @@ static void default_signal_handler(int signal_number)
 static int get_key_or_signal(VideoOptions const *options, pollfd p[1])
 {
 	int key = 0;
-	if (signal_received == SIGINT)
+	if (signal_received == SIGINT || signal_received == SIGTERM)
 		return 'x';
 	if (options->Get().keypress)
 	{
@@ -75,10 +76,18 @@ static void event_loop(RPiCamEncoder &app)
 	app.StartCamera();
 	auto start_time = std::chrono::high_resolution_clock::now();
 
+	// Runtime control socket: path derived from camera index (e.g. --camera 1 → /tmp/rpicam-vid1.sock).
+	std::string ctrl_sock_path = "/tmp/rpicam-vid" + std::to_string(options->Get().camera) + ".sock";
+	ControlSocket ctrl_socket(ctrl_sock_path);
+	if (!ctrl_socket.IsValid())
+		LOG_ERROR("ControlSocket: failed to initialise – runtime control unavailable");
+	const bool ctrl_is_pisp = app.SupportsScalerCrops();
+
 	// Monitoring for keypresses and signals.
 	signal(SIGUSR1, default_signal_handler);
 	signal(SIGUSR2, default_signal_handler);
 	signal(SIGINT, default_signal_handler);
+	signal(SIGTERM, default_signal_handler);
 	// SIGPIPE gets raised when trying to write to an already closed socket. This can happen, when
 	// you're using TCP to stream to VLC and the user presses the stop button in VLC. Catching the
 	// signal to be able to react on it, otherwise the app terminates.
@@ -102,6 +111,14 @@ static void event_loop(RPiCamEncoder &app)
 		int key = get_key_or_signal(options, p);
 		if (key == '\n')
 			output->Signal();
+
+		// Check the runtime control socket for pending parameter updates.
+		ctrl_socket.AcceptConnections();
+		{
+			libcamera::ControlList cl = ctrl_socket.ReadControls(app.GetSensorArea(), ctrl_is_pisp);
+			if (!cl.empty())
+				app.SetControls(cl);
+		}
 
 		LOG(2, "Viewfinder frame " << count);
 		auto now = std::chrono::high_resolution_clock::now();

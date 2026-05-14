@@ -1,0 +1,560 @@
+#!/usr/bin/env python3
+# SPDX-License-Identifier: BSD-2-Clause
+# Copyright (C) 2026, Kletternaut
+#
+# rpicam-vid TUI runtime controller — ASCII slider interface
+# Navigate with arrow keys, press R to reset, Q to quit.
+
+import curses
+import json
+import os
+import socket
+import sys
+from pathlib import Path
+
+CAMERA_SOCKS = [
+    "/tmp/rpicam-vid0.sock",  # camera 0
+    "/tmp/rpicam-vid1.sock",  # camera 1
+]
+
+
+def _resolve_sock_path(arg):
+    """Map CLI argument to socket path.
+    No arg / '' / '0' → camera 0 (/tmp/rpicam-vid0.sock)
+    '1' → camera 1 (/tmp/rpicam-vid1.sock)
+    Anything else treated as literal path.
+    """
+    if arg is None or arg in ("", "0"):
+        return CAMERA_SOCKS[0]
+    if arg == "1":
+        return CAMERA_SOCKS[1]
+    return arg  # literal path passed directly
+
+
+SOCK_PATH = _resolve_sock_path(sys.argv[1] if len(sys.argv) > 1 else None)
+SLIDER_W = 22  # chars for the slider bar
+LABEL_W = 12  # chars for the label column
+
+# ---------------------------------------------------------------------------
+# Control definitions
+# ---------------------------------------------------------------------------
+
+# Slider: (label, command, int_min, int_max, int_default, int_step, display_fn, send_fn)
+#   int values are internally scaled integers (avoids float rounding).
+#   display_fn(int_val) -> str shown to the user
+#   send_fn(int_val)    -> str sent over the socket  (None = skip / handled separately)
+
+
+def _pct(v):
+    return f"{v / 100:+.2f}"
+
+
+def _ev(v):
+    return f"{v / 10:+.1f}"
+
+
+def _f2(v):
+    return f"{v / 100:.2f}"
+
+
+def _gain(v):
+    return f"{v / 10:.1f}x"
+
+
+def _sharp(v):
+    return f"{v / 10:.1f}"
+
+
+def _zoom(v):
+    return f"{v / 10:.1f}\u00d7"
+
+
+def _awbg(v):
+    return f"{v / 100:.2f}"
+
+
+SLIDERS = [
+    # label       cmd            min   max  default  step  disp_fn  send_fn
+    (
+        "Brightness",
+        "brightness",
+        -100,
+        100,
+        0,
+        1,
+        _pct,
+        lambda v: f"brightness:{v / 100:.4f}",
+    ),
+    ("EV (stops)", "ev", -30, 30, 0, 1, _ev, lambda v: f"ev:{v / 10:.2f}"),
+    ("Contrast", "contrast", 0, 300, 100, 5, _f2, lambda v: f"contrast:{v / 100:.4f}"),
+    (
+        "Saturation",
+        "saturation",
+        0,
+        300,
+        100,
+        5,
+        _f2,
+        lambda v: f"saturation:{v / 100:.4f}",
+    ),
+    ("Gain", "gain", 10, 160, 10, 5, _gain, lambda v: f"gain:{v / 10:.2f}"),
+    (
+        "Sharpness",
+        "sharpness",
+        0,
+        160,
+        10,
+        5,
+        _sharp,
+        lambda v: f"sharpness:{v / 10:.4f}",
+    ),
+    ("Zoom", "zoom", 10, 100, 10, 5, _zoom, None),  # handled specially (-> roi)
+    (
+        "AWB Gain R",
+        "awbgainr",
+        10,
+        400,
+        150,
+        10,
+        _awbg,
+        None,
+    ),  # handled together with B
+    ("AWB Gain B", "awbgainb", 10, 400, 120, 10, _awbg, None),
+]
+
+# Combo: (label, command, [options])
+COMBOS = [
+    (
+        "AWB mode",
+        "awb",
+        [
+            "auto",
+            "incandescent",
+            "tungsten",
+            "fluorescent",
+            "indoor",
+            "daylight",
+            "cloudy",
+            "manual",
+        ],
+    ),
+    ("Metering", "metering", ["centre", "spot", "average", "custom"]),
+    ("Exposure", "exposure", ["normal", "sport"]),
+    ("Denoise", "denoise", ["auto", "off", "cdn_off", "cdn_fast", "cdn_hq"]),
+    ("HDR", "hdr", ["off", "auto", "sensor", "single-exp"]),
+]
+
+# Flat list of all rows: ('camera',) | ('slider', index) | ('combo', index)
+ROWS = (
+    ([("camera", 0)] if len(CAMERA_SOCKS) > 1 else [])
+    + [("slider", i) for i in range(len(SLIDERS))]
+    + [("combo", i) for i in range(len(COMBOS))]
+)
+
+# ---------------------------------------------------------------------------
+# Socket helper
+# ---------------------------------------------------------------------------
+
+
+class Sock:
+    def __init__(self, path):
+        self._path = path
+        self._s = None
+
+    def _connect(self):
+        try:
+            s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+            s.connect(self._path)
+            s.setblocking(False)
+            self._s = s
+            return True
+        except OSError:
+            self._s = None
+            return False
+
+    def send(self, cmd: str):
+        if self._s is None:
+            if not self._connect():
+                return
+        try:
+            self._s.sendall((cmd + "\n").encode())
+        except OSError:
+            self._s = None
+
+    @property
+    def connected(self):
+        return self._s is not None
+
+
+# ---------------------------------------------------------------------------
+# Draw helpers
+# ---------------------------------------------------------------------------
+
+
+def draw_slider(win, y, x, val, lo, hi, w):
+    """Draw [====●====] with val in [lo, hi] inside w chars."""
+    filled = round((val - lo) / (hi - lo) * (w - 1))
+    bar = "=" * filled + "\u25cf" + "=" * (w - 1 - filled)
+    win.addch(y, x, "[")
+    win.addstr(y, x + 1, bar)
+    win.addch(y, x + w + 1, "]")
+
+
+def draw_combo(win, y, x, options, idx, w):
+    """Draw < option > centred in w chars."""
+    label = f" {options[idx]} "
+    win.addch(y, x, "<")
+    win.addstr(y, x + 1, label.center(w))
+    win.addch(y, x + w + 1, ">")
+
+
+# ---------------------------------------------------------------------------
+# Main TUI
+# ---------------------------------------------------------------------------
+
+
+def main(stdscr):
+    curses.curs_set(0)
+    curses.use_default_colors()
+    curses.init_pair(1, curses.COLOR_CYAN, -1)  # selected row
+    curses.init_pair(2, curses.COLOR_GREEN, -1)  # connected
+    curses.init_pair(3, curses.COLOR_RED, -1)  # disconnected
+    curses.init_pair(4, curses.COLOR_YELLOW, -1)  # label
+
+    stdscr.nodelay(True)
+    stdscr.keypad(True)
+
+    sock = Sock(SOCK_PATH)
+    sock._connect()
+    current_sock_path = [SOCK_PATH]
+    current_cam_idx = [
+        CAMERA_SOCKS.index(SOCK_PATH) if SOCK_PATH in CAMERA_SOCKS else 0
+    ]
+
+    # Per-camera state: load persisted values, fall back to defaults.
+    saved = load_state()
+    cam_s_vals = [list(saved[i]["s_vals"]) for i in range(len(CAMERA_SOCKS))]
+    cam_c_idxs = [list(saved[i]["c_idxs"]) for i in range(len(CAMERA_SOCKS))]
+
+    # Active view — always a reference into the current camera's slot.
+    s_vals = cam_s_vals[current_cam_idx[0]]
+    c_idxs = cam_c_idxs[current_cam_idx[0]]
+    cursor = 0  # selected row
+
+    def slider_row(si):
+        return ROWS.index(("slider", si))
+
+    def awbgains_cmd(r_val, b_val):
+        return f"awbgains:{r_val / 100:.3f},{b_val / 100:.3f}"
+
+    def zoom_cmd(z_val):
+        factor = z_val / 10.0
+        w = 1.0 / factor
+        h = 1.0 / factor
+        x = (1.0 - w) / 2.0
+        y = (1.0 - h) / 2.0
+        return f"roi:{x:.4f},{y:.4f},{w:.4f},{h:.4f}"
+
+    def _set_awb_manual():
+        """Switch AWB combo to 'manual' without sending an awb: command."""
+        awb_ci = 0  # AWB mode is always combo index 0
+        opts = COMBOS[awb_ci][2]
+        manual_idx = opts.index("manual")
+        c_idxs[awb_ci] = manual_idx
+
+    def send_slider(si, val):
+        send_fn = SLIDERS[si][7]
+        if send_fn is not None:
+            sock.send(send_fn(val))
+        elif SLIDERS[si][0] == "Zoom":
+            sock.send(zoom_cmd(val))
+        elif SLIDERS[si][0] == "AWB Gain R":
+            _set_awb_manual()
+            sock.send(awbgains_cmd(val, s_vals[8]))
+        elif SLIDERS[si][0] == "AWB Gain B":
+            _set_awb_manual()
+            sock.send(awbgains_cmd(s_vals[7], val))
+
+    def send_combo(ci, idx):
+        label, cmd, opts = COMBOS[ci]
+        sock.send(f"{cmd}:{opts[idx]}")
+
+    def do_reset():
+        nonlocal s_vals, c_idxs
+        s_vals[:] = [s[4] for s in SLIDERS]
+        c_idxs[:] = [0] * len(COMBOS)
+        # Keep the per-camera store and state file in sync.
+        cam_s_vals[current_cam_idx[0]] = list(s_vals)
+        cam_c_idxs[current_cam_idx[0]] = list(c_idxs)
+        save_cam_state(current_cam_idx[0], s_vals, c_idxs)
+        sock.send("brightness:0")
+        sock.send("ev:0")
+        sock.send("contrast:1")
+        sock.send("saturation:1")
+        sock.send("gain:0")
+        sock.send("sharpness:1")
+        sock.send("roi:0,0,1,1")
+        sock.send("awb:auto")
+        sock.send("metering:centre")
+        sock.send("exposure:normal")
+        sock.send("denoise:auto")
+        sock.send("hdr:off")
+
+    def resend_full_state():
+        """Send the complete current state to the newly connected camera.
+
+        AWB gain sliders are skipped when AWB mode is 'auto': sending
+        awbgains would conflict with the camera's automatic gain control
+        and the _set_awb_manual() side effect would corrupt c_idxs[0].
+        When AWB is 'manual' the gains are sent and c_idxs[0] is already
+        correct, so no snapshot is needed.
+        """
+        awb_is_auto = c_idxs[0] == 0  # COMBOS[0] options[0] == "auto"
+        for si, sv in enumerate(s_vals):
+            if awb_is_auto and SLIDERS[si][0] in ("AWB Gain R", "AWB Gain B"):
+                continue
+            send_slider(si, sv)
+        for ci, cidx in enumerate(c_idxs):
+            send_combo(ci, cidx)
+
+    def do_switch_camera(new_ci):
+        nonlocal s_vals, c_idxs
+        if new_ci == current_cam_idx[0]:
+            return
+        # Save current camera state (memory + file).
+        cam_s_vals[current_cam_idx[0]] = list(s_vals)
+        cam_c_idxs[current_cam_idx[0]] = list(c_idxs)
+        save_cam_state(current_cam_idx[0], s_vals, c_idxs)
+        # Switch.
+        current_cam_idx[0] = new_ci
+        current_sock_path[0] = CAMERA_SOCKS[new_ci]
+        # Restore target camera state into the active view.
+        s_vals[:] = cam_s_vals[new_ci]
+        c_idxs[:] = cam_c_idxs[new_ci]
+        # Reconnect and resync hardware.
+        sock._s = None
+        sock._path = current_sock_path[0]
+        if sock._connect():
+            resend_full_state()
+
+    # State loaded into UI; do NOT resend to camera on startup —
+    # the camera is already running with its current settings.
+
+    while True:
+        height, width = stdscr.getmaxyx()
+        stdscr.erase()
+
+        try:
+            # --- Header ---
+            title = "rpicam-vid Runtime Control"
+            stdscr.addstr(0, 2, title, curses.A_BOLD)
+
+            base_y = 2
+            CTRL_W = SLIDER_W + 2  # [bar] width incl. brackets
+
+            for row_i, (kind, idx) in enumerate(ROWS):
+                y = base_y + row_i
+                if y >= height - 1:
+                    break
+                sel = row_i == cursor
+                attr = curses.color_pair(1) | curses.A_BOLD if sel else curses.A_NORMAL
+                prefix = "\u25b6 " if sel else "  "
+
+                if kind == "camera":
+                    cam_idx = (
+                        CAMERA_SOCKS.index(current_sock_path[0])
+                        if current_sock_path[0] in CAMERA_SOCKS
+                        else 0
+                    )
+                    sock_short = f"[{current_sock_path[0]:<{SLIDER_W - 2}}]"
+                    stdscr.addstr(y, 0, prefix, attr)
+                    stdscr.addstr(
+                        y,
+                        2,
+                        f"{'Camera':<{LABEL_W}}",
+                        curses.color_pair(4) if sel else curses.A_NORMAL,
+                    )
+                    stdscr.addstr(y, 2 + LABEL_W, sock_short, attr)
+                    stdscr.addstr(y, 2 + LABEL_W + CTRL_W + 1, " cam ", attr)
+                    stdscr.addstr(str(cam_idx), curses.color_pair(2))
+                elif kind == "slider":
+                    lo, hi = SLIDERS[idx][2], SLIDERS[idx][3]
+                    val = s_vals[idx]
+                    label = SLIDERS[idx][0]
+                    disp = SLIDERS[idx][6](val)
+                    stdscr.addstr(y, 0, prefix, attr)
+                    stdscr.addstr(
+                        y,
+                        2,
+                        f"{label:<{LABEL_W}}",
+                        curses.color_pair(4) if sel else curses.A_NORMAL,
+                    )
+                    draw_slider(stdscr, y, 2 + LABEL_W, val, lo, hi, SLIDER_W)
+                    stdscr.addstr(y, 2 + LABEL_W + CTRL_W + 1, f" {disp}", attr)
+                else:
+                    label, cmd, opts = COMBOS[idx]
+                    stdscr.addstr(y, 0, prefix, attr)
+                    stdscr.addstr(
+                        y,
+                        2,
+                        f"{label:<{LABEL_W}}",
+                        curses.color_pair(4) if sel else curses.A_NORMAL,
+                    )
+                    draw_combo(stdscr, y, 2 + LABEL_W, opts, c_idxs[idx], SLIDER_W)
+
+            # Footer
+            foot_y = base_y + len(ROWS) + 1
+            if foot_y < height:
+                status = (
+                    f"  Connected to {current_sock_path[0]}"
+                    if sock.connected
+                    else f"  Disconnected ({current_sock_path[0]}) \u2014 retrying on next command"
+                )
+                col = curses.color_pair(2) if sock.connected else curses.color_pair(3)
+                stdscr.addstr(foot_y, 0, status[: width - 1], col)
+            if foot_y + 1 < height:
+                cam_hint = "   C switch cam" if len(CAMERA_SOCKS) > 1 else ""
+                stdscr.addstr(
+                    foot_y + 1,
+                    2,
+                    "\u2190\u2192 adjust   \u2191\u2193 navigate   R reset   Q quit",
+                    curses.A_DIM,
+                )
+                if cam_hint and foot_y + 2 < height:
+                    stdscr.addstr(foot_y + 2, 2, "C switch cam", curses.A_DIM)
+        except curses.error:
+            pass  # terminal too small — skip frame
+
+        stdscr.refresh()
+
+        # Input (non-blocking)
+        try:
+            key = stdscr.getch()
+        except Exception:
+            key = -1
+
+        if key in (ord("q"), ord("Q")):
+            break
+
+        elif key in (ord("r"), ord("R")):
+            do_reset()
+
+        elif key == curses.KEY_UP:
+            cursor = (cursor - 1) % len(ROWS)
+
+        elif key == curses.KEY_DOWN:
+            cursor = (cursor + 1) % len(ROWS)
+
+        elif key in (curses.KEY_LEFT, curses.KEY_RIGHT):
+            kind, idx = ROWS[cursor]
+            d = 1 if key == curses.KEY_RIGHT else -1
+            if kind == "camera":
+                ci = current_cam_idx[0]
+                do_switch_camera((ci + d) % len(CAMERA_SOCKS))
+            elif kind == "slider":
+                step = SLIDERS[idx][5]
+                lo, hi = SLIDERS[idx][2], SLIDERS[idx][3]
+                s_vals[idx] = max(lo, min(hi, s_vals[idx] + d * step))
+                send_slider(idx, s_vals[idx])
+            else:
+                n = len(COMBOS[idx][2])
+                c_idxs[idx] = (c_idxs[idx] + d) % n
+                send_combo(idx, c_idxs[idx])
+
+        elif key in (ord("c"), ord("C")):
+            # Cycle to next camera socket
+            do_switch_camera((current_cam_idx[0] + 1) % len(CAMERA_SOCKS))
+
+        elif key == -1:
+            curses.napms(30)
+
+    # Save state on clean exit.
+    cam_s_vals[current_cam_idx[0]] = list(s_vals)
+    cam_c_idxs[current_cam_idx[0]] = list(c_idxs)
+    save_state(cam_s_vals, cam_c_idxs)
+
+
+def run():
+    try:
+        curses.wrapper(main)
+    except KeyboardInterrupt:
+        pass
+
+
+# Named keys for the shared state file — must match the GUI's JSON format.
+# Order corresponds to SLIDERS list.
+_SLIDER_KEYS = [
+    "brightness",  # SLIDERS[0]
+    "ev",  # SLIDERS[1]
+    "contrast",  # SLIDERS[2]
+    "saturation",  # SLIDERS[3]
+    "gain",  # SLIDERS[4]
+    "sharpness",  # SLIDERS[5]
+    "zoom",  # SLIDERS[6]
+    "awbGainR",  # SLIDERS[7]
+    "awbGainB",  # SLIDERS[8]
+]
+_COMBO_KEYS = [
+    "awbIdx",  # COMBOS[0]
+    "meteringIdx",  # COMBOS[1]
+    "exposureIdx",  # COMBOS[2]
+    "denoiseIdx",  # COMBOS[3]
+    "hdrIdx",  # COMBOS[4]
+]
+
+
+def _default_cam_state():
+    return {
+        "s_vals": [s[4] for s in SLIDERS],
+        "c_idxs": [0] * len(COMBOS),
+    }
+
+
+def _state_file(cam_idx):
+    """Return the shared state file path for a camera index."""
+    return Path("/tmp") / f"rpicam-vid{cam_idx}.state"
+
+
+def load_cam_state(cam_idx):
+    """Load state from /tmp/rpicam-vid{N}.state (named-key JSON, GUI-compatible)."""
+    try:
+        data = json.loads(_state_file(cam_idx).read_text())
+        if not data:
+            return _default_cam_state()
+        s = _default_cam_state()
+        for i, key in enumerate(_SLIDER_KEYS):
+            if key in data:
+                s["s_vals"][i] = int(data[key])
+        for i, key in enumerate(_COMBO_KEYS):
+            if key in data:
+                s["c_idxs"][i] = int(data[key])
+        return s
+    except Exception:
+        return _default_cam_state()
+
+
+def load_state():
+    """Return list of per-camera state dicts (one per CAMERA_SOCKS entry)."""
+    return [load_cam_state(i) for i in range(len(CAMERA_SOCKS))]
+
+
+def save_cam_state(cam_idx, s_vals, c_idxs):
+    """Write state atomically to /tmp/rpicam-vid{N}.state (named-key JSON, GUI-compatible)."""
+    try:
+        target = _state_file(cam_idx)
+        tmp = Path(str(target) + ".tmp")
+        data = {key: s_vals[i] for i, key in enumerate(_SLIDER_KEYS)}
+        data.update({key: c_idxs[i] for i, key in enumerate(_COMBO_KEYS)})
+        tmp.write_text(json.dumps(data, indent=2))
+        os.replace(tmp, target)  # atomic on POSIX
+    except Exception:
+        pass  # non-fatal
+
+
+def save_state(cam_s_vals, cam_c_idxs):
+    for i in range(len(CAMERA_SOCKS)):
+        save_cam_state(i, cam_s_vals[i], cam_c_idxs[i])
+
+
+if __name__ == "__main__":
+    run()
