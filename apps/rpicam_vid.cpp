@@ -11,6 +11,7 @@
 #include <sys/signalfd.h>
 #include <sys/stat.h>
 
+#include "apps/control_socket.hpp"
 #include "core/rpicam_encoder.hpp"
 #include "output/output.hpp"
 
@@ -28,7 +29,7 @@ static void default_signal_handler(int signal_number)
 static int get_key_or_signal(VideoOptions const *options, pollfd p[1])
 {
 	int key = 0;
-	if (signal_received == SIGINT)
+	if (signal_received == SIGINT || signal_received == SIGTERM)
 		return 'x';
 	if (options->Get().keypress)
 	{
@@ -71,14 +72,44 @@ static void event_loop(RPiCamEncoder &app)
 
 	app.OpenCamera();
 	app.ConfigureVideo(get_colourspace_flags(options->Get().codec));
+
+	// Query the maximum fps for the negotiated sensor mode from FrameDurationLimits.
+	// Must be read after ConfigureVideo() / camera_->configure() so the pipeline
+	// has selected the actual sensor mode and the control range is mode-specific.
+	// Reading after StartCamera() would return the same value but is unnecessarily late.
+	int caps_max_fps = 0;
+	{
+		auto cameras = app.GetCameras();
+		const int camIdx = options->Get().camera;
+		if (camIdx >= 0 && camIdx < static_cast<int>(cameras.size()))
+		{
+			const auto &controls = cameras[camIdx]->controls();
+			const auto it = controls.find(&libcamera::controls::FrameDurationLimits);
+			if (it != controls.end())
+			{
+				const int64_t min_duration_us = it->second.min().get<int64_t>();
+				if (min_duration_us > 0)
+					caps_max_fps = static_cast<int>(1'000'000LL / min_duration_us);
+			}
+		}
+	}
+
 	app.StartEncoder();
 	app.StartCamera();
 	auto start_time = std::chrono::high_resolution_clock::now();
+
+	// Runtime control socket: path derived from camera index (e.g. --camera 1 → /tmp/rpicam-vid1.sock).
+	std::string ctrl_sock_path = "/tmp/rpicam-vid" + std::to_string(options->Get().camera) + ".sock";
+	ControlSocket ctrl_socket(ctrl_sock_path);
+	if (!ctrl_socket.IsValid())
+		LOG_ERROR("ControlSocket: failed to initialise – runtime control unavailable");
+	const bool ctrl_is_pisp = app.SupportsScalerCrops();
 
 	// Monitoring for keypresses and signals.
 	signal(SIGUSR1, default_signal_handler);
 	signal(SIGUSR2, default_signal_handler);
 	signal(SIGINT, default_signal_handler);
+	signal(SIGTERM, default_signal_handler);
 	// SIGPIPE gets raised when trying to write to an already closed socket. This can happen, when
 	// you're using TCP to stream to VLC and the user presses the stop button in VLC. Catching the
 	// signal to be able to react on it, otherwise the app terminates.
@@ -102,6 +133,28 @@ static void event_loop(RPiCamEncoder &app)
 		int key = get_key_or_signal(options, p);
 		if (key == '\n')
 			output->Signal();
+
+		// Check the runtime control socket for pending parameter updates.
+		ctrl_socket.AcceptConnections();
+		{
+			// Send camera capabilities once to every new client.
+			// Format: "caps:maxfps=<n>,hasaf=<0|1>\n"
+			if (ctrl_socket.HasNewClient())
+			{
+				auto cameras = app.GetCameras();
+				const int camIdx = options->Get().camera;
+				const bool has_af = (camIdx >= 0 && camIdx < static_cast<int>(cameras.size()))
+										? cameras[camIdx]->controls().count(&libcamera::controls::AfMode) > 0
+										: false;
+				std::string caps =
+					"caps:maxfps=" + std::to_string(caps_max_fps) + ",hasaf=" + (has_af ? "1" : "0") + "\n";
+				ctrl_socket.SendToClient(caps);
+				ctrl_socket.ClearNewClient();
+			}
+			libcamera::ControlList cl = ctrl_socket.ReadControls(app.GetSensorArea(), ctrl_is_pisp);
+			if (!cl.empty())
+				app.SetControls(cl);
+		}
 
 		LOG(2, "Viewfinder frame " << count);
 		auto now = std::chrono::high_resolution_clock::now();

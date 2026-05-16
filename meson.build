@@ -96,5 +96,6 @@ summary({
             'TFLite postprocessing' : enable_tflite,
             'Hailo postprocessing' : enable_hailo,
             'IMX500 postprocessing' : get_option('enable_imx500'),
+            'runtime control GUI' : get_option('enable_control_gui'),
         },
         bool_yn : true, section : 'Build configuration')

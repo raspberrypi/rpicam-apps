@@ -48,3 +48,8 @@ option('disable_rpi_features',
         type : 'boolean',
         value : false,
         description : 'Disable use Raspberry Pi specific extensions in the build')
+
+option('enable_control_gui',
+        type : 'feature',
+        value : 'disabled',
+        description : 'Build the optional Qt runtime control GUI (rpicam-vid-gui)')
