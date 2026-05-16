@@ -66,6 +66,8 @@ Both `rpicam-vid-tui` and `rpicam-vid-gui` can switch between cameras at runtime
 | `exposure:<mode>` | string | `normal` `sport` |
 | `denoise:<mode>` | string | `auto` `off` `cdn_off` `cdn_fast` `cdn_hq` |
 | `hdr:<mode>` | string | `off` `auto` `sensor` `single-exp` |
+| `shutter:<µs>` | integer | exposure time in microseconds; `0` = auto |
+| `framerate:<fps>` | integer | target frame rate; `0` = auto (sensor maximum) |
 
 > **AWB note:** `awb:<mode>` re-enables auto AWB. `awbgains:<r>,<b>` disables
 > auto AWB and applies fixed colour gains. Switching back to any `awb:` mode
@@ -73,6 +75,30 @@ Both `rpicam-vid-tui` and `rpicam-vid-gui` can switch between cameras at runtime
 
 > **HDR note:** On imx477 (HQ Camera), only `off` and `single-exp` are
 > functional at runtime. `auto` and `sensor` both map to single-exposure HDR.
+
+> **Shutter / framerate note:** `shutter:0` restores auto exposure;
+> `framerate:0` removes the frame-rate cap. Setting both to non-zero values
+> enters fully manual exposure mode. The maximum useful shutter duration is
+> 1 / framerate seconds; the GUI and TUI enforce this automatically.
+
+---
+
+## Caps protocol (server → client)
+
+When a client connects, `rpicam-vid` sends a single line describing the active
+sensor mode's capabilities:
+
+```
+caps:maxfps=40,hasaf=0
+```
+
+| Field | Meaning |
+|---|---|
+| `maxfps` | Maximum frame rate of the active mode (integer) |
+| `hasaf` | `1` if the camera supports autofocus, `0` otherwise |
+
+Both `rpicam-vid-gui` and `rpicam-vid-tui` parse this line and clamp the
+framerate slider maximum accordingly.
 
 ---
 
@@ -98,9 +124,25 @@ dependencies required.
 | `R` | Reset all parameters to defaults |
 | `Q` | Quit |
 
-All sliders and dropdowns mirror the same parameters as the socket commands.
+**Parameters:**
+
+| Row | Type | Notes |
+|---|---|---|
+| Brightness, EV | slider | |
+| Shutter | log-scale slider | 0 = auto; range 100 µs … 1-frame period |
+| Framerate | integer slider | 0 = auto; max clamped from sensor caps |
+| Contrast, Saturation | slider | |
+| Gain, Sharpness | slider | |
+| AWB Gain R / B | slider | auto-switches AWB mode to manual |
+| Zoom | slider | maps to `roi:` |
+| AWB, Metering, Exposure, Denoise, HDR | combo | |
+
 The TUI connects automatically and retries on the next keypress if
-`rpicam-vid` is not yet running.
+`rpicam-vid` is not yet running. On connect, it receives the `caps:` line
+and adjusts the framerate slider maximum for the active sensor mode.
+
+**Auto-select cam1:** if `/tmp/rpicam-vid0.sock` does not exist but
+`/tmp/rpicam-vid1.sock` does, camera 1 is selected automatically on startup.
 
 Settings are persisted to `/tmp/rpicam-vid{N}.state` (JSON) per camera index
 and shared with `rpicam-vid-gui`. Switching cameras restores that camera's
@@ -116,15 +158,19 @@ camera 1 at runtime without restarting the tool. Connects automatically to the
 socket on startup and reconnects if `rpicam-vid` is restarted.
 
 **Features:**
-- Sliders: brightness, EV, contrast, saturation, gain, sharpness, zoom
+- Sliders: brightness, EV, shutter (log-scale), framerate (1 fps integer steps),
+  contrast, saturation, gain, sharpness, AWB gains R/B, zoom
 - AWB mode dropdown + manual R/B gain sliders (auto-switches to manual on move)
 - Metering, exposure mode, denoise, HDR dropdowns
-- Camera selector (0 / 1) — per-camera state, no bleeding between cameras
+- Camera selector (0 / 1) — auto-selects cam 1 if cam 0 socket is absent
+- Per-mode fps cap: on connect `rpicam-vid` sends `caps:maxfps=N`;
+  the framerate slider is clamped and the current value is adjusted if needed
+- Autofocus (AF) controls are implemented but hidden — untested due to
+  missing hardware; not production-ready
 - Reset button restores all defaults
-- Window position saved across restarts
 - Keyboard shortcuts: `R` reset, `Q` quit, `C` switch camera
 - Settings persisted to `/tmp/rpicam-vid{N}.state`, shared with `rpicam-vid-tui`
-- Reconnects automatically; re-reads state file on each connect (shows hardware defaults after camera restart)
+- Reconnects automatically; re-reads state file on each connect
 
 **Build** (requires Qt5 Widgets + Network):
 

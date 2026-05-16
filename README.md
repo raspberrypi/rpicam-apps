@@ -18,6 +18,8 @@ Runtime Control (feature/runtime-control-socket)
 
 | Command | Example | Effect |
 |---|---|---|
+| `shutter:<µs>` | `shutter:10000` | Fixed shutter 0 (auto) … sensor max µs |
+| `framerate:<fps>` | `framerate:30` | Fixed framerate 0 (auto) … sensor max fps |
 | `brightness:<val>` | `brightness:-0.2` | Brightness −1.0 … +1.0 |
 | `ev:<val>` | `ev:1.5` | EV compensation −3.0 … +3.0 |
 | `contrast:<val>` | `contrast:1.2` | Contrast 0.0 … 3.0 |
@@ -42,7 +44,16 @@ echo "roi:0.25,0.25,0.5,0.5" | nc -U /tmp/rpicam-vid0.sock
 
 ### Qt GUI (`rpicam-vid-gui`)
 
-A graphical control panel built with Qt Widgets. Includes sliders, dropdowns, camera selector (0/1) and keyboard shortcuts (`R` reset, `Q` quit, `C` switch camera). Build via Meson:
+A graphical control panel built with Qt Widgets. Connects to the running `rpicam-vid` socket and provides:
+
+- **Sliders** for brightness, EV, contrast, saturation, sharpness, gain, zoom, AWB gains, shutter (logarithmic scale), and framerate (1 fps integer steps)
+- **Dropdowns** for AWB, metering, exposure, denoise, HDR modes
+- **Autofocus (AF) controls** are implemented in code but hidden in the UI — untested due to missing hardware (no AF-capable lens available); not production-ready
+- **Camera selector** (Cam 0 / Cam 1) — auto-selects Cam 1 if Cam 0 is not detected
+- **Per-mode fps cap**: on connect, `rpicam-vid` reports the active sensor mode's maximum fps; the framerate slider is clamped accordingly
+- **Keyboard shortcuts**: `R` reset all, `Q` quit, `C` switch camera
+
+Build via Meson:
 
 ```sh
 meson configure build -Denable_control_gui=enabled

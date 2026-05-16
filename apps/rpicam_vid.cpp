@@ -72,6 +72,28 @@ static void event_loop(RPiCamEncoder &app)
 
 	app.OpenCamera();
 	app.ConfigureVideo(get_colourspace_flags(options->Get().codec));
+
+	// Query the maximum fps for the negotiated sensor mode from FrameDurationLimits.
+	// Must be read after ConfigureVideo() / camera_->configure() so the pipeline
+	// has selected the actual sensor mode and the control range is mode-specific.
+	// Reading after StartCamera() would return the same value but is unnecessarily late.
+	int caps_max_fps = 0;
+	{
+		auto cameras = app.GetCameras();
+		const int camIdx = options->Get().camera;
+		if (camIdx >= 0 && camIdx < static_cast<int>(cameras.size()))
+		{
+			const auto &controls = cameras[camIdx]->controls();
+			const auto it = controls.find(&libcamera::controls::FrameDurationLimits);
+			if (it != controls.end())
+			{
+				const int64_t min_duration_us = it->second.min().get<int64_t>();
+				if (min_duration_us > 0)
+					caps_max_fps = static_cast<int>(1'000'000LL / min_duration_us);
+			}
+		}
+	}
+
 	app.StartEncoder();
 	app.StartCamera();
 	auto start_time = std::chrono::high_resolution_clock::now();
@@ -115,6 +137,20 @@ static void event_loop(RPiCamEncoder &app)
 		// Check the runtime control socket for pending parameter updates.
 		ctrl_socket.AcceptConnections();
 		{
+			// Send camera capabilities once to every new client.
+			// Format: "caps:maxfps=<n>,hasaf=<0|1>\n"
+			if (ctrl_socket.HasNewClient())
+			{
+				auto cameras = app.GetCameras();
+				const int camIdx = options->Get().camera;
+				const bool has_af = (camIdx >= 0 && camIdx < static_cast<int>(cameras.size()))
+										? cameras[camIdx]->controls().count(&libcamera::controls::AfMode) > 0
+										: false;
+				std::string caps =
+					"caps:maxfps=" + std::to_string(caps_max_fps) + ",hasaf=" + (has_af ? "1" : "0") + "\n";
+				ctrl_socket.SendToClient(caps);
+				ctrl_socket.ClearNewClient();
+			}
 			libcamera::ControlList cl = ctrl_socket.ReadControls(app.GetSensorArea(), ctrl_is_pisp);
 			if (!cl.empty())
 				app.SetControls(cl);

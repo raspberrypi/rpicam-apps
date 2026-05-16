@@ -137,8 +137,27 @@ public:
 				::close(client_fd_);
 			client_fd_ = fd;
 			recv_buf_.clear();
+			newClientConnected_ = true;
 			LOG(1, "ControlSocket: client connected");
 		}
+	}
+
+	// Returns true once after a new client connected; cleared by ClearNewClient().
+	bool HasNewClient() const
+	{
+		return newClientConnected_;
+	}
+	void ClearNewClient()
+	{
+		newClientConnected_ = false;
+	}
+
+	// Send a raw message to the connected client (non-blocking, fire-and-forget).
+	void SendToClient(const std::string &msg)
+	{
+		if (client_fd_ < 0)
+			return;
+		::send(client_fd_, msg.c_str(), msg.size(), MSG_NOSIGNAL);
 	}
 
 	// Drain the receive buffer of any pending data and return a ControlList
@@ -191,6 +210,7 @@ public:
 private:
 	int server_fd_ = -1;
 	int client_fd_ = -1;
+	bool newClientConnected_ = false;
 	std::string socket_path_;
 
 	// Derive the state-file path from the socket path by replacing the

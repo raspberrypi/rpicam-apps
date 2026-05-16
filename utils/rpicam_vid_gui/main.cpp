@@ -12,6 +12,7 @@
  *   ninja -C build
  */
 
+#include <array>
 #include <cmath>
 
 #include <QApplication>
@@ -27,11 +28,14 @@
 #include <QLocalSocket>
 #include <QMainWindow>
 #include <QMap>
+#include <QProcess>
 #include <QPushButton>
+#include <QRegularExpression>
 #include <QSaveFile>
 #include <QSettings>
 #include <QShortcut>
 #include <QSlider>
+#include <QStandardItemModel>
 #include <QStatusBar>
 #include <QTimer>
 #include <QVBoxLayout>
@@ -41,8 +45,150 @@ static constexpr int RECONN_MS = 2000;
 static constexpr int DEBOUNCE_MS = 60;
 
 // ---------------------------------------------------------------------------
-// Per-camera UI state snapshot (slider integer values + combo indices).
-// Default-initialised members match the widget defaults set in buildUi().
+// Camera capability probe (via rpicam-hello --list-cameras)
+// ---------------------------------------------------------------------------
+
+struct CameraInfo
+{
+	bool present = false;
+	bool hasAf = false;
+	int maxFps = 120; // populated from --list-cameras output
+	QString model;
+};
+
+// Known cameras that support autofocus.
+static const QSet<QString> kAfCameraModels = {
+	"imx708", // Raspberry Pi Camera Module 3
+	"arducam_64mp", // Arducam 64 MP
+	"arducam_imx519", // Arducam 16 MP
+	"arducam_imx708", // Arducam imx708 variant
+};
+
+// Runs "rpicam-hello --list-cameras", parses output and returns info for
+// cameras 0 and 1. If the probe fails (command not found, timeout, …) both
+// entries remain at their zero-initialised defaults so the GUI falls back to
+// showing all controls without restriction.
+static std::array<CameraInfo, 2> probeCameras()
+{
+	std::array<CameraInfo, 2> info;
+
+	QProcess proc;
+	proc.setProcessChannelMode(QProcess::MergedChannels);
+	proc.start("rpicam-hello", { "--list-cameras" });
+	if (!proc.waitForFinished(4000))
+	{
+		proc.kill();
+		return info;
+	}
+
+	const QString out = proc.readAllStandardOutput();
+
+	// Lines of interest look like:  "0 : imx708 [4608x2592 …]"
+	QRegularExpression re(R"(^\s*(\d+)\s*:\s*(\S+)\s*\[)");
+	// Mode lines look like: "         2028x1520 [40.01 fps - …]"
+	QRegularExpression reFps(R"(\[(\d+\.?\d*)\s+fps)");
+	int parsedCamIdx = -1;
+	for (const QString &line : out.split('\n'))
+	{
+		const auto m = re.match(line);
+		if (m.hasMatch())
+		{
+			parsedCamIdx = m.captured(1).toInt();
+			if (parsedCamIdx < 0 || parsedCamIdx >= 2)
+			{
+				parsedCamIdx = -1;
+				continue;
+			}
+			const QString model = m.captured(2).toLower();
+			info[parsedCamIdx].present = true;
+			info[parsedCamIdx].model = model;
+			info[parsedCamIdx].hasAf = kAfCameraModels.contains(model);
+			info[parsedCamIdx].maxFps = 0; // filled in by mode lines below
+		}
+		else if (parsedCamIdx >= 0)
+		{
+			const auto mFps = reFps.match(line);
+			if (mFps.hasMatch())
+			{
+				const int fps = static_cast<int>(mFps.captured(1).toDouble());
+				info[parsedCamIdx].maxFps = std::max(info[parsedCamIdx].maxFps, fps);
+			}
+		}
+	}
+	// Ensure a sensible default for cameras where no fps line was found.
+	for (auto &ci : info)
+		if (ci.present && ci.maxFps == 0)
+			ci.maxFps = 120;
+	return info;
+}
+
+// ---------------------------------------------------------------------------
+// Framerate slider: value 0 = auto, 1..N = fps directly (1 fps integer steps).
+// ---------------------------------------------------------------------------
+static constexpr int FPS_SLIDER_MAX_DEFAULT = 120; // overridden by caps/probe
+
+// Returns the display label for a framerate slider value.
+static QString framerateLabel(int fps)
+{
+	return fps <= 0 ? "auto" : QString("%1 fps").arg(fps);
+}
+
+// ---------------------------------------------------------------------------
+// Shutter slider: position 0 = auto; 1..SHUTTER_STEPS maps logarithmically
+// to 100 µs .. maxShutterUs(fpsIdx).  The upper bound is dynamic: it equals
+// 1 000 000 / fps so the shutter can never exceed one frame period.
+// ---------------------------------------------------------------------------
+static constexpr int SHUTTER_STEPS = 200;
+
+// Returns the maximum meaningful shutter in µs for the given fps slider index.
+// fallbackMaxFps is used when fpsIdx == 0 (auto); it comes from the caps message.
+static int maxShutterUs(int fpsSlidVal, int fallbackMaxFps)
+{
+	double fps = static_cast<double>(fpsSlidVal);
+	if (fps <= 0.0)
+		fps = (fallbackMaxFps > 0) ? static_cast<double>(fallbackMaxFps) : 30.0;
+	if (fps < 1.0)
+		fps = 1.0; // floor at 1 fps
+	return static_cast<int>(1'000'000.0 / fps);
+}
+
+static int shutterMicros(int sliderVal, int maxUs)
+{
+	if (sliderVal <= 0)
+		return 0;
+	const double lo = 100.0;
+	const double hi = static_cast<double>(maxUs);
+	const double t = static_cast<double>(sliderVal - 1) / (SHUTTER_STEPS - 1);
+	return static_cast<int>(std::round(lo * std::pow(hi / lo, t)));
+}
+
+// Inverse of shutterMicros: find the closest slider position for targetUs.
+static int shutterSliderForMicros(int targetUs, int maxUs)
+{
+	if (targetUs <= 0)
+		return 0;
+	const double lo = 100.0;
+	const double hi = static_cast<double>(maxUs);
+	if (targetUs <= static_cast<int>(lo))
+		return 1;
+	if (targetUs >= maxUs)
+		return SHUTTER_STEPS;
+	const double t = std::log(static_cast<double>(targetUs) / lo) / std::log(hi / lo);
+	return std::clamp(static_cast<int>(std::round(t * (SHUTTER_STEPS - 1))) + 1, 1, SHUTTER_STEPS);
+}
+
+static QString shutterLabel(int sliderVal, int maxUs)
+{
+	if (sliderVal <= 0)
+		return "auto";
+	const int us = shutterMicros(sliderVal, maxUs);
+	if (us < 1000)
+		return QString("%1 µs").arg(us);
+	if (us < 1'000'000)
+		return QString("%1 ms").arg(us / 1000.0, 0, 'f', 1);
+	return QString("%1 s").arg(us / 1'000'000.0, 0, 'f', 2);
+}
+
 // ---------------------------------------------------------------------------
 struct CameraState
 {
@@ -60,6 +206,10 @@ struct CameraState
 	int exposureIdx = 0;
 	int denoiseIdx = 0;
 	int hdrIdx = 0;
+	int shutter = 0; // slider position 0..SHUTTER_STEPS; 0=auto, log-scale -> shutterMicros()
+	int framerateIdx = 0; // fps directly: 0=auto, 1..N fps
+	int afIdx = 0; // 0=auto, 1=continuous, 2=manual
+	int lens = 0; // 0..100; val/10.0 = LensPosition
 };
 
 // ---------------------------------------------------------------------------
@@ -83,6 +233,7 @@ public:
 					else if (s == QLocalSocket::UnconnectedState)
 						onDisconnected();
 				});
+		connect(sock_, &QLocalSocket::readyRead, this, &ControlWindow::onSocketData);
 
 		reconnTimer_ = new QTimer(this);
 		reconnTimer_->setInterval(RECONN_MS);
@@ -92,6 +243,23 @@ public:
 		debounceTimer_->setSingleShot(true);
 		debounceTimer_->setInterval(DEBOUNCE_MS);
 		connect(debounceTimer_, &QTimer::timeout, this, &ControlWindow::flush);
+
+		// Probe available cameras before building the UI so that buildUi()
+		// can populate the camera combo and set AF controls accordingly.
+		camInfo_ = probeCameras();
+
+		// Auto-select cam1 if only cam1 has a live rpicam-vid socket.
+		// This handles the case where cam0 is listed by libcamera but is not
+		// actually running (e.g. hardware fault), while cam1 is active.
+		// Socket presence is a more reliable signal than probe output.
+		// Must happen before buildUi() so the combo is initialized correctly.
+		const bool sock0 = QFile::exists("/tmp/rpicam-vid0.sock");
+		const bool sock1 = QFile::exists("/tmp/rpicam-vid1.sock");
+		if (!sock0 && sock1)
+		{
+			currentCameraIdx_ = 1;
+			currentSockPath_ = "/tmp/rpicam-vid1.sock";
+		}
 
 		buildUi();
 		loadAllStatesFromFiles();
@@ -170,6 +338,54 @@ private slots:
 		statusBar()->setStyleSheet("QStatusBar { color: #c0392b; }");
 		if (!reconnTimer_->isActive())
 			reconnTimer_->start();
+	}
+
+	// Receives capability information pushed by rpicam-vid on connect.
+	// Format: "caps:maxfps=<n>,hasaf=<0|1>\n"
+	void onSocketData()
+	{
+		while (sock_->canReadLine())
+		{
+			const QString line = QString::fromUtf8(sock_->readLine()).trimmed();
+			if (line.startsWith("caps:"))
+				parseCaps(line.mid(5));
+		}
+	}
+
+	void parseCaps(const QString &caps)
+	{
+		for (const QString &kv : caps.split(','))
+		{
+			const QStringList parts = kv.split('=');
+			if (parts.size() != 2)
+				continue;
+			const QString key = parts[0].trimmed();
+			const QString val = parts[1].trimmed();
+			if (key == "maxfps")
+			{
+				const int fps = val.toInt();
+				if (fps > 0 && currentCameraIdx_ >= 0 && currentCameraIdx_ < 2)
+				{
+					// Store the authoritative max fps from the active sensor mode.
+					// Used by maxShutterUs() when framerate is set to auto.
+					camInfo_[currentCameraIdx_].maxFps = fps;
+					// Clamp the framerate slider to the hardware max.
+					QSignalBlocker b(framerateSlider_);
+					framerateSlider_->setMaximum(fps);
+					if (framerateSlider_->value() > fps)
+					{
+						framerateSlider_->setValue(0);
+						framerateVal_->setText("auto");
+					}
+				}
+			}
+			else if (key == "hasaf")
+			{
+				if (currentCameraIdx_ >= 0 && currentCameraIdx_ < 2)
+					camInfo_[currentCameraIdx_].hasAf = (val == "1");
+				applyCameraCapabilities(currentCameraIdx_);
+			}
+		}
 	}
 
 	// Queue a key:value command and (re)start the debounce window.
@@ -257,6 +473,45 @@ private slots:
 		double val = v / 10.0;
 		sharpnessVal_->setText(QString::number(val, 'f', 1));
 		queue("sharpness", QString::number(val, 'f', 1));
+	}
+
+	void onShutterChanged(int v)
+	{
+		const int maxUs = maxShutterUs(framerateSlider_->value(), camInfo_[currentCameraIdx_].maxFps);
+		shutterVal_->setText(shutterLabel(v, maxUs));
+		queue("shutter", QString::number(shutterMicros(v, maxUs)));
+	}
+
+	void onFramerateChanged(int fps)
+	{
+		framerateVal_->setText(framerateLabel(fps));
+		// Send 0 for auto, otherwise the integer fps value.
+		queue("framerate", fps <= 0 ? "0" : QString::number(fps));
+
+		// Rescale the shutter slider: preserve the current µs value as closely
+		// as possible, but clamp to the new maximum (= one frame period).
+		const int newMaxUs = maxShutterUs(fps, camInfo_[currentCameraIdx_].maxFps);
+		const int currentUs = shutterMicros(shutterSlider_->value(), newMaxUs);
+		const int clampedUs = std::min(currentUs, newMaxUs);
+		{
+			QSignalBlocker b(shutterSlider_);
+			shutterSlider_->setValue(shutterSliderForMicros(clampedUs, newMaxUs));
+		}
+		shutterVal_->setText(shutterLabel(shutterSlider_->value(), newMaxUs));
+	}
+
+	void onAfChanged(int idx)
+	{
+		static const QStringList modes = { "auto", "continuous", "manual" };
+		lensSlider_->setEnabled(idx == 2);
+		if (idx >= 0 && idx < modes.size())
+			sendNow("af:" + modes[idx]);
+	}
+
+	void onLensChanged(int v)
+	{
+		lensVal_->setText(QString::number(v / 10.0, 'f', 1));
+		queue("lens", QString::number(v / 10.0, 'f', 1));
 	}
 
 	void onAwbChanged(int idx)
@@ -359,6 +614,10 @@ private slots:
 		o["exposureIdx"] = c.exposureIdx;
 		o["denoiseIdx"] = c.denoiseIdx;
 		o["hdrIdx"] = c.hdrIdx;
+		o["shutter"] = c.shutter;
+		o["framerateIdx"] = c.framerateIdx; // fps directly (0 = auto)
+		o["afIdx"] = c.afIdx;
+		o["lens"] = c.lens;
 		// Write atomically: QSaveFile writes to a temp file and renames on
 		// commit, overwriting any existing target file.
 		QSaveFile f(stateFilePath(camIdx));
@@ -392,6 +651,15 @@ private slots:
 		c.exposureIdx = o.value("exposureIdx").toInt(c.exposureIdx);
 		c.denoiseIdx = o.value("denoiseIdx").toInt(c.denoiseIdx);
 		c.hdrIdx = o.value("hdrIdx").toInt(c.hdrIdx);
+		c.shutter = std::min(o.value("shutter").toInt(c.shutter), SHUTTER_STEPS);
+		// framerateIdx is the fps directly (0=auto, 1..N fps).
+		// Accept legacy "framerate" float key for backwards compat.
+		if (o.contains("framerateIdx"))
+			c.framerateIdx = std::clamp(o.value("framerateIdx").toInt(0), 0, 240);
+		else
+			c.framerateIdx = std::clamp(static_cast<int>(std::round(o.value("framerate").toDouble(0.0))), 0, 240);
+		c.afIdx = o.value("afIdx").toInt(c.afIdx);
+		c.lens = o.value("lens").toInt(c.lens);
 		return c;
 	}
 
@@ -421,6 +689,10 @@ private slots:
 		s.exposureIdx = exposureCombo_->currentIndex();
 		s.denoiseIdx = denoiseCombo_->currentIndex();
 		s.hdrIdx = hdrCombo_->currentIndex();
+		s.shutter = shutterSlider_->value();
+		s.framerateIdx = framerateSlider_->value();
+		s.afIdx = afCombo_->currentIndex();
+		s.lens = lensSlider_->value();
 	}
 
 	void applyUiState(const CameraState &s)
@@ -429,6 +701,7 @@ private slots:
 		QSignalBlocker b5(zoomSlider_), b6(gainSlider_), b7(sharpnessSlider_);
 		QSignalBlocker b8(awbGainRSlider_), b9(awbGainBSlider_), b10(awbCombo_);
 		QSignalBlocker b11(meteringCombo_), b12(exposureCombo_), b13(denoiseCombo_), b14(hdrCombo_);
+		QSignalBlocker b15(shutterSlider_), b16(framerateSlider_), b17(afCombo_), b18(lensSlider_);
 
 		brightnessSlider_->setValue(s.brightness);
 		evSlider_->setValue(s.ev);
@@ -444,6 +717,11 @@ private slots:
 		exposureCombo_->setCurrentIndex(s.exposureIdx);
 		denoiseCombo_->setCurrentIndex(s.denoiseIdx);
 		hdrCombo_->setCurrentIndex(s.hdrIdx);
+		shutterSlider_->setValue(s.shutter);
+		framerateSlider_->setValue(s.framerateIdx);
+		afCombo_->setCurrentIndex(s.afIdx);
+		lensSlider_->setValue(s.lens);
+		lensSlider_->setEnabled(s.afIdx == 2);
 
 		brightnessVal_->setText(QString::asprintf("%+.2f", s.brightness / 100.0));
 		evVal_->setText(QString::asprintf("%+.1f", s.ev / 10.0));
@@ -464,6 +742,11 @@ private slots:
 			awbGainRVal_->setText("auto");
 			awbGainBVal_->setText("auto");
 		}
+
+		const int maxUs = maxShutterUs(s.framerateIdx, camInfo_[currentCameraIdx_].maxFps);
+		shutterVal_->setText(shutterLabel(s.shutter, maxUs));
+		framerateVal_->setText(framerateLabel(s.framerateIdx));
+		lensVal_->setText(QString::number(s.lens / 10.0, 'f', 1));
 	}
 
 	void sendCameraState(const CameraState &s)
@@ -506,6 +789,14 @@ private slots:
 		batch += "denoise:" + denoiseModes[s.denoiseIdx] + "\n";
 		batch += "hdr:" + hdrModes[s.hdrIdx] + "\n";
 
+		if (s.shutter != 0)
+		{
+			const int maxUs = maxShutterUs(s.framerateIdx, camInfo_[currentCameraIdx_].maxFps);
+			batch += QString("shutter:%1\n").arg(shutterMicros(s.shutter, maxUs));
+		}
+		if (s.framerateIdx != 0)
+			batch += QString("framerate:%1\n").arg(s.framerateIdx);
+
 		sendNow(batch.trimmed());
 	}
 
@@ -529,6 +820,8 @@ private slots:
 		sock_->abort();
 		// Restore the target camera's UI immediately (no flickering wait).
 		applyUiState(cameraStates_[currentCameraIdx_]);
+		// Show / hide AF controls based on the new camera's capabilities.
+		applyCameraCapabilities(currentCameraIdx_);
 		// Immediately attempt connection to the new socket; the reconnect
 		// timer serves only as a fallback if this first attempt fails.
 		tryConnect();
@@ -544,6 +837,7 @@ private slots:
 		QSignalBlocker b5(zoomSlider_), b6(awbCombo_), b7(gainSlider_), b8(sharpnessSlider_);
 		QSignalBlocker b9(meteringCombo_), b10(exposureCombo_), b11(denoiseCombo_), b12(hdrCombo_);
 		QSignalBlocker b13(awbGainRSlider_), b14(awbGainBSlider_);
+		QSignalBlocker b15(shutterSlider_), b16(framerateSlider_), b17(afCombo_), b18(lensSlider_);
 
 		brightnessSlider_->setValue(0);
 		evSlider_->setValue(0);
@@ -559,6 +853,11 @@ private slots:
 		hdrCombo_->setCurrentIndex(0);
 		awbGainRSlider_->setValue(150);
 		awbGainBSlider_->setValue(120);
+		shutterSlider_->setValue(0);
+		framerateSlider_->setValue(0); // index 0 = auto
+		afCombo_->setCurrentIndex(0);
+		lensSlider_->setValue(0);
+		lensSlider_->setEnabled(false);
 
 		brightnessVal_->setText("+0.00");
 		evVal_->setText("+0.0");
@@ -569,6 +868,9 @@ private slots:
 		sharpnessVal_->setText("1.0");
 		awbGainRVal_->setText("auto");
 		awbGainBVal_->setText("auto");
+		shutterVal_->setText("auto");
+		framerateVal_->setText("auto"); // framerateIdx reset to 0
+		lensVal_->setText("0.0");
 
 		sendNow("brightness:0.00\n"
 				"ev:0.0\n"
@@ -581,13 +883,49 @@ private slots:
 				"metering:centre\n"
 				"exposure:normal\n"
 				"denoise:auto\n"
-				"hdr:off");
+				"hdr:off\n"
+				"shutter:0\n"
+				"framerate:0"); // 0 restores AE-managed framerate
 
 		// Keep the stored state in sync with the reset UI.
-		cameraStates_[currentCameraIdx_] = CameraState {};
+		cameraStates_[currentCameraIdx_] = CameraState {}; // framerateIdx=0 = auto
 	}
 
 private:
+	// ------------------------------------------------------------------
+	// AF visibility helper
+	// ------------------------------------------------------------------
+
+	// Returns true if the camera at camIdx supports AF, or if no probe data
+	// is available (show controls rather than hide them in that case).
+	bool cameraHasAf(int camIdx) const
+	{
+		const bool anyFound = camInfo_[0].present || camInfo_[1].present;
+		if (!anyFound)
+			return true; // no probe data → don't hide anything
+		if (camIdx < 0 || camIdx >= 2)
+			return false;
+		return camInfo_[camIdx].hasAf;
+	}
+
+	void applyCameraCapabilities(int camIdx)
+	{
+		// Set the framerate slider range based on the probe data.
+		// Slider value = fps directly (0=auto, 1..maxFps).
+		const bool anyFound = camInfo_[0].present || camInfo_[1].present;
+		if (anyFound && camIdx >= 0 && camIdx < 2 && camInfo_[camIdx].maxFps > 0)
+		{
+			const int maxFps = camInfo_[camIdx].maxFps;
+			QSignalBlocker b(framerateSlider_);
+			framerateSlider_->setMaximum(maxFps);
+			if (framerateSlider_->value() > maxFps)
+			{
+				framerateSlider_->setValue(0);
+				framerateVal_->setText("auto");
+			}
+		}
+	}
+
 	// ------------------------------------------------------------------
 	// UI construction
 	// ------------------------------------------------------------------
@@ -601,12 +939,35 @@ private:
 		root->setSpacing(2);
 		root->setContentsMargins(8, 8, 8, 4);
 
-		// Camera selector
+		// Camera selector — only list cameras that are detected; if the probe
+		// found nothing at all (command not available etc.) fall back to "0"/"1".
 		auto *camBar = new QHBoxLayout;
 		camBar->addWidget(new QLabel("Camera:"));
 		cameraCombo_ = new QComboBox;
-		cameraCombo_->addItems({ "0", "1" });
-		cameraCombo_->setMaximumWidth(90);
+
+		const bool anyFound = camInfo_[0].present || camInfo_[1].present;
+		for (int i = 0; i < 2; ++i)
+		{
+			QString label = QString("Cam %1").arg(i);
+			if (camInfo_[i].present && !camInfo_[i].model.isEmpty())
+				label += "  ·  " + camInfo_[i].model;
+			else if (!camInfo_[i].present && anyFound)
+				label += "  (—)";
+			cameraCombo_->addItem(label);
+
+			// Grey out / disable unavailable entries.
+			if (!camInfo_[i].present && anyFound)
+			{
+				auto *m = qobject_cast<QStandardItemModel *>(cameraCombo_->model());
+				if (m)
+					m->item(i)->setEnabled(false);
+			}
+		}
+
+		cameraCombo_->setMaximumWidth(200);
+		// Initialize to the pre-selected camera (set before buildUi() runs).
+		// Must happen before connecting the signal so no spurious onCameraChanged fires.
+		cameraCombo_->setCurrentIndex(currentCameraIdx_);
 		connect(cameraCombo_, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
 				&ControlWindow::onCameraChanged);
 		camBar->addWidget(cameraCombo_);
@@ -614,11 +975,15 @@ private:
 		root->addLayout(camBar);
 
 		root->addWidget(buildExposureGroup());
+		root->addWidget(buildShutterGroup());
 		root->addWidget(buildImageGroup());
 		root->addWidget(buildCameraGroup());
 		root->addWidget(buildAwbGroup());
 		root->addWidget(buildZoomGroup());
+		focusGroup_ = buildFocusGroup(); // built but not added to layout — AF hidden for now
 		root->addWidget(buildAdvancedGroup());
+
+		applyCameraCapabilities(currentCameraIdx_);
 
 		auto *resetBtn = new QPushButton("Reset all to defaults");
 		resetBtn->setFixedHeight(34);
@@ -761,6 +1126,58 @@ private:
 		return group;
 	}
 
+	QWidget *buildShutterGroup()
+	{
+		auto *group = new QFrame;
+		group->setFrameShape(QFrame::StyledPanel);
+		auto *grid = new QGridLayout(group);
+		grid->setSpacing(3);
+		grid->setContentsMargins(6, 4, 6, 4);
+		grid->setColumnStretch(1, 1);
+
+		shutterSlider_ = addRow(grid, 0, "Shutter", 0, SHUTTER_STEPS, 0, &shutterVal_);
+		shutterVal_->setText("auto");
+		connect(shutterSlider_, &QSlider::valueChanged, this, &ControlWindow::onShutterChanged);
+
+		// Framerate slider range: 0=auto, 1..FPS_STEP_COUNT; max clamped by caps/probe later.
+		framerateSlider_ = addRow(grid, 1, "Framerate", 0, FPS_SLIDER_MAX_DEFAULT, 0, &framerateVal_);
+		framerateVal_->setText("auto");
+		connect(framerateSlider_, &QSlider::valueChanged, this, &ControlWindow::onFramerateChanged);
+
+		return group;
+	}
+
+	QWidget *buildFocusGroup()
+	{
+		auto *group = new QFrame;
+		group->setFrameShape(QFrame::StyledPanel);
+		auto *grid = new QGridLayout(group);
+		grid->setSpacing(3);
+		grid->setContentsMargins(6, 4, 6, 4);
+		grid->setColumnStretch(1, 1);
+
+		auto *afLbl = new QLabel("AF mode:");
+		afLbl->setFixedWidth(90);
+		grid->addWidget(afLbl, 0, 0);
+		afCombo_ = new QComboBox;
+		afCombo_->addItems({ "auto", "continuous", "manual" });
+		afCombo_->setMaximumWidth(120);
+		connect(afCombo_, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &ControlWindow::onAfChanged);
+		grid->addWidget(afCombo_, 0, 1);
+
+		auto *trigBtn = new QPushButton("Trigger AF");
+		trigBtn->setMaximumWidth(100);
+		connect(trigBtn, &QPushButton::clicked, this, [this] { sendNow("af:trigger"); });
+		grid->addWidget(trigBtn, 0, 2);
+
+		lensSlider_ = addRow(grid, 1, "Lens pos.", 0, 100, 0, &lensVal_);
+		lensVal_->setText("0.0");
+		lensSlider_->setEnabled(false);
+		connect(lensSlider_, &QSlider::valueChanged, this, &ControlWindow::onLensChanged);
+
+		return group;
+	}
+
 	QWidget *buildZoomGroup()
 	{
 		auto *group = new QFrame;
@@ -812,6 +1229,7 @@ private:
 	QString currentSockPath_ = "/tmp/rpicam-vid0.sock";
 	int currentCameraIdx_ = 0;
 	CameraState cameraStates_[2];
+	std::array<CameraInfo, 2> camInfo_;
 	QComboBox *cameraCombo_;
 
 	QSlider *brightnessSlider_;
@@ -837,6 +1255,14 @@ private:
 	QComboBox *exposureCombo_;
 	QComboBox *denoiseCombo_;
 	QComboBox *hdrCombo_;
+	QSlider *shutterSlider_;
+	QSlider *framerateSlider_;
+	QSlider *lensSlider_;
+	QLabel *shutterVal_;
+	QLabel *framerateVal_;
+	QLabel *lensVal_;
+	QComboBox *afCombo_;
+	QWidget *focusGroup_ = nullptr;
 };
 
 #include "main.moc"
