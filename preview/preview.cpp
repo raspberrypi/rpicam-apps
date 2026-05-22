@@ -75,45 +75,30 @@ Preview *make_preview(Options const *options)
 	auto &factory = PreviewFactory::GetInstance();
 	factory.LoadPreviewLibraries(options->Get().preview_libs);
 
-	if (options->Get().nopreview)
-		return factory.CreatePreview("null")(options);
-	else if (options->Get().qt_preview)
+	if (!options->Get().nopreview)
 	{
-		if (factory.HasPreview("qt"))
-		{
-			LOG(1, "Made QT preview window");
-			return factory.CreatePreview("qt")(options);
-		}
-	}
-	else
-	{
-		try
-		{
-			if (factory.HasPreview("egl"))
-			{
-				LOG(1, "Made X/EGL preview window");
-				return factory.CreatePreview("egl")(options);
-			}
-			throw std::runtime_error("egl libraries unavailable.");
-		}
-		catch (std::exception const &e)
+		std::vector<std::string> previews = { "egl", "drm" };
+		if (options->Get().qt_preview)
+			previews.insert(previews.begin(), "qt");
+
+		for (auto const &p : previews)
 		{
 			try
 			{
-				if (factory.HasPreview("drm"))
+				if (factory.HasPreview(p))
 				{
-					LOG(1, "Made DRM preview window");
-					return factory.CreatePreview("drm")(options);
+					Preview *r = factory.CreatePreview(p)(options);
+					LOG(1, "Made " + p + " preview window");
+					return r;
 				}
-				throw std::runtime_error("drm libraries unavailable.");
 			}
 			catch (std::exception const &e)
 			{
-				LOG(1, "Preview window unavailable");
-				return factory.CreatePreview("null")(options);
+				LOG(1, "Failed to create " + p + " preview");
 			}
 		}
+		LOG(1, "Preview window unavailable");
 	}
 
-	return nullptr; // prevents compiler warning in debug builds
+	return factory.CreatePreview("null")(options); // this really shouldn't fail
 }
