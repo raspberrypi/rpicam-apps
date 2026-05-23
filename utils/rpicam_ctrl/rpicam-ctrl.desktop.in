@@ -1,0 +1,13 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=rpicam-ctrl
+Name[de]=rpicam-ctrl
+Comment=Runtime control panel for rpicam-vid
+Comment[de]=Laufzeitsteuerung für rpicam-vid
+Exec=@BINDIR@/rpicam-ctrl
+Icon=rpicam-ctrl
+Terminal=false
+Categories=AudioVideo;Video;
+Keywords=camera;raspberry;pi;rpicam;video;control;
+StartupNotify=true
