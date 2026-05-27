@@ -110,9 +110,12 @@ void ObjectDetectUDPStage::Read(boost::property_tree::ptree const &params)
 // GCC 12 incorrectly reports out-of-bounds memset/-overflow when inlining
 // resize() inside this template for large T (e.g. std::array<uint8_t,255>).
 // The accesses are valid; suppress the false positive.
+// Clang does not know -Wstringop-overflow, so guard with __GNUC__.
+#if defined(__GNUC__) && !defined(__clang__)
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wstringop-overflow"
 #pragma GCC diagnostic ignored "-Warray-bounds"
+#endif
 template <typename T>
 void append(std::vector<char> &buffer, const T &value)
 {
@@ -121,7 +124,9 @@ void append(std::vector<char> &buffer, const T &value)
 	buffer.resize(old_size + sizeof(T));
 	std::memcpy(buffer.data() + old_size, raw, sizeof(T));
 }
+#if defined(__GNUC__) && !defined(__clang__)
 #pragma GCC diagnostic pop
+#endif
 
 bool ObjectDetectUDPStage::Process(CompletedRequestPtr &completed_request)
 {
