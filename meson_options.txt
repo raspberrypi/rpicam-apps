@@ -51,5 +51,5 @@ option('disable_rpi_features',
 
 option('enable_rpicam_ctrl',
         type : 'feature',
-        value : 'auto',
+        value : 'disabled',
         description : 'Build the optional Qt runtime control panel (rpicam-ctrl)')
