@@ -302,7 +302,9 @@ void EglPreview::makeWindow(char const *name)
 		sizehints.y = y_;
 		sizehints.width = width_;
 		sizehints.height = height_;
-		sizehints.flags = USSize | USPosition;
+		sizehints.flags = USSize;
+		if (options_->Get().preview_x || options_->Get().preview_y)
+			sizehints.flags |= USPosition;
 		XSetNormalHints(display_, window_, &sizehints);
 		XSetStandardProperties(display_, window_, name, name, None, (char **)NULL, 0, &sizehints);
 	}
