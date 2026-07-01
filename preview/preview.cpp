@@ -94,8 +94,6 @@ Preview *make_preview(Options const *options)
 			char const *wayland_display = getenv("WAYLAND_DISPLAY");
 			if (wayland_display && *wayland_display)
 				previews.insert(previews.begin(), "wayland-egl");
-			if (options->Get().qt_preview)
-				previews.insert(previews.begin(), "qt");
 		}
 
 		for (auto const &p : previews)

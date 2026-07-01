@@ -377,6 +377,11 @@ bool OptsInternal::Parse(boost::program_options::variables_map &vm, RPiCamApp *a
 	if (nopreview && vm["info-text"].defaulted())
 		info_text = "";
 
+	// --qt-preview is just a way of selecting the qt backend, so map it onto
+	// preview_backend (unless a backend has been requested explicitly).
+	if (qt_preview && preview_backend.empty())
+		preview_backend = "qt";
+
 	// lens_position is even more awkward, because we have two "default"
 	// behaviours: Either no lens movement at all (if option is not given),
 	// or libcamera's default control value (typically the hyperfocal).
