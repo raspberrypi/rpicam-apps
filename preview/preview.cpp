@@ -78,14 +78,25 @@ Preview *make_preview(Options const *options)
 
 	if (!options->Get().nopreview)
 	{
-		std::vector<std::string> previews = { "egl", "drm" };
-		// On a native Wayland session, prefer the native Wayland EGL preview to
-		// avoid the XWayland round-trip that the X11 EGL preview incurs. On X11
-		// this environment variable is unset, so nothing changes.
-		if (getenv("WAYLAND_DISPLAY"))
-			previews.insert(previews.begin(), "wayland-egl");
-		if (options->Get().qt_preview)
-			previews.insert(previews.begin(), "qt");
+		std::vector<std::string> previews;
+		if (!options->Get().preview_backend.empty())
+		{
+			// The user has forced a specific backend; try only that one.
+			previews = { options->Get().preview_backend };
+		}
+		else
+		{
+			previews = { "egl", "drm" };
+			// On a native Wayland session, prefer the native Wayland EGL preview
+			// to avoid the XWayland round-trip that the X11 EGL preview incurs. On
+			// X11 this environment variable is unset, so nothing changes. An empty
+			// value is treated as unset.
+			char const *wayland_display = getenv("WAYLAND_DISPLAY");
+			if (wayland_display && *wayland_display)
+				previews.insert(previews.begin(), "wayland-egl");
+			if (options->Get().qt_preview)
+				previews.insert(previews.begin(), "qt");
+		}
 
 		for (auto const &p : previews)
 		{
