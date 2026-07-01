@@ -107,6 +107,15 @@ void ObjectDetectUDPStage::Read(boost::property_tree::ptree const &params)
 	udp_broadcast_port = params.get<u_int16_t>("port", UDP_PORT);
 }
 
+// GCC 12 incorrectly reports out-of-bounds memset/-overflow when inlining
+// resize() inside this template for large T (e.g. std::array<uint8_t,255>).
+// The accesses are valid; suppress the false positive.
+// Clang does not know -Wstringop-overflow, so guard with __GNUC__.
+#if defined(__GNUC__) && !defined(__clang__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wstringop-overflow"
+#pragma GCC diagnostic ignored "-Warray-bounds"
+#endif
 template <typename T>
 void append(std::vector<char> &buffer, const T &value)
 {
@@ -115,6 +124,9 @@ void append(std::vector<char> &buffer, const T &value)
 	buffer.resize(old_size + sizeof(T));
 	std::memcpy(buffer.data() + old_size, raw, sizeof(T));
 }
+#if defined(__GNUC__) && !defined(__clang__)
+#pragma GCC diagnostic pop
+#endif
 
 bool ObjectDetectUDPStage::Process(CompletedRequestPtr &completed_request)
 {
@@ -155,9 +167,10 @@ bool ObjectDetectUDPStage::Process(CompletedRequestPtr &completed_request)
 		constexpr uint8_t name_length = 255;
 		udp_data_buffer.push_back(static_cast<char>(name_length));
 
-		std::array<uint8_t, name_length> name;
-		memcpy(name.data(), detection.name.c_str(), name_length - 2);
-		name[name_length - 1] = '\0';
+		std::array<uint8_t, name_length> name {};
+		const size_t copy_len = std::min(detection.name.size(), static_cast<size_t>(name_length - 1));
+		memcpy(name.data(), detection.name.c_str(), copy_len);
+		// name[copy_len] is already '\0' from zero-initialisation above.
 		append(udp_data_buffer, name);
 
 		// 4. Add confidence (4 bytes)
