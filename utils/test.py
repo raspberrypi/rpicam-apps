@@ -305,6 +305,36 @@ def test_hello(exe_dir, output_dir, preview_dir):
     print("rpicam-hello tests passed")
 
 
+def test_preview(exe_dir, output_dir, preview_dir):
+    executable = os.path.join(exe_dir, "rpicam-hello")
+    logfile = os.path.join(output_dir, "log.txt")
+    print("Testing", executable, "preview backends")
+    check_exists(executable, "test_preview")
+    clean_dir(output_dir)
+
+    # Run each preview backend for a couple of seconds. Whether a given backend
+    # can actually open a window depends on the environment (a Wayland session for
+    # wayland-egl, an X server for egl, a free DRM device for drm, Qt for qt), so a
+    # backend that isn't available falls back and is reported as a warning rather
+    # than a failure.
+    for backend in ("drm", "egl", "wayland-egl", "qt"):
+        print("   ", backend, "preview test")
+        args = [executable, "-t", "2000", "--preview-backend", backend]
+        if preview_dir:
+            args += ["--preview-libs", preview_dir]
+        retcode, time_taken = run_executable(args, logfile)
+        check_retcode(retcode, "test_preview: " + backend + " test")
+        check_time(time_taken, 1, 6, "test_preview: " + backend + " test")
+        if ("Made " + backend + " preview window") not in open(logfile, "r").read():
+            print(
+                "WARNING: test_preview:",
+                backend,
+                "preview not available in this environment, test incomplete",
+            )
+
+    print("preview tests passed")
+
+
 def check_size(file, limit, preamble):
     if os.path.getsize(file) < limit:
         raise TestFailure(preamble + " failed, file " + file + " too small")
@@ -1138,6 +1168,8 @@ def test_all(
     try:
         if "hello" in apps:
             test_hello(exe_dir, output_dir, preview_dir)
+        if "preview" in apps:
+            test_preview(exe_dir, output_dir, preview_dir)
         if "still" in apps:
             test_still(exe_dir, output_dir, preview_dir)
         if "jpeg" in apps:
@@ -1165,7 +1197,7 @@ if __name__ == "__main__":
         "--apps",
         "-a",
         action="store",
-        default="hello,still,vid,jpeg,raw,post-processing",
+        default="hello,preview,still,vid,jpeg,raw,post-processing",
         help="List of apps to test",
     )
     parser.add_argument(
