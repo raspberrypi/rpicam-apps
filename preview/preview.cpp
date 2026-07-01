@@ -5,6 +5,7 @@
  * preview.cpp - preview window interface
  */
 
+#include <cstdlib>
 #include <filesystem>
 
 #include "core/dl_lib.hpp"
@@ -78,6 +79,11 @@ Preview *make_preview(Options const *options)
 	if (!options->Get().nopreview)
 	{
 		std::vector<std::string> previews = { "egl", "drm" };
+		// On a native Wayland session, prefer the native Wayland EGL preview to
+		// avoid the XWayland round-trip that the X11 EGL preview incurs. On X11
+		// this environment variable is unset, so nothing changes.
+		if (getenv("WAYLAND_DISPLAY"))
+			previews.insert(previews.begin(), "wayland-egl");
 		if (options->Get().qt_preview)
 			previews.insert(previews.begin(), "qt");
 
