@@ -1,0 +1,111 @@
+/* SPDX-License-Identifier: BSD-2-Clause */
+/*
+ * Copyright (C) 2021, Raspberry Pi (Trading) Limited
+ *
+ * cv_template_stage.cpp - Sobel filter implementation, using OpenCV
+ */
+
+#include <libcamera/stream.h>
+#include <string>
+
+#include "core/rpicam_app.hpp"
+
+#include "post_processing_stages/post_processing_stage.hpp"
+
+#include "opencv2/core.hpp"
+#include "opencv2/imgproc.hpp"
+#include "opencv2/opencv.hpp"
+
+using namespace cv;
+
+using Stream = libcamera::Stream;
+
+class CvTemplateStage : public PostProcessingStage
+{
+public:
+	CvTemplateStage(RPiCamApp *app) : PostProcessingStage(app) {}
+
+	char const *Name() const override;
+
+	void Read(boost::property_tree::ptree const &params) override;
+
+	void Configure() override;
+
+	bool Process(CompletedRequestPtr &completed_request) override;
+
+private:
+	Stream *stream_;
+    int some_config_value_ = 99;
+};
+
+#define NAME "cv_template"
+
+char const *CvTemplateStage::Name() const
+{
+	return NAME;
+}
+
+void CvTemplateStage::Read(boost::property_tree::ptree const &params)
+{
+	some_config_value_ = params.get<int16_t>("some_config_value", 99);
+}
+
+void CvTemplateStage::Configure()
+{
+
+	stream_ = app_->GetMainStream();
+
+	// opencv requires YUV420 format
+	if (!stream_ || stream_->configuration().pixelFormat != libcamera::formats::YUV420)
+		throw std::runtime_error("CvTemplateStage: only YUV420 format supported");
+
+}
+
+bool CvTemplateStage::Process(CompletedRequestPtr &completed_request)
+{
+
+    // get stream info: height, width, stride
+	StreamInfo src_info = app_->GetStreamInfo(stream_);
+
+	// define stream info for RGB image
+	StreamInfo rgb_info;
+	rgb_info.width = src_info.width;
+	rgb_info.height = src_info.height;
+	rgb_info.stride = rgb_info.width * 3;
+
+	// get the frame buffer
+	BufferWriteSync w(app_, completed_request->buffers[stream_]);
+	libcamera::Span<uint8_t> buffer = w.Get()[0];
+
+	// convert YUV420 frame buffer to RGB output
+	std::vector<uint8_t> output(rgb_info.height * rgb_info.stride);
+	Yuv420ToRgb(output.data(), buffer.data(), src_info, rgb_info);
+	uint8_t *ptr = (uint8_t *)output.data();
+
+    // note: the output is decoupled from the frame buffer
+    // modifications will not be visible in the preview window
+    // you are not responsible for any type of display or other output
+
+	// convert RGB buffer to rgb Mat
+	Mat rgb = Mat(rgb_info.height, rgb_info.width, CV_8UC3, ptr, rgb_info.stride);
+	Mat bgr;
+
+	// convert RGB Mat to BGR Mat (opencv internal format)
+	cvtColor(rgb, bgr, COLOR_RGB2BGR);
+
+    // cv image procesing here ...
+    // for example, apply filter, threshold, etc.
+    // save your data
+	// std::string filename = "dummy_output_.jpg";
+	// imwrite(filename, bgr);
+    // note: display data with imshow is not possible in this process loop
+
+	return false;
+}
+
+static PostProcessingStage *Create(RPiCamApp *app)
+{
+	return new CvTemplateStage(app);
+}
+
+static RegisterStage reg(NAME, &Create);
