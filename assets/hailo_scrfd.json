@@ -12,6 +12,10 @@
 
     "hailo_scrfd":
     {
-        "hef_file": "/usr/share/hailo-models/scrfd_2.5g_h8l.hef"
+        "hef_file": "/usr/share/hailo-models/scrfd_2.5g_h8l.hef",
+
+        "display_window_width": 320,
+        "display_window_height": 320,
+        "display_fullscreen": false
     }
 }

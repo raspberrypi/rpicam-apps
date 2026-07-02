@@ -13,6 +13,10 @@
     {
         "hef_file_10": "/usr/share/hailo-models/yolov8m_pose_h10.hef",
         "hef_file_8L": "/usr/share/hailo-models/yolov8s_pose_h8l_pi.hef",
-        "hef_file_8": "/usr/share/hailo-models/yolov8s_pose_h8.hef"
+        "hef_file_8": "/usr/share/hailo-models/yolov8s_pose_h8.hef",
+
+        "display_window_width": 320,
+        "display_window_height": 320,
+        "display_fullscreen": false
     }
 }
