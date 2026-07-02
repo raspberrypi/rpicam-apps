@@ -1,0 +1,6 @@
+<!DOCTYPE RCC>
+<RCC version="1.0">
+  <qresource>
+    <file>rpicam-ctrl.svg</file>
+  </qresource>
+</RCC>

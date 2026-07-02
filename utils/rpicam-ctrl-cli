@@ -1,0 +1,682 @@
+#!/usr/bin/env python3
+# SPDX-License-Identifier: BSD-2-Clause
+# Copyright (C) 2026, Kletternaut
+#
+# rpicam-ctrl-cli  runtime controller — ASCII slider interface
+# Navigate with arrow keys, press R to reset, Q to quit.
+
+import curses
+import json
+import os
+import socket
+import sys
+from pathlib import Path
+
+CAMERA_SOCKS = [
+    "/tmp/rpicam-vid0.sock",  # camera 0
+    "/tmp/rpicam-vid1.sock",  # camera 1
+]
+
+
+def _resolve_sock_path(arg):
+    """Map CLI argument to socket path.
+    No arg / '' / '0' → camera 0, unless only cam1 socket exists (auto-select).
+    '1' → camera 1 (/tmp/rpicam-vid1.sock)
+    Anything else treated as literal path.
+    """
+    if arg is None or arg in ("", "0"):
+        # Auto-select cam1 if only cam1 is active (socket present).
+        cam0_up = Path(CAMERA_SOCKS[0]).exists()
+        cam1_up = Path(CAMERA_SOCKS[1]).exists()
+        if not cam0_up and cam1_up:
+            return CAMERA_SOCKS[1]
+        return CAMERA_SOCKS[0]
+    if arg == "1":
+        return CAMERA_SOCKS[1]
+    return arg  # literal path passed directly
+
+
+SOCK_PATH = _resolve_sock_path(sys.argv[1] if len(sys.argv) > 1 else None)
+SLIDER_W = 22  # chars for the slider bar
+LABEL_W = 12  # chars for the label column
+
+# ---------------------------------------------------------------------------
+# Shutter / framerate helpers (log-scale shutter, direct fps)
+# ---------------------------------------------------------------------------
+
+SHUTTER_STEPS = 200  # slider positions 1..200 (0 = auto)
+SHUTTER_IDX = 2  # index in SLIDERS list  (matches GUI group order)
+FRAMERATE_IDX = 3  # index in SLIDERS list
+
+# Mutable caps state — updated when rpicam-vid sends "caps:..." on connect.
+_caps = {"maxfps": 120}  # reset on camera switch
+
+# Current framerate slider value for the active camera — used by shutter
+# display/send to compute the one-frame period. 0 = auto.
+_cur_fps = [0]
+
+
+def _max_shutter_us():
+    """Return the maximum meaningful shutter duration in µs."""
+    fps = float(_cur_fps[0])
+    if fps <= 0.0:
+        fps = float(_caps["maxfps"]) if _caps["maxfps"] > 0 else 30.0
+    return int(1_000_000 / max(1.0, fps))
+
+
+def _shutter_micros(pos):
+    """Convert log-scale slider position (1..SHUTTER_STEPS) to µs."""
+    if pos <= 0:
+        return 0
+    lo = 100.0
+    hi = float(_max_shutter_us())
+    t = (pos - 1) / (SHUTTER_STEPS - 1)
+    return int(round(lo * (hi / lo) ** t))
+
+
+def _shutter_disp(pos):
+    if pos <= 0:
+        return "auto"
+    us = _shutter_micros(pos)
+    return f"{us} µs" if us < 1000 else f"{us / 1000:.1f}k µs"
+
+
+def _fps_disp(v):
+    return "auto" if v <= 0 else f"{v} fps"
+
+
+# ---------------------------------------------------------------------------
+# Control definitions
+# ---------------------------------------------------------------------------
+
+# Slider: (label, command, int_min, int_max, int_default, int_step, display_fn, send_fn)
+#   int values are internally scaled integers (avoids float rounding).
+#   display_fn(int_val) -> str shown to the user
+#   send_fn(int_val)    -> str sent over the socket  (None = handled in send_slider)
+
+
+def _pct(v):
+    return f"{v / 100:+.2f}"
+
+
+def _ev(v):
+    return f"{v / 10:+.1f}"
+
+
+def _f2(v):
+    return f"{v / 100:.2f}"
+
+
+def _gain(v):
+    return f"{v / 10:.1f}x"
+
+
+def _sharp(v):
+    return f"{v / 10:.1f}"
+
+
+def _zoom(v):
+    return f"{v / 10:.1f}\u00d7"
+
+
+def _awbg(v):
+    return f"{v / 100:.2f}"
+
+
+# Order mirrors the Qt GUI group layout:
+#   Exposure (Brightness, EV) → Shutter/Framerate → Image (Contrast, Saturation)
+#   → Camera (Gain, Sharpness) → AWB (Gain R, Gain B) → Zoom
+SLIDERS = [
+    # label         cmd            min    max            default  step  disp_fn        send_fn
+    (
+        "Brightness",
+        "brightness",
+        -100,
+        100,
+        0,
+        1,
+        _pct,
+        lambda v: f"brightness:{v / 100:.4f}",
+    ),  # 0
+    ("EV (stops)", "ev", -30, 30, 0, 1, _ev, lambda v: f"ev:{v / 10:.2f}"),  # 1
+    # Shutter group — SHUTTER_IDX=2, FRAMERATE_IDX=3
+    ("Shutter", "shutter", 0, SHUTTER_STEPS, 0, 1, _shutter_disp, None),  # 2
+    ("Framerate", "framerate", 0, 120, 0, 1, _fps_disp, None),  # 3
+    # Image group
+    (
+        "Contrast",
+        "contrast",
+        0,
+        300,
+        100,
+        5,
+        _f2,
+        lambda v: f"contrast:{v / 100:.4f}",
+    ),  # 4
+    (
+        "Saturation",
+        "saturation",
+        0,
+        300,
+        100,
+        5,
+        _f2,
+        lambda v: f"saturation:{v / 100:.4f}",
+    ),  # 5
+    # Camera group
+    ("Gain", "gain", 10, 160, 10, 5, _gain, lambda v: f"gain:{v / 10:.2f}"),  # 6
+    (
+        "Sharpness",
+        "sharpness",
+        0,
+        160,
+        10,
+        5,
+        _sharp,
+        lambda v: f"sharpness:{v / 10:.4f}",
+    ),  # 7
+    # AWB group
+    ("AWB Gain R", "awbgainr", 10, 400, 150, 10, _awbg, None),  # 8  -> awbgains
+    ("AWB Gain B", "awbgainb", 10, 400, 120, 10, _awbg, None),  # 9  -> awbgains
+    # Zoom group
+    ("Zoom", "zoom", 10, 100, 10, 5, _zoom, None),  # 10 -> roi
+]
+
+# Combo: (label, command, [options])
+COMBOS = [
+    (
+        "AWB mode",
+        "awb",
+        [
+            "auto",
+            "incandescent",
+            "tungsten",
+            "fluorescent",
+            "indoor",
+            "daylight",
+            "cloudy",
+            "manual",
+        ],
+    ),
+    ("Metering", "metering", ["centre", "spot", "average", "custom"]),
+    ("Exposure", "exposure", ["normal", "sport"]),
+    ("Denoise", "denoise", ["auto", "off", "cdn_off", "cdn_fast", "cdn_hq"]),
+    ("HDR", "hdr", ["off", "auto", "sensor", "single-exp"]),
+]
+
+# Flat list of all rows: ('camera', 0) | ('slider', index) | ('combo', index)
+ROWS = (
+    ([("camera", 0)] if len(CAMERA_SOCKS) > 1 else [])
+    + [("slider", i) for i in range(len(SLIDERS))]
+    + [("combo", i) for i in range(len(COMBOS))]
+)
+
+# ---------------------------------------------------------------------------
+# Socket helper
+# ---------------------------------------------------------------------------
+
+
+class Sock:
+    def __init__(self, path):
+        self._path = path
+        self._s = None
+        self._buf = ""
+
+    def _connect(self):
+        try:
+            s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+            s.connect(self._path)
+            s.setblocking(False)
+            self._s = s
+            self._buf = ""
+            return True
+        except OSError:
+            self._s = None
+            return False
+
+    def send(self, cmd: str):
+        if self._s is None:
+            if not self._connect():
+                return
+        try:
+            self._s.sendall((cmd + "\n").encode())
+        except OSError:
+            self._s = None
+
+    def recv_lines(self):
+        """Non-blocking read; returns list of complete lines received."""
+        if self._s is None:
+            return []
+        try:
+            chunk = self._s.recv(4096).decode(errors="ignore")
+            self._buf += chunk
+        except BlockingIOError:
+            pass
+        except OSError:
+            self._s = None
+            return []
+        lines = self._buf.split("\n")
+        self._buf = lines[-1]  # keep partial last line
+        return lines[:-1]
+
+    @property
+    def connected(self):
+        return self._s is not None
+
+
+# ---------------------------------------------------------------------------
+# Caps parsing
+# ---------------------------------------------------------------------------
+
+
+def _parse_caps(caps_str):
+    """Parse 'maxfps=40,hasaf=0' into a dict."""
+    result = {}
+    for kv in caps_str.split(","):
+        parts = kv.strip().split("=", 1)
+        if len(parts) == 2:
+            result[parts[0].strip()] = parts[1].strip()
+    return result
+
+
+# ---------------------------------------------------------------------------
+# Draw helpers
+# ---------------------------------------------------------------------------
+
+
+def draw_slider(win, y, x, val, lo, hi, w):
+    """Draw [====●====] with val in [lo, hi] inside w chars."""
+    if hi <= lo:
+        filled = 0
+    else:
+        filled = round((val - lo) / (hi - lo) * (w - 1))
+    bar = "=" * filled + "\u25cf" + "=" * (w - 1 - filled)
+    win.addch(y, x, "[")
+    win.addstr(y, x + 1, bar)
+    win.addch(y, x + w + 1, "]")
+
+
+def draw_combo(win, y, x, options, idx, w):
+    """Draw < option > centred in w chars."""
+    label = f" {options[idx]} "
+    win.addch(y, x, "<")
+    win.addstr(y, x + 1, label.center(w))
+    win.addch(y, x + w + 1, ">")
+
+
+# ---------------------------------------------------------------------------
+# Main TUI
+# ---------------------------------------------------------------------------
+
+
+def main(stdscr):
+    curses.curs_set(0)
+    curses.use_default_colors()
+    curses.init_pair(1, curses.COLOR_CYAN, -1)  # selected row
+    curses.init_pair(2, curses.COLOR_GREEN, -1)  # connected
+    curses.init_pair(3, curses.COLOR_RED, -1)  # disconnected
+    curses.init_pair(4, curses.COLOR_YELLOW, -1)  # label
+
+    stdscr.nodelay(True)
+    stdscr.keypad(True)
+
+    sock = Sock(SOCK_PATH)
+    sock._connect()
+    current_sock_path = [SOCK_PATH]
+    current_cam_idx = [
+        CAMERA_SOCKS.index(SOCK_PATH) if SOCK_PATH in CAMERA_SOCKS else 0
+    ]
+
+    # Per-camera state: load persisted values, fall back to defaults.
+    saved = load_state()
+    cam_s_vals = [list(saved[i]["s_vals"]) for i in range(len(CAMERA_SOCKS))]
+    cam_c_idxs = [list(saved[i]["c_idxs"]) for i in range(len(CAMERA_SOCKS))]
+
+    # Active view — always a reference into the current camera's slot.
+    s_vals = cam_s_vals[current_cam_idx[0]]
+    c_idxs = cam_c_idxs[current_cam_idx[0]]
+    cursor = 0  # selected row
+
+    # Sync _cur_fps with the loaded framerate state for the initial camera.
+    _cur_fps[0] = s_vals[FRAMERATE_IDX]
+
+    def awbgains_cmd(r_val, b_val):
+        return f"awbgains:{r_val / 100:.3f},{b_val / 100:.3f}"
+
+    def zoom_cmd(z_val):
+        factor = z_val / 10.0
+        w = 1.0 / factor
+        h = 1.0 / factor
+        x = (1.0 - w) / 2.0
+        y = (1.0 - h) / 2.0
+        return f"roi:{x:.4f},{y:.4f},{w:.4f},{h:.4f}"
+
+    def _set_awb_manual():
+        opts = COMBOS[0][2]
+        c_idxs[0] = opts.index("manual")
+
+    def _framerate_max():
+        """Effective maximum for the framerate slider."""
+        return _caps["maxfps"]
+
+    def send_slider(si, val):
+        send_fn = SLIDERS[si][7]
+        if send_fn is not None:
+            sock.send(send_fn(val))
+        elif SLIDERS[si][0] == "Zoom":
+            sock.send(zoom_cmd(val))
+        elif SLIDERS[si][0] == "AWB Gain R":
+            _set_awb_manual()
+            sock.send(awbgains_cmd(val, s_vals[9]))  # 9 = AWB Gain B
+        elif SLIDERS[si][0] == "AWB Gain B":
+            _set_awb_manual()
+            sock.send(awbgains_cmd(s_vals[8], val))  # 8 = AWB Gain R
+        elif SLIDERS[si][0] == "Shutter":
+            sock.send(f"shutter:{_shutter_micros(val)}")
+        elif SLIDERS[si][0] == "Framerate":
+            _cur_fps[0] = val
+            sock.send(f"framerate:{val}")
+            # Re-send shutter with recalculated µs so the camera reflects the
+            # new one-frame-period maximum. Skip when shutter is on auto (pos == 0).
+            shutter_pos = s_vals[SHUTTER_IDX]
+            if shutter_pos > 0:
+                sock.send(f"shutter:{_shutter_micros(shutter_pos)}")
+
+    def send_combo(ci, idx):
+        label, cmd, opts = COMBOS[ci]
+        sock.send(f"{cmd}:{opts[idx]}")
+
+    def do_reset():
+        nonlocal s_vals, c_idxs
+        s_vals[:] = [s[4] for s in SLIDERS]
+        c_idxs[:] = [0] * len(COMBOS)
+        _cur_fps[0] = 0
+        cam_s_vals[current_cam_idx[0]] = list(s_vals)
+        cam_c_idxs[current_cam_idx[0]] = list(c_idxs)
+        save_cam_state(current_cam_idx[0], s_vals, c_idxs)
+        sock.send("brightness:0")
+        sock.send("ev:0")
+        sock.send("contrast:1")
+        sock.send("saturation:1")
+        sock.send("gain:0")
+        sock.send("sharpness:1")
+        sock.send("roi:0,0,1,1")
+        sock.send("shutter:0")
+        sock.send("framerate:0")
+        sock.send("awb:auto")
+        sock.send("metering:centre")
+        sock.send("exposure:normal")
+        sock.send("denoise:auto")
+        sock.send("hdr:off")
+
+    def resend_full_state():
+        """Send the complete current state to the newly connected camera."""
+        awb_is_auto = c_idxs[0] == 0
+        for si, sv in enumerate(s_vals):
+            if awb_is_auto and SLIDERS[si][0] in ("AWB Gain R", "AWB Gain B"):
+                continue
+            send_slider(si, sv)
+        for ci, cidx in enumerate(c_idxs):
+            send_combo(ci, cidx)
+
+    def do_switch_camera(new_ci):
+        nonlocal s_vals, c_idxs
+        if new_ci == current_cam_idx[0]:
+            return
+        cam_s_vals[current_cam_idx[0]] = list(s_vals)
+        cam_c_idxs[current_cam_idx[0]] = list(c_idxs)
+        save_cam_state(current_cam_idx[0], s_vals, c_idxs)
+        current_cam_idx[0] = new_ci
+        current_sock_path[0] = CAMERA_SOCKS[new_ci]
+        s_vals[:] = cam_s_vals[new_ci]
+        c_idxs[:] = cam_c_idxs[new_ci]
+        # Reset caps to defaults for new camera (will be updated on connect).
+        _caps["maxfps"] = 120
+        _cur_fps[0] = s_vals[FRAMERATE_IDX]
+        sock._s = None
+        sock._path = current_sock_path[0]
+        sock._buf = ""
+        if sock._connect():
+            resend_full_state()
+
+    # State loaded into UI; do NOT resend to camera on startup —
+    # the camera already runs with its current settings.
+
+    while True:
+        # --- Poll socket for incoming caps messages ---
+        for line in sock.recv_lines():
+            if line.startswith("caps:"):
+                parsed = _parse_caps(line[5:])
+                if "maxfps" in parsed:
+                    try:
+                        fps = int(parsed["maxfps"])
+                        if fps > 0:
+                            _caps["maxfps"] = fps
+                            # Clamp framerate slider if it exceeds new max.
+                            if s_vals[FRAMERATE_IDX] > fps:
+                                s_vals[FRAMERATE_IDX] = 0
+                                _cur_fps[0] = 0
+                    except ValueError:
+                        pass
+
+        height, width = stdscr.getmaxyx()
+        stdscr.erase()
+
+        try:
+            stdscr.addstr(0, 2, "rpicam-ctrl-cli", curses.A_BOLD)
+
+            base_y = 2
+            CTRL_W = SLIDER_W + 2  # [bar] width incl. brackets
+
+            for row_i, (kind, idx) in enumerate(ROWS):
+                y = base_y + row_i
+                if y >= height - 1:
+                    break
+                sel = row_i == cursor
+                attr = curses.color_pair(1) | curses.A_BOLD if sel else curses.A_NORMAL
+                prefix = "\u25b6 " if sel else "  "
+
+                if kind == "camera":
+                    cam_idx = (
+                        CAMERA_SOCKS.index(current_sock_path[0])
+                        if current_sock_path[0] in CAMERA_SOCKS
+                        else 0
+                    )
+                    sock_short = f"[{current_sock_path[0]:<{SLIDER_W - 2}}]"
+                    stdscr.addstr(y, 0, prefix, attr)
+                    stdscr.addstr(
+                        y,
+                        2,
+                        f"{'Camera':<{LABEL_W}}",
+                        curses.color_pair(4) if sel else curses.A_NORMAL,
+                    )
+                    stdscr.addstr(y, 2 + LABEL_W, sock_short, attr)
+                    stdscr.addstr(y, 2 + LABEL_W + CTRL_W + 1, " cam ", attr)
+                    stdscr.addstr(str(cam_idx), curses.color_pair(2))
+
+                elif kind == "slider":
+                    label = SLIDERS[idx][0]
+                    lo = SLIDERS[idx][2]
+                    # For framerate, effective max comes from caps.
+                    hi = _framerate_max() if idx == FRAMERATE_IDX else SLIDERS[idx][3]
+                    val = s_vals[idx]
+                    disp = SLIDERS[idx][6](val)
+                    stdscr.addstr(y, 0, prefix, attr)
+                    stdscr.addstr(
+                        y,
+                        2,
+                        f"{label:<{LABEL_W}}",
+                        curses.color_pair(4) if sel else curses.A_NORMAL,
+                    )
+                    draw_slider(stdscr, y, 2 + LABEL_W, val, lo, hi, SLIDER_W)
+                    stdscr.addstr(y, 2 + LABEL_W + CTRL_W + 1, f" {disp}", attr)
+
+                else:
+                    label, cmd, opts = COMBOS[idx]
+                    stdscr.addstr(y, 0, prefix, attr)
+                    stdscr.addstr(
+                        y,
+                        2,
+                        f"{label:<{LABEL_W}}",
+                        curses.color_pair(4) if sel else curses.A_NORMAL,
+                    )
+                    draw_combo(stdscr, y, 2 + LABEL_W, opts, c_idxs[idx], SLIDER_W)
+
+            foot_y = base_y + len(ROWS) + 1
+            if foot_y < height:
+                status = (
+                    f"  Connected to {current_sock_path[0]}  [max {_caps['maxfps']} fps]"
+                    if sock.connected
+                    else f"  Disconnected ({current_sock_path[0]}) \u2014 retrying on next command"
+                )
+                col = curses.color_pair(2) if sock.connected else curses.color_pair(3)
+                stdscr.addstr(foot_y, 0, status[: width - 1], col)
+            if foot_y + 1 < height:
+                stdscr.addstr(
+                    foot_y + 1,
+                    2,
+                    "\u2190\u2192 adjust   \u2191\u2193 navigate   R reset   Q quit",
+                    curses.A_DIM,
+                )
+            if foot_y + 2 < height and len(CAMERA_SOCKS) > 1:
+                stdscr.addstr(foot_y + 2, 2, "C switch cam", curses.A_DIM)
+
+        except curses.error:
+            pass  # terminal too small — skip frame
+
+        stdscr.refresh()
+
+        try:
+            key = stdscr.getch()
+        except Exception:
+            key = -1
+
+        if key in (ord("q"), ord("Q")):
+            break
+
+        elif key in (ord("r"), ord("R")):
+            do_reset()
+
+        elif key == curses.KEY_UP:
+            cursor = (cursor - 1) % len(ROWS)
+
+        elif key == curses.KEY_DOWN:
+            cursor = (cursor + 1) % len(ROWS)
+
+        elif key in (curses.KEY_LEFT, curses.KEY_RIGHT):
+            kind, idx = ROWS[cursor]
+            d = 1 if key == curses.KEY_RIGHT else -1
+            if kind == "camera":
+                do_switch_camera((current_cam_idx[0] + d) % len(CAMERA_SOCKS))
+            elif kind == "slider":
+                step = SLIDERS[idx][5]
+                lo = SLIDERS[idx][2]
+                hi = _framerate_max() if idx == FRAMERATE_IDX else SLIDERS[idx][3]
+                s_vals[idx] = max(lo, min(hi, s_vals[idx] + d * step))
+                send_slider(idx, s_vals[idx])
+            else:
+                n = len(COMBOS[idx][2])
+                c_idxs[idx] = (c_idxs[idx] + d) % n
+                send_combo(idx, c_idxs[idx])
+
+        elif key in (ord("c"), ord("C")):
+            do_switch_camera((current_cam_idx[0] + 1) % len(CAMERA_SOCKS))
+
+        elif key == -1:
+            curses.napms(30)
+
+    # Save state on clean exit.
+    cam_s_vals[current_cam_idx[0]] = list(s_vals)
+    cam_c_idxs[current_cam_idx[0]] = list(c_idxs)
+    save_state(cam_s_vals, cam_c_idxs)
+
+
+def run():
+    try:
+        curses.wrapper(main)
+    except KeyboardInterrupt:
+        pass
+
+
+# ---------------------------------------------------------------------------
+# State persistence — JSON, compatible with the Qt rpicam-ctrl state format.
+# ---------------------------------------------------------------------------
+
+# Named keys in the state file — order must match SLIDERS list.
+_SLIDER_KEYS = [
+    "brightness",  # SLIDERS[0]
+    "ev",  # SLIDERS[1]
+    "shutter",  # SLIDERS[2]  — log-scale position (0=auto, 1..SHUTTER_STEPS)
+    "framerateIdx",  # SLIDERS[3]  — fps directly (0=auto, 1..N)
+    "contrast",  # SLIDERS[4]
+    "saturation",  # SLIDERS[5]
+    "gain",  # SLIDERS[6]
+    "sharpness",  # SLIDERS[7]
+    "awbGainR",  # SLIDERS[8]
+    "awbGainB",  # SLIDERS[9]
+    "zoom",  # SLIDERS[10]
+]
+_COMBO_KEYS = [
+    "awbIdx",  # COMBOS[0]
+    "meteringIdx",  # COMBOS[1]
+    "exposureIdx",  # COMBOS[2]
+    "denoiseIdx",  # COMBOS[3]
+    "hdrIdx",  # COMBOS[4]
+]
+
+
+def _default_cam_state():
+    return {
+        "s_vals": [s[4] for s in SLIDERS],
+        "c_idxs": [0] * len(COMBOS),
+    }
+
+
+def _state_file(cam_idx):
+    return Path("/tmp") / f"rpicam-vid{cam_idx}.state"
+
+
+def load_cam_state(cam_idx):
+    """Load state from /tmp/rpicam-vid{N}.state (named-key JSON, GUI-compatible)."""
+    try:
+        data = json.loads(_state_file(cam_idx).read_text())
+        if not data:
+            return _default_cam_state()
+        s = _default_cam_state()
+        for i, key in enumerate(_SLIDER_KEYS):
+            if key in data:
+                s["s_vals"][i] = int(data[key])
+        for i, key in enumerate(_COMBO_KEYS):
+            if key in data:
+                s["c_idxs"][i] = int(data[key])
+        # Clamp shutter to valid range.
+        s["s_vals"][SHUTTER_IDX] = max(0, min(SHUTTER_STEPS, s["s_vals"][SHUTTER_IDX]))
+        return s
+    except Exception:
+        return _default_cam_state()
+
+
+def load_state():
+    return [load_cam_state(i) for i in range(len(CAMERA_SOCKS))]
+
+
+def save_cam_state(cam_idx, s_vals, c_idxs):
+    """Write state atomically to /tmp/rpicam-vid{N}.state."""
+    try:
+        target = _state_file(cam_idx)
+        tmp = Path(str(target) + ".tmp")
+        data = {key: s_vals[i] for i, key in enumerate(_SLIDER_KEYS)}
+        data.update({key: c_idxs[i] for i, key in enumerate(_COMBO_KEYS)})
+        tmp.write_text(json.dumps(data, indent=2))
+        os.replace(tmp, target)
+    except Exception:
+        pass
+
+
+def save_state(cam_s_vals, cam_c_idxs):
+    for i in range(len(CAMERA_SOCKS)):
+        save_cam_state(i, cam_s_vals[i], cam_c_idxs[i])
+
+
+if __name__ == "__main__":
+    run()
