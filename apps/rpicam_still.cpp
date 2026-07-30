@@ -8,6 +8,7 @@
 #include <filesystem>
 #include <poll.h>
 #include <signal.h>
+#include <sstream>
 #include <sys/signalfd.h>
 #include <sys/stat.h>
 
@@ -42,7 +43,6 @@ public:
 
 static std::string generate_filename(StillOptions const *options)
 {
-	char filename[128];
 	std::string folder = options->Get().output; // sometimes "output" is used as a folder name
 	if (!folder.empty() && folder.back() != '/')
 		folder += "/";
@@ -53,15 +53,26 @@ static std::string generate_filename(StillOptions const *options)
 		char time_string[32];
 		std::tm *time_info = std::localtime(&raw_time);
 		std::strftime(time_string, sizeof(time_string), "%m%d%H%M%S", time_info);
-		snprintf(filename, sizeof(filename), "%s%s.%s", folder.c_str(), time_string, options->Get().encoding.c_str());
+		std::ostringstream os;
+		os << folder << time_string << "." << options->Get().encoding;
+		return os.str();
 	}
 	else if (options->Get().timestamp)
-		snprintf(filename, sizeof(filename), "%s%u.%s", folder.c_str(), (unsigned)time(NULL),
-				 options->Get().encoding.c_str());
-	else
-		snprintf(filename, sizeof(filename), options->Get().output.c_str(), options->Get().framestart);
-	filename[sizeof(filename) - 1] = 0;
-	return std::string(filename);
+	{
+		std::ostringstream os;
+		os << folder << (unsigned)time(NULL) << "." << options->Get().encoding;
+		return os.str();
+	}
+
+	// The output string may contain a printf-style format specifier (e.g. "%04d") for the
+	// frame number, so size the buffer dynamically to avoid truncating long filenames.
+	std::string const &format = options->Get().output;
+	int len = snprintf(nullptr, 0, format.c_str(), options->Get().framestart);
+	if (len < 0)
+		return {};
+	std::string filename(len, '\0');
+	snprintf(filename.data(), len + 1, format.c_str(), options->Get().framestart);
+	return filename;
 }
 
 static void update_latest_link(std::string const &filename, StillOptions const *options)
