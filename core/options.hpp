@@ -334,6 +334,7 @@ struct OptsInternal
 	std::string timelapse_;
 
 	std::string preview_libs;
+	std::string preview_backend;
 	std::string encoder_libs;
 };
 

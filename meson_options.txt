@@ -13,6 +13,11 @@ option('enable_egl',
         value : 'auto',
         description : 'Enable EGL preview window support')
 
+option('enable_wayland',
+        type : 'feature',
+        value : 'auto',
+        description : 'Enable native Wayland EGL preview window support')
+
 option('enable_qt',
         type : 'feature',
         value : 'auto',
