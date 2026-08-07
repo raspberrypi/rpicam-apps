@@ -7,6 +7,7 @@ CONFIG := -Denable_drm=enabled \
 	  -Denable_opencv=enabled \
 	  -Denable_qt=enabled \
 	  -Denable_tflite=disabled \
+	  -Denable_wayland=enabled \
 	  -Denable_imx500=true
 
 ifeq ($(DEB_HOST_ARCH),arm64)
