@@ -1,3 +1,27 @@
+rpicam-apps (1.13.0-1) trixie; urgency=medium
+
+  [ Naushir Patuck ]
+  * tests: Add bypass when testing imx296
+  * ci: Add camera-test env to the ci workflow
+  * preview: egl: Keep titlebar on-screen for default window position
+  * ci: fix same-repo PR bypass in camera-test approval gate
+  * preview: Add native Wayland EGL preview window
+  * preview: Add --preview-backend option to force a preview backend
+  * tests: Add preview backend test
+  * preview: Route --qt-preview through the preview backend selection
+  * build: Update release to v1.13.0
+
+  [ Nick Hollinghurst ]
+  * preview: Attempt fallback if Qt preview unavailable
+
+  [ David Plowman ]
+  * Enable ZSL mode when writing non-JPEG images
+
+  [ Serge Schneider ]
+  * debian/: enable wayland previews
+
+ -- Serge Schneider <serge@raspberrypi.com>  Fri, 07 Aug 2026 10:57:03 +0100
+
 rpicam-apps (1.12.0-1) trixie; urgency=medium
 
   [ Nick Hollinghurst ]
