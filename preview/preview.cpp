@@ -5,6 +5,7 @@
  * preview.cpp - preview window interface
  */
 
+#include <cstdlib>
 #include <filesystem>
 
 #include "core/dl_lib.hpp"
@@ -75,45 +76,44 @@ Preview *make_preview(Options const *options)
 	auto &factory = PreviewFactory::GetInstance();
 	factory.LoadPreviewLibraries(options->Get().preview_libs);
 
-	if (options->Get().nopreview)
-		return factory.CreatePreview("null")(options);
-	else if (options->Get().qt_preview)
+	if (!options->Get().nopreview)
 	{
-		if (factory.HasPreview("qt"))
+		std::vector<std::string> previews;
+		if (!options->Get().preview_backend.empty())
 		{
-			LOG(1, "Made QT preview window");
-			return factory.CreatePreview("qt")(options);
+			// The user has forced a specific backend; try only that one.
+			previews = { options->Get().preview_backend };
 		}
-	}
-	else
-	{
-		try
+		else
 		{
-			if (factory.HasPreview("egl"))
-			{
-				LOG(1, "Made X/EGL preview window");
-				return factory.CreatePreview("egl")(options);
-			}
-			throw std::runtime_error("egl libraries unavailable.");
+			previews = { "egl", "drm" };
+			// On a native Wayland session, prefer the native Wayland EGL preview
+			// to avoid the XWayland round-trip that the X11 EGL preview incurs. On
+			// X11 this environment variable is unset, so nothing changes. An empty
+			// value is treated as unset.
+			char const *wayland_display = getenv("WAYLAND_DISPLAY");
+			if (wayland_display && *wayland_display)
+				previews.insert(previews.begin(), "wayland-egl");
 		}
-		catch (std::exception const &e)
+
+		for (auto const &p : previews)
 		{
 			try
 			{
-				if (factory.HasPreview("drm"))
+				if (factory.HasPreview(p))
 				{
-					LOG(1, "Made DRM preview window");
-					return factory.CreatePreview("drm")(options);
+					Preview *r = factory.CreatePreview(p)(options);
+					LOG(1, "Made " + p + " preview window");
+					return r;
 				}
-				throw std::runtime_error("drm libraries unavailable.");
 			}
 			catch (std::exception const &e)
 			{
-				LOG(1, "Preview window unavailable");
-				return factory.CreatePreview("null")(options);
+				LOG(1, "Failed to create " + p + " preview");
 			}
 		}
+		LOG(1, "Preview window unavailable");
 	}
 
-	return nullptr; // prevents compiler warning in debug builds
+	return factory.CreatePreview("null")(options); // this really shouldn't fail
 }

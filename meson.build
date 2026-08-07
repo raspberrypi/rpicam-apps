@@ -1,6 +1,6 @@
 project('rpicam-apps', 'c', 'cpp',
         meson_version : '>= 0.64.0',
-        version : '1.12.0',
+        version : '1.13.0',
         default_options : [
             'werror=true',
             'warning_level=3',
@@ -91,6 +91,7 @@ summary({
             'libav encoder' : enable_libav,
             'drm preview' : enable_drm,
             'egl preview' : enable_egl,
+            'wayland preview' : enable_wayland,
             'qt preview' : enable_qt,
             'OpenCV postprocessing' : enable_opencv,
             'TFLite postprocessing' : enable_tflite,

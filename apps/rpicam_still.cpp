@@ -205,7 +205,7 @@ static void event_loop(RPiCamStillApp &app)
 		}
 	}
 	else if (options->Get().zsl)
-		app.ConfigureZsl();
+		app.ConfigureZsl(still_flags);
 	else
 		app.ConfigureViewfinder();
 	app.StartCamera();
