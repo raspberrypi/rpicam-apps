@@ -59,6 +59,10 @@ subdir('post_processing_stages')
 subdir('preview')
 subdir('utils')
 
+if not get_option('enable_rpicam_ctrl').disabled()
+    conf_data.set('RPICAM_CTRL_PRESENT', 1)
+endif
+
 configure_file(output : 'config.h', configuration : conf_data)
 
 # Generate a version string.
