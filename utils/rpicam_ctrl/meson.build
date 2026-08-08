@@ -1,6 +1,7 @@
 # meson.build for rpicam-ctrl (optional Qt runtime control panel)
 
 enable_rpicam_ctrl = get_option('enable_rpicam_ctrl')
+rpicam_ctrl_enabled = false
 
 if not enable_rpicam_ctrl.disabled()
     qt_dep = dependency('qt6', modules : ['Core', 'Widgets', 'Network'], required : false)
@@ -18,6 +19,7 @@ if not enable_rpicam_ctrl.disabled()
     endif
 
     if qt_dep.found()
+        rpicam_ctrl_enabled = true
         moc_files = qt.preprocess(
             moc_sources : ['main.cpp'],
             qresources : ['resources.qrc'],
