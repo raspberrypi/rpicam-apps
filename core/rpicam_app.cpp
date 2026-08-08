@@ -993,6 +993,27 @@ void RPiCamApp::SetControls(const ControlList &controls)
 		controls_.set(c.first, c.second);
 }
 
+libcamera::Rectangle RPiCamApp::GetSensorArea() const
+{
+	if (!camera_)
+		return {};
+	try
+	{
+		return camera_->controls().at(&libcamera::controls::ScalerCrop).max().get<libcamera::Rectangle>();
+	}
+	catch (...)
+	{
+		return {};
+	}
+}
+
+bool RPiCamApp::SupportsScalerCrops() const
+{
+	if (!camera_)
+		return false;
+	return camera_->controls().count(&libcamera::controls::rpi::ScalerCrops) > 0;
+}
+
 StreamInfo RPiCamApp::GetStreamInfo(Stream const *stream) const
 {
 	StreamConfiguration const &cfg = stream->configuration();

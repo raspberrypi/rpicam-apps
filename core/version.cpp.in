@@ -6,6 +6,7 @@
  */
 #include <string>
 
+#include "config.h"
 #include "core/version.hpp"
 #include "encoder/encoder.hpp"
 #include "preview/preview.hpp"
@@ -30,7 +31,11 @@ const char *RPiCamAppsCapabilities(const std::string &preview_libs, const std::s
 		"egl:" + std::to_string(p.HasPreview("egl")) +
 		" qt:" + std::to_string(p.HasPreview("qt")) +
 		" drm:" + std::to_string(p.HasPreview("drm")) +
-		" libav:" + std::to_string(e.HasEncoder("libav"));
+		" libav:" + std::to_string(e.HasEncoder("libav"))
+#ifdef RPICAM_CTRL_PRESENT
+		+ " rpicam_ctrl:1"
+#endif
+		;
 
 	return caps.c_str();
 }

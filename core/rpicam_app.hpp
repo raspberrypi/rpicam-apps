@@ -169,6 +169,8 @@ public:
 	void ShowPreview(CompletedRequestPtr &completed_request, Stream *stream);
 
 	void SetControls(const ControlList &controls);
+	Rectangle GetSensorArea() const;
+	bool SupportsScalerCrops() const;
 	StreamInfo GetStreamInfo(Stream const *stream) const;
 	const ControlList &GetProperties() const
 	{
