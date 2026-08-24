@@ -23,6 +23,7 @@
 
 #include <libcamera/base/span.h>
 #include <libcamera/camera.h>
+#include <libcamera/camera_descriptor.h>
 #include <libcamera/camera_manager.h>
 #include <libcamera/control_ids.h>
 #include <libcamera/controls.h>
@@ -52,6 +53,7 @@ public:
 	using Request = libcamera::Request;
 	using CameraManager = libcamera::CameraManager;
 	using Camera = libcamera::Camera;
+	using CameraDescriptor = libcamera::CameraDescriptor;
 	using CameraConfiguration = libcamera::CameraConfiguration;
 	using StreamRole = libcamera::StreamRole;
 	using StreamRoles = std::vector<libcamera::StreamRole>;
@@ -161,10 +163,12 @@ public:
 	Stream *GetMainStream() const;
 
 	const CameraManager *GetCameraManager();
-	std::vector<std::shared_ptr<libcamera::Camera>> GetCameras()
-	{
-		return GetCameras(camera_manager_.get());
-	}
+
+	// Returns the descriptors of all the cameras rpicam-apps can use.
+	const std::vector<std::shared_ptr<CameraDescriptor>> &GetCameraDescriptors();
+
+	// Turn a descriptor into a fully initialised Camera object.
+	std::shared_ptr<Camera> InitialiseCamera(const std::shared_ptr<CameraDescriptor> &descriptor);
 
 	void ShowPreview(CompletedRequestPtr &completed_request, Stream *stream);
 
@@ -181,15 +185,13 @@ public:
 		return verbosity;
 	}
 
-	static std::vector<std::shared_ptr<libcamera::Camera>> GetCameras(const CameraManager *cm)
+	static void FilterCameraDescriptors(std::vector<std::shared_ptr<CameraDescriptor>> &descriptors)
 	{
-		std::vector<std::shared_ptr<libcamera::Camera>> cameras = cm->cameras();
 		// Do not show USB webcams as these are not supported in rpicam-apps!
-		auto rem = std::remove_if(cameras.begin(), cameras.end(),
-								  [](auto &cam) { return cam->id().find("/usb") != std::string::npos; });
-		cameras.erase(rem, cameras.end());
-		std::sort(cameras.begin(), cameras.end(), [](auto l, auto r) { return l->id() > r->id(); });
-		return cameras;
+		auto rem = std::remove_if(descriptors.begin(), descriptors.end(),
+								  [](auto &desc) { return desc->id().find("/usb") != std::string::npos; });
+		descriptors.erase(rem, descriptors.end());
+		std::sort(descriptors.begin(), descriptors.end(), [](auto l, auto r) { return l->id() > r->id(); });
 	}
 
 	friend class BufferWriteSync;
@@ -263,6 +265,7 @@ private:
 	Mode selectMode(const Mode &mode) const;
 
 	std::unique_ptr<CameraManager> camera_manager_;
+	std::vector<std::shared_ptr<CameraDescriptor>> camera_descriptors_;
 	std::shared_ptr<Camera> camera_;
 	bool camera_acquired_ = false;
 	std::unique_ptr<CameraConfiguration> configuration_;

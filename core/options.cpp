@@ -480,30 +480,30 @@ bool OptsInternal::Parse(boost::program_options::variables_map &vm, RPiCamApp *a
 	if (!log_env_set)
 		libcamera::logSetLevel("*", "ERROR");
 
-	std::vector<std::shared_ptr<libcamera::Camera>> cameras = app->GetCameras();
-	if (camera < cameras.size())
+	std::vector<std::shared_ptr<libcamera::CameraDescriptor>> descriptors = app->GetCameraDescriptors();
+	if (camera < descriptors.size())
 	{
-		const std::string_view cam_id = *cameras[camera]->properties().get(libcamera::properties::Model);
+		const std::string_view cam_id = *descriptors[camera]->properties().get(libcamera::properties::Model);
 
 		if (cam_id.find("imx708") != std::string::npos)
 		{
 			// HDR control. Set the sensor control before opening or listing any cameras.
 			// Start by disabling HDR unconditionally. Reset the camera manager if we have
 			// actually switched the value of the control
-			bool changed = set_imx708_subdev_hdr_ctrl(0, cameras[camera]->id());
+			bool changed = set_imx708_subdev_hdr_ctrl(0, descriptors[camera]->id());
 
 			if (hdr == "sensor" || hdr == "auto")
 			{
 				// Turn on sensor HDR.  Reset the camera manager if we have switched the value of the control.
-				changed |= set_imx708_subdev_hdr_ctrl(1, cameras[camera]->id());
+				changed |= set_imx708_subdev_hdr_ctrl(1, descriptors[camera]->id());
 				hdr = "sensor";
 			}
 
 			if (changed)
 			{
-				cameras.clear();
+				descriptors.clear();
 				app->initCameraManager();
-				cameras = app->GetCameras();
+				descriptors = app->GetCameraDescriptors();
 			}
 		}
 	}
@@ -512,12 +512,17 @@ bool OptsInternal::Parse(boost::program_options::variables_map &vm, RPiCamApp *a
 	{
 		RPiCamApp::verbosity = 1;
 
-		if (cameras.size() != 0)
+		if (descriptors.size() != 0)
 		{
 			unsigned int idx = 0;
 			std::cout << "Available cameras" << std::endl << "-----------------" << std::endl;
-			for (auto const &cam : cameras)
+			for (auto const &desc : descriptors)
 			{
+				// Listing the modes requires every camera to be initialised.
+				std::shared_ptr<libcamera::Camera> cam = app->InitialiseCamera(desc);
+				if (!cam)
+					throw std::runtime_error("failed to initialise camera " + desc->id());
+
 				cam->acquire();
 
 				std::stringstream sensor_props;
@@ -760,10 +765,15 @@ bool OptsInternal::Parse(boost::program_options::variables_map &vm, RPiCamApp *a
 
 	if (mode.mode_index || viewfinder_mode.mode_index)
 	{
-		if (camera >= cameras.size())
+		if (camera >= descriptors.size())
 			throw std::runtime_error("Cannot resolve mode index, camera " + std::to_string(camera) + " not available");
-		resolve_mode_index(mode, cameras[camera].get());
-		resolve_mode_index(viewfinder_mode, cameras[camera].get());
+		// Resolving a mode index needs the camera's mode list, so initialise the selected camera.
+		// This is the camera that will be opened anyway, so nothing extra gets created.
+		std::shared_ptr<libcamera::Camera> cam = app->InitialiseCamera(descriptors[camera]);
+		if (!cam)
+			throw std::runtime_error("failed to initialise camera " + descriptors[camera]->id());
+		resolve_mode_index(mode, cam.get());
+		resolve_mode_index(viewfinder_mode, cam.get());
 	}
 
 	return true;

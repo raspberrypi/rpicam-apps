@@ -115,11 +115,13 @@ RPiCamApp::~RPiCamApp()
 
 void RPiCamApp::initCameraManager()
 {
+	camera_descriptors_.clear();
 	camera_manager_.reset();
 	camera_manager_ = std::make_unique<CameraManager>();
-	int ret = camera_manager_->start();
-	if (ret)
-		throw std::runtime_error("camera manager failed to start, code " + std::to_string(-ret));
+	// enumerate() starts the camera manager for us, and returns a descriptor for every
+	// camera in the system without creating (and thus initialising) any of them.
+	camera_descriptors_ = camera_manager_->enumerate();
+	FilterCameraDescriptors(camera_descriptors_);
 }
 
 std::string const &RPiCamApp::CameraId() const
@@ -140,20 +142,18 @@ void RPiCamApp::OpenCamera()
 
 	LOG(2, "Opening camera...");
 
-	if (!camera_manager_)
-		initCameraManager();
-
-	std::vector<std::shared_ptr<libcamera::Camera>> cameras = GetCameras();
-	if (cameras.size() == 0)
+	const std::vector<std::shared_ptr<CameraDescriptor>> &descriptors = GetCameraDescriptors();
+	if (descriptors.size() == 0)
 		throw std::runtime_error("no cameras available");
 
-	if (options_->Get().camera >= cameras.size())
+	if (options_->Get().camera >= descriptors.size())
 		throw std::runtime_error("selected camera is not available");
 
-	std::string const &cam_id = cameras[options_->Get().camera]->id();
-	camera_ = camera_manager_->get(cam_id);
+	// Only the camera the user asked for gets initialised.
+	std::string const &cam_id = descriptors[options_->Get().camera]->id();
+	camera_ = InitialiseCamera(descriptors[options_->Get().camera]);
 	if (!camera_)
-		throw std::runtime_error("failed to find camera " + cam_id);
+		throw std::runtime_error("failed to initialise camera " + cam_id);
 
 	if (camera_->acquire())
 		throw std::runtime_error("failed to acquire camera " + cam_id);
@@ -224,6 +224,7 @@ void RPiCamApp::CloseCamera()
 
 	camera_.reset();
 
+	camera_descriptors_.clear();
 	camera_manager_.reset();
 
 	if (!options_->Get().help)
@@ -970,6 +971,22 @@ const libcamera::CameraManager *RPiCamApp::GetCameraManager()
 		initCameraManager();
 
 	return camera_manager_.get();
+}
+
+const std::vector<std::shared_ptr<libcamera::CameraDescriptor>> &RPiCamApp::GetCameraDescriptors()
+{
+	if (!camera_manager_)
+		initCameraManager();
+
+	return camera_descriptors_;
+}
+
+std::shared_ptr<libcamera::Camera> RPiCamApp::InitialiseCamera(const std::shared_ptr<CameraDescriptor> &descriptor)
+{
+	if (!camera_manager_)
+		initCameraManager();
+
+	return camera_manager_->initialize(descriptor);
 }
 
 void RPiCamApp::ShowPreview(CompletedRequestPtr &completed_request, Stream *stream)
