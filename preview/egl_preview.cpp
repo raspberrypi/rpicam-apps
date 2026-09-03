@@ -74,6 +74,11 @@ private:
 	int y_;
 	int width_;
 	int height_;
+	// Box within which a default-sized window is fitted to the image's aspect
+	// ratio. Zero once the size is fixed (user-specified or fullscreen), in
+	// which case we letterbox instead.
+	int box_width_;
+	int box_height_;
 	unsigned int max_image_width_;
 	unsigned int max_image_height_;
 };
@@ -169,7 +174,8 @@ static void gl_setup(int width, int height, int window_width, int window_height)
 	glEnableVertexAttribArray(0);
 }
 
-EglPreview::EglPreview(Options const *options) : Preview(options), last_fd_(-1), first_time_(true)
+EglPreview::EglPreview(Options const *options)
+	: Preview(options), last_fd_(-1), first_time_(true), box_width_(0), box_height_(0)
 {
 	display_ = XOpenDisplay(NULL);
 	if (!display_)
@@ -250,11 +256,12 @@ void EglPreview::makeWindow(char const *name)
 	int screen_width = DisplayWidth(display_, screen_num);
 	int screen_height = DisplayHeight(display_, screen_num);
 
-	// Default behaviour here is to use a 1024x768 window.
+	// Default behaviour here is to use a window no larger than 1024x768, fitted
+	// to the image's aspect ratio once the first frame arrives.
 	if (width_ == 0 || height_ == 0)
 	{
-		width_ = 1024;
-		height_ = 768;
+		width_ = box_width_ = 1024;
+		height_ = box_height_ = 768;
 	}
 
 	if (options_->Get().fullscreen || x_ + width_ > screen_width || y_ + height_ > screen_height)
@@ -262,6 +269,7 @@ void EglPreview::makeWindow(char const *name)
 		x_ = y_ = 0;
 		width_ = DisplayWidth(display_, screen_num);
 		height_ = DisplayHeight(display_, screen_num);
+		box_width_ = box_height_ = 0;
 	}
 
 	static const EGLint attribs[] = { EGL_RED_SIZE,	 1, EGL_GREEN_SIZE,		 1,
@@ -360,6 +368,24 @@ void EglPreview::makeBuffer(int fd, size_t size, StreamInfo const &info, Buffer 
 		// This stuff has to be delayed until we know we're in the thread doing the display.
 		if (!eglMakeCurrent(egl_display_, egl_surface_, egl_surface_, egl_context_))
 			throw std::runtime_error("eglMakeCurrent failed");
+		// While nothing else has chosen the window size, fit it to the image's
+		// aspect ratio within the default box so the image isn't letterboxed.
+		if (box_width_ && box_height_ && info.width && info.height)
+		{
+			int w = box_width_, h = box_width_ * info.height / info.width;
+			if (h > box_height_)
+			{
+				h = box_height_;
+				w = box_height_ * info.width / info.height;
+			}
+			if (w != width_ || h != height_)
+			{
+				width_ = std::max(w, 1);
+				height_ = std::max(h, 1);
+				XResizeWindow(display_, window_, width_, height_);
+				glViewport(0, 0, width_, height_);
+			}
+		}
 		gl_setup(info.width, info.height, width_, height_);
 		first_time_ = false;
 	}
