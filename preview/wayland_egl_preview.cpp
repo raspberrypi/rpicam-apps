@@ -77,6 +77,7 @@ private:
 	static void xdgToplevelConfigure(void *data, xdg_toplevel *toplevel, int32_t width, int32_t height,
 									 wl_array *states);
 	static void xdgToplevelClose(void *data, xdg_toplevel *toplevel);
+	static void xdgToplevelConfigureBounds(void *data, xdg_toplevel *toplevel, int32_t width, int32_t height);
 
 	// Wayland objects.
 	wl_display *display_;
@@ -113,6 +114,14 @@ private:
 	// Latest size requested by the compositor (0 if none pending).
 	int pending_width_;
 	int pending_height_;
+	// Recommended maximum window size from the compositor (0 if unknown).
+	int bounds_width_;
+	int bounds_height_;
+	// Box within which a default-sized window is fitted to the image's aspect
+	// ratio. Zero once the size is fixed (user-specified, fullscreen, or
+	// resized by the compositor), in which case we letterbox instead.
+	int box_width_;
+	int box_height_;
 	// Dimensions of the last image shown, so we can re-letterbox on resize.
 	int image_width_;
 	int image_height_;
@@ -242,7 +251,10 @@ void WaylandEglPreview::registryGlobal(void *data, wl_registry *registry, uint32
 	}
 	else if (!strcmp(interface, xdg_wm_base_interface.name))
 	{
-		self->wm_base_ = static_cast<xdg_wm_base *>(wl_registry_bind(registry, name, &xdg_wm_base_interface, 1));
+		// Version 4 gives us configure_bounds, telling us how big a window can
+		// sensibly be (compositors predating v4 simply won't send it).
+		self->wm_base_ =
+			static_cast<xdg_wm_base *>(wl_registry_bind(registry, name, &xdg_wm_base_interface, std::min(version, 4u)));
 		static const xdg_wm_base_listener listener = { .ping = wmBasePing };
 		xdg_wm_base_add_listener(self->wm_base_, &listener, self);
 	}
@@ -285,12 +297,20 @@ void WaylandEglPreview::xdgToplevelClose(void *data, xdg_toplevel *toplevel)
 	self->quit_ = true;
 }
 
+void WaylandEglPreview::xdgToplevelConfigureBounds(void *data, xdg_toplevel *toplevel, int32_t width, int32_t height)
+{
+	WaylandEglPreview *self = static_cast<WaylandEglPreview *>(data);
+	self->bounds_width_ = width;
+	self->bounds_height_ = height;
+}
+
 WaylandEglPreview::WaylandEglPreview(Options const *options)
 	: Preview(options), display_(nullptr), registry_(nullptr), compositor_(nullptr), wm_base_(nullptr),
 	  decoration_manager_(nullptr), surface_(nullptr), xdg_surface_(nullptr), xdg_toplevel_(nullptr),
 	  toplevel_decoration_(nullptr), egl_window_(nullptr), egl_display_(EGL_NO_DISPLAY), egl_context_(EGL_NO_CONTEXT),
 	  egl_surface_(EGL_NO_SURFACE), gl_program_(0), last_fd_(-1), first_time_(true), quit_(false), pending_width_(0),
-	  pending_height_(0), image_width_(0), image_height_(0), max_image_width_(0), max_image_height_(0)
+	  pending_height_(0), bounds_width_(0), bounds_height_(0), box_width_(0), box_height_(0), image_width_(0),
+	  image_height_(0), max_image_width_(0), max_image_height_(0)
 {
 	display_ = wl_display_connect(NULL);
 	if (!display_)
@@ -350,12 +370,14 @@ WaylandEglPreview::~WaylandEglPreview()
 
 void WaylandEglPreview::makeWindow(char const *name)
 {
-	// Default behaviour here is to use a 1024x768 window (unless we're going fullscreen,
-	// in which case the compositor tells us the size via a configure event).
+	// Default behaviour here is to use a window no larger than 1024x768, fitted
+	// to the image's aspect ratio once the first frame arrives (unless we're going
+	// fullscreen, in which case the compositor tells us the size via a configure
+	// event).
 	if (width_ == 0 || height_ == 0)
 	{
-		width_ = 1024;
-		height_ = 768;
+		width_ = box_width_ = 1024;
+		height_ = box_height_ = 768;
 	}
 
 	// Mesa's eglGetDisplay auto-detects a wl_display pointer as a Wayland
@@ -384,11 +406,11 @@ void WaylandEglPreview::makeWindow(char const *name)
 	xdg_surface_add_listener(xdg_surface_, &surf_listener, this);
 
 	xdg_toplevel_ = xdg_surface_get_toplevel(xdg_surface_);
-	// configure_bounds (v4) and wm_capabilities (v5) are never sent as we bind
-	// xdg_wm_base at version 1, but must be initialised to satisfy -Werror.
+	// wm_capabilities (v5) is never sent as we bind xdg_wm_base at version 4
+	// at most, but must be initialised to satisfy -Werror.
 	static const xdg_toplevel_listener top_listener = { .configure = xdgToplevelConfigure,
 														.close = xdgToplevelClose,
-														.configure_bounds = nullptr,
+														.configure_bounds = xdgToplevelConfigureBounds,
 														.wm_capabilities = nullptr };
 	xdg_toplevel_add_listener(xdg_toplevel_, &top_listener, this);
 	xdg_toplevel_set_title(xdg_toplevel_, name);
@@ -412,10 +434,21 @@ void WaylandEglPreview::makeWindow(char const *name)
 
 	if (pending_width_ && pending_height_)
 	{
+		// The compositor has chosen the size (e.g. fullscreen), so don't
+		// second-guess it by aspect-fitting later.
 		width_ = pending_width_;
 		height_ = pending_height_;
 		pending_width_ = pending_height_ = 0;
+		box_width_ = box_height_ = 0;
 	}
+
+	// Don't make a window bigger than the compositor says will fit on the screen.
+	if (bounds_width_ && width_ > bounds_width_)
+		width_ = bounds_width_;
+	if (bounds_height_ && height_ > bounds_height_)
+		height_ = bounds_height_;
+	box_width_ = std::min(box_width_, width_);
+	box_height_ = std::min(box_height_, height_);
 
 	egl_window_ = wl_egl_window_create(surface_, width_, height_);
 	if (!egl_window_)
@@ -467,6 +500,23 @@ void WaylandEglPreview::makeBuffer(int fd, size_t size, StreamInfo const &info, 
 			throw std::runtime_error("eglMakeCurrent failed");
 		image_width_ = info.width;
 		image_height_ = info.height;
+		// While nothing else has chosen the window size, fit it to the image's
+		// aspect ratio within the default box so the image isn't letterboxed.
+		if (box_width_ && box_height_ && image_width_ && image_height_)
+		{
+			int w = box_width_, h = box_width_ * image_height_ / image_width_;
+			if (h > box_height_)
+			{
+				h = box_height_;
+				w = box_height_ * image_width_ / image_height_;
+			}
+			if (w != width_ || h != height_)
+			{
+				width_ = std::max(w, 1);
+				height_ = std::max(h, 1);
+				wl_egl_window_resize(egl_window_, width_, height_, 0, 0);
+			}
+		}
 		configureGl(image_width_, image_height_, width_, height_);
 		first_time_ = false;
 	}
@@ -554,10 +604,12 @@ void WaylandEglPreview::Show(int fd, libcamera::Span<uint8_t> span, StreamInfo c
 		makeBuffer(fd, span.size(), info, buffer);
 
 	// Apply any pending resize the compositor asked for, re-letterboxing the image.
+	// The size is no longer ours to choose, so stop aspect-fitting it.
 	if (pending_width_ && pending_height_ && (pending_width_ != width_ || pending_height_ != height_))
 	{
 		width_ = pending_width_;
 		height_ = pending_height_;
+		box_width_ = box_height_ = 0;
 		wl_egl_window_resize(egl_window_, width_, height_, 0, 0);
 		configureGl(image_width_, image_height_, width_, height_);
 	}
