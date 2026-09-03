@@ -73,6 +73,29 @@ Mode::Mode(std::string const &mode_string) : Mode()
 	if (!mode_string.empty())
 	{
 		char p;
+		int consumed = 0;
+		unsigned int index;
+		const int len = mode_string.length();
+
+		// First look for the mode index form, "N" or "N:U"/"N:P", where N indexes
+		// the mode list reported by --list-cameras.
+		if (sscanf(mode_string.c_str(), "%u%n", &index, &consumed) == 1 && consumed == len)
+		{
+			mode_index = index;
+			return;
+		}
+		else if (sscanf(mode_string.c_str(), "%u:%c%n", &index, &p, &consumed) == 2 && consumed == len)
+		{
+			if (toupper(p) == 'P')
+				packed = true;
+			else if (toupper(p) == 'U')
+				packed = false;
+			else
+				throw std::runtime_error("Packing indicator should be P or U");
+			mode_index = index;
+			return;
+		}
+
 		int n = sscanf(mode_string.c_str(), "%u:%u:%u:%c", &width, &height, &bit_depth, &p);
 		if (n < 2)
 			throw std::runtime_error("Invalid mode");
@@ -113,6 +136,37 @@ void Mode::update(const libcamera::Size &size, const std::optional<float> &fps)
 		bit_depth = 12;
 	if (fps)
 		framerate = fps.value();
+}
+
+// Resolve a mode given as an index into the camera's mode list, enumerating the
+// raw formats in the same order as --list-cameras reports them.
+static void resolve_mode_index(Mode &mode, libcamera::Camera *cam)
+{
+	if (!mode.mode_index)
+		return;
+
+	std::unique_ptr<libcamera::CameraConfiguration> config = cam->generateConfiguration({ libcamera::StreamRole::Raw });
+	if (!config)
+		throw std::runtime_error("failed to generate capture configuration");
+
+	const libcamera::StreamFormats &formats = config->at(0).formats();
+	unsigned int index = 0;
+	for (const auto &pix : formats.pixelformats())
+	{
+		for (const auto &size : formats.sizes(pix))
+		{
+			if (index++ == *mode.mode_index)
+			{
+				mode.width = size.width;
+				mode.height = size.height;
+				mode.bit_depth = RPiCamApp::SensorMode(size, pix, 0).depth();
+				return;
+			}
+		}
+	}
+
+	throw std::runtime_error("Invalid mode index " + std::to_string(*mode.mode_index) + ", camera has " +
+							 std::to_string(index) + " modes");
 }
 
 static int xioctl(int fd, unsigned long ctl, void *arg)
@@ -302,9 +356,11 @@ Options::Options()
 		("lores-par", value<bool>(&v_->lores_par)->default_value(false)->implicit_value(true),
 			"Preserve the pixel aspect ratio of the low res image (where possible) by applying a different crop on the stream.")
 		("mode", value<std::string>(&v_->mode_string),
-			"Camera mode as W:H:bit-depth:packing, where packing is P (packed) or U (unpacked)")
+			"Camera mode as W:H:bit-depth:packing, where packing is P (packed) or U (unpacked), "
+			"or as N:packing where N indexes the mode list shown by --list-cameras")
 		("viewfinder-mode", value<std::string>(&v_->viewfinder_mode_string),
-			"Camera mode for preview as W:H:bit-depth:packing, where packing is P (packed) or U (unpacked)")
+			"Camera mode for preview as W:H:bit-depth:packing, where packing is P (packed) or U (unpacked), "
+			"or as N:packing where N indexes the mode list shown by --list-cameras")
 		("buffer-count", value<unsigned int>(&v_->buffer_count)->default_value(0), "Number of in-flight requests (and buffers) configured for video, raw, and still.")
 		("viewfinder-buffer-count", value<unsigned int>(&v_->viewfinder_buffer_count)->default_value(0), "Number of in-flight requests (and buffers) configured for preview window.")
 		("no-raw", value<bool>(&v_->no_raw)->default_value(false)->implicit_value(true),
@@ -701,6 +757,14 @@ bool OptsInternal::Parse(boost::program_options::variables_map &vm, RPiCamApp *a
 
 	mode = Mode(mode_string);
 	viewfinder_mode = Mode(viewfinder_mode_string);
+
+	if (mode.mode_index || viewfinder_mode.mode_index)
+	{
+		if (camera >= cameras.size())
+			throw std::runtime_error("Cannot resolve mode index, camera " + std::to_string(camera) + " not available");
+		resolve_mode_index(mode, cameras[camera].get());
+		resolve_mode_index(viewfinder_mode, cameras[camera].get());
+	}
 
 	return true;
 }
