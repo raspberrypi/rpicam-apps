@@ -799,6 +799,11 @@ void RPiCamApp::StartCamera()
 		controls_.set(controls::AeFlickerPeriod, options_->Get().flicker_period.get<std::chrono::microseconds>());
 	}
 
+	if (!options_->Get().no_raw)
+	{
+		controls_.set(controls::EnableLensShadingCorrectionMapOutput, true);
+	}
+
 	if (camera_->start(&controls_))
 		throw std::runtime_error("failed to start camera");
 	controls_.clear();
