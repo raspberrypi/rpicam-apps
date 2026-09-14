@@ -5,8 +5,12 @@
  * dng.cpp - Save raw image as DNG file.
  */
 
+#include <algorithm>
+#include <bit>
+#include <cstdint>
 #include <limits>
 #include <map>
+#include <vector>
 
 #include <libcamera/control_ids.h>
 #include <libcamera/formats.h>
@@ -317,9 +321,382 @@ Matrix(float m0, float m1, float m2,
 };
 // clang-format on
 
+class DNGOpcode
+{
+public:
+	DNGOpcode() = default;
+	virtual ~DNGOpcode() = default;
+
+	DNGOpcode(const DNGOpcode &) noexcept = default;
+	DNGOpcode(DNGOpcode &&) noexcept = default;
+	DNGOpcode &operator=(const DNGOpcode &) noexcept = default;
+	DNGOpcode &operator=(DNGOpcode &&) noexcept = default;
+
+	virtual void SwitchEndianess() = 0;
+
+	virtual uint32_t GetID() const = 0;
+
+	virtual uint32_t GetDNGVersion() const
+	{
+		if constexpr (std::endian::native == std::endian::big)
+		{
+			// version 1.3 big endian
+			return (1 << 24) | (3 << 16) | (0 << 8) | (0 << 0);
+		}
+
+		// version 1.3
+		return (1 << 0) | (3 << 8) | (0 << 16) | (0 << 24);
+	};
+
+	uint32_t GetFlags() const
+	{
+		return 0;
+	}
+
+	virtual uint32_t GetSizeInBytes() const = 0;
+
+	virtual std::vector<uint8_t> GetBytes() const = 0;
+
+protected:
+};
+
+// GCC emits an error=unitialized, but only for float and double, no idea why...
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wuninitialized"
+template <typename T>
+static void EndianSwap(T &aData)
+{
+	static_assert((sizeof(T) == 1U) || (sizeof(T) == 2U) || (sizeof(T) == 4U) || (sizeof(T) == 8U));
+
+	switch (sizeof(T))
+	{
+	case 2:
+	{
+		uint16_t temp = *(reinterpret_cast<uint16_t *>(&aData));
+		temp = (temp >> 8U) | (temp << 8U);
+		T *tempT = reinterpret_cast<T *>(&temp);
+		aData = *tempT;
+		break;
+	}
+	case 4:
+	{
+		uint32_t temp = *(reinterpret_cast<uint32_t *>(&aData));
+		temp = (temp >> 24U) | ((temp << 8U) & 0x00FF0000U) | ((temp >> 8U) & 0x0000FF00U) | (temp << 24U);
+		T *tempT = reinterpret_cast<T *>(&temp);
+		aData = *tempT;
+		break;
+	}
+	case 8:
+	{
+		uint64_t temp = *(reinterpret_cast<uint64_t *>(&aData));
+		temp = (temp >> 56U) | ((temp << 40U) & 0x00FF000000000000U) | ((temp << 24U) & 0x0000FF0000000000U) |
+			   ((temp << 8U) & 0x000000FF00000000U) | ((temp >> 8U) & 0x00000000FF000000U) |
+			   ((temp >> 24U) & 0x0000000000FF0000U) | ((temp >> 40U) & 0x000000000000FF00U) | (temp << 56U);
+		T *tempT = reinterpret_cast<T *>(&temp);
+		aData = *tempT;
+		break;
+	}
+	default:
+		break;
+	}
+}
+#pragma GCC diagnostic pop
+
+template <class Iterator>
+static void EndianSwap(Iterator aFirst, Iterator aLast)
+{
+	std::for_each(aFirst, aLast, [](auto &aElem) { EndianSwap(aElem); });
+}
+
+class DNGOpcodeList
+{
+public:
+	DNGOpcodeList() = default;
+	~DNGOpcodeList() = default;
+
+	DNGOpcodeList(const DNGOpcodeList &) noexcept = default;
+	DNGOpcodeList(DNGOpcodeList &&) noexcept = default;
+	DNGOpcodeList &operator=(const DNGOpcodeList &) noexcept = default;
+	DNGOpcodeList &operator=(DNGOpcodeList &&) noexcept = default;
+
+	void SwitchEndianess();
+
+	uint32_t GetSizeInBytes() const;
+
+	std::vector<uint8_t> GetBytes() const;
+
+	void AddOpcode(DNGOpcode *aOpcode);
+
+private:
+	std::vector<DNGOpcode *> mOpcodes;
+};
+
+void DNGOpcodeList::SwitchEndianess()
+{
+	if constexpr (std::endian::native == std::endian::big)
+	{
+		return;
+	}
+
+	for (auto &elem : mOpcodes)
+	{
+		elem->SwitchEndianess();
+	}
+}
+
+uint32_t DNGOpcodeList::GetSizeInBytes() const
+{
+	//                                    each opcode has a 4 uint32_t header     + number of opcodes
+	uint32_t size = static_cast<uint32_t>(mOpcodes.size() * 4 * sizeof(uint32_t)) + sizeof(uint32_t);
+
+	for (const auto &elem : mOpcodes)
+	{
+		size += elem->GetSizeInBytes();
+	}
+
+	return size;
+}
+
+std::vector<uint8_t> DNGOpcodeList::GetBytes() const
+{
+	std::array<uint8_t, 4> temp;
+	std::vector<uint8_t> ret;
+	ret.reserve(GetSizeInBytes());
+
+	uint32_t opCodeCount = static_cast<uint32_t>(mOpcodes.size());
+	if constexpr (std::endian::native == std::endian::little)
+	{
+		EndianSwap(opCodeCount);
+	}
+	memcpy(temp.data(), &opCodeCount, sizeof(opCodeCount));
+	ret.insert(ret.end(), temp.begin(), temp.end());
+
+	for (const DNGOpcode *op : mOpcodes)
+	{
+		uint32_t opCodeID = op->GetID();
+		memcpy(temp.data(), &opCodeID, sizeof(opCodeID));
+		ret.insert(ret.end(), temp.begin(), temp.end());
+
+		uint32_t opDNGVersion = op->GetDNGVersion();
+		memcpy(temp.data(), &opDNGVersion, sizeof(opDNGVersion));
+		ret.insert(ret.end(), temp.begin(), temp.end());
+
+		uint32_t opDNGFlags = op->GetFlags();
+		memcpy(temp.data(), &opDNGFlags, sizeof(opDNGFlags));
+		ret.insert(ret.end(), temp.begin(), temp.end());
+
+		uint32_t opDNGBytes = op->GetSizeInBytes();
+		if constexpr (std::endian::native == std::endian::little)
+		{
+			EndianSwap(opDNGBytes);
+		}
+		memcpy(temp.data(), &opDNGBytes, sizeof(opDNGBytes));
+		ret.insert(ret.end(), temp.begin(), temp.end());
+
+		std::vector<uint8_t> bytes = op->GetBytes();
+		ret.insert(ret.end(), bytes.begin(), bytes.end());
+	}
+
+	return ret;
+}
+
+void DNGOpcodeList::AddOpcode(DNGOpcode *aOpcode)
+{
+	mOpcodes.emplace_back(aOpcode);
+}
+
+class DNGGainMap : public DNGOpcode
+{
+public:
+	DNGGainMap(int aTop, int aLeft, int aBottom, int aRight, int aPlane, int aPlanes, int aRowPitch, int aColPitch,
+			   int aMapPointsV, int aMapPointsH, double aMapSpacingV, double aMapSpacingH, double aMapOriginV,
+			   double aMapOriginH, int aMapPlanes, std::vector<float> aValues);
+	virtual ~DNGGainMap() = default;
+
+	DNGGainMap(const DNGGainMap &) noexcept = default;
+	DNGGainMap(DNGGainMap &&) noexcept = default;
+	DNGGainMap &operator=(const DNGGainMap &) noexcept = default;
+	DNGGainMap &operator=(DNGGainMap &&) noexcept = default;
+
+	void SwitchEndianess() override;
+
+	uint32_t GetID() const override;
+
+	uint32_t GetSizeInBytes() const override;
+
+	std::vector<uint8_t> GetBytes() const override;
+
+private:
+	int mTop;
+	int mLeft;
+	int mBottom;
+	int mRight;
+	int mPlane;
+	int mPlanes;
+	int mRowPitch;
+	int mColPitch;
+	int mMapPointsV;
+	int mMapPointsH;
+	double mMapSpacingV;
+	double mMapSpacingH;
+	double mMapOriginV;
+	double mMapOriginH;
+	int mMapPlanes;
+	std::vector<float> mValues;
+};
+
+DNGGainMap::DNGGainMap(int aTop, int aLeft, int aBottom, int aRight, int aPlane, int aPlanes, int aRowPitch,
+					   int aColPitch, int aMapPointsV, int aMapPointsH, double aMapSpacingV, double aMapSpacingH,
+					   double aMapOriginV, double aMapOriginH, int aMapPlanes, std::vector<float> aValues)
+	: mTop(aTop), mLeft(aLeft), mBottom(aBottom), mRight(aRight), mPlane(aPlane), mPlanes(aPlanes),
+	  mRowPitch(aRowPitch), mColPitch(aColPitch), mMapPointsV(aMapPointsV), mMapPointsH(aMapPointsH),
+	  mMapSpacingV(aMapSpacingV), mMapSpacingH(aMapSpacingH), mMapOriginV(aMapOriginV), mMapOriginH(aMapOriginH),
+	  mMapPlanes(aMapPlanes), mValues(std::move(aValues))
+{
+}
+
+void DNGGainMap::SwitchEndianess()
+{
+	if constexpr (std::endian::native == std::endian::big)
+	{
+		return;
+	}
+
+	EndianSwap(mTop);
+	EndianSwap(mLeft);
+	EndianSwap(mBottom);
+	EndianSwap(mRight);
+
+	EndianSwap(mPlane);
+	EndianSwap(mPlanes);
+
+	EndianSwap(mRowPitch);
+	EndianSwap(mColPitch);
+
+	EndianSwap(mMapPointsV);
+	EndianSwap(mMapPointsH);
+
+	EndianSwap(mMapSpacingV);
+	EndianSwap(mMapSpacingH);
+	EndianSwap(mMapOriginV);
+	EndianSwap(mMapOriginH);
+
+	EndianSwap(mMapPlanes);
+
+	for (float &val : mValues)
+	{
+		EndianSwap(val);
+	}
+}
+
+uint32_t DNGGainMap::GetID() const
+{
+	uint32_t ID = 9;
+	if constexpr (std::endian::native == std::endian::little)
+	{
+		EndianSwap(ID);
+	}
+	return ID;
+}
+
+uint32_t DNGGainMap::GetSizeInBytes() const
+{
+	//                           all int values   + all double values  + the table(s) as floats
+	return static_cast<uint32_t>(11 * sizeof(int) + 4 * sizeof(double) + mValues.size() * sizeof(float));
+}
+
+std::vector<uint8_t> DNGGainMap::GetBytes() const
+{
+	std::vector<uint8_t> ret(GetSizeInBytes(), 0);
+
+	size_t offset = 0;
+
+	memcpy(&ret[offset], &mTop, sizeof(mTop));
+	offset += sizeof(mTop);
+	memcpy(&ret[offset], &mLeft, sizeof(mLeft));
+	offset += sizeof(mLeft);
+	memcpy(&ret[offset], &mBottom, sizeof(mBottom));
+	offset += sizeof(mBottom);
+	memcpy(&ret[offset], &mRight, sizeof(mRight));
+	offset += sizeof(mRight);
+
+	memcpy(&ret[offset], &mPlane, sizeof(mPlane));
+	offset += sizeof(mPlane);
+	memcpy(&ret[offset], &mPlanes, sizeof(mPlanes));
+	offset += sizeof(mPlanes);
+
+	memcpy(&ret[offset], &mRowPitch, sizeof(mRowPitch));
+	offset += sizeof(mRowPitch);
+	memcpy(&ret[offset], &mColPitch, sizeof(mColPitch));
+	offset += sizeof(mColPitch);
+
+	memcpy(&ret[offset], &mMapPointsV, sizeof(mMapPointsV));
+	offset += sizeof(mMapPointsV);
+	memcpy(&ret[offset], &mMapPointsV, sizeof(mMapPointsV));
+	offset += sizeof(mMapPointsV);
+
+	memcpy(&ret[offset], &mMapSpacingV, sizeof(mMapSpacingV));
+	offset += sizeof(mMapSpacingV);
+	memcpy(&ret[offset], &mMapSpacingH, sizeof(mMapSpacingH));
+	offset += sizeof(mMapSpacingH);
+	memcpy(&ret[offset], &mMapOriginV, sizeof(mMapOriginV));
+	offset += sizeof(mMapOriginV);
+	memcpy(&ret[offset], &mMapOriginH, sizeof(mMapOriginH));
+	offset += sizeof(mMapOriginH);
+
+	memcpy(&ret[offset], &mMapPlanes, sizeof(mMapPlanes));
+	offset += sizeof(mMapPlanes);
+
+	memcpy(&ret[offset], mValues.data(), sizeof(float) * mValues.size());
+	offset += sizeof(float) * mValues.size();
+
+	return ret;
+}
+
+// By default, libtiff knows these DNG specific tags, but they are not registered for reading or writing
+// --> We have to register them before using them (see tif_dirinfo.c of libtiff)
+static const TIFFFieldInfo DNGExtra[] = {
+
+	{ TIFFTAG_PROFILETONECURVE, -1, -1, TIFF_FLOAT, FIELD_CUSTOM, 1, 1, const_cast<char *>("ProfileToneCurve") },
+	{ TIFFTAG_OPCODELIST1, -3, -3, TIFF_UNDEFINED, FIELD_CUSTOM, (unsigned char)1, (unsigned char)1,
+	  const_cast<char *>("OpcodeList1") },
+	{ TIFFTAG_OPCODELIST2, -3, -3, TIFF_UNDEFINED, FIELD_CUSTOM, (unsigned char)1, (unsigned char)1,
+	  const_cast<char *>("OpcodeList2") },
+	{ TIFFTAG_OPCODELIST3, -3, -3, TIFF_UNDEFINED, FIELD_CUSTOM, (unsigned char)1, (unsigned char)1,
+	  const_cast<char *>("OpcodeList3") },
+	{ TIFFTAG_NOISEPROFILE, -1, -1, TIFF_DOUBLE, FIELD_CUSTOM, (unsigned char)1, (unsigned char)1,
+	  const_cast<char *>("NoiseProfile") },
+
+};
+
+static TIFFExtendProc ParentExtender = NULL;
+
+static void RegisterTiffTagsCallback(TIFF *tif)
+{
+	TIFFMergeFieldInfo(tif, DNGExtra, 5);
+
+	if (ParentExtender)
+	{
+		(*ParentExtender)(tif);
+	}
+}
+
+static void RegisterCustomTiffTags(void)
+{
+	static int first_time = 1; //or better thread_local?
+
+	if (!first_time)
+		return;
+	first_time = 0;
+
+	ParentExtender = TIFFSetTagExtender(RegisterTiffTagsCallback);
+}
+
 void dng_save(std::vector<libcamera::Span<uint8_t>> const &mem, StreamInfo const &info, ControlList const &metadata,
 			  std::string const &filename, std::string const &cam_model, StillOptions const *options)
 {
+	RegisterCustomTiffTags();
+
 	FormatInfo format;
 	bool mono = is_mono(info.pixel_format);
 
@@ -399,6 +776,82 @@ void dng_save(std::vector<libcamera::Span<uint8_t>> const &mem, StreamInfo const
 	else
 		LOG_ERROR("WARNING: default to ISO value of " << iso);
 
+	uint32_t widthLSC = 0;
+	uint32_t heightLSC = 0;
+	std::vector<std::vector<float>> lscMaps;
+
+	auto lscs = metadata.get(controls::LensShadingCorrectionMapSize);
+	if (lscs)
+	{
+		widthLSC = (*lscs)[1];
+		heightLSC = (*lscs)[2];
+		const uint32_t coloursCount = mono ? 1 : (*lscs)[0];
+		const uint32_t tableSize = widthLSC * heightLSC;
+
+		lscMaps.resize(coloursCount);
+
+		lscMaps[0].resize(tableSize);
+		if (coloursCount == 3)
+		{
+			lscMaps[1].resize(tableSize);
+			lscMaps[2].resize(tableSize);
+		}
+
+		auto lscmaps = metadata.get(controls::LensShadingCorrectionMaps);
+		if (lscmaps && widthLSC > 0 && heightLSC > 0)
+		{
+			std::copy((*lscmaps).begin(), (*lscmaps).begin() + tableSize, lscMaps[0].begin());
+
+			if (coloursCount == 3)
+			{
+				std::copy((*lscmaps).begin() + 1 * tableSize, (*lscmaps).begin() + 2 * tableSize, lscMaps[1].begin());
+				std::copy((*lscmaps).begin() + 2 * tableSize, (*lscmaps).begin() + 3 * tableSize, lscMaps[2].begin());
+			}
+		}
+
+		if (!lscmaps || widthLSC == 0 || heightLSC == 0 || (coloursCount != 1 && coloursCount != 3))
+		{
+			widthLSC = 0; //reset to zero in case a map is missing
+			heightLSC = 0;
+			LOG_ERROR("WARNING: No lens shading correction tables found.");
+		}
+	}
+
+	auto noise = metadata.get(controls::NoiseProfile);
+	std::array<double, 2> noiseProfile = { 0, 0 };
+	if (noise)
+	{
+		noiseProfile[0] = std::sqrt((*noise)[0] / 65535.0); // slope
+		noiseProfile[1] = 0; // the offset value is always close to zero and I'm not sure how to convert it.
+	}
+
+	std::vector<float> toneCurve;
+	auto tc = metadata.get(controls::ToneCurve);
+	if (tc)
+	{
+		toneCurve.resize(tc->size());
+		for (size_t i = 0; i < (*tc).size(); i++)
+		{
+			toneCurve[i] = (*tc)[i] / 65535.0f;
+		}
+		// The provided tone curve has a baked in sRGB gamma curve, remove it:
+		for (size_t i = 1; i < (*tc).size(); i += 2)
+		{
+			if (toneCurve[i] < 0.04045f)
+			{
+				toneCurve[i] /= 12.92f;
+			}
+			else
+			{
+				toneCurve[i] = powf((toneCurve[i] + 0.055f) / 1.055f, 2.4f);
+			}
+		}
+	}
+	else
+	{
+		LOG_ERROR("WARNING: No tone curve table found.");
+	}
+
 	float NEUTRAL[] = { 1, 1, 1 };
 	Matrix WB_GAINS(1, 1, 1);
 	auto cg = metadata.get(controls::ColourGains);
@@ -423,11 +876,11 @@ void dng_save(std::vector<libcamera::Span<uint8_t>> const &mem, StreamInfo const
 	else if (!mono)
 		LOG_ERROR("WARNING: no CCM metadata found");
 
-	// This maxtrix from http://www.brucelindbloom.com/index.html?Eqn_RGB_XYZ_Matrix.html
+	// This maxtrix from http://www.brucelindbloom.com/index.html?Eqn_RGB_XYZ_Matrix.html (sRGB with D65 to XYZ D50)
 	// clang-format off
-	Matrix RGB2XYZ(0.4124564, 0.3575761, 0.1804375,
-				   0.2126729, 0.7151522, 0.0721750,
-				   0.0193339, 0.1191920, 0.9503041);
+	Matrix RGB2XYZ(0.4360747, 0.3850649, 0.1430804,
+				   0.2225045, 0.7168786, 0.0606169,
+				   0.0139322, 0.0971045, 0.7141733);
 	// clang-format on
 	Matrix CAM_XYZ = (RGB2XYZ * CCM * WB_GAINS).Inv();
 
@@ -464,7 +917,7 @@ void dng_save(std::vector<libcamera::Span<uint8_t>> const &mem, StreamInfo const
 		TIFFSetField(tif, TIFFTAG_PHOTOMETRIC, PHOTOMETRIC_RGB);
 		TIFFSetField(tif, TIFFTAG_MAKE, MAKE_STRING);
 		TIFFSetField(tif, TIFFTAG_MODEL, cam_model.c_str());
-		TIFFSetField(tif, TIFFTAG_DNGVERSION, "\001\001\000\000");
+		TIFFSetField(tif, TIFFTAG_DNGVERSION, "\001\003\000\000"); // version 1.3 for opcodes
 		TIFFSetField(tif, TIFFTAG_DNGBACKWARDVERSION, "\001\000\000\000");
 		TIFFSetField(tif, TIFFTAG_UNIQUECAMERAMODEL, unique_model.c_str());
 		TIFFSetField(tif, TIFFTAG_ORIENTATION, ORIENTATION_TOPLEFT);
@@ -475,9 +928,14 @@ void dng_save(std::vector<libcamera::Span<uint8_t>> const &mem, StreamInfo const
 		{
 			TIFFSetField(tif, TIFFTAG_COLORMATRIX1, 9, CAM_XYZ.m);
 			TIFFSetField(tif, TIFFTAG_ASSHOTNEUTRAL, 3, NEUTRAL);
-			TIFFSetField(tif, TIFFTAG_CALIBRATIONILLUMINANT1, 21);
 			TIFFSetField(tif, TIFFTAG_SUBIFD, 1, &offset_subifd);
 			TIFFSetField(tif, TIFFTAG_EXIFIFD, offset_exififd);
+
+			if (toneCurve.size() > 0)
+			{
+				// also valid in case of mono?
+				TIFFSetField(tif, TIFFTAG_PROFILETONECURVE, uint32_t(toneCurve.size()), toneCurve.data());
+			}
 		}
 
 		// Make a small greyscale thumbnail, just to give some clue what's in here.
@@ -509,6 +967,7 @@ void dng_save(std::vector<libcamera::Span<uint8_t>> const &mem, StreamInfo const
 		TIFFSetField(tif, TIFFTAG_SAMPLESPERPIXEL, 1);
 		TIFFSetField(tif, TIFFTAG_PLANARCONFIG, PLANARCONFIG_CONTIG);
 		TIFFSetField(tif, TIFFTAG_WHITELEVEL, 1, &white);
+		TIFFSetField(tif, TIFFTAG_NOISEPROFILE, 2, noiseProfile.data());
 
 		if (!mono)
 		{
@@ -521,6 +980,28 @@ void dng_save(std::vector<libcamera::Span<uint8_t>> const &mem, StreamInfo const
 			const uint16_t black_level_repeat_dim[] = { 2, 2 };
 			TIFFSetField(tif, TIFFTAG_BLACKLEVELREPEATDIM, &black_level_repeat_dim);
 			TIFFSetField(tif, TIFFTAG_BLACKLEVEL, 4, &black_levels);
+
+			if (heightLSC > 0 && widthLSC > 0)
+			{
+				DNGGainMap gainmap0(0, 0, info.height, info.width, 0, 1, 2, 2, heightLSC, widthLSC,
+									1.0 / (heightLSC - 1), 1.0 / (widthLSC - 1), 0, 0, 1, lscMaps[format.order[0]]);
+				DNGGainMap gainmap1(0, 1, info.height, info.width, 0, 1, 2, 2, heightLSC, widthLSC,
+									1.0 / (heightLSC - 1), 1.0 / (widthLSC - 1), 0, 0, 1, lscMaps[format.order[1]]);
+				DNGGainMap gainmap2(1, 0, info.height, info.width, 0, 1, 2, 2, heightLSC, widthLSC,
+									1.0 / (heightLSC - 1), 1.0 / (widthLSC - 1), 0, 0, 1, lscMaps[format.order[2]]);
+				DNGGainMap gainmap3(1, 1, info.height, info.width, 0, 1, 2, 2, heightLSC, widthLSC,
+									1.0 / (heightLSC - 1), 1.0 / (widthLSC - 1), 0, 0, 1, lscMaps[format.order[3]]);
+
+				DNGOpcodeList opList;
+				opList.AddOpcode(&gainmap0);
+				opList.AddOpcode(&gainmap1);
+				opList.AddOpcode(&gainmap2);
+				opList.AddOpcode(&gainmap3);
+				opList.SwitchEndianess();
+				auto opListBytes = opList.GetBytes();
+
+				TIFFSetField(tif, TIFFTAG_OPCODELIST2, uint32_t(opListBytes.size()), (char *)opListBytes.data());
+			}
 		}
 		else
 		{
@@ -528,6 +1009,18 @@ void dng_save(std::vector<libcamera::Span<uint8_t>> const &mem, StreamInfo const
 			TIFFSetField(tif, TIFFTAG_BLACKLEVELREPEATDIM, &black_level_repeat_dim);
 			float black_level = black_levels[0];
 			TIFFSetField(tif, TIFFTAG_BLACKLEVEL, 1, &black_level);
+
+			if (heightLSC > 0 && widthLSC > 0)
+			{
+				DNGGainMap gainmap(0, 0, info.height, info.width, 0, 1, 1, 1, heightLSC, widthLSC,
+								   1.0 / (heightLSC - 1), 1.0 / (widthLSC - 1), 0, 0, 1, std::move(lscMaps[1]));
+				DNGOpcodeList opList;
+				opList.AddOpcode(&gainmap);
+				opList.SwitchEndianess();
+				auto opListBytes = opList.GetBytes();
+
+				TIFFSetField(tif, TIFFTAG_OPCODELIST3, uint32_t(opListBytes.size()), (char *)opListBytes.data());
+			}
 		}
 
 		for (unsigned int y = 0; y < info.height; y++)
