@@ -65,7 +65,9 @@ postproc_assets += files([
     assets_dir / 'hailo_pose_inf_fl.json',
 ])
 
-hailo_cpp_arguments = ['-Wno-ignored-qualifiers', '-Wno-unused-parameter', '-Wno-extra', '-Wno-pessimizing-move']
+hailo_cpp_arguments = ['-Wno-ignored-qualifiers', '-Wno-unused-parameter', '-Wno-extra',
+                       '-Wno-pessimizing-move', '-std=c++20',
+                       '-Wno-deprecated-enum-enum-conversion']
 
 hailo_postprocessing_lib = shared_module('hailo-postproc', hailo_postprocessing_src,
                                          dependencies : hailo_deps,
