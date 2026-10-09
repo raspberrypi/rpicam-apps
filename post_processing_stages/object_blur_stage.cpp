@@ -107,7 +107,7 @@ bool ObjectBlurStage::Process(CompletedRequestPtr &completed_request)
 		return false;
 
 	BufferWriteSync w(app_, completed_request->buffers[stream_]);
-	libcamera::Span<uint8_t> buffer = w.Get()[0];
+	std::span<uint8_t> buffer = w.Get()[0];
 	StreamInfo info = app_->GetStreamInfo(stream_);
 
 	Mat image(info.height, info.width, CV_8U, (uint32_t *)buffer.data(), info.stride);

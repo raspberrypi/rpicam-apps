@@ -101,7 +101,7 @@ bool TfStage::Process(CompletedRequestPtr &completed_request)
 			(!future_ || future_->wait_for(std::chrono::seconds(0)) == std::future_status::ready))
 		{
 			BufferReadSync r(app_, completed_request->buffers[lores_stream_]);
-			libcamera::Span<uint8_t> buffer = r.Get()[0];
+			std::span<uint8_t> buffer = r.Get()[0];
 
 			// Copy the lores image here and let the asynchronous thread convert it to RGB.
 			// Doing the "extra" copy is in fact hugely beneficial because it turns uncacned

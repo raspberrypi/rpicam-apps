@@ -317,7 +317,7 @@ Matrix(float m0, float m1, float m2,
 };
 // clang-format on
 
-void dng_save(std::vector<libcamera::Span<uint8_t>> const &mem, StreamInfo const &info, ControlList const &metadata,
+void dng_save(std::vector<std::span<uint8_t>> const &mem, StreamInfo const &info, ControlList const &metadata,
 			  std::string const &filename, std::string const &cam_model, StillOptions const *options)
 {
 	FormatInfo format;

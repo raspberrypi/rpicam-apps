@@ -91,7 +91,7 @@ public:
 	{
 		main_window_->setWindowTitle(QString::fromStdString(text));
 	}
-	virtual void Show(int fd, libcamera::Span<uint8_t> span, StreamInfo const &info) override
+	virtual void Show(int fd, std::span<uint8_t> span, StreamInfo const &info) override
 	{
 		// Quick and simple nearest-neighbour-ish resampling is used here.
 		// We further share U,V samples between adjacent output pixel pairs

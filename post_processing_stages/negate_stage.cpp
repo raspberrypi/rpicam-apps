@@ -49,7 +49,7 @@ void NegateStage::Configure()
 bool NegateStage::Process(CompletedRequestPtr &completed_request)
 {
 	BufferWriteSync w(app_, completed_request->buffers[stream_]);
-	libcamera::Span<uint8_t> buffer = w.Get()[0];
+	std::span<uint8_t> buffer = w.Get()[0];
 	uint32_t *ptr = (uint32_t *)buffer.data();
 
 	// Constraints on the stride mean we always have multiple-of-4 bytes.

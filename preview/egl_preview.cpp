@@ -34,7 +34,7 @@ public:
 	virtual void SetInfoText(const std::string &text) override;
 	// Display the buffer. You get given the fd back in the BufferDoneCallback
 	// once its available for re-use.
-	virtual void Show(int fd, libcamera::Span<uint8_t> span, StreamInfo const &info) override;
+	virtual void Show(int fd, std::span<uint8_t> span, StreamInfo const &info) override;
 	// Reset the preview window, clearing the current buffers and being ready to
 	// show new ones.
 	virtual void Reset() override;
@@ -446,7 +446,7 @@ void EglPreview::SetInfoText(const std::string &text)
 		XStoreName(display_, window_, text.c_str());
 }
 
-void EglPreview::Show(int fd, libcamera::Span<uint8_t> span, StreamInfo const &info)
+void EglPreview::Show(int fd, std::span<uint8_t> span, StreamInfo const &info)
 {
 	Buffer &buffer = buffers_[fd];
 	if (buffer.fd == -1)

@@ -81,7 +81,7 @@ bool HailoClassifier::Process(CompletedRequestPtr &completed_request)
 	}
 
 	BufferReadSync r(app_, completed_request->buffers[low_res_stream_]);
-	libcamera::Span<uint8_t> buffer = r.Get()[0];
+	std::span<uint8_t> buffer = r.Get()[0];
 	std::shared_ptr<uint8_t> input;
 	uint8_t *input_ptr;
 

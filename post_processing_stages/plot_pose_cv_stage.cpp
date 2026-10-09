@@ -93,7 +93,7 @@ bool PlotPoseCvStage::Process(CompletedRequestPtr &completed_request)
 		return false;
 
 	BufferWriteSync w(app_, completed_request->buffers[stream_]);
-	libcamera::Span<uint8_t> buffer = w.Get()[0];
+	std::span<uint8_t> buffer = w.Get()[0];
 	uint32_t *ptr = (uint32_t *)buffer.data();
 	StreamInfo info = app_->GetStreamInfo(stream_);
 

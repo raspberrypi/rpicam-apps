@@ -10,8 +10,8 @@
 #include "core/still_options.hpp"
 #include "core/stream_info.hpp"
 
-static void yuv420_save(std::vector<libcamera::Span<uint8_t>> const &mem, StreamInfo const &info,
-						std::string const &filename, StillOptions const *options)
+static void yuv420_save(std::vector<std::span<uint8_t>> const &mem, StreamInfo const &info, std::string const &filename,
+						StillOptions const *options)
 {
 	if (options->Get().encoding == "yuv420")
 	{
@@ -58,8 +58,8 @@ static void yuv420_save(std::vector<libcamera::Span<uint8_t>> const &mem, Stream
 		throw std::runtime_error("output format " + options->Get().encoding + " not supported");
 }
 
-static void yuyv_save(std::vector<libcamera::Span<uint8_t>> const &mem, StreamInfo const &info,
-					  std::string const &filename, StillOptions const *options)
+static void yuyv_save(std::vector<std::span<uint8_t>> const &mem, StreamInfo const &info, std::string const &filename,
+					  StillOptions const *options)
 {
 	if (options->Get().encoding == "yuv420")
 	{
@@ -112,8 +112,8 @@ static void yuyv_save(std::vector<libcamera::Span<uint8_t>> const &mem, StreamIn
 		throw std::runtime_error("output format " + options->Get().encoding + " not supported");
 }
 
-static void rgb_save(std::vector<libcamera::Span<uint8_t>> const &mem, StreamInfo const &info,
-					 std::string const &filename, StillOptions const *options)
+static void rgb_save(std::vector<std::span<uint8_t>> const &mem, StreamInfo const &info, std::string const &filename,
+					 StillOptions const *options)
 {
 	if (options->Get().encoding != "rgb24" && options->Get().encoding != "rgb48")
 		throw std::runtime_error("encoding should be set to rgb");
@@ -142,7 +142,7 @@ static void rgb_save(std::vector<libcamera::Span<uint8_t>> const &mem, StreamInf
 	}
 }
 
-void yuv_save(std::vector<libcamera::Span<uint8_t>> const &mem, StreamInfo const &info, std::string const &filename,
+void yuv_save(std::vector<std::span<uint8_t>> const &mem, StreamInfo const &info, std::string const &filename,
 			  StillOptions const *options)
 {
 	if (info.pixel_format == libcamera::formats::YUYV)

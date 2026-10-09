@@ -7,6 +7,8 @@
 
 #pragma once
 
+#include <span>
+
 #include <libcamera/framebuffer.h>
 
 class RPiCamApp;
@@ -17,11 +19,11 @@ public:
 	BufferWriteSync(RPiCamApp *app, libcamera::FrameBuffer *fb);
 	~BufferWriteSync();
 
-	const std::vector<libcamera::Span<uint8_t>> &Get() const;
+	const std::vector<std::span<uint8_t>> &Get() const;
 
 private:
 	libcamera::FrameBuffer *fb_;
-	std::vector<libcamera::Span<uint8_t>> planes_;
+	std::vector<std::span<uint8_t>> planes_;
 };
 
 class BufferReadSync
@@ -30,8 +32,8 @@ public:
 	BufferReadSync(RPiCamApp *app, libcamera::FrameBuffer *fb);
 	~BufferReadSync();
 
-	const std::vector<libcamera::Span<uint8_t>> &Get() const;
+	const std::vector<std::span<uint8_t>> &Get() const;
 
 private:
-	std::vector<libcamera::Span<uint8_t>> planes_;
+	std::vector<std::span<uint8_t>> planes_;
 };

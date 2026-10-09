@@ -494,8 +494,8 @@ bool HdrStage::Process(CompletedRequestPtr &completed_request)
 		return false;
 
 	BufferWriteSync w(app_, completed_request->buffers[stream_]);
-	std::vector<libcamera::Span<uint8_t>> const &buffers = w.Get();
-	libcamera::Span<uint8_t> buffer = buffers[0];
+	std::vector<std::span<uint8_t>> const &buffers = w.Get();
+	std::span<uint8_t> buffer = buffers[0];
 	uint8_t *image = buffer.data();
 
 	// Accumulate frame.

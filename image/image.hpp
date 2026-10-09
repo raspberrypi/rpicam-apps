@@ -18,23 +18,23 @@
 struct StillOptions;
 
 // In jpeg.cpp:
-void jpeg_save(std::vector<libcamera::Span<uint8_t>> const &mem, StreamInfo const &info,
+void jpeg_save(std::vector<std::span<uint8_t>> const &mem, StreamInfo const &info,
 			   libcamera::ControlList const &metadata, std::string const &filename, std::string const &cam_model,
 			   StillOptions const *options);
 
 // In yuv.cpp:
-void yuv_save(std::vector<libcamera::Span<uint8_t>> const &mem, StreamInfo const &info, std::string const &filename,
+void yuv_save(std::vector<std::span<uint8_t>> const &mem, StreamInfo const &info, std::string const &filename,
 			  StillOptions const *options);
 
 // In dng.cpp:
-void dng_save(std::vector<libcamera::Span<uint8_t>> const &mem, StreamInfo const &info,
+void dng_save(std::vector<std::span<uint8_t>> const &mem, StreamInfo const &info,
 			  libcamera::ControlList const &metadata, std::string const &filename, std::string const &cam_model,
 			  StillOptions const *options);
 
 // In png.cpp:
-void png_save(std::vector<libcamera::Span<uint8_t>> const &mem, StreamInfo const &info, std::string const &filename,
+void png_save(std::vector<std::span<uint8_t>> const &mem, StreamInfo const &info, std::string const &filename,
 			  StillOptions const *options);
 
 // In bmp.cpp:
-void bmp_save(std::vector<libcamera::Span<uint8_t>> const &mem, StreamInfo const &info, std::string const &filename,
+void bmp_save(std::vector<std::span<uint8_t>> const &mem, StreamInfo const &info, std::string const &filename,
 			  StillOptions const *options);

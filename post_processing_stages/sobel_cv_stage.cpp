@@ -61,7 +61,7 @@ bool SobelCvStage::Process(CompletedRequestPtr &completed_request)
 {
 	StreamInfo info = app_->GetStreamInfo(stream_);
 	BufferWriteSync w(app_, completed_request->buffers[stream_]);
-	libcamera::Span<uint8_t> buffer = w.Get()[0];
+	std::span<uint8_t> buffer = w.Get()[0];
 	uint8_t *ptr = (uint8_t *)buffer.data();
 
 	//Everything beyond this point is image processing...
