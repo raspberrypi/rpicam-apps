@@ -523,9 +523,9 @@ bool OptsInternal::Parse(boost::program_options::variables_map &vm, RPiCamApp *a
 				std::stringstream sensor_props;
 				sensor_props << idx++ << " : " << *cam->properties().get(libcamera::properties::Model) << " [";
 
-				auto area = cam->properties().get(properties::PixelArrayActiveAreas);
+				auto area = cam->properties().get(properties::PixelArrayReadableArea);
 				if (area)
-					sensor_props << (*area)[0].size().toString() << " ";
+					sensor_props << area->size().toString() << " ";
 
 				std::unique_ptr<CameraConfiguration> config =
 					cam->generateConfiguration({ libcamera::StreamRole::Raw, libcamera::StreamRole::Viewfinder });
@@ -591,6 +591,8 @@ bool OptsInternal::Parse(boost::program_options::variables_map &vm, RPiCamApp *a
 						auto crop_ctrl = cam->controls().at(&controls::ScalerCrop).max().get<Rectangle>();
 						double fps = fd_ctrl == cam->controls().end() ? NAN
 																	  : (1e6 / fd_ctrl->second.min().get<int64_t>());
+						if (area)
+							crop_ctrl.translateBy(-area->topLeft());
 						std::cout << std::fixed << std::setprecision(2) << "[" << fps << " fps - "
 								  << crop_ctrl.toString() << " crop" << "]";
 						if (--num)
