@@ -1,3 +1,21 @@
+rpicam-apps (1.14.0-1) trixie; urgency=medium
+
+  [ Naushir Patuck ]
+  * rpicam-still: Remove fixed-size buffer in generate_filename()
+  * preview: Fit default-sized windows to the image aspect ratio
+  * options: Allow --mode and --viewfinder-mode to select a mode by index
+  * treewide: Replace libcamera::Span with std::span
+  * hailo: Build the post-processing stages as C++20
+  * build: Update release to v1.14.0
+
+  [ David Plowman ]
+  * Report sensor mode crop regions relative to the readable area
+
+  [ Serge Schneider ]
+  * debian/: build Qt preview against Qt6
+
+ -- Serge Schneider <serge@raspberrypi.com>  Tue, 13 Oct 2026 10:18:18 +0100
+
 rpicam-apps (1.13.0-1) trixie; urgency=medium
 
   [ Naushir Patuck ]
