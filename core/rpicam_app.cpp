@@ -13,6 +13,7 @@
 
 #include <cmath>
 #include <fcntl.h>
+#include <span>
 #include <stdlib.h>
 
 #include <sys/ioctl.h>
@@ -672,7 +673,7 @@ void RPiCamApp::StartCamera()
 		if (options_->GetPlatform() == Platform::VC4)
 			controls_.set(controls::ScalerCrop, crops[0]);
 		else
-			controls_.set(controls::rpi::ScalerCrops, libcamera::Span<const Rectangle>(crops.data(), crops.size()));
+			controls_.set(controls::rpi::ScalerCrops, std::span<const Rectangle>(crops.data(), crops.size()));
 	}
 
 	if (!controls_.get(controls::AfWindows) && !controls_.get(controls::AfMetering) &&
@@ -700,11 +701,11 @@ void RPiCamApp::StartCamera()
 	{
 		if (StillStream())
 			controls_.set(controls::FrameDurationLimits,
-						  libcamera::Span<const int64_t, 2>({ INT64_C(100), INT64_C(1000000000) }));
+						  std::span<const int64_t, 2>({ INT64_C(100), INT64_C(1000000000) }));
 		else if (!options_->Get().framerate || options_->Get().framerate.value() > 0)
 		{
 			int64_t frame_time = 1000000 / options_->Get().framerate.value_or(DEFAULT_FRAMERATE); // in us
-			controls_.set(controls::FrameDurationLimits, libcamera::Span<const int64_t, 2>({ frame_time, frame_time }));
+			controls_.set(controls::FrameDurationLimits, std::span<const int64_t, 2>({ frame_time, frame_time }));
 		}
 	}
 
@@ -728,14 +729,14 @@ void RPiCamApp::StartCamera()
 		controls_.set(controls::AwbMode, options_->Get().awb_index);
 	if (!controls_.get(controls::ColourGains) && options_->Get().awb_gain_r && options_->Get().awb_gain_b)
 		controls_.set(controls::ColourGains,
-					  libcamera::Span<const float, 2>({ options_->Get().awb_gain_r, options_->Get().awb_gain_b }));
+					  std::span<const float, 2>({ options_->Get().awb_gain_r, options_->Get().awb_gain_b }));
 	if (!controls_.get(controls::ColourCorrectionMatrix) && !options_->Get().ccm.empty())
 	{
 		if (!controls_.get(controls::ColourGains))
 			LOG_ERROR("WARNING: cannot set colour correction matrix without explicit AWB gains (--awbgains)");
 		else
 		{
-			libcamera::Span<const float, 9> span(options_->Get().ccm_values);
+			std::span<const float, 9> span(options_->Get().ccm_values);
 			controls_.set(controls::ColourCorrectionMatrix, span);
 		}
 	}
@@ -1048,7 +1049,7 @@ void RPiCamApp::setupCapture()
 			fb.push_back(std::make_unique<FrameBuffer>(plane));
 			void *memory = mmap(NULL, config.frameSize, PROT_READ | PROT_WRITE, MAP_SHARED, plane[0].fd.get(), 0);
 			mapped_buffers_[fb.back().get()].push_back(
-				libcamera::Span<uint8_t>(static_cast<uint8_t *>(memory), config.frameSize));
+				std::span<uint8_t>(static_cast<uint8_t *>(memory), config.frameSize));
 		}
 
 		frame_buffers_[stream] = std::move(fb);
@@ -1204,7 +1205,7 @@ void RPiCamApp::previewThread()
 		StreamInfo info = GetStreamInfo(item.stream);
 		FrameBuffer *buffer = item.completed_request->buffers[item.stream];
 		BufferReadSync r(this, buffer);
-		libcamera::Span span = r.Get()[0];
+		std::span span = r.Get()[0];
 
 		// Fill the frame info with the ControlList items and ancillary bits.
 		FrameInfo frame_info(item.completed_request);

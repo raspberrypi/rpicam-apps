@@ -99,7 +99,7 @@ static void event_loop(RPiCamJpegApp &app)
 			StreamInfo info = app.GetStreamInfo(stream);
 			CompletedRequestPtr &payload = std::get<CompletedRequestPtr>(msg.payload);
 			BufferReadSync r(&app, payload->buffers[stream]);
-			const std::vector<libcamera::Span<uint8_t>> mem = r.Get();
+			const std::vector<std::span<uint8_t>> mem = r.Get();
 			jpeg_save(mem, info, payload->metadata, options->Get().output, app.CameraModel(), options);
 			if (!options->Get().metadata.empty())
 				save_metadata(options, payload->metadata);

@@ -41,7 +41,7 @@ struct FileHeader
 };
 static_assert(sizeof(FileHeader) == 16, "FileHeader size wrong");
 
-void bmp_save(std::vector<libcamera::Span<uint8_t>> const &mem, StreamInfo const &info, std::string const &filename,
+void bmp_save(std::vector<std::span<uint8_t>> const &mem, StreamInfo const &info, std::string const &filename,
 			  StillOptions const *options)
 {
 	if (info.pixel_format != libcamera::formats::RGB888)

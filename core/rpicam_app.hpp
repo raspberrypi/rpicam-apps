@@ -266,7 +266,7 @@ private:
 	std::shared_ptr<Camera> camera_;
 	bool camera_acquired_ = false;
 	std::unique_ptr<CameraConfiguration> configuration_;
-	std::map<FrameBuffer *, std::vector<libcamera::Span<uint8_t>>> mapped_buffers_;
+	std::map<FrameBuffer *, std::vector<std::span<uint8_t>>> mapped_buffers_;
 	std::map<std::string, Stream *> streams_;
 	DmaHeap dma_heap_;
 	std::map<Stream *, std::vector<std::unique_ptr<FrameBuffer>>> frame_buffers_;

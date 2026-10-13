@@ -10,6 +10,7 @@
 #include <functional>
 #include <map>
 #include <set>
+#include <span>
 #include <string>
 #include <vector>
 
@@ -42,7 +43,7 @@ public:
 	}
 	// Display the buffer. You get given the fd back in the BufferDoneCallback
 	// once its available for re-use.
-	virtual void Show(int fd, libcamera::Span<uint8_t> span, StreamInfo const &info) = 0;
+	virtual void Show(int fd, std::span<uint8_t> span, StreamInfo const &info) = 0;
 	// Reset the preview window, clearing the current buffers and being ready to
 	// show new ones.
 	virtual void Reset() = 0;

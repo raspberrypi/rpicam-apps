@@ -85,7 +85,7 @@ void AnnotateCvStage::Configure()
 bool AnnotateCvStage::Process(CompletedRequestPtr &completed_request)
 {
 	BufferWriteSync w(app_, completed_request->buffers[stream_]);
-	libcamera::Span<uint8_t> buffer = w.Get()[0];
+	std::span<uint8_t> buffer = w.Get()[0];
 	FrameInfo info(completed_request);
 
 	// Other post-processing stages can supply metadata to update the text.

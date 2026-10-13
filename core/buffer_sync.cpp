@@ -45,7 +45,7 @@ BufferWriteSync::~BufferWriteSync()
 		LOG_ERROR("failed to unlock-sync-write dma buf");
 }
 
-const std::vector<libcamera::Span<uint8_t>> &BufferWriteSync::Get() const
+const std::vector<std::span<uint8_t>> &BufferWriteSync::Get() const
 {
 	return planes_;
 }
@@ -70,7 +70,7 @@ BufferReadSync::~BufferReadSync()
 	// in the next request, so nothing to do here.
 }
 
-const std::vector<libcamera::Span<uint8_t>> &BufferReadSync::Get() const
+const std::vector<std::span<uint8_t>> &BufferReadSync::Get() const
 {
 	return planes_;
 }
