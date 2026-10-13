@@ -75,7 +75,7 @@ public:
 		StreamInfo info = GetStreamInfo(stream);
 		FrameBuffer *buffer = completed_request->buffers[stream];
 		BufferReadSync r(this, buffer);
-		libcamera::Span span = r.Get()[0];
+		std::span span = r.Get()[0];
 		void *mem = span.data();
 		if (!buffer || !mem)
 			throw std::runtime_error("no buffer to encode");

@@ -346,7 +346,7 @@ bool Scrfd::Process(CompletedRequestPtr &completed_request)
 	}
 
 	BufferReadSync r(app_, completed_request->buffers[low_res_stream_]);
-	libcamera::Span<uint8_t> low_res_buffer = r.Get()[0];
+	std::span<uint8_t> low_res_buffer = r.Get()[0];
 	std::shared_ptr<uint8_t> input;
 	uint8_t *input_ptr;
 
@@ -382,7 +382,7 @@ bool Scrfd::Process(CompletedRequestPtr &completed_request)
 	}
 
 	BufferWriteSync w(app_, completed_request->buffers[output_stream_]);
-	libcamera::Span<uint8_t> buffer = w.Get()[0];
+	std::span<uint8_t> buffer = w.Get()[0];
 	uint32_t *output = (uint32_t *)buffer.data();
 
 	runInference(input_ptr, output);

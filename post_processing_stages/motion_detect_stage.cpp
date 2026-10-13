@@ -138,7 +138,7 @@ bool MotionDetectStage::Process(CompletedRequestPtr &completed_request)
 		return false;
 
 	BufferReadSync r(app_, completed_request->buffers[stream_]);
-	libcamera::Span<uint8_t> buffer = r.Get()[0];
+	std::span<uint8_t> buffer = r.Get()[0];
 	uint8_t *image = buffer.data();
 
 	// We need to protect access to first_time_, previous_frame_ and motion_detected_.

@@ -123,7 +123,7 @@ bool FaceDetectCvStage::Process(CompletedRequestPtr &completed_request)
 			(!future_ptr_ || future_ptr_->wait_for(std::chrono::seconds(0)) == std::future_status::ready))
 		{
 			BufferReadSync r(app_, completed_request->buffers[stream_]);
-			libcamera::Span<uint8_t> buffer = r.Get()[0];
+			std::span<uint8_t> buffer = r.Get()[0];
 			uint8_t *ptr = (uint8_t *)buffer.data();
 			Mat image(low_res_info_.height, low_res_info_.width, CV_8U, ptr, low_res_info_.stride);
 			image_ = image.clone();
@@ -143,7 +143,7 @@ bool FaceDetectCvStage::Process(CompletedRequestPtr &completed_request)
 	if (draw_features_)
 	{
 		BufferWriteSync w(app_, completed_request->buffers[full_stream_]);
-		libcamera::Span<uint8_t> buffer = w.Get()[0];
+		std::span<uint8_t> buffer = w.Get()[0];
 		uint8_t *ptr = (uint8_t *)buffer.data();
 		Mat image(full_stream_info_.height, full_stream_info_.width, CV_8U, ptr, full_stream_info_.stride);
 		drawFeatures(image);

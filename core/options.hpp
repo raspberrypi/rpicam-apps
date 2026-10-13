@@ -40,6 +40,9 @@ struct Mode
 	unsigned int bit_depth;
 	bool packed;
 	double framerate;
+	// Set when the mode was given as an index into the camera's mode list; it is
+	// resolved into width/height/bit_depth once the cameras have been enumerated.
+	std::optional<unsigned int> mode_index;
 	libcamera::Size Size() const
 	{
 		return libcamera::Size(width, height);

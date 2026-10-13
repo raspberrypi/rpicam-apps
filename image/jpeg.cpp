@@ -437,7 +437,7 @@ static void YUV_to_JPEG(const uint8_t *input, StreamInfo const &info, const int 
 		throw std::runtime_error("unsupported YUV format in JPEG encode");
 }
 
-static void create_exif_data(std::vector<libcamera::Span<uint8_t>> const &mem, StreamInfo const &info,
+static void create_exif_data(std::vector<std::span<uint8_t>> const &mem, StreamInfo const &info,
 							 ControlList const &metadata, std::string const &cam_model, StillOptions const *options,
 							 uint8_t *&exif_buffer, unsigned int &exif_len, uint8_t *&thumb_buffer,
 							 jpeg_mem_len_t &thumb_len)
@@ -573,7 +573,7 @@ static void create_exif_data(std::vector<libcamera::Span<uint8_t>> const &mem, S
 	}
 }
 
-void jpeg_save(std::vector<libcamera::Span<uint8_t>> const &mem, StreamInfo const &info, ControlList const &metadata,
+void jpeg_save(std::vector<std::span<uint8_t>> const &mem, StreamInfo const &info, ControlList const &metadata,
 			   std::string const &filename, std::string const &cam_model, StillOptions const *options)
 {
 	FILE *fp = nullptr;
