@@ -26,7 +26,7 @@ Build-Depends: debhelper-compat (= 13),
  hailort (>= 4.23.0) [arm64],
  hailo-tappas-core (>= 5.1.0) [arm64],
  libswresample-dev,
- wayland-protocols
+ wayland-protocols,
  libtensorflow-lite-dev [arm64]
 Standards-Version: 4.1.3
 Homepage: https://github.com/raspberrypi/rpicam-apps/
