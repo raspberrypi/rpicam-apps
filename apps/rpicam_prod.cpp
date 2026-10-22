@@ -24,20 +24,11 @@
 
 using namespace std::placeholders;
 
-static const std::map<libcamera::PixelFormat, unsigned int> bayer_formats =
-{
-	{ libcamera::formats::SRGGB10, 10 },
-	{ libcamera::formats::SGRBG10, 10 },
-	{ libcamera::formats::SBGGR10, 10 },
-	{ libcamera::formats::SGBRG10, 10 },
-	{ libcamera::formats::R10,     10 },
-	{ libcamera::formats::SRGGB12, 12 },
-	{ libcamera::formats::SGRBG12, 12 },
-	{ libcamera::formats::SBGGR12, 12 },
-	{ libcamera::formats::SGBRG12, 12 },
-	{ libcamera::formats::SRGGB16, 16 },
-	{ libcamera::formats::SGRBG16, 16 },
-	{ libcamera::formats::SBGGR16, 16 },
+static const std::map<libcamera::PixelFormat, unsigned int> bayer_formats = {
+	{ libcamera::formats::SRGGB10, 10 }, { libcamera::formats::SGRBG10, 10 }, { libcamera::formats::SBGGR10, 10 },
+	{ libcamera::formats::SGBRG10, 10 }, { libcamera::formats::R10, 10 },	  { libcamera::formats::SRGGB12, 12 },
+	{ libcamera::formats::SGRBG12, 12 }, { libcamera::formats::SBGGR12, 12 }, { libcamera::formats::SGBRG12, 12 },
+	{ libcamera::formats::SRGGB16, 16 }, { libcamera::formats::SGRBG16, 16 }, { libcamera::formats::SBGGR16, 16 },
 	{ libcamera::formats::SGBRG16, 16 },
 };
 
@@ -168,7 +159,8 @@ struct ProdOptions : public VideoOptions
 			return false;
 
 		/* Ensure AF is disabled when libcamera_prod drives the lens */
-		if (focus_test || focus_fix != INT_MIN) {
+		if (focus_test || focus_fix != INT_MIN)
+		{
 			v_->afMode_index = libcamera::controls::AfModeManual;
 			v_->lens_position = std::nullopt;
 			v_->set_default_lens_position = false;
@@ -244,12 +236,16 @@ void RPicamProd::run_calibration(CompletedRequestPtr req)
 		{
 			uint16_t p = s[0];
 			sum[0] += p;
-			if (p < min[0]) min[0] = p;
-			if (p > max[0]) max[0] = p;
+			if (p < min[0])
+				min[0] = p;
+			if (p > max[0])
+				max[0] = p;
 			p = s[1];
 			sum[1] += p;
-			if (p < min[1]) min[1] = p;
-			if (p > max[1]) max[1] = p;
+			if (p < min[1])
+				min[1] = p;
+			if (p > max[1])
+				max[1] = p;
 		}
 
 		s = &linebuf_[0];
@@ -258,12 +254,16 @@ void RPicamProd::run_calibration(CompletedRequestPtr req)
 		{
 			uint16_t p = s[0];
 			sum[2] += p;
-			if (p < min[2]) min[2] = p;
-			if (p > max[2]) max[2] = p;
+			if (p < min[2])
+				min[2] = p;
+			if (p > max[2])
+				max[2] = p;
 			p = s[1];
 			sum[3] += p;
-			if (p < min[3]) min[3] = p;
-			if (p > max[3]) max[3] = p;
+			if (p < min[3])
+				min[3] = p;
+			if (p > max[3])
+				max[3] = p;
 		}
 	}
 
@@ -278,7 +278,8 @@ void RPicamProd::run_calibration(CompletedRequestPtr req)
 	s << "Min: [" << min[0] << ", " << min[1] << ", " << min[2] << ", " << min[3] << "] ";
 	s << "Max: [" << max[0] << ", " << max[1] << ", " << max[2] << ", " << max[3] << "] ";
 	s << "Mean: [" << sum[0] / (info.width * info.height / 4) << ", " << sum[1] / (info.width * info.height / 4) << ", "
-	  << sum[2] / (info.width * info.height / 4) << ", " << sum[3] / (info.width * info.height / 4) << "]              ";
+	  << sum[2] / (info.width * info.height / 4) << ", " << sum[3] / (info.width * info.height / 4)
+	  << "]              ";
 	std::cout << "\r" << s.str() << std::flush;
 }
 
@@ -306,11 +307,11 @@ bool RPicamProd::run_focus_test(CompletedRequestPtr req, unsigned int count)
 				s3 << "Maximum : FoM [ ";
 				s4 << " Pos [ ";
 				s5 << "Max/Min ratio : [ " << std::setprecision(5);
-				
+
 				for (auto const &foms : foms_)
 				{
-					auto [min, max] = std::minmax_element(foms.begin(), foms.end(),
-										[](const auto &l, const auto &r) { return l.second < r.second; });
+					auto [min, max] = std::minmax_element(foms.begin(), foms.end(), [](const auto &l, const auto &r)
+														  { return l.second < r.second; });
 					s1 << min->second << " ";
 					s2 << min->first << " ";
 					s3 << max->second << " ";
@@ -318,8 +319,14 @@ bool RPicamProd::run_focus_test(CompletedRequestPtr req, unsigned int count)
 					s5 << max->second / min->second << " ";
 				}
 
-				s1 << "]"; s2 << "]"; s3 << "]"; s4 << "]"; s5 << "]";
-				std::cout << s1.str() << s2.str() << std::endl << s3.str() << s4.str() << std::endl << s5.str() << std::endl;
+				s1 << "]";
+				s2 << "]";
+				s3 << "]";
+				s4 << "]";
+				s5 << "]";
+				std::cout << s1.str() << s2.str() << std::endl
+						  << s3.str() << s4.str() << std::endl
+						  << s5.str() << std::endl;
 				return true;
 			}
 			else
@@ -328,13 +335,15 @@ bool RPicamProd::run_focus_test(CompletedRequestPtr req, unsigned int count)
 				focus_cycles_++;
 			}
 		}
-		else if (!focus_revdir_) {
+		else if (!focus_revdir_)
+		{
 			focus_pos_ = std::min(focus_max_pos_, focus_pos_ + options->focus_steps);
 		}
-		else {
-			focus_pos_ = (focus_pos_ >= focus_max_pos_) ?
-				focus_max_pos_ - 1 - (focus_max_pos_ - 1 - focus_min_pos_) % options->focus_steps :
-				std::max(focus_min_pos_, focus_pos_ - options->focus_steps);
+		else
+		{
+			focus_pos_ = (focus_pos_ >= focus_max_pos_)
+							 ? focus_max_pos_ - 1 - (focus_max_pos_ - 1 - focus_min_pos_) % options->focus_steps
+							 : std::max(focus_min_pos_, focus_pos_ - options->focus_steps);
 		}
 
 		if (set_focus(lens_device_, focus_pos_))
@@ -401,7 +410,8 @@ void RPicamProd::run_dust_test(CompletedRequestPtr req)
 		{
 			// Note that normalisation could push high outliers above 65535
 			uint32_t p[4] { (uint32_t)(*s * scale[0]), (uint32_t)(*(s + 1) * scale[1]),
-							(uint32_t)(*(s + info.stride / 2) * scale[2]), (uint32_t)(*(s + info.stride / 2 + 1) * scale[3]) };
+							(uint32_t)(*(s + info.stride / 2) * scale[2]),
+							(uint32_t)(*(s + info.stride / 2 + 1) * scale[3]) };
 
 			for (unsigned int i = 0; i < 4; i++)
 			{
@@ -437,10 +447,10 @@ static int find_max_step(uint16_t *buf, unsigned start, unsigned end, uint16_t &
 	unsigned a = 0;
 	int max = 0;
 
-	for(unsigned x = start - 2; x < end + 2; ++x)
+	for (unsigned x = start - 2; x < end + 2; ++x)
 	{
-		int d = -buf[x-9] -2*buf[x-7] - 3*buf[x-5] - 3*buf[x-3] - 3*buf[x-1]
-			+ 3*buf[x+1] + 3*buf[x+3] + 3*buf[x+5] + 2*buf[x+7] + buf[x+9];
+		int d = -buf[x - 9] - 2 * buf[x - 7] - 3 * buf[x - 5] - 3 * buf[x - 3] - 3 * buf[x - 1] + 3 * buf[x + 1] +
+				3 * buf[x + 3] + 3 * buf[x + 5] + 2 * buf[x + 7] + buf[x + 9];
 		d = std::abs(d);
 		if (d > max)
 			max = d, a = x;
@@ -456,9 +466,9 @@ static int find_max_step(uint16_t *buf, unsigned start, unsigned end, uint16_t &
 
 static bool fit_line(double params[2], uint16_t const *val, unsigned len)
 {
-	static const double MARGIN2      = 36.0; // max jitter +/- 6 pixels
+	static const double MARGIN2 = 36.0; // max jitter +/- 6 pixels
 	static const double MAX_GRADIENT = 0.26; // up to ~15 degrees off axis
-	const unsigned l_3 = len/3; // Seed points must be in the middle 1/3
+	const unsigned l_3 = len / 3; // Seed points must be in the middle 1/3
 	double best_score = 0.0;
 
 	params[0] = 0.0;
@@ -467,25 +477,24 @@ static bool fit_line(double params[2], uint16_t const *val, unsigned len)
 	// Fit a line to two points drawn from the middle third of the domain.
 	// Use exhaustive search for one point and random sampling for the other.
 	// Note that a value of 0 means that a point is undefined.
-	for(unsigned x0 = l_3; x0 < 2*l_3; x0++)
+	for (unsigned x0 = l_3; x0 < 2 * l_3; x0++)
 	{
 		if (!val[x0])
 			continue;
 
-		for(unsigned guess = 0; guess < 10; ++guess)
+		for (unsigned guess = 0; guess < 10; ++guess)
 		{
 			unsigned x1 = l_3 + (unsigned)rand() % l_3;
 			if ((x1 < x0 + 64 && x0 < x1 + 64) || !val[x1])
 				continue;
 
-			double p1 = ((double)val[x1] - (double)val[x0]) /
-				    ((double)x1 - (double)x0);
-			double p0 = val[x0] - p1*x0;
+			double p1 = ((double)val[x1] - (double)val[x0]) / ((double)x1 - (double)x0);
+			double p0 = val[x0] - p1 * x0;
 			if (std::abs(p1) > MAX_GRADIENT)
 				continue;
 
 			double score = 0.0;
-			for(unsigned x = 0; x < len; ++x)
+			for (unsigned x = 0; x < len; ++x)
 			{
 				double err = p0 + p1 * x - val[x];
 				err *= err;
@@ -510,13 +519,13 @@ static unsigned find_centile(uint32_t const *histogram, unsigned start, unsigned
 	uint64_t tot = 0, cum = 0;
 	unsigned i;
 
-	for(i = start; i < finish; ++i)
+	for (i = start; i < finish; ++i)
 		tot += histogram[i];
 	tot *= centile;
-	for(i = start; i < finish; ++i)
+	for (i = start; i < finish; ++i)
 	{
 		cum += histogram[i];
-		if (100*cum >= tot)
+		if (100 * cum >= tot)
 			break;
 	}
 	return i;
@@ -544,19 +553,19 @@ void RPicamProd::run_quad_test(CompletedRequestPtr req)
 	// or one row (of pixels) and one column (of indices) or vice versa.
 	// We'll also compute the total light in each pair of rows and columns.
 	linebuf_.resize(info.width + std::max(info.width, info.height));
-	uint32_t *rowsums = new uint32_t [ (info.height + 1) / 2];
-	uint32_t *colsums = new uint32_t [ (info.width + 1) / 2];
+	uint32_t *rowsums = new uint32_t[(info.height + 1) / 2];
+	uint32_t *colsums = new uint32_t[(info.width + 1) / 2];
 
 	// Find the largest H step (of any colour component) in the middle third of
 	// each scanline. Meanwhile, count very bright pixels (after shifting to 16 bits)
 	// and compute sums over pairs of rows. Subtract black level from each row sum.
 	uint32_t bright_count = 0;
-	for(unsigned y = 0; y < info.height; y++)
+	for (unsigned y = 0; y < info.height; y++)
 	{
 		uint16_t *s = &linebuf_[info.height];
-		memcpy(s, (uint16_t const *)mem + y * info.stride / 2, info.width*sizeof(uint16_t));
+		memcpy(s, (uint16_t const *)mem + y * info.stride / 2, info.width * sizeof(uint16_t));
 		uint32_t rowsum = 0;
-		for(unsigned x = 0; x < info.width; x++)
+		for (unsigned x = 0; x < info.width; x++)
 		{
 			uint16_t p = s[x] << shift;
 			rowsum += p;
@@ -568,7 +577,7 @@ void RPicamProd::run_quad_test(CompletedRequestPtr req)
 			rowsums[y >> 1] = rowsum;
 		else
 			rowsums[y >> 1] += rowsum;
-		find_max_step(s, info.width/3, 2*info.width/3, linebuf_[y]);
+		find_max_step(s, info.width / 3, 2 * info.width / 3, linebuf_[y]);
 	}
 
 	// Fail if more than 1% of pixels are likely to have saturated.
@@ -584,11 +593,11 @@ void RPicamProd::run_quad_test(CompletedRequestPtr req)
 	// Read columns into cached memory, and find the largest V step (of any colour
 	// component) in the middle third of each column. Meanwhile, compute sums over
 	// pairs of columns. Shift each column sum to 16 bits and subtract black level.
-	for(unsigned x = 0; x < info.width; ++x)
+	for (unsigned x = 0; x < info.width; ++x)
 	{
 		uint16_t *s = &linebuf_[info.width];
 		uint32_t colsum = 0;
-		for(unsigned y = 0; y < info.height; ++y)
+		for (unsigned y = 0; y < info.height; ++y)
 		{
 			uint16_t p = *((uint16_t const *)mem + y * info.stride / 2 + x);
 			s[y] = p;
@@ -600,7 +609,7 @@ void RPicamProd::run_quad_test(CompletedRequestPtr req)
 			colsums[x >> 1] = colsum;
 		else
 			colsums[x >> 1] += colsum;
-		find_max_step(s, info.height/3, 2*info.height/3, linebuf_[x]);
+		find_max_step(s, info.height / 3, 2 * info.height / 3, linebuf_[x]);
 	}
 
 	// Try to find the horizontal line. Check the crossing angle is 90 +/- 5 degrees or so.
@@ -613,49 +622,49 @@ void RPicamProd::run_quad_test(CompletedRequestPtr req)
 	// third of the width and of the height, but not necessarily to intersect there.
 	// Let's require them to intersect in the central half of the width and height.
 	unsigned intersect_x = (unsigned)(0.5 + (vline_params[0] + vline_params[1] * hline_params[0]) /
-					  (1.0 - vline_params[1] * hline_params[1]));
+												(1.0 - vline_params[1] * hline_params[1]));
 	unsigned intersect_y = (unsigned)(0.5 + (hline_params[0] + hline_params[1] * vline_params[0]) /
-					  (1.0 - vline_params[1] * hline_params[1]));
+												(1.0 - vline_params[1] * hline_params[1]));
 	printf("Lines intersect at %u, %u\n", intersect_x, intersect_y);
-	if (4*intersect_x < info.width  || 4*intersect_x >= 3 * info.width ||
-	    4*intersect_y < info.height || 4*intersect_y >= 3 * info.height)
-	  throw std::runtime_error("Intersection point not central");
+	if (4 * intersect_x < info.width || 4 * intersect_x >= 3 * info.width || 4 * intersect_y < info.height ||
+		4 * intersect_y >= 3 * info.height)
+		throw std::runtime_error("Intersection point not central");
 
 	// Find the bounding box containing 75% of the light in each of the 4 principal directions
 	// from the intersection (with a 64 pixel margin, but no attempt to correct for rotation).
 	// NB: bounding box coordinates are always even, so they align with pixel-quads.
 	unsigned vbounds[2], hbounds[2];
-	vbounds[0] = 2 * find_centile(rowsums, 0,                       (intersect_y - 64) >> 1, 25);
-	vbounds[1] = 2 * find_centile(rowsums, (intersect_y + 65) >> 1, info.height >> 1,        75);
-	hbounds[0] = 2 * find_centile(colsums, 0,                       (intersect_x - 64) >> 1, 25);
-	hbounds[1] = 2 * find_centile(colsums, (intersect_x + 65) >> 1, info.width >> 1,         75);
+	vbounds[0] = 2 * find_centile(rowsums, 0, (intersect_y - 64) >> 1, 25);
+	vbounds[1] = 2 * find_centile(rowsums, (intersect_y + 65) >> 1, info.height >> 1, 75);
+	hbounds[0] = 2 * find_centile(colsums, 0, (intersect_x - 64) >> 1, 25);
+	hbounds[1] = 2 * find_centile(colsums, (intersect_x + 65) >> 1, info.width >> 1, 75);
 
 	// Add up each colour component of pixel-quads in each image-quadrant within the bounding box,
 	// ignoring pixel-quads within 64 pel of the boundary lines (this time, corrected for rotation)
 	// and excluding quads containing very bright values that might have saturated.
 	uint32_t count[4] = { 0, 0, 0, 0 };
 	double mean[4][4];
-	for(unsigned q = 0; q < 4; q++)
-		for(unsigned c = 0; c < 4; c++)
+	for (unsigned q = 0; q < 4; q++)
+		for (unsigned c = 0; c < 4; c++)
 			mean[q][c] = 0.0;
-	for(unsigned y = vbounds[0]; y < vbounds[1] && y < info.height; y += 2)
+	for (unsigned y = vbounds[0]; y < vbounds[1] && y < info.height; y += 2)
 	{
 		uint16_t *s0 = &linebuf_[0];
 		uint16_t *s1 = &linebuf_[info.width];
-		memcpy(s0, (uint16_t const *)mem + y * info.stride / 2, info.width*sizeof(uint16_t));
-		memcpy(s1, (uint16_t const *)mem + (y + 1) * info.stride / 2, info.width*sizeof(uint16_t));
-		for(unsigned x = hbounds[0]; x < hbounds[1] && x < info.width; x += 2)
+		memcpy(s0, (uint16_t const *)mem + y * info.stride / 2, info.width * sizeof(uint16_t));
+		memcpy(s1, (uint16_t const *)mem + (y + 1) * info.stride / 2, info.width * sizeof(uint16_t));
+		for (unsigned x = hbounds[0]; x < hbounds[1] && x < info.width; x += 2)
 		{
-			double hoffset = x + 0.5 - vline_params[0] - vline_params[1]*y;
-			double voffset = y + 0.5 - hline_params[0] - hline_params[1]*x;
+			double hoffset = x + 0.5 - vline_params[0] - vline_params[1] * y;
+			double voffset = y + 0.5 - hline_params[0] - hline_params[1] * x;
 			if (std::abs(hoffset) >= 64.0 && std::abs(voffset) >= 64.0 &&
-			    (std::max(std::max(s0[x], s0[x+1]), std::max(s1[x], s1[x+1])) << shift) < 0xFE00)
+				(std::max(std::max(s0[x], s0[x + 1]), std::max(s1[x], s1[x + 1])) << shift) < 0xFE00)
 			{
 				int q = ((voffset < 0.0) ? 0 : 2) + ((hoffset < 0.0) ? 0 : 1);
 				mean[q][0] += s0[x];
-				mean[q][1] += s0[x+1];
+				mean[q][1] += s0[x + 1];
 				mean[q][2] += s1[x];
-				mean[q][3] += s1[x+1];
+				mean[q][3] += s1[x + 1];
 				count[q]++;
 			}
 		}
@@ -663,62 +672,53 @@ void RPicamProd::run_quad_test(CompletedRequestPtr req)
 
 	// Convert raw totals to means (shifted to 16 bits, with black level subtracted)
 	// and print them (PLUS black level, for compatibility with cal/dust test output)
-	for(unsigned q = 0; q < 4; q++)
+	for (unsigned q = 0; q < 4; q++)
 	{
 		double tot = 0.0;
 
 		if (count[q] < 4096)
 			throw std::runtime_error("Not enough pixels in quadrant");
 
-		for(unsigned c = 0; c < 4; c++)
+		for (unsigned c = 0; c < 4; c++)
 		{
 			mean[q][c] = ((mean[q][c] * (1 << shift)) / (double)count[q]) - black_level;
 			tot += mean[q][c];
 		}
 
 		printf("Means: [ %5d, %5d, %5d, %5d ] Fractions: [ %5.3lf, %5.3lf, %5.3lf, %5.3lf ]\n",
-		 (int)(mean[q][0] + black_level),
-		 (int)(mean[q][1] + black_level),
-		 (int)(mean[q][2] + black_level),
-		 (int)(mean[q][3] + black_level),
-		 mean[q][0] / tot,
-		 mean[q][1] / tot,
-		 mean[q][2] / tot,
-		 mean[q][3] / tot);
+			   (int)(mean[q][0] + black_level), (int)(mean[q][1] + black_level), (int)(mean[q][2] + black_level),
+			   (int)(mean[q][3] + black_level), mean[q][0] / tot, mean[q][1] / tot, mean[q][2] / tot, mean[q][3] / tot);
 	}
 
 	// Final image pass. Try to estimate the fraction of the image covered by the test pattern,
 	// by counting pix-quads whose normalized correlation with the quadrant's mean colour is >= 1/8
 	// with a bit of horizontal filtering to remove noise in the dark regions
-	for(unsigned q = 0; q < 4; q++)
+	for (unsigned q = 0; q < 4; q++)
 	{
-		double mag2 = ((mean[q][0] * mean[q][0]) +
-			       (mean[q][1] * mean[q][1]) +
-			       (mean[q][2] * mean[q][2]) +
-			       (mean[q][3] * mean[q][3]));
+		double mag2 = ((mean[q][0] * mean[q][0]) + (mean[q][1] * mean[q][1]) + (mean[q][2] * mean[q][2]) +
+					   (mean[q][3] * mean[q][3]));
 		mean[q][0] /= mag2;
 		mean[q][1] /= mag2;
 		mean[q][2] /= mag2;
 		mean[q][3] /= mag2;
 	}
 	bright_count = 0;
-	for(unsigned y = 0; y < info.height; y += 2)
+	for (unsigned y = 0; y < info.height; y += 2)
 	{
 		uint16_t *s0 = &linebuf_[0];
 		uint16_t *s1 = &linebuf_[info.width];
-		memcpy(s0, (uint16_t const *)mem + y * info.stride / 2, info.width*sizeof(uint16_t));
-		memcpy(s1, (uint16_t const *)mem + (y + 1) * info.stride / 2, info.width*sizeof(uint16_t));
+		memcpy(s0, (uint16_t const *)mem + y * info.stride / 2, info.width * sizeof(uint16_t));
+		memcpy(s1, (uint16_t const *)mem + (y + 1) * info.stride / 2, info.width * sizeof(uint16_t));
 		bool prev = true;
-		for(unsigned x = 0; x < info.width; x += 2)
+		for (unsigned x = 0; x < info.width; x += 2)
 		{
-			double hoffset = x + 0.5 - vline_params[0] - vline_params[1]*y;
-			double voffset = y + 0.5 - hline_params[0] - hline_params[1]*x;
+			double hoffset = x + 0.5 - vline_params[0] - vline_params[1] * y;
+			double voffset = y + 0.5 - hline_params[0] - hline_params[1] * x;
 			int q = ((voffset < 0.0) ? 0 : 2) + ((hoffset < 0.0) ? 0 : 1);
-			double corr =
-				((s0[x]   << shift) - (double)black_level) * mean[q][0] +
-				((s0[x+1] << shift) - (double)black_level) * mean[q][1] +
-				((s1[x]   << shift) - (double)black_level) * mean[q][2] +
-				((s1[x+1] << shift) - (double)black_level) * mean[q][3];
+			double corr = ((s0[x] << shift) - (double)black_level) * mean[q][0] +
+						  ((s0[x + 1] << shift) - (double)black_level) * mean[q][1] +
+						  ((s1[x] << shift) - (double)black_level) * mean[q][2] +
+						  ((s1[x + 1] << shift) - (double)black_level) * mean[q][3];
 			if (corr >= 0.125 && prev)
 				bright_count++;
 			prev = (corr >= 0.125);
@@ -775,8 +775,8 @@ void RPicamProd::run_quad_test(CompletedRequestPtr req)
 	fclose(fpdebug);
 #endif
 
-	delete [] colsums;
-	delete [] rowsums;
+	delete[] colsums;
+	delete[] rowsums;
 }
 
 void RPicamProd::run_imx500_inference_test(CompletedRequestPtr req)
@@ -821,7 +821,7 @@ void RPicamProd::report_imx500_inference()
 static void event_loop(RPicamProd &app)
 {
 	ProdOptions const *options = static_cast<ProdOptions *>(app.GetOptions());
-	std::unique_ptr<Output> output = std::unique_ptr<Output>(Output::Create((VideoOptions *) options));
+	std::unique_ptr<Output> output = std::unique_ptr<Output>(Output::Create((VideoOptions *)options));
 	CompletedRequestPtr req;
 
 	app.OpenCamera();
@@ -852,8 +852,8 @@ static void event_loop(RPicamProd &app)
 		if (count == 0)
 		{
 			libcamera::StreamConfiguration const &cfg = app.RawStream()->configuration();
-			LOG(1, "Raw stream: " << cfg.size.width << "x" << cfg.size.height << " stride " << cfg.stride
-					<< " format " << cfg.pixelFormat.toString());
+			LOG(1, "Raw stream: " << cfg.size.width << "x" << cfg.size.height << " stride " << cfg.stride << " format "
+								  << cfg.pixelFormat.toString());
 		}
 
 		LOG(2, "Viewfinder frame " << count);
