@@ -608,19 +608,29 @@ bool OptsInternal::Parse(boost::program_options::variables_map &vm, RPiCamApp *a
 				if (verbose > 1)
 				{
 					std::stringstream ss;
-					ss << "\n    Available controls for " << max_size.toString() << " " << max_fmt.toString()
-					   << " mode:\n    ";
-					std::cout << ss.str();
-					for (std::size_t s = 0; s < ss.str().length() - 10; std::cout << "-", s++)
-						;
-					std::cout << std::endl;
+					const std::string prop_title = "Sensor properties:";
+					ss << "\n    " << prop_title << "\n    " << std::string(prop_title.length(), '-') << "\n";
+
+					const ControlList &props = cam->properties();
+					std::vector<std::string> prop_strs;
+					for (auto const &[id, value] : props)
+						prop_strs.emplace_back(props.idMap()->at(id)->name() + " : " + value.toString());
+					std::sort(prop_strs.begin(), prop_strs.end());
+					for (auto const &p : prop_strs)
+						ss << "    " << p << "\n";
+
+					const std::string ctrl_title =
+						"Available controls for " + max_size.toString() + " " + max_fmt.toString() + " mode:";
+					ss << "\n    " << ctrl_title << "\n    " << std::string(ctrl_title.length(), '-') << "\n";
 
 					std::vector<std::string> ctrls;
 					for (auto const &[id, info] : control_map)
 						ctrls.emplace_back(id->name() + " : " + info.toString());
-					std::sort(ctrls.begin(), ctrls.end(), [](auto const &l, auto const &r) { return l < r; });
+					std::sort(ctrls.begin(), ctrls.end());
 					for (auto const &c : ctrls)
-						std::cout << "    " << c << std::endl;
+						ss << "    " << c << "\n";
+
+					std::cout << ss.str();
 				}
 
 				std::cout << std::endl;
