@@ -6,7 +6,7 @@ import cv2
 import sys
 
 if len(sys.argv) < 3:
-    print(f'Usage: {sys.argv[0]} <filename> <threshold>')
+    print(f"Usage: {sys.argv[0]} <filename> <threshold>")
     sys.exit(-1)
 
 filename = sys.argv[1]
@@ -19,6 +19,6 @@ raw = raw << (16 - bpp)
 
 raw[raw < threshold] = 65535
 
-cv2.imshow(f'Threshold {threshold}', raw)
+cv2.imshow(f"Threshold {threshold}", raw)
 cv2.waitKey(0)
 cv2.destroyAllWindows()
