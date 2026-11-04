@@ -1,3 +1,25 @@
+rpicam-apps (1.15.0-1) trixie; urgency=medium
+
+  [ David Plowman ]
+  * Fix potential unitialised memory read and crash
+
+  [ Naushir Patuck ]
+  * Add rpicam-apps-tflite-postprocess to the control files
+  * Remove *_tf.json from rpicam-apps-core
+  * debian/control: Add missing comma after wayland-protocols
+  * apps: Add prod test app and scripts
+  * Fixup prod test
+  * utils: apps: Fix style checker failures in the prod test files
+  * apps: options: Disply sensor properties
+  * treewide: Fixes for libcamera v0.8
+  * build: Update release to v1.15.0
+  * debian/control: Require libcamera-dev >= 0.8.0
+
+  [ Richard Oliver ]
+  * Gate rpicam-prod behind enable_prod build option (default: off)
+
+ -- Naushir Patuck <naush@raspberrypi.com>  Wed, 04 Nov 2026 13:35:21 +0000
+
 rpicam-apps (1.14.0-1) trixie; urgency=medium
 
   [ Naushir Patuck ]
