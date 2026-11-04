@@ -49,6 +49,11 @@ option('enable_imx500',
         value : false,
         description : 'Enable IMX500 postprocessing support')
 
+option('enable_prod',
+        type : 'boolean',
+        value : false,
+        description : 'Build rpicam-prod, the camera production line test application')
+
 option('disable_rpi_features',
         type : 'boolean',
         value : false,

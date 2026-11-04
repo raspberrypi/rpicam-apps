@@ -796,7 +796,7 @@ void RPiCamApp::StartCamera()
 		camera_->controls().find(&controls::AeFlickerMode) != camera_->controls().end() &&
 		camera_->controls().find(&controls::AeFlickerPeriod) != camera_->controls().end())
 	{
-		controls_.set(controls::AeFlickerMode, controls::FlickerManual);
+		controls_.set(controls::AeFlickerMode, controls::AeFlickerModeManual);
 		controls_.set(controls::AeFlickerPeriod, options_->Get().flicker_period.get<std::chrono::microseconds>());
 	}
 
