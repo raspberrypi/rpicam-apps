@@ -29,11 +29,11 @@ namespace
 const std::map<int, std::string> &cfa_map()
 {
 	static const std::map<int, std::string> map {
-		{ properties::draft::ColorFilterArrangementEnum::RGGB, "RGGB" },
-		{ properties::draft::ColorFilterArrangementEnum::GRBG, "GRBG" },
-		{ properties::draft::ColorFilterArrangementEnum::GBRG, "GBRG" },
-		{ properties::draft::ColorFilterArrangementEnum::RGB, "RGB" },
-		{ properties::draft::ColorFilterArrangementEnum::MONO, "MONO" },
+		{ properties::draft::ColorFilterArrangementRGGB, "RGGB" },
+		{ properties::draft::ColorFilterArrangementGRBG, "GRBG" },
+		{ properties::draft::ColorFilterArrangementGBRG, "GBRG" },
+		{ properties::draft::ColorFilterArrangementRGB, "RGB" },
+		{ properties::draft::ColorFilterArrangementMONO, "MONO" },
 	};
 
 	return map;
@@ -608,19 +608,29 @@ bool OptsInternal::Parse(boost::program_options::variables_map &vm, RPiCamApp *a
 				if (verbose > 1)
 				{
 					std::stringstream ss;
-					ss << "\n    Available controls for " << max_size.toString() << " " << max_fmt.toString()
-					   << " mode:\n    ";
-					std::cout << ss.str();
-					for (std::size_t s = 0; s < ss.str().length() - 10; std::cout << "-", s++)
-						;
-					std::cout << std::endl;
+					const std::string prop_title = "Sensor properties:";
+					ss << "\n    " << prop_title << "\n    " << std::string(prop_title.length(), '-') << "\n";
+
+					const ControlList &props = cam->properties();
+					std::vector<std::string> prop_strs;
+					for (auto const &[id, value] : props)
+						prop_strs.emplace_back(props.idMap()->at(id)->name() + " : " + value.toString());
+					std::sort(prop_strs.begin(), prop_strs.end());
+					for (auto const &p : prop_strs)
+						ss << "    " << p << "\n";
+
+					const std::string ctrl_title =
+						"Available controls for " + max_size.toString() + " " + max_fmt.toString() + " mode:";
+					ss << "\n    " << ctrl_title << "\n    " << std::string(ctrl_title.length(), '-') << "\n";
 
 					std::vector<std::string> ctrls;
 					for (auto const &[id, info] : control_map)
 						ctrls.emplace_back(id->name() + " : " + info.toString());
-					std::sort(ctrls.begin(), ctrls.end(), [](auto const &l, auto const &r) { return l < r; });
+					std::sort(ctrls.begin(), ctrls.end());
 					for (auto const &c : ctrls)
-						std::cout << "    " << c << std::endl;
+						ss << "    " << c << "\n";
+
+					std::cout << ss.str();
 				}
 
 				std::cout << std::endl;
@@ -649,11 +659,10 @@ bool OptsInternal::Parse(boost::program_options::variables_map &vm, RPiCamApp *a
 		transform = Transform::HFlip * transform;
 	if (vflip_)
 		transform = Transform::VFlip * transform;
-	bool ok;
-	Transform rot = transformFromRotation(rotation_, &ok);
-	if (!ok)
+	std::optional<Transform> rot = transformFromRotation(rotation_);
+	if (!rot)
 		throw std::runtime_error("illegal rotation value");
-	transform = rot * transform;
+	transform = *rot * transform;
 	if (!!(transform & Transform::Transpose))
 		throw std::runtime_error("transforms requiring transpose not supported");
 
@@ -665,11 +674,11 @@ bool OptsInternal::Parse(boost::program_options::variables_map &vm, RPiCamApp *a
 
 	// clang-format off
 	std::map<std::string, int> metering_table =
-		{ { "centre", libcamera::controls::MeteringCentreWeighted },
-			{ "spot", libcamera::controls::MeteringSpot },
-			{ "average", libcamera::controls::MeteringMatrix },
-			{ "matrix", libcamera::controls::MeteringMatrix },
-			{ "custom", libcamera::controls::MeteringCustom } };
+		{ { "centre", libcamera::controls::AeMeteringModeCentreWeighted },
+			{ "spot", libcamera::controls::AeMeteringModeSpot },
+			{ "average", libcamera::controls::AeMeteringModeMatrix },
+			{ "matrix", libcamera::controls::AeMeteringModeMatrix },
+			{ "custom", libcamera::controls::AeMeteringModeCustom } };
 	// clang-format on
 	if (metering_table.count(metering) == 0)
 		throw std::runtime_error("Invalid metering mode: " + metering);
@@ -677,11 +686,11 @@ bool OptsInternal::Parse(boost::program_options::variables_map &vm, RPiCamApp *a
 
 	// clang-format off
 	std::map<std::string, int> exposure_table =
-		{ { "normal", libcamera::controls::ExposureNormal },
-			{ "sport", libcamera::controls::ExposureShort },
-			{ "short", libcamera::controls::ExposureShort },
-			{ "long", libcamera::controls::ExposureLong },
-			{ "custom", libcamera::controls::ExposureCustom } };
+		{ { "normal", libcamera::controls::AeExposureModeNormal },
+			{ "sport", libcamera::controls::AeExposureModeShort },
+			{ "short", libcamera::controls::AeExposureModeShort },
+			{ "long", libcamera::controls::AeExposureModeLong },
+			{ "custom", libcamera::controls::AeExposureModeCustom } };
 	// clang-format on
 	if (exposure_table.count(exposure) == 0)
 		throw std::runtime_error("Invalid exposure mode:" + exposure);
@@ -719,15 +728,15 @@ bool OptsInternal::Parse(boost::program_options::variables_map &vm, RPiCamApp *a
 
 	// clang-format off
 	std::map<std::string, int> awb_table =
-		{ { "auto", libcamera::controls::AwbAuto },
-			{ "normal", libcamera::controls::AwbAuto },
-			{ "incandescent", libcamera::controls::AwbIncandescent },
-			{ "tungsten", libcamera::controls::AwbTungsten },
-			{ "fluorescent", libcamera::controls::AwbFluorescent },
-			{ "indoor", libcamera::controls::AwbIndoor },
-			{ "daylight", libcamera::controls::AwbDaylight },
-			{ "cloudy", libcamera::controls::AwbCloudy },
-			{ "custom", libcamera::controls::AwbCustom } };
+		{ { "auto", libcamera::controls::AwbModeAuto },
+			{ "normal", libcamera::controls::AwbModeAuto },
+			{ "incandescent", libcamera::controls::AwbModeIncandescent },
+			{ "tungsten", libcamera::controls::AwbModeTungsten },
+			{ "fluorescent", libcamera::controls::AwbModeFluorescent },
+			{ "indoor", libcamera::controls::AwbModeIndoor },
+			{ "daylight", libcamera::controls::AwbModeDaylight },
+			{ "cloudy", libcamera::controls::AwbModeCloudy },
+			{ "custom", libcamera::controls::AwbModeCustom } };
 	// clang-format on
 	if (awb_table.count(awb) == 0)
 		throw std::runtime_error("Invalid AWB mode: " + awb);
