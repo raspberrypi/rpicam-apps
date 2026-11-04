@@ -6,7 +6,6 @@ CONFIG := -Denable_drm=enabled \
 	  -Denable_libav=enabled \
 	  -Denable_opencv=enabled \
 	  -Denable_qt=enabled \
-	  -Denable_tflite=disabled \
 	  -Denable_wayland=enabled \
 	  -Denable_imx500=true
 
@@ -18,6 +17,13 @@ override_dh_shlibdeps:
 	dh_shlibdeps -- --ignore-missing-info -xhailort -xh10-hailort
 else
 	CONFIG += -Denable_hailo=disabled
+endif
+
+# TensorFlow Lite is only packaged for the Pi architectures.
+ifneq (,$(filter $(DEB_HOST_ARCH),armhf arm64))
+  CONFIG += -Denable_tflite=enabled
+else
+  CONFIG += -Denable_tflite=disabled
 endif
 
 %:
