@@ -730,10 +730,14 @@ void RPiCamApp::StartCamera()
 	if (!controls_.get(controls::ColourGains) && options_->Get().awb_gain_r && options_->Get().awb_gain_b)
 		controls_.set(controls::ColourGains,
 					  std::span<const float, 2>({ options_->Get().awb_gain_r, options_->Get().awb_gain_b }));
+	if (!controls_.get(controls::ColourTemperature) && !controls_.get(controls::ColourGains) &&
+		options_->Get().colour_temp)
+		controls_.set(controls::ColourTemperature, static_cast<int32_t>(options_->Get().colour_temp));
 	if (!controls_.get(controls::ColourCorrectionMatrix) && !options_->Get().ccm.empty())
 	{
-		if (!controls_.get(controls::ColourGains))
-			LOG_ERROR("WARNING: cannot set colour correction matrix without explicit AWB gains (--awbgains)");
+		if (!controls_.get(controls::ColourGains) && !controls_.get(controls::ColourTemperature))
+			LOG_ERROR("WARNING: cannot set colour correction matrix without explicit AWB gains (--awbgains) "
+					  "or colour temperature (--colour-temp)");
 		else
 		{
 			std::span<const float, 9> span(options_->Get().ccm_values);
