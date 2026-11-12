@@ -229,6 +229,7 @@ struct OptsInternal
 	std::string awbgains;
 	float awb_gain_r;
 	float awb_gain_b;
+	unsigned int colour_temp;
 	std::string ccm;
 	float ccm_values[9];
 	bool flush;

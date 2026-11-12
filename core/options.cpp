@@ -325,8 +325,11 @@ Options::Options()
 			"Set the AWB mode (auto, incandescent, tungsten, fluorescent, indoor, daylight, cloudy, custom)")
 		("awbgains", value<std::string>(&v_->awbgains)->default_value("0,0"),
 			"Set explict red and blue gains (disable the automatic AWB algorithm)")
+		("colour-temp", value<unsigned int>(&v_->colour_temp)->default_value(0),
+			"Set a fixed colour temperature in Kelvin (disable the automatic AWB algorithm). "
+			"Cannot be used with --awbgains")
 		("ccm", value<std::string>(&v_->ccm)->default_value(""),
-			"Set an explicit colour correction matrix (NOTE: must also set explicit AWB gains)")
+			"Set an explicit colour correction matrix (NOTE: must also set explicit AWB gains or colour temperature)")
 		("flush", value<bool>(&v_->flush)->default_value(false)->implicit_value(true),
 			"Flush output data as soon as possible")
 		("wrap", value<unsigned int>(&v_->wrap)->default_value(0),
@@ -745,6 +748,9 @@ bool OptsInternal::Parse(boost::program_options::variables_map &vm, RPiCamApp *a
 	if (sscanf(awbgains.c_str(), "%f,%f", &awb_gain_r, &awb_gain_b) != 2)
 		throw std::runtime_error("Invalid AWB gains");
 
+	if (colour_temp && awb_gain_r && awb_gain_b)
+		throw std::runtime_error("--colour-temp and --awbgains cannot be used together");
+
 	// clang-format off
 	if (!ccm.empty() &&
 		sscanf(ccm.c_str(), "%f,%f,%f,%f,%f,%f,%f,%f,%f",
@@ -820,6 +826,8 @@ void OptsInternal::Print() const
 	std::cerr << "    awb: " << awb << std::endl;
 	if (awb_gain_r && awb_gain_b)
 		std::cerr << "    awb gains: red " << awb_gain_r << " blue " << awb_gain_b << std::endl;
+	if (colour_temp)
+		std::cerr << "    colour temperature: " << colour_temp << "K" << std::endl;
 	std::cerr << "    flush: " << (flush ? "true" : "false") << std::endl;
 	std::cerr << "    wrap: " << wrap << std::endl;
 	std::cerr << "    brightness: " << brightness << std::endl;
