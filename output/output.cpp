@@ -50,6 +50,7 @@ Output::~Output()
 void Output::Signal()
 {
 	enable_ = !enable_;
+	LOG(1, "Output enabled = " << (enable_.load() ? "true" : "false"));
 }
 
 void Output::OutputReady(void *mem, size_t size, int64_t timestamp_us, bool keyframe)
