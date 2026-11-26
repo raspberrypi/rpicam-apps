@@ -6,7 +6,6 @@
  */
 
 #include <algorithm>
-#include <array>
 #include <iostream>
 #include <memory>
 #include <mutex>
@@ -97,38 +96,23 @@ private:
 	}
 };
 
-// Sigh :(
-std::string get_hailo_architecture()
+// Query the device architecture, returning HAILO_ARCH_MAX_ENUM if it cannot be determined. This uses the HailoRT
+// C API as it has a stable ABI across HailoRT v4.x and v5.x, whereas the C++ Device class does not.
+hailo_device_architecture_t get_hailo_architecture()
 {
-	const std::string cmd("hailortcli fw-control identify");
-	const std::string target_label("Device Architecture: ");
-	std::array<char, 128> buffer;
-
-	auto deleter = [](FILE *f)
+	hailo_device device;
+	hailo_status status = hailo_create_device_by_id(nullptr, &device);
+	if (status == HAILO_SUCCESS)
 	{
-		pclose(f);
-	};
-	std::unique_ptr<FILE, decltype(deleter)> pipe(popen(cmd.c_str(), "r"), deleter);
-
-	if (!pipe)
-	{
-		LOG_ERROR("Could not open pipe for Hailo identify");
-		return {};
+		hailo_device_identity_t identity;
+		status = hailo_identify(device, &identity);
+		hailo_release_device(device);
+		if (status == HAILO_SUCCESS)
+			return identity.device_architecture;
 	}
 
-	while (fgets(buffer.data(), buffer.size(), pipe.get()) != nullptr)
-	{
-		std::string line(buffer.data());
-		size_t pos = line.find(target_label);
-		if (pos != std::string::npos)
-		{
-			std::string arch = line.substr(pos + target_label.length());
-			arch.erase(arch.find_last_not_of(" \n\r\t") + 1);
-			return arch;
-		}
-	}
-
-	return {};
+	LOG_ERROR("Failed to get Hailo architecture, status = " << status);
+	return HAILO_ARCH_MAX_ENUM;
 }
 
 } // namespace
@@ -236,24 +220,25 @@ int HailoPostProcessingStage::configureHailoRT()
 		return -1;
 	}
 
-	std::string device = get_hailo_architecture();
-	if (device.empty())
-	{
-		LOG_ERROR("Defaulting to HAILO8 architecture");
-		device = "HAILO8";
-	}
-	else
-		LOG(1, "Hailo device: " << device);
+	hailo_device_architecture_t arch = get_hailo_architecture();
+	LOG(1, "Hailo device: " << HailoRTCommon::get_device_arch_str(arch));
 
 	std::string hef_file;
-	if (device == "HAILO10H")
+	switch (arch)
+	{
+	case HAILO_ARCH_HAILO10H:
 		hef_file = hef_file_10_;
-	else if (device == "HAILO8")
+		break;
+	case HAILO_ARCH_HAILO8:
 		hef_file = hef_file_8_;
-	else if (device == "HAILO8L")
+		break;
+	case HAILO_ARCH_HAILO8L:
 		hef_file = hef_file_8L_;
-	else
-		LOG_ERROR("Unexpected Hailo architecture detected: " << device);
+		break;
+	default:
+		LOG_ERROR("Unexpected Hailo architecture detected: " << HailoRTCommon::get_device_arch_str(arch));
+		break;
+	}
 
 	if (hef_file.empty())
 		hef_file = hef_file_;
